@@ -43,6 +43,12 @@ En Supabase se aplican `db/migrations/*.sql` (no `db/local/`, que imita a Supaba
 
 ## Regenta IA
 - `ANTHROPIC_API_KEY` (variable de entorno del servidor) activa el asistente; sin ella, el panel explica que no está activado.
+
+## Pagos de planes (/contratar)
+- Wompi (Colombia: tarjeta, PSE, Nequi, Daviplata, Botón y QR Bancolombia): `WOMPI_PUBLIC_KEY`, `WOMPI_INTEGRITY_SECRET`, `WOMPI_EVENTS_SECRET` (opcionales `WOMPI_CHECKOUT_URL`, `WOMPI_API_URL`). URL de eventos en el panel de Wompi: `/api/pagos/wompi`.
+- Stripe (renovación automática con tarjeta; Stripe no abre cuentas en Colombia, va con la LLC): `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`; webhook `/api/pagos/stripe` con los eventos `checkout.session.completed`, `invoice.payment_failed`, `customer.subscription.deleted`.
+- Sin llaves, /contratar ofrece contratar por WhatsApp. Pruebas: `node tests/e2e/pagos.mjs` con las llaves de prueba indicadas en el archivo.
+- Imagen para compartir: `node scripts/og.mjs`.
 - `REGENTA_IA_MODELO` (opcional, por defecto `claude-sonnet-5-5`). `REGENTA_IA_URL` solo para pruebas (servidor simulado en tests/e2e/ia.mjs).
 - Las herramientas de la IA son de solo lectura y corren con los permisos del usuario (RLS): la cajera no recibe costos.
 

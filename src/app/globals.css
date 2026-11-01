@@ -70,3 +70,32 @@ kbd { font-family: "Barlow Semi Condensed", sans-serif; font-weight: 600; font-s
 @keyframes pensando { 0%, 100% { opacity: 0; } 15%, 80% { opacity: 1; } }
 .pensando { opacity: 0; animation: pensando 1.6s ease 700ms 1 both; }
 @media (prefers-reduced-motion: reduce) { .pensando { display: none; } }
+
+/* ── Web pública: noche azul con luces de salud (verde-azul), tecnología (azul) e IA (ámbar). ── */
+.fondo-hero {
+  background:
+    radial-gradient(55% 70% at 88% 8%, rgba(20, 184, 166, .30), transparent 62%),
+    radial-gradient(50% 60% at 6% 96%, rgba(37, 99, 235, .34), transparent 62%),
+    radial-gradient(28% 36% at 62% 64%, rgba(251, 191, 36, .10), transparent 70%),
+    #0b1f33;
+}
+.rejilla {
+  background-image: linear-gradient(rgba(255,255,255,.055) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.055) 1px, transparent 1px);
+  background-size: 52px 52px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 25%, transparent 75%);
+          mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 25%, transparent 75%);
+}
+.degradado-marca { background: linear-gradient(120deg, #14b8a6 0%, #0e7490 45%, #1d4ed8 100%); }
+.texto-degradado { background: linear-gradient(90deg, #5eead4, #60a5fa 55%, #fcd34d); -webkit-background-clip: text; background-clip: text; color: transparent; }
+@keyframes flota { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+.flota { animation: flota 6s ease-in-out infinite; }
+.flota-2 { animation: flota 7s ease-in-out 1.2s infinite; }
+@keyframes desfile { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.desfile { animation: desfile 45s linear infinite; }
+@keyframes entra { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.entra { animation: entra .7s cubic-bezier(.2,.7,.2,1) backwards; }
+@layer components {
+  .btn-cta { @apply btn bg-amber-400 text-[#0b1f33] hover:bg-amber-300; box-shadow: 0 14px 34px -12px rgba(251, 191, 36, .75); }
+  .btn-vidrio { @apply btn border-2 border-white/25 text-white hover:border-white hover:bg-white/5; }
+  .pastilla { @apply inline-flex items-center gap-2 rounded-full px-3.5 h-9 text-[14px] font-semibold; }
+}

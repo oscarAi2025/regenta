@@ -99,6 +99,34 @@ async function agregar(p, texto) {
   await ctx.close();
 }
 
+// ── Apoyo en ventas: alternativas con existencias para un producto agotado
+{
+  const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
+  const { p, errs } = await entrar(ctx, "Laura");
+  await p.locator("#buscar").fill("metronidazol 500");
+  const fila = p.locator('[role="option"]', { hasText: "Agotado" }).first();
+  await fila.waitFor();
+  await fila.getByRole("button", { name: "Ver alternativas con existencias" }).click();
+  await fila.getByText(/Parecidos que sí tienes|No hay productos parecidos/).waitFor();
+  const n = await fila.locator("li").count();
+  ok(await fila.getByText(/Parecidos que sí tienes|No hay productos parecidos/).count() === 1, "el agotado ofrece buscar alternativas", `${n} encontradas`);
+  if (n) {
+    const nombres = await fila.locator("li").allTextContents();
+    ok(nombres.every((t) => /metronidazol/i.test(t) && /500\s*mg/i.test(t)), "mismo principio activo y concentración", nombres[0]);
+    await fila.locator("li button").first().click();
+    ok(await p.locator('aside[aria-label="Venta actual"] li').count() === 1, "la alternativa se agrega a la venta");
+  }
+  // Caso con respuesta conocida: un producto nuevo sin existencias «Acetaminofen … 500 mg» debe proponer acetaminofén 500 mg con existencias.
+  const d = await b.newContext(); const q = await d.newPage();
+  await q.request.post(B + "/demo", { form: { rol: "dueno" } });
+  const nuevo = await (await q.request.post(B + "/api/productos", { headers: { origin: B }, data: { nombre: "Acetaminofen prueba alternativas tabletas 500 mg caja x 10", iva: 0, unidades_por_caja: 1, precio_caja: 1000, stock_minimo: 0 } })).json();
+  const alt = (await (await q.request.get(`${B}/api/productos/alternativas?id=${nuevo.id}`)).json()).productos ?? [];
+  ok(alt.length >= 1 && alt.every((x) => /acetaminof[eé]n/i.test(x.nombre) && /(^|[^0-9.,])500\s*mg/i.test(x.nombre) && x.unidades > 0), "alternativas correctas: acetaminofén 500 mg con existencias", `${alt.length}: ${alt[0]?.nombre ?? ""}`);
+  await d.close();
+  ok(errs.length === 0, "sin errores en consola (alternativas)", errs.join(" | "));
+  await ctx.close();
+}
+
 // ── Cajera: factura sí, crédito y cartera no
 {
   const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });

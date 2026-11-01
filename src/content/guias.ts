@@ -10,6 +10,41 @@ export type Guia = {
 
 export const GUIAS: Guia[] = [
   {
+    slug: "facturacion-electronica-sector-salud-rips",
+    titulo: "Facturación electrónica en salud y RIPS: guía 2026",
+    descripcion: "Qué exige la Resolución 948 de 2026 a IPS y prestadores (RIPS como soporte de la factura electrónica) y qué cambia o no para droguerías y distribuidoras.",
+    h1: "Facturación electrónica en el sector salud y RIPS en 2026",
+    entradilla: "En salud no basta con la factura electrónica de la DIAN: a los prestadores se les exige además el RIPS como soporte. En 2026 cambió la norma. Esto es lo que dice, a quién aplica y dónde encaja el software de una droguería o una distribuidora.",
+    actualizada: "2026-11-01",
+    bloques: [
+      { h2: "La norma vigente: Resolución 948 de 2026", p: [
+        "El Ministerio de Salud expidió la Resolución 948 del 14 de mayo de 2026, que regula el Registro Individual de Prestación de Servicios de Salud (RIPS) como soporte de la factura electrónica de venta en salud. Su artículo 23 derogó las Resoluciones 2275 de 2023, 558 de 2024 y 1884 de 2024, que eran las que se aplicaban antes.",
+        "La misma resolución fijó fechas: reglas de rechazo desde el 1 de junio de 2026 y ajustes en los programas de facturación desde el 1 de julio de 2026." ] },
+      { h2: "A quién aplica", lista: [
+        "Prestadores de servicios de salud: IPS, profesionales independientes y transporte asistencial.",
+        "Proveedores de tecnologías en salud.",
+        "Entidades responsables de pago y otros pagadores del sistema (EPS, aseguradoras SOAT, ADRES, entre otros).",
+      ], nota: "La resolución no menciona a las droguerías por su nombre. Si tu droguería le factura a una EPS u otro pagador del sistema, revisa con tu contador si te aplica." },
+      { h2: "Qué cambia para una droguería o una distribuidora", p: [
+        "La venta al público en el mostrador sigue con POS electrónico o factura electrónica de venta según la Resolución DIAN 165 de 2023. La venta de una distribuidora a droguerías, clínicas u hospitales es una venta comercial con factura electrónica de venta.",
+        "Cuando el comprador es una IPS, la factura es la normal de la DIAN: el RIPS lo arma la IPS cuando factura sus propios servicios a la EPS." ] },
+      { h2: "Si eres una IPS", p: [
+        "La facturación de servicios de salud con RIPS se hace con el software de facturación de tu IPS. Si además tienes una droguería o un punto de venta de medicamentos como establecimiento aparte, ese mostrador sí se maneja como cualquier droguería: caja, POS o factura, inventario por lote y vencimientos." ] },
+    ],
+    preguntas: [
+      ["¿Sigue vigente la Resolución 2275 de 2023?", "No. La Resolución 948 de 2026 la derogó en su artículo 23, junto con las Resoluciones 558 y 1884 de 2024."],
+      ["¿Mi droguería tiene que enviar RIPS?", "La resolución está dirigida a prestadores, proveedores de tecnologías en salud y pagadores, y no nombra a las droguerías. Si solo vendes al público, tu obligación es el POS o la factura electrónica de la DIAN; si le facturas a pagadores del sistema, confírmalo con tu contador."],
+      ["¿Regenta genera RIPS?", "No. Regenta es facturación y gestión para droguerías, farmacias y distribuidoras: POS y factura electrónica, inventario por lote, cartera e IA."],
+    ],
+    fuentes: [
+      ["Resolución 948 de 2026, Ministerio de Salud (texto completo)", "https://sidn.ramajudicial.gov.co/SIDN//NORMATIVA/TEXTOS_COMPLETOS/8_RESOLUCIONES/RESOLUCIONES%202026/MSPS%20Resolucion%20000948%20de%202026.pdf"],
+      ["Resolución 558 de 2024 (normograma Supersalud)", "https://normograma.supersalud.gov.co/compilacion/docs/resolucion_minsaludps_0558_2024.htm"],
+      ["Resolución DIAN 000165 de 2023 (normograma DIAN)", "https://normograma.dian.gov.co/dian/compilacion/docs/resolucion_dian_0165_2023.htm"],
+    ],
+    relacionadas: ["pos-electronico-drogueria-dian", "cuanto-cuesta-software-drogueria"],
+    cta: { titulo: "Facturación para el mostrador y la distribución", texto: "Regenta hace POS y factura electrónica, crédito y cartera, con el inventario por lote que exige el sector farmacéutico." },
+  },
+  {
     slug: "pos-electronico-drogueria-dian",
     titulo: "POS electrónico en droguerías: guía DIAN 2026",
     descripcion: "Qué es el documento equivalente electrónico POS, cuándo debes hacer factura electrónica (más de 5 UVT) y cómo cumplir la Resolución 165 en tu droguería.",
@@ -28,7 +63,7 @@ export const GUIAS: Guia[] = [
       { h2: "Qué debe hacer tu programa de caja", lista: [
         "Numerar cada tiquete con tu resolución de numeración y no repetir números aunque se caiga la red a mitad del cobro.",
         "Guardar el detalle de cada venta (productos, IVA, medio de pago) sin que nadie lo pueda borrar: los errores se corrigen anulando con motivo y nota crédito.",
-        "Enviar el documento a la DIAN por medio de un proveedor tecnológico autorizado y avisarte si alguno fue rechazado.",
+        "Enviar el documento a la DIAN (con software propio habilitado o por medio de un proveedor tecnológico) y avisarte si alguno fue rechazado.",
         "Pasar de POS a factura electrónica cuando la venta supere el tope o el cliente la pida." ] },
       { h2: "Errores frecuentes en droguerías", lista: [
         "Seguir usando un POS de papel o un programa que no envía nada a la DIAN.",
@@ -45,7 +80,7 @@ export const GUIAS: Guia[] = [
       ["Resolución DIAN 000238 de 2025, UVT 2026 (normograma DIAN)", "https://normograma.dian.gov.co/dian/compilacion/docs/resolucion_dian_0238_2025.htm"],
     ],
     relacionadas: ["inventario-por-lotes-drogueria", "control-fechas-vencimiento-drogueria"],
-    cta: { titulo: "Una caja hecha para droguería", texto: "Regenta numera cada venta con tu resolución, nunca duplica un cobro y no deja borrar: se anula con motivo. El envío a la DIAN se está integrando con un proveedor tecnológico autorizado." },
+    cta: { titulo: "Una caja hecha para droguería", texto: "Regenta numera cada venta con tu resolución, nunca duplica un cobro y no deja borrar: se anula con motivo. El envío a la DIAN se está integrando y se activa en tu cuenta al terminar." },
   },
   {
     slug: "control-fechas-vencimiento-drogueria",

@@ -8,7 +8,7 @@ export const PLANES = [
     incluye: ["Precio por sede", "Documentos según volumen", "Todo lo de Pro", "Acompañamiento en la puesta en marcha"] },
 ] as const;
 export const DOC_EXTRA = 20; // COP por documento adicional
-export const NOTA_PRECIOS = "Precios de lanzamiento, mensuales. Pagando el año completo, 2 meses gratis. La emisión electrónica ante la DIAN se activa en tu cuenta al terminar la integración con el proveedor tecnológico autorizado.";
+export const NOTA_PRECIOS = "Precios de lanzamiento, mensuales. Pagando el año completo, 2 meses gratis. La emisión electrónica ante la DIAN se activa en tu cuenta al terminar su integración.";
 
 // Plan Socio Farmagenéricos: Regenta como beneficio para las droguerías que compran a Farmagenéricos Colombia.
 // Precio final mensual de cada plan según las compras del mes anterior (antes de IVA). 0 = gratis.

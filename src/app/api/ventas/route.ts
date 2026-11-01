@@ -3,7 +3,7 @@ import { comoUsuario, puestoDeTrabajo } from "@/lib/db";
 import { conSesion, json } from "@/lib/api";
 import { procesarCola } from "@/lib/dian";
 
-const Pago = z.object({ medio: z.enum(["efectivo", "transferencia", "nequi", "daviplata", "tarjeta", "bre_b"]), valor: z.number().positive(), referencia: z.string().max(60).nullish() });
+const Pago = z.object({ medio: z.enum(["efectivo", "transferencia", "nequi", "daviplata", "tarjeta", "bre_b", "qr"]), valor: z.number().positive(), referencia: z.string().max(60).nullish() });
 const Venta = z.object({
   idem_key: z.string().uuid(),
   tipo_doc: z.enum(["pos", "factura"]),

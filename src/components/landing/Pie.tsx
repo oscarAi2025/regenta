@@ -1,6 +1,6 @@
 import { BotonDemo } from "@/components/landing/BotonDemo";
 import Link from "next/link";
-import { Isotipo } from "@/components/Marca";
+import { Marca } from "@/components/Marca";
 import { GUIAS } from "@/content/guias";
 import { CORREO, TELEFONO, wa } from "@/lib/sitio";
 
@@ -9,15 +9,21 @@ export function Pie() {
     <footer className="bg-ink text-white/75">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12 grid md:grid-cols-[1.2fr_1fr_1fr] gap-8 text-sm">
         <div>
-          <p className="inline-flex items-center gap-2 text-white font-semibold"><Isotipo size={26} claro /> Regenta by Farmagenéricos Colombia</p>
+          <Marca claro />
           <p className="mt-3 max-w-xs">Software de facturación electrónica y gestión para droguerías, farmacias y distribuidoras farmacéuticas de Colombia, hecho por un distribuidor del sector.</p>
           <ul className="mt-4 grid gap-1.5">
             <li><Link href="/funciones" className="hover:text-white hover:underline">Funciones</Link></li>
             <li><Link href="/precios" className="hover:text-white hover:underline">Tarifas y Plan Socio</Link></li>
             <li><Link href="/por-que-regenta" className="hover:text-white hover:underline">Por qué Regenta</Link></li>
+            <li><Link href="/contratar" className="hover:text-white hover:underline">Contratar en línea</Link></li>
+            <li><Link href="/privacidad" className="hover:text-white hover:underline">Política de datos</Link></li>
             <li><Link href="/funciones/facturacion-electronica" className="hover:text-white hover:underline">Facturación electrónica</Link></li>
             <li><Link href="/para/droguerias" className="hover:text-white hover:underline">Para droguerías y farmacias</Link></li>
             <li><Link href="/para/distribuidoras" className="hover:text-white hover:underline">Para distribuidoras</Link></li>
+            <li><Link href="/software/facturacion-electronica-sector-salud" className="hover:text-white hover:underline">Facturación para el sector salud</Link></li>
+            <li><Link href="/software/pos-drogueria" className="hover:text-white hover:underline">Software POS para droguería</Link></li>
+            <li><Link href="/software/farmacias" className="hover:text-white hover:underline">Software para farmacias</Link></li>
+            <li><Link href="/software/inventario-farmacia" className="hover:text-white hover:underline">Inventario de farmacia</Link></li>
             <li><Link href="/para/regentes" className="hover:text-white hover:underline">Para regentes</Link></li>
             <li><Link href="/para/duenos-de-drogueria" className="hover:text-white hover:underline">Para dueños</Link></li>
           </ul>

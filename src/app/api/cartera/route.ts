@@ -5,7 +5,7 @@ import { puede } from "@/lib/sesion";
 
 const Abono = z.object({
   venta_id: z.string().uuid(),
-  medio: z.enum(["efectivo", "transferencia", "nequi", "daviplata", "tarjeta", "bre_b"]),
+  medio: z.enum(["efectivo", "transferencia", "nequi", "daviplata", "tarjeta", "bre_b", "qr"]),
   valor: z.number().int("El abono va en pesos, sin centavos").positive("Escribe el valor del abono"),
   referencia: z.string().trim().max(60).nullish(),
 });

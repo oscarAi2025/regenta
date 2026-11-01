@@ -3,7 +3,7 @@ import Link from "next/link";
 /** Respaldo y cumplimiento: las normas que Regenta ayuda a cumplir y quién está detrás. Texto, no logos de entidades:
  *  Regenta no tiene aval de la DIAN, el INVIMA ni las superintendencias, y no lo da a entender. */
 const ITEMS: [string, string, string][] = [
-  ["DIAN", "POS electrónico y factura electrónica según la Resolución 000165 de 2023, emitidos por un proveedor tecnológico autorizado por la DIAN (integración en curso).", "/guias/pos-electronico-drogueria-dian"],
+  ["DIAN", "POS electrónico y factura electrónica según la Resolución 000165 de 2023, con la emisión ante la DIAN en integración: se activa en tu cuenta al terminar.", "/guias/pos-electronico-drogueria-dian"],
   ["INVIMA", "Alertas sanitarias tomadas del listado oficial del INVIMA y cruzadas con tu inventario, con enlace a cada alerta original.", "/funciones/alertas-invima"],
   ["Secretarías de salud", "Venta del lote más próximo a vencer y área de vencidos, como pide la Resolución 1403 de 2007, con evidencia lista para la visita.", "/guias/control-fechas-vencimiento-drogueria"],
   ["Datos personales", "Tratamiento de datos de clientes y usuarios conforme a la Ley 1581 de 2012; cada droguería ve solo sus datos.", ""],

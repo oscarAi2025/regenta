@@ -1,0 +1,25 @@
+import type { Metadata } from "next";
+import { CabeceraPublica } from "@/components/landing/Cabecera";
+import { Pie } from "@/components/landing/Pie";
+import { metaPublica } from "@/lib/seo";
+import { CORREO, TELEFONO } from "@/lib/sitio";
+
+export const metadata: Metadata = metaPublica("/privacidad", "Política de tratamiento de datos personales | Regenta", "Cómo trata Regenta, de Farmagenéricos Colombia, los datos personales de clientes y usuarios conforme a la Ley 1581 de 2012.");
+
+export default function Privacidad() {
+  return (
+    <div className="bg-paper text-ink min-h-screen">
+      <CabeceraPublica />
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-12 grid gap-5 text-[17px] leading-relaxed">
+        <h1 className="font-cond text-[40px] sm:text-[52px] leading-[1]" style={{ fontWeight: 700 }}>Política de tratamiento de datos personales</h1>
+        <p><b>Responsable:</b> IA DEV INVESTIMENTS COLOMBIA S.A.S., NIT 901.845.370-5, propietaria del establecimiento Farmagenéricos Colombia y de Regenta, Ibagué, Tolima. Contacto: {CORREO} · {TELEFONO}.</p>
+        <h2 className="font-cond text-3xl" style={{ fontWeight: 700 }}>Qué datos y para qué</h2>
+        <p>Los datos que nos das al pedir una demostración o contratar (nombre, empresa, NIT o cédula, correo y celular) se usan para contactarte, activar y facturar tu plan y darte soporte. Los pagos los procesa la pasarela (Wompi o Stripe): Regenta no recibe ni guarda los datos de tu tarjeta o tu cuenta.</p>
+        <p>Los datos que cada droguería registra en Regenta (sus clientes, ventas e inventario) son de esa droguería: Regenta los guarda y procesa por encargo suyo, y cada empresa solo puede ver los propios.</p>
+        <h2 className="font-cond text-3xl" style={{ fontWeight: 700 }}>Tus derechos</h2>
+        <p>Como titular puedes conocer, actualizar, rectificar y pedir la supresión de tus datos, revocar la autorización y pedir prueba de ella, conforme a la Ley 1581 de 2012. Escríbenos a {CORREO} y te respondemos dentro de los plazos de ley.</p>
+      </main>
+      <Pie />
+    </div>
+  );
+}

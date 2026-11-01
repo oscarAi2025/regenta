@@ -16,7 +16,7 @@ export default function Funciones() {
       <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-10 pb-16">
         <h1 className="font-cond text-[44px] sm:text-[64px] leading-[0.95]" style={{ fontWeight: 700 }}>Funciones de Regenta</h1>
         <p className="mt-4 text-lg text-muted max-w-2xl">Facturación y gestión para droguerías, farmacias y distribuidoras: facturar, cobrar, pedir, controlar vencimientos y cumplir.</p>
-        <div className="mt-6"><BotonDemo texto="Probar la demo gratis" className="btn-primario h-12 px-6" /></div>
+        <div className="mt-6"><BotonDemo texto="Probar la demo gratis" className="btn-cta h-12 px-6" /></div>
         <ul className="mt-10 grid md:grid-cols-2 gap-4">
           {PAGINAS.map((p) => (
             <li key={p.ruta}><Link href={`/${p.grupo}/${p.ruta}`} className="tarjeta block p-6 h-full hover:border-ink">

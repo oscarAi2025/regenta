@@ -50,10 +50,10 @@ export default async function PaginaGuia({ params }: { params: Promise<{ slug: s
               {b.pasos && <ol className="mt-3 grid gap-2 list-decimal pl-5">{b.pasos.map((t) => <li key={t}>{t}</li>)}</ol>}
               {b.nota && <p className="mt-3 rounded-xl bg-aviso-soft text-aviso px-4 py-3 text-[15px]">{b.nota}</p>}
               {i === mitad - 1 && (
-                <aside className="mt-8 rounded-2xl bg-ink text-white p-6">
+                <aside className="mt-8 rounded-2xl fondo-hero text-white p-6">
                   <p className="font-cond text-2xl" style={{ fontWeight: 700 }}>{g.cta.titulo}</p>
                   <p className="mt-2 text-white/80">{g.cta.texto}</p>
-                  <div className="mt-4 flex flex-wrap gap-2"><BotonDemo className="btn-primario" /><a href={wa(`Hola, leí la guía «${g.h1}» y quiero conocer Regenta.`)} className="btn border-2 border-white/30 text-white">Escribir por WhatsApp</a></div>
+                  <div className="mt-4 flex flex-wrap gap-2"><BotonDemo className="btn-cta" /><a href={wa(`Hola, leí la guía «${g.h1}» y quiero conocer Regenta.`)} className="btn border-2 border-white/30 text-white">Escribir por WhatsApp</a></div>
                 </aside>
               )}
             </section>

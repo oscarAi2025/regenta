@@ -57,7 +57,7 @@ export default function Precios() {
               <p className="mt-1 text-muted">Pagas el plan mensual. No tienes que comprarle nada a nadie.</p>
               <p className="mt-3 font-cond text-3xl num" style={{ fontWeight: 700 }}>Desde {pesos(esencial.precio!)} <span className="text-base font-sans font-normal text-muted">al mes</span></p>
             </a>
-            <a href="#socio" className="rounded-2xl bg-ink text-white p-5 ring-4 ring-cruz hover:brightness-110">
+            <a href="#socio" className="rounded-2xl fondo-hero text-white p-5 ring-4 ring-amber-300 hover:brightness-110">
               <p className="font-cond text-2xl" style={{ fontWeight: 700 }}>Como socio de Farmagenéricos</p>
               <p className="mt-1 text-white/75">Si le compras a Farmagenéricos Colombia, Regenta te sale a mitad de precio o gratis.</p>
               <p className="mt-3 font-cond text-3xl text-marca" style={{ fontWeight: 700 }}>Desde $0 al mes</p>
@@ -69,21 +69,21 @@ export default function Precios() {
           <h2 className="font-cond text-[36px] sm:text-[46px] leading-none" style={{ fontWeight: 700 }}>Sin asociarte: precio mensual</h2>
           <div className="mt-8 grid md:grid-cols-3 gap-5 items-stretch">
             {PLANES.map((p) => (
-              <div key={p.id} className={`rounded-2xl p-6 flex flex-col ${p.destacado ? "bg-surface ring-2 ring-ink" : "tarjeta"}`}>
+              <div key={p.id} className={`rounded-2xl p-6 flex flex-col ${p.destacado ? "bg-surface ring-2 ring-teal-600 shadow-[0_30px_60px_-30px_rgba(14,116,144,.6)]" : "tarjeta"}`}>
                 {p.destacado && <p className="text-sm font-semibold text-cruz">Recomendado</p>}
                 <h3 className="font-cond text-[30px] mt-1" style={{ fontWeight: 700 }}>{p.nombre}</h3>
                 <p className="text-muted">{p.para}</p>
                 <p className="mt-4 font-cond text-[46px] leading-none num" style={{ fontWeight: 700 }}>{p.precio ? pesos(p.precio) : "A tu medida"}{p.precio && <span className="text-base font-sans font-normal text-muted"> /mes</span>}</p>
                 <ul className="mt-5 grid gap-2 flex-1">{p.incluye.map((x) => <li key={x} className="flex gap-2"><span className="text-cruz font-bold" aria-hidden="true">✓</span>{x}</li>)}</ul>
-                {p.precio ? <div className="mt-6 grid"><BotonDemo texto="Probar la demo gratis" className={`h-12 ${p.destacado ? "btn-primario" : "btn-borde"}`} /></div>
-                  : <a href={wa("Hola, quiero una cotización de Regenta para varias sedes.")} className="mt-6 h-12 btn-borde">Pedir cotización</a>}
+                {p.precio ? <div className="mt-6 grid gap-2"><Link href={`/contratar?plan=${p.id}`} className={`h-12 ${p.destacado ? "btn-cta" : "btn-oscuro"}`}>Contratar {p.nombre}</Link><BotonDemo texto="Probar antes gratis" className="h-11 w-full btn-borde" /></div>
+                  : <a href={wa("Hola, quiero una cotización de Regenta para mi distribuidora o mis sedes.")} className="mt-6 h-12 btn-oscuro">Pedir cotización</a>}
               </div>
             ))}
           </div>
           <p className="mt-5 text-sm text-muted max-w-3xl">{NOTA_PRECIOS} Documento adicional: {pesos(DOC_EXTRA)}.</p>
         </section>
 
-        <section id="socio" className="bg-ink text-white scroll-mt-20">
+        <section id="socio" className="fondo-hero text-white scroll-mt-20">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14">
             <h2 className="font-cond text-[40px] sm:text-[56px] leading-[0.95]" style={{ fontWeight: 700 }}>Como socio de Farmagenéricos: a mitad de precio o gratis</h2>
             <p className="mt-4 text-lg text-white/75 max-w-3xl">Somos distribuidor farmacéutico. Si tu droguería nos compra, tu software corre por nuestra cuenta: cuanto más nos compras, menos pagas por Regenta.</p>
@@ -113,7 +113,7 @@ export default function Precios() {
               ))}
             </ol>
             <div className="mt-10 flex flex-wrap gap-3">
-              <a href={wa("Hola, quiero el Plan Socio Farmagenéricos para mi droguería.")} className="btn-primario h-14 px-7 text-lg">Quiero ser socio</a>
+              <a href={wa("Hola, quiero el Plan Socio Farmagenéricos para mi droguería.")} className="btn-cta h-14 px-7 text-lg">Quiero ser socio</a>
               <BotonDemo texto="Probar la demo primero" className="btn h-14 px-6 text-lg border-2 border-white/30 text-white hover:border-white" />
             </div>
           </div>

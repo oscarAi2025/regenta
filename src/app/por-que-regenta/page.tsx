@@ -14,7 +14,7 @@ export default function PorQue() {
     <div className="bg-paper text-ink min-h-screen pb-20 sm:pb-0">
       <CabeceraPublica />
       <main>
-        <section className="bg-ink text-white">
+        <section className="fondo-hero text-white">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-12 pb-16">
             <h1 className="font-cond text-[46px] sm:text-[72px] leading-[0.92]" style={{ fontWeight: 700 }}>Los programas genéricos no saben lo que es un lote. Nosotros vivimos de eso.</h1>
             <p className="mt-6 text-xl text-white/75 leading-relaxed">Regenta lo hace Farmagenéricos Colombia, un distribuidor farmacéutico que surte droguerías. No llegamos al sector desde afuera: llegamos al software desde el sector.</p>
@@ -40,9 +40,9 @@ export default function PorQue() {
             <h2 className="font-cond text-[34px] leading-tight" style={{ fontWeight: 700 }}>Y nos conviene que te vaya bien</h2>
             <p className="mt-3">Si tu droguería vende más y bota menos, nos compra mejor. Por eso existe el <Link href="/precios#socio" className="text-cruz underline">Plan Socio Farmagenéricos</Link>: si nos compras, Regenta te puede salir gratis.</p>
           </section>
-          <section className="rounded-2xl bg-ink text-white p-6">
+          <section className="rounded-2xl fondo-hero text-white p-6">
             <p className="font-cond text-[30px] leading-tight" style={{ fontWeight: 700 }}>Compruébalo tú: entra a la demo y mira lo que Regenta le dice a una droguería con 8 semanas de ventas.</p>
-            <div className="mt-5 flex flex-wrap gap-3"><BotonDemo texto="Probar la demo gratis" className="btn-primario h-12 px-6" /><a href={wa("Hola, quiero conocer Regenta.")} className="btn h-12 px-6 border-2 border-white/30 text-white">Hablar por WhatsApp</a></div>
+            <div className="mt-5 flex flex-wrap gap-3"><BotonDemo texto="Probar la demo gratis" className="btn-cta h-12 px-6" /><a href={wa("Hola, quiero conocer Regenta.")} className="btn h-12 px-6 border-2 border-white/30 text-white">Hablar por WhatsApp</a></div>
           </section>
         </article>
       </main>

@@ -8,14 +8,14 @@ type Producto = {
   precio_caja: number; precio_unidad: number | null; stock_minimo: number; unidades: number; proximo_vence: string | null; exacto: boolean;
 };
 type Linea = { key: string; p: Producto; presentacion: "caja" | "unidad"; cantidad: number };
-type Medio = "efectivo" | "transferencia" | "nequi" | "daviplata" | "tarjeta" | "bre_b";
+type Medio = "efectivo" | "transferencia" | "nequi" | "daviplata" | "tarjeta" | "bre_b" | "qr";
 type Resultado = { venta: { prefijo: string; numero: number; total: number; cambio: number; base: number; iva: number; credito?: boolean; vence_pago?: string | null }; documento: { tipo: "pos" | "factura"; estado: string; cufe: string | null; simulado: boolean; ultimo_error: string | null } };
 const PLAZOS = [15, 30, 45, 60, 90];
 const fechaCorta = (f: string) => new Date(f + "T00:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
 
 const MEDIOS: { id: Medio; label: string }[] = [
   { id: "efectivo", label: "Efectivo" }, { id: "nequi", label: "Nequi" }, { id: "daviplata", label: "Daviplata" },
-  { id: "bre_b", label: "Bre-B" }, { id: "transferencia", label: "Transferencia" }, { id: "tarjeta", label: "Tarjeta" },
+  { id: "bre_b", label: "Bre-B" }, { id: "qr", label: "QR Bancolombia" }, { id: "transferencia", label: "Transferencia" }, { id: "tarjeta", label: "Tarjeta" },
 ];
 
 function diasA(f: string | null) {
@@ -379,6 +379,7 @@ function Fila({ p, activo, onHover, agregar }: { p: Producto; activo: boolean; o
           {p.iva > 0 && <span className="text-[12px]">IVA {p.iva} %</span>}
         </p>
       </div>
+      {agotado && <Alternativas id={p.id} agregar={agregar} />}
       <div className="flex gap-2">
         <button onClick={() => agregar(p, "caja")} disabled={agotado}
           className="num rounded-xl border-2 border-ink px-3 py-2 text-left leading-tight hover:bg-ink hover:text-white disabled:pointer-events-none">
@@ -394,5 +395,38 @@ function Fila({ p, activo, onHover, agregar }: { p: Producto; activo: boolean; o
         )}
       </div>
     </li>
+  );
+}
+
+/** Producto agotado: parecidos con existencias (mismo principio activo y concentración) para no perder la venta. */
+function Alternativas({ id, agregar }: { id: string; agregar: (p: Producto, pr: "caja" | "unidad") => void }) {
+  const [lista, setLista] = useState<Producto[] | null>(null);
+  const [cargando, setCargando] = useState(false);
+  async function ver() {
+    setCargando(true);
+    try { const r = await fetch(`/api/productos/alternativas?id=${id}`); const j = await r.json(); setLista(j.productos ?? []); }
+    catch { setLista([]); } finally { setCargando(false); }
+  }
+  if (!lista) return (
+    <button onClick={ver} disabled={cargando} className="basis-full sm:basis-auto order-last sm:order-none text-sm font-semibold text-teal-700 underline underline-offset-2 text-left">
+      {cargando ? "Buscando…" : "Ver alternativas con existencias"}
+    </button>
+  );
+  return (
+    <div className="basis-full order-last rounded-xl bg-teal-50 border border-teal-200 p-3">
+      {lista.length === 0 ? <p className="text-sm text-muted">No hay productos parecidos con existencias.</p> : (
+        <>
+          <p className="text-sm font-semibold text-teal-900">Parecidos que sí tienes. Confirma principio activo y concentración antes de ofrecerlos.</p>
+          <ul className="mt-2 grid gap-1.5">
+            {lista.map((a) => (
+              <li key={a.id} className="flex items-center justify-between gap-3 text-sm">
+                <span className="min-w-0"><span className="font-semibold">{a.nombre}</span> <span className="text-muted">· {a.laboratorio ?? "Genérico"} · {existencias(a)}</span></span>
+                <button onClick={() => agregar(a, "caja")} className="shrink-0 rounded-lg border-2 border-ink px-2.5 py-1 font-semibold num hover:bg-ink hover:text-white">+ {pesos(a.precio_caja)}</button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
   );
 }
