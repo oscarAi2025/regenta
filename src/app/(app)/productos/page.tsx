@@ -6,23 +6,25 @@ import { Cabecera, existenciasTexto, pesos } from "@/components/ui/Cabecera";
 
 export const metadata = { title: "Productos" };
 
-export default async function Productos({ searchParams }: { searchParams: Promise<{ q?: string; ver?: string }> }) {
+export default async function Productos({ searchParams }: { searchParams: Promise<{ q?: string; ver?: string; pagina?: string }> }) {
   const s = await leerSesion();
   if (!s) redirect("/entrar");
-  const { q = "", ver = "" } = await searchParams;
+  const { q = "", ver = "", pagina: pg = "1" } = await searchParams;
+  const POR_PAGINA = 50;
+  const pagina = Math.max(1, Math.min(1000, Number.parseInt(pg, 10) || 1));
   const gestiona = s.rol === "dueno" || s.rol === "admin";
   const palabras = q.trim().toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6).map(sinComodines);
-  const { filas, total } = await comoUsuario(s, async (c) => {
+  const { filas, total, hallados } = await comoUsuario(s, async (c) => {
     const filas = (await c.query(`
-      select p.id, p.nombre, p.laboratorio, p.ean, p.iva::float, p.unidades_por_caja, p.precio_caja::float, p.precio_unidad::float, p.stock_minimo,
+      select count(*) over ()::int hallados, p.id, p.nombre, p.laboratorio, p.ean, p.iva::float, p.unidades_por_caja, p.precio_caja::float, p.precio_unidad::float, p.stock_minimo,
              coalesce(st.u, 0)::int unidades
       from productos p left join lateral (select sum(unidades) u from v_stock_vigente where producto_id = p.id) st on true
       where p.empresa_id = $1 and p.activo
         and (cardinality($2::text[]) = 0 or p.ean = $3 or (select bool_and(lower(p.nombre || ' ' || coalesce(p.laboratorio, '')) like '%' || w || '%') from unnest($2::text[]) w))
         ${ver === "bajos" ? "and p.stock_minimo > 0 and coalesce(st.u, 0) <= p.stock_minimo * p.unidades_por_caja" : ""}
-      order by p.nombre limit 300`, [s.empresa, palabras, q.trim()])).rows;
+      order by p.nombre limit $4 offset $5`, [s.empresa, palabras, q.trim(), POR_PAGINA, (pagina - 1) * POR_PAGINA])).rows;
     const total = (await c.query(`select count(*)::int n from productos where empresa_id = $1 and activo`, [s.empresa])).rows[0].n;
-    return { filas, total };
+    return { filas, total, hallados: (filas[0]?.hallados as number | undefined) ?? 0 };
   });
   return (
     <main className="p-4 sm:p-6 grid gap-5">
@@ -51,7 +53,7 @@ export default async function Productos({ searchParams }: { searchParams: Promis
                   <td className="px-4 py-3 text-sm">{p.unidades_por_caja > 1 ? `Caja x${p.unidades_por_caja}${p.precio_unidad ? " · se fracciona" : ""}` : "Unidad"}</td>
                   <td className={`px-4 py-3 num text-sm ${p.unidades <= 0 ? "text-alerta font-semibold" : bajo ? "text-aviso font-semibold" : ""}`}>{existenciasTexto(p.unidades, p.unidades_por_caja)}</td>
                   <td className="px-4 py-3 num text-right"><span className="font-semibold">{pesos(p.precio_caja)}</span>{p.precio_unidad ? <span className="block text-sm text-muted">{pesos(p.precio_unidad)} und</span> : null}</td>
-                  {gestiona && <td className="px-4 py-3 text-right"><Link href={`/productos/${p.id}`} className="text-sm font-semibold text-cruz">Editar</Link></td>}
+                  {gestiona && <td className="px-4 py-3 text-right"><Link href={`/productos/${p.id}`} className="inline-block py-2 px-2 text-sm font-semibold text-cruz">Editar</Link></td>}
                 </tr>
               );
             })}
@@ -59,6 +61,19 @@ export default async function Productos({ searchParams }: { searchParams: Promis
           </tbody>
         </table>
       </div>
+      {hallados > POR_PAGINA && (() => {
+        const ultima = Math.ceil(hallados / POR_PAGINA);
+        const url = (n: number) => `?${new URLSearchParams({ ...(q ? { q } : {}), ...(ver ? { ver } : {}), pagina: String(n) })}`;
+        return (
+          <nav className="flex flex-wrap items-center justify-between gap-3" aria-label="Páginas">
+            <p className="text-sm text-muted">{((pagina - 1) * POR_PAGINA + 1).toLocaleString("es-CO")}–{Math.min(pagina * POR_PAGINA, hallados).toLocaleString("es-CO")} de {hallados.toLocaleString("es-CO")}</p>
+            <div className="flex gap-2">
+              {pagina > 1 && <Link href={url(pagina - 1)} className="btn-borde">Anterior</Link>}
+              {pagina < ultima && <Link href={url(pagina + 1)} className="btn-oscuro">Siguiente</Link>}
+            </div>
+          </nav>
+        );
+      })()}
     </main>
   );
 }

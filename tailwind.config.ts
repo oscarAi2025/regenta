@@ -4,10 +4,8 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: "var(--ink)", paper: "var(--paper)", surface: "var(--surface)", line: "var(--line)", muted: "var(--muted)",
-        cruz: "var(--cruz)", "cruz-ink": "var(--cruz-ink)", "cruz-soft": "var(--cruz-soft)",
-        alerta: "var(--alerta)", "alerta-soft": "var(--alerta-soft)", aviso: "var(--aviso)", "aviso-soft": "var(--aviso-soft)",
-        marca: "var(--marca)",
+        // Con canal alfa para que funcionen clases como bg-surface/95 o bg-ink/40.
+        "ink": "rgb(var(--ink-rgb) / <alpha-value>)", "paper": "rgb(var(--paper-rgb) / <alpha-value>)", "surface": "rgb(var(--surface-rgb) / <alpha-value>)", "line": "rgb(var(--line-rgb) / <alpha-value>)", "muted": "rgb(var(--muted-rgb) / <alpha-value>)", "cruz": "rgb(var(--cruz-rgb) / <alpha-value>)", "cruz-ink": "rgb(var(--cruz-ink-rgb) / <alpha-value>)", "cruz-soft": "rgb(var(--cruz-soft-rgb) / <alpha-value>)", "alerta": "rgb(var(--alerta-rgb) / <alpha-value>)", "alerta-soft": "rgb(var(--alerta-soft-rgb) / <alpha-value>)", "aviso": "rgb(var(--aviso-rgb) / <alpha-value>)", "aviso-soft": "rgb(var(--aviso-soft-rgb) / <alpha-value>)", "marca": "rgb(var(--marca-rgb) / <alpha-value>)",
       },
       fontFamily: { sans: ["Barlow", "system-ui", "sans-serif"], cond: ["'Barlow Semi Condensed'", "Barlow", "sans-serif"] },
     },

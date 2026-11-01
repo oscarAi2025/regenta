@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { CabeceraPublica } from "./Cabecera";
 import { Pie } from "./Pie";
 import { BarraMovil } from "./BarraMovil";
@@ -16,7 +17,7 @@ export function PaginaProducto({ p }: { p: Pagina }) {
     { "@context": "https://schema.org", "@type": "WebPage", name: p.titulo, description: p.descripcion, url, inLanguage: "es-CO", about: { "@type": "SoftwareApplication", name: "Regenta", applicationCategory: "BusinessApplication", operatingSystem: "Web" } },
     { "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [
       { "@type": "ListItem", position: 1, name: "Regenta", item: `${SITIO}/` },
-      { "@type": "ListItem", position: 2, name: p.grupo === "funciones" ? "Funciones" : p.grupo === "software" ? "Software" : "Para quién", item: `${SITIO}/${p.grupo === "funciones" ? "funciones" : ""}` },
+      { "@type": "ListItem", position: 2, name: p.grupo === "funciones" ? "Funciones" : p.grupo === "software" ? "Software" : "Para quién", item: `${SITIO}/${p.grupo}` },
       { "@type": "ListItem", position: 3, name: p.corto, item: url }] },
     { "@context": "https://schema.org", "@type": "FAQPage", mainEntity: p.preguntas.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) },
   ];
@@ -29,8 +30,8 @@ export function PaginaProducto({ p }: { p: Pagina }) {
         <section className="fondo-hero text-white relative overflow-hidden">
           <div className="rejilla absolute inset-0" aria-hidden="true" />
           <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-10 pb-14 grid lg:grid-cols-[1fr_1.1fr] gap-10 items-center">
-            <div className="entra">
-              <nav aria-label="Ruta" className="text-sm text-white/60"><Link href="/" className="hover:underline">Regenta</Link> / {p.grupo === "funciones" ? <Link href="/funciones" className="hover:underline">Funciones</Link> : p.grupo === "software" ? "Software" : "Para quién"}</nav>
+            <div>
+              <nav aria-label="Ruta" className="text-sm text-white/60"><Link href="/" className="hover:underline">Regenta</Link> / <Link href={`/${p.grupo}`} className="hover:underline">{p.grupo === "funciones" ? "Funciones" : p.grupo === "software" ? "Software" : "Para quién"}</Link></nav>
               <h1 className="font-cond text-[42px] sm:text-[60px] leading-[0.95] tracking-[-0.01em] mt-3" style={{ fontWeight: 700 }}>{p.h1}</h1>
               <p className="mt-5 text-lg text-white/75 leading-relaxed max-w-[34em]">{p.entradilla}</p>
               <div className="mt-7 flex flex-wrap gap-3">
@@ -39,7 +40,7 @@ export function PaginaProducto({ p }: { p: Pagina }) {
               </div>
               <p className="mt-4 text-[15px] text-white/60">Un clic, sin registro y sin tarjeta. <Link href="/precios" className="underline underline-offset-4 text-white/80 hover:text-white">Ver planes</Link></p>
             </div>
-            {p.captura && <img src={p.captura.src} alt={p.captura.alt} width={1440} height={900} className="entra rounded-2xl border-4 border-white/10 w-full h-auto shadow-[0_40px_80px_-30px_rgba(0,0,0,.7)]" style={{ animationDelay: "150ms" }} />}
+            {p.captura && <Image src={p.captura.src} alt={p.captura.alt} width={1440} height={900} priority sizes="(min-width: 1024px) 600px, 100vw" className="rounded-2xl border-4 border-white/10 w-full h-auto shadow-[0_40px_80px_-30px_rgba(0,0,0,.7)]" />}
           </div>
         </section>
         <Cumplimiento />

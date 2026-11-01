@@ -18,7 +18,7 @@ function Cuenta({ hasta, pesos = false }: { hasta: number; pesos?: boolean }) {
 /** Portada: el producto en acción (ejemplo): el día de la droguería, la factura, la alerta y la IA. */
 export function HeroProducto() {
   return (
-    <div className="relative w-full max-w-[520px] mx-auto lg:mx-0" aria-label="Ejemplo de Regenta en una droguería">
+    <div role="group" className="relative w-full max-w-[520px] mx-auto lg:mx-0" aria-label="Ejemplo de Regenta en una droguería">
       <div className="entra rounded-3xl bg-white/[.06] border border-white/15 backdrop-blur p-4 sm:p-5 text-white" style={{ animationDelay: "150ms" }}>
         <div className="flex items-center justify-between text-sm"><span className="font-semibold">Hoy en tu droguería</span><span className="text-white/50">Ejemplo</span></div>
         <dl className="mt-3 grid grid-cols-3 gap-2">

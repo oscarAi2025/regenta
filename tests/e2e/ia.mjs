@@ -35,7 +35,7 @@ const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw
   const p = await ctx.newPage();
   const errs = []; p.on("pageerror", (e) => errs.push(e.message));
   await p.goto(B + "/demo"); await p.getByRole("button", { name: /Probar la demo/ }).click(); await p.waitForURL(/inicio/);
-  await p.getByRole("button", { name: "Regenta IA", exact: true }).click();
+  await p.getByRole("button", { name: "Abrir Regenta IA", exact: true }).click();
   await p.waitForSelector("text=¿Qué debo pedir esta semana?");
   await p.screenshot({ path: "test-results/ia-panel.png" });
   await p.locator("#ia-texto").fill("¿Qué debo pedir esta semana?");

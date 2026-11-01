@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sinRLS } from "@/lib/db";
-import { mismoOrigen } from "@/lib/api";
+import { ipCliente, limitador, mismoOrigen } from "@/lib/api";
 import { enlaceWompi, nuevaReferencia, precio, sesionStripe, stripeActivo, wompiActivo } from "@/lib/pagos";
 
 const Contratar = z.object({
@@ -11,21 +11,15 @@ const Contratar = z.object({
   nit: z.string().trim().regex(/^[\d.\s-]{6,15}$/, "Escribe el NIT o la cédula sin letras").nullish().or(z.literal("")),
   email: z.string().trim().email("Escribe un correo válido: ahí te llega el acceso").max(160),
   telefono: z.string().trim().regex(/^[\d\s+()-]{7,20}$/, "Escribe un celular válido"),
-  acepta: z.literal(true, { errorMap: () => ({ message: "Acepta los términos y el tratamiento de datos para continuar" }) }),
+  acepta: z.literal(true, { errorMap: () => ({ message: "Marca la autorización de tratamiento de datos para continuar" }) }),
 });
 
-const intentos = new Map<string, number[]>();
-const permitido = (ip: string) => {
-  const ahora = Date.now(), v = (intentos.get(ip) ?? []).filter((t) => ahora - t < 600000);
-  if (v.length >= 8) return false;
-  v.push(ahora); intentos.set(ip, v); return true;
-};
+const permitido = limitador(8, 600000);
 
 /** Inicia el pago de un plan: guarda la orden pendiente y devuelve el enlace de la pasarela. */
 export async function POST(req: Request) {
   if (!mismoOrigen(req)) return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
-  const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "local";
-  if (!permitido(ip)) return NextResponse.json({ error: "Demasiados intentos. Espera unos minutos o escríbenos por WhatsApp." }, { status: 429 });
+  if (!permitido(ipCliente(req))) return NextResponse.json({ error: "Demasiados intentos. Espera unos minutos o escríbenos por WhatsApp." }, { status: 429 });
   const p = Contratar.safeParse(await req.json().catch(() => null));
   if (!p.success) return NextResponse.json({ error: p.error.issues[0]?.message ?? "Revisa los datos" }, { status: 400 });
   const d = p.data;

@@ -17,7 +17,7 @@ export function Navegacion({ rol }: { rol: string }) {
   const p = usePathname();
   async function salir() { await fetch("/api/sesion", { method: "DELETE" }); location.href = "/entrar"; }
   return (
-    <nav className="flex lg:flex-col items-center gap-1 lg:mt-6 flex-1 w-full overflow-x-auto" aria-label="Principal">
+    <nav className="flex lg:flex-col items-center gap-1 lg:mt-6 flex-1 w-full overflow-x-auto [mask-image:linear-gradient(90deg,#000_85%,transparent)] lg:[mask-image:none]" aria-label="Principal">
       {ITEMS.filter((i) => i.roles.includes(rol)).map((i) => {
         const on = p.startsWith(i.href);
         return (

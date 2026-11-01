@@ -4,6 +4,7 @@ import { comoUsuario } from "@/lib/db";
 import { leerSesion, puede } from "@/lib/sesion";
 import { pesos } from "@/components/ui/Cabecera";
 import { Anular } from "./Anular";
+import { Abonos } from "./Abonos";
 import { MEDIO } from "@/lib/formato";
 
 export const metadata = { title: "Venta" };
@@ -22,7 +23,8 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
       from venta_lineas vl join lotes l on l.id = vl.lote_id where vl.venta_id = $1 group by vl.descripcion, vl.presentacion, vl.precio, vl.iva_pct, vl.producto_id order by min(vl.id)`, [id])).rows;
     const pagos = (await c.query(`select medio, valor::float from pagos where venta_id = $1`, [id])).rows;
     const doc = (await c.query(`select estado, cufe, simulado, ultimo_error, intentos from documentos_dian where venta_id = $1 order by creado limit 1`, [id])).rows[0];
-    return { v, lineas, pagos, doc };
+    const abonos = v.condicion === "credito" && puede.cartera(s.rol) ? (await c.query(`select id::text, to_char(creado at time zone 'America/Bogota', 'DD/MM/YYYY') fecha, medio, valor::float, referencia, anulado, anulado_motivo from abonos where venta_id = $1 order by creado`, [id])).rows : [];
+    return { v, lineas, pagos, doc, abonos };
   });
   if (!d) notFound();
   const { v } = d;
@@ -68,6 +70,7 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
             </p>
           )}
         </div>
+        {v.condicion === "credito" && puede.cartera(s.rol) && <Abonos abonos={d.abonos.map((a) => ({ ...a, medio: MEDIO[a.medio] ?? a.medio }))} puedeAnular={v.estado === "cerrada"} />}
         {v.estado === "cerrada" && puede.anular(s.rol) && <Anular id={v.id} />}
       </section>
     </main>

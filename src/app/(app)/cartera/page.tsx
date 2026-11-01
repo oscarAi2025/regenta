@@ -13,7 +13,7 @@ const fecha = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("es-CO
 export default async function Cartera({ searchParams }: { searchParams: Promise<{ ver?: string }> }) {
   const s = await leerSesion();
   if (!s) redirect("/entrar");
-  if (!puede.cartera(s.rol)) redirect("/inicio");
+  if (!puede.cartera(s.rol)) redirect("/inicio?aviso=permiso");
   const { ver = "pendientes" } = await searchParams;
   const filas: Fila[] = await comoUsuario(s, async (c) => (await c.query(`
     select venta_id, prefijo || numero numero, cliente, tipo_doc || ' ' || numero_doc || coalesce('-' || dv, '') documento, telefono,

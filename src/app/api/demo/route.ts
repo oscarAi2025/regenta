@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sinRLS } from "@/lib/db";
+import { ipCliente, limitador, mismoOrigen } from "@/lib/api";
 
 const Solicitud = z.object({
   nombre: z.string().trim().min(2, "Escribe tu nombre").max(120),
@@ -16,19 +17,14 @@ const Solicitud = z.object({
 
 /** Solicitud de demostración desde la página comercial. */
 // Límite por IP: 5 solicitudes cada 10 minutos (por instancia del servidor).
-const envios = new Map<string, number[]>();
-const permitido = (ip: string) => {
-  const ahora = Date.now(), v = (envios.get(ip) ?? []).filter((t) => ahora - t < 600000);
-  if (v.length >= 5) return false;
-  v.push(ahora); envios.set(ip, v); return true;
-};
+const permitido = limitador(5, 600000);
 
 export async function POST(req: Request) {
+  if (!mismoOrigen(req)) return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
   const cuerpo = await req.json().catch(() => null);
   // Trampa para bots: si el campo oculto viene lleno, se responde como si todo saliera bien y no se guarda nada.
   if (cuerpo && typeof cuerpo.web === "string" && cuerpo.web.length > 0) return NextResponse.json({ ok: true }, { status: 201 });
-  const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "local";
-  if (!permitido(ip)) return NextResponse.json({ error: "Ya recibimos tus datos. Si quieres, escríbenos por WhatsApp." }, { status: 429 });
+  if (!permitido(ipCliente(req))) return NextResponse.json({ error: "Ya recibimos tus datos. Si quieres, escríbenos por WhatsApp." }, { status: 429 });
   const p = Solicitud.safeParse(cuerpo);
   if (!p.success) return NextResponse.json({ error: p.error.issues[0]?.message ?? "Revisa los datos" }, { status: 400 });
   const d = p.data;

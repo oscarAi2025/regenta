@@ -36,7 +36,7 @@ async function agregar(p, texto) {
   const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
   const { p, errs } = await entrar(ctx, "Carlos");
   await p.goto(B + "/caja");
-  await p.getByRole("radio", { name: "Factura electrónica" }).click();
+  await p.getByRole("button", { name: "Factura electrónica", exact: true }).click();
   await agregar(p, "acetaminofen");
   ok(await p.getByRole("button", { name: /^Cobrar/ }).isDisabled(), "sin cliente no se puede cobrar una factura");
   ok(await p.getByText("Elige o crea el cliente para facturar").count() === 1, "la caja pide el cliente");
@@ -45,8 +45,8 @@ async function agregar(p, texto) {
   ok(await p.getByText("NIT 901234567-7").count() === 1, "el cliente muestra NIT con DV");
   await agregar(p, "ibuprofeno");
   await p.keyboard.press("F9");
-  await p.getByRole("radio", { name: "Crédito" }).click();
-  await p.getByRole("radio", { name: "45 días" }).click();
+  await p.getByRole("button", { name: "Crédito", exact: true }).click();
+  await p.getByRole("button", { name: "45 días" }).click();
   ok(await p.locator("#recibido").count() === 0, "a crédito no pide efectivo");
   if (CAP) await p.screenshot({ path: `${CAP}/facturacion.png` });
   await p.getByRole("button", { name: /Facturar a crédito/ }).click();
@@ -131,12 +131,12 @@ async function agregar(p, texto) {
 {
   const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
   const { p, errs } = await entrar(ctx, "Laura");
-  await p.getByRole("radio", { name: "Factura electrónica" }).click();
+  await p.getByRole("button", { name: "Factura electrónica", exact: true }).click();
   await p.locator("#cf-buscar").fill("hogar");
   await p.getByRole("button", { name: /Hogar Geriátrico/ }).click();
   await agregar(p, "acetaminofen");
   await p.keyboard.press("F9");
-  ok(await p.getByRole("radio", { name: "Crédito" }).count() === 0, "la cajera no ve la opción de crédito");
+  ok(await p.getByRole("button", { name: "Crédito", exact: true }).count() === 0, "la cajera no ve la opción de crédito");
   await p.goto(B + "/cartera");
   await p.waitForURL(/\/inicio/);
   ok(true, "la cajera no entra a Cartera");
@@ -151,7 +151,7 @@ async function agregar(p, texto) {
   const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const { p } = await entrar(ctx, "Carlos");
   await p.goto(B + "/caja");
-  await p.getByRole("radio", { name: "Factura electrónica" }).click();
+  await p.getByRole("button", { name: "Factura electrónica", exact: true }).click();
   const ancho = await p.evaluate(() => document.documentElement.scrollWidth);
   ok(ancho <= 390, "sin desborde horizontal en celular", String(ancho));
   await p.goto(B + "/cartera");

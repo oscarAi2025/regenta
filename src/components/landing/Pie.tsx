@@ -12,32 +12,34 @@ export function Pie() {
           <Marca claro />
           <p className="mt-3 max-w-xs">Software de facturación electrónica y gestión para droguerías, farmacias y distribuidoras farmacéuticas de Colombia, hecho por un distribuidor del sector.</p>
           <ul className="mt-4 grid gap-1.5">
-            <li><Link href="/funciones" className="hover:text-white hover:underline">Funciones</Link></li>
-            <li><Link href="/precios" className="hover:text-white hover:underline">Tarifas y Plan Socio</Link></li>
-            <li><Link href="/por-que-regenta" className="hover:text-white hover:underline">Por qué Regenta</Link></li>
-            <li><Link href="/contratar" className="hover:text-white hover:underline">Contratar en línea</Link></li>
-            <li><Link href="/privacidad" className="hover:text-white hover:underline">Política de datos</Link></li>
-            <li><Link href="/funciones/facturacion-electronica" className="hover:text-white hover:underline">Facturación electrónica</Link></li>
-            <li><Link href="/para/droguerias" className="hover:text-white hover:underline">Para droguerías y farmacias</Link></li>
-            <li><Link href="/para/distribuidoras" className="hover:text-white hover:underline">Para distribuidoras</Link></li>
-            <li><Link href="/software/facturacion-electronica-sector-salud" className="hover:text-white hover:underline">Facturación para el sector salud</Link></li>
-            <li><Link href="/software/pos-drogueria" className="hover:text-white hover:underline">Software POS para droguería</Link></li>
-            <li><Link href="/software/farmacias" className="hover:text-white hover:underline">Software para farmacias</Link></li>
-            <li><Link href="/software/inventario-farmacia" className="hover:text-white hover:underline">Inventario de farmacia</Link></li>
-            <li><Link href="/para/regentes" className="hover:text-white hover:underline">Para regentes</Link></li>
-            <li><Link href="/para/duenos-de-drogueria" className="hover:text-white hover:underline">Para dueños</Link></li>
+            <li><Link href="/funciones" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">Funciones</Link></li>
+            <li><Link href="/precios" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">Tarifas y Plan Socio</Link></li>
+            <li><Link href="/por-que-regenta" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">Por qué Regenta</Link></li>
+            <li><Link href="/contratar" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">Contratar en línea</Link></li>
+            <li><Link href="/privacidad" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">Política de datos</Link></li>
+            <li><Link href="/funciones/facturacion-electronica" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">Facturación electrónica</Link></li>
+            <li><Link href="/software" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">Software para el sector farmacéutico</Link></li>
+            <li><Link href="/software/facturacion-electronica-droguerias" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">Facturación electrónica para droguerías</Link></li>
+            <li><Link href="/software/distribuidoras-medicamentos" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">Software para distribuidoras de medicamentos</Link></li>
+            <li><Link href="/software/facturacion-electronica-sector-salud" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">Facturación para el sector salud</Link></li>
+            <li><Link href="/software/pos-drogueria" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">POS para droguería</Link></li>
+            <li><Link href="/software/farmacias" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">Software para farmacias</Link></li>
+            <li><Link href="/software/inventario-farmacia" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">Inventario de farmacia</Link></li>
+            <li><Link href="/para" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">¿Para quién es Regenta?</Link></li>
+            <li><Link href="/para/regentes" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">Para regentes</Link></li>
+            <li><Link href="/para/duenos-de-drogueria" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">Para dueños</Link></li>
           </ul>
         </div>
         <div>
           <p className="text-white font-semibold"><Link href="/guias" className="hover:underline">Guías para regentes</Link></p>
-          <ul className="mt-3 grid gap-1.5">{GUIAS.slice(0, 9).map((g) => <li key={g.slug}><Link href={`/guias/${g.slug}`} className="hover:text-white hover:underline">{g.h1}</Link></li>)}</ul>
+          <ul className="mt-3 grid gap-1.5">{GUIAS.slice(0, 9).map((g) => <li key={g.slug}><Link href={`/guias/${g.slug}`} className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">{g.h1}</Link></li>)}</ul>
         </div>
         <div>
           <p className="text-white font-semibold">Contacto</p>
           <ul className="mt-3 grid gap-1.5">
-            <li><a href={wa("Hola, quiero conocer Regenta.")} className="hover:text-white hover:underline">WhatsApp {TELEFONO}</a></li>
-            <li><a href={`mailto:${CORREO}`} className="hover:text-white hover:underline">{CORREO}</a></li>
-            <li><BotonDemo texto="Probar la demo" className="hover:text-white hover:underline" /></li>
+            <li><a href={wa("Hola, quiero conocer Regenta.")} className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">WhatsApp {TELEFONO}</a></li>
+            <li><a href={`mailto:${CORREO}`} className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">{CORREO}</a></li>
+            <li><BotonDemo texto="Probar la demo" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline" /></li>
           </ul>
         </div>
       </div>

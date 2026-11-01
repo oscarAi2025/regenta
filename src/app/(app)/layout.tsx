@@ -8,6 +8,8 @@ import { Asistente } from "@/components/app/Asistente";
 import { Buscador } from "@/components/app/Buscador";
 import { BotonBuscar } from "@/components/app/BotonBuscar";
 import { iaActiva } from "@/lib/ia/claude";
+import { Suspense } from "react";
+import { AvisoPermiso } from "@/components/app/AvisoPermiso";
 
 // La aplicación nunca se indexa: solo la portada comercial es pública.
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -30,7 +32,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <BotonBuscar />
           <p className="text-sm text-muted shrink-0 hidden sm:block">{s.nombre.split(" (")[0]} · {rol}</p>
         </header>
-        {children}
+        <Suspense fallback={null}><AvisoPermiso /></Suspense>
+        <div className="pb-24">{children}</div>
       </div>
       <Buscador rol={s.rol} />
       <Asistente activa={iaActiva()} />

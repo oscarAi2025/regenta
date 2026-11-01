@@ -11,6 +11,11 @@ export function ClienteFactura({ cliente, onCambio }: { cliente: Cliente | null;
   const [q, setQ] = useState("");
   const [res, setRes] = useState<Cliente[]>([]);
   const [buscado, setBuscado] = useState(false);
+  const [recientes, setRecientes] = useState<Cliente[] | null>(null);
+  async function cargarRecientes() {
+    if (recientes) return;
+    try { const r = await fetch("/api/clientes?recientes=1"); const j = await r.json(); setRecientes(j.clientes ?? []); } catch { setRecientes([]); }
+  }
   const [nuevo, setNuevo] = useState(false);
   const [f, setF] = useState({ tipo_doc: "NIT", numero_doc: "", nombre: "", email: "", telefono: "", autoriza_datos: false });
   const [error, setError] = useState("");
@@ -82,7 +87,19 @@ export function ClienteFactura({ cliente, onCambio }: { cliente: Cliente | null;
   return (
     <div className="mx-6 mt-3">
       <label htmlFor="cf-buscar" className="text-sm font-semibold">Cliente de la factura</label>
-      <input id="cf-buscar" ref={input} value={q} onChange={(e) => setQ(e.target.value)} placeholder="NIT, cédula o nombre" autoComplete="off" className="campo mt-1" />
+      <input id="cf-buscar" ref={input} value={q} onChange={(e) => setQ(e.target.value)} onFocus={cargarRecientes} placeholder="NIT, cédula o nombre" autoComplete="off" className="campo mt-1" />
+      {!q.trim() && recientes && recientes.length > 0 && (
+        <div className="mt-2">
+          <p className="text-xs text-muted">Clientes recientes</p>
+          <ul className="mt-1 rounded-xl border border-line divide-y divide-line bg-surface overflow-hidden">
+            {recientes.map((c) => (
+              <li key={c.id}><button onClick={() => onCambio(c)} className="w-full text-left px-3 py-2.5 hover:bg-paper">
+                <span className="block font-semibold leading-snug">{c.nombre}</span><span className="block text-sm text-muted num">{documento(c)}</span>
+              </button></li>
+            ))}
+          </ul>
+        </div>
+      )}
       {res.length > 0 && (
         <ul className="mt-2 rounded-xl border border-line divide-y divide-line bg-surface overflow-hidden">
           {res.map((c) => (

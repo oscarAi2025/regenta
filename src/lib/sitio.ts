@@ -1,4 +1,7 @@
 // Datos públicos de la página comercial. La URL final se define con REGENTA_URL al publicar (dominio aún por registrar).
+// En un despliegue (Netlify o Vercel) sin REGENTA_URL fallaría el SEO (canonical, sitemap y datos estructurados con
+// localhost): se detiene el build en vez de publicar algo roto.
+if (!process.env.REGENTA_URL && (process.env.NETLIFY || process.env.VERCEL)) throw new Error("Falta REGENTA_URL (la URL pública del sitio)");
 export const SITIO = process.env.REGENTA_URL ?? "http://localhost:4500";
 export const WHATSAPP = "573212141970";
 export const CORREO = "gerencia@farmagenericoscolombia.com";

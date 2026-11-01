@@ -46,12 +46,8 @@ export default async function Contratar({ searchParams }: { searchParams: Promis
                 ))}
               </ol>
             </div>
-            <div className="rounded-2xl fondo-hero text-white p-6">
-              <p className="font-cond text-2xl" style={{ fontWeight: 700 }}>¿Le compras a Farmagenéricos?</p>
-              <p className="mt-2 text-white/75">Con el {SOCIO.nombre} Regenta te puede salir a mitad de precio o gratis. Ese plan se activa con tu asesor.</p>
-              <Link href="/precios#socio" className="btn-cta h-11 px-5 mt-4">Ver Plan Socio</Link>
-            </div>
             <Sello apilado />
+            <p className="text-sm text-muted">¿Le compras a Farmagenéricos? Con el {SOCIO.nombre} Regenta te puede salir a mitad de precio o gratis: <Link href="/precios#socio" className="underline">ver Plan Socio</Link>.</p>
           </aside>
         </section>
       </main>

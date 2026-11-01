@@ -9,7 +9,7 @@ export default async function Entrar() {
   if (await leerSesion()) redirect("/inicio");
   return (
     <main className="min-h-screen grid lg:grid-cols-[1.1fr_1fr]">
-      <section className="bg-ink text-white px-6 py-10 sm:px-12 flex flex-col justify-between gap-10">
+      <section className="order-2 lg:order-1 bg-ink text-white px-6 py-10 sm:px-12 flex flex-col justify-between gap-10">
         <Marca claro />
         <div className="max-w-xl">
           <h1 className="font-cond text-[44px] sm:text-[64px] leading-[0.95] tracking-tight" style={{ fontWeight: 700 }}>
@@ -25,7 +25,7 @@ export default async function Entrar() {
           ))}
         </dl>
       </section>
-      <section className="px-6 py-10 sm:px-12 flex items-center">
+      <section className="order-1 lg:order-2 px-6 py-10 sm:px-12 flex items-center">
         <div className="w-full max-w-md mx-auto">
           <h2 className="font-cond text-3xl" style={{ fontWeight: 700 }}>Entrar</h2>
           {demoActiva() ? <EntrarDemo /> : <p className="mt-4 text-muted">El acceso con usuario y contraseña se activa al conectar la cuenta de la empresa.</p>}

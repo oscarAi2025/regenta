@@ -339,3 +339,49 @@ test("abonos: no superan el saldo, solo gerencia, y bloquean la anulación", asy
   const vista = await como(U.cajera, (c) => c.query("select count(*)::int n from v_cartera"));
   assert.equal(vista.rows[0].n, 0, "la cajera no ve la cartera");
 });
+
+test("una caja repartida en tres lotes cobra el precio exacto (sin centavos sueltos)", async () => {
+  const r = await como(U.carlos, async (c) => {
+    const id = (await c.query(`insert into productos (empresa_id, nombre, iva, unidades_por_caja, precio_caja) values ($1, 'Prueba redondeo', 0, 3, 20000) returning id`, [E.A])).rows[0].id;
+    for (const [l, v] of [["R1", "2030-01-01"], ["R2", "2030-02-01"], ["R3", "2030-03-01"]])
+      await c.query(`select registrar_entrada(jsonb_build_object('empresa_id', $1::uuid, 'sede_id', $2::uuid, 'tipo', 'compra', 'lineas', jsonb_build_array(jsonb_build_object('producto_id', $3::uuid, 'lote', $4::text, 'vence', $5::text, 'unidades', 1))))`, [E.A, S.A, id, l, v]);
+    const v = (await c.query("select registrar_venta($1) r", [venta([{ producto_id: id, presentacion: "caja", cantidad: 1 }], { pagos: [{ medio: "efectivo", valor: 20000 }] })])).rows[0].r;
+    const lineas = (await c.query("select count(*)::int n, sum(total)::float t from venta_lineas where venta_id = $1", [v.venta_id])).rows[0];
+    return { total: Number(v.total), cambio: Number(v.cambio), lineas };
+  });
+  assert.equal(r.lineas.n, 3);
+  assert.equal(r.total, 20000);
+  assert.equal(r.lineas.t, 20000);
+  assert.equal(r.cambio, 0);
+});
+
+test("«Separé el producto» en una alerta bloquea el lote: no se vende ni cuenta como existencia", async () => {
+  const r = await como(U.carlos, async (c) => {
+    const id = (await c.query(`insert into productos (empresa_id, nombre, iva, unidades_por_caja, precio_caja) values ($1, 'Prueba alerta', 0, 1, 1000) returning id`, [E.A])).rows[0].id;
+    await c.query(`select registrar_entrada(jsonb_build_object('empresa_id', $1::uuid, 'sede_id', $2::uuid, 'tipo', 'compra', 'lineas', jsonb_build_array(jsonb_build_object('producto_id', $3::uuid, 'lote', 'F0537A', 'vence', '2030-01-01', 'unidades', 5))))`, [E.A, S.A, id]);
+    const alerta = (await c.query(`select id from alertas_invima where 'F0537A' = any(lotes) limit 1`)).rows[0].id;
+    await c.query(`insert into alertas_revision (empresa_id, alerta_id, producto_id, resultado) values ($1, $2, $3, 'separado')`, [E.A, alerta, id]);
+    const vigente = (await c.query(`select coalesce(sum(unidades), 0)::int u from v_stock_vigente where producto_id = $1`, [id])).rows[0].u;
+    let error = null;
+    try { await c.query("savepoint s"); await c.query("select registrar_venta($1)", [venta([{ producto_id: id, presentacion: "caja", cantidad: 1 }], { pagos: [{ medio: "efectivo", valor: 1000 }] })]); } catch (e) { error = e.message; await c.query("rollback to savepoint s"); }
+    return { vigente, error };
+  });
+  assert.equal(r.vigente, 0);
+  assert.match(r.error, /alerta del INVIMA/);
+});
+
+test("abonos: se anulan con motivo, liberan el saldo y desbloquean la anulación; crédito guarda cambio 0", async () => {
+  const cli = (await pool.query(`select id from clientes where empresa_id = $1 and tipo_doc = 'NIT' limit 1`, [E.A])).rows[0].id;
+  const r = await como(U.carlos, async (c) => {
+    const v = (await c.query("select registrar_venta($1) r", [venta([{ producto_id: prod.id, presentacion: "unidad", cantidad: 1 }], { tipo_doc: "factura", cliente_id: cli, condicion: "credito", plazo_dias: 30, pagos: [] })])).rows[0].r;
+    await c.query("select registrar_abono($1, 'nequi', 100)", [v.venta_id]);
+    const abono = (await c.query("select id from abonos where venta_id = $1", [v.venta_id])).rows[0].id;
+    await c.query("select anular_abono($1, 'Se registró dos veces')", [abono]);
+    const saldo = (await c.query("select saldo::float from v_cartera where venta_id = $1", [v.venta_id])).rows[0].saldo;
+    const cambio = (await c.query("select cambio::float from ventas where id = $1", [v.venta_id])).rows[0].cambio;
+    await c.query("select anular_venta($1, 'prueba')", [v.venta_id]);
+    return { saldo, total: Number(v.total), cambio, abono };
+  });
+  assert.equal(r.saldo, r.total);
+  assert.equal(r.cambio, 0);
+});

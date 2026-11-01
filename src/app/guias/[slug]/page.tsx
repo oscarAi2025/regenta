@@ -73,7 +73,12 @@ export default async function PaginaGuia({ params }: { params: Promise<{ slug: s
           <ul className="mt-3 grid sm:grid-cols-2 gap-3">
             {g.relacionadas.map((s) => guia(s)!).map((r) => <li key={r.slug}><Link href={`/guias/${r.slug}`} className="tarjeta block p-4 hover:border-ink"><span className="font-semibold">{r.h1}</span><span className="block text-sm text-muted mt-1">{r.descripcion}</span></Link></li>)}
           </ul>
-          <p className="mt-6"><Link href="/" className="font-semibold text-cruz underline">Software de facturación y gestión para droguerías y distribuidoras</Link></p>
+          <h2 className="mt-10 font-cond text-2xl" style={{ fontWeight: 700 }}>Software para tu droguería</h2>
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {[["/", "Software para droguerías"], ["/software/pos-drogueria", "POS para droguería"], ["/software/facturacion-electronica-droguerias", "Facturación electrónica para droguerías"], ["/software/inventario-farmacia", "Inventario de farmacia por lote"], ["/precios", "Precio del software"]].map(([h, t]) => (
+              <li key={h}><Link href={h} className="pastilla bg-surface border border-line hover:border-teal-600">{t}</Link></li>
+            ))}
+          </ul>
         </section>
       </main>
       <Pie />

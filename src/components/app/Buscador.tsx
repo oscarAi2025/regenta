@@ -46,7 +46,7 @@ export function Buscador({ rol }: { rol: string }) {
   if (!abierto) return null;
   return (
     <div className="fixed inset-0 z-50 bg-ink/40 backdrop-blur-[2px] flex items-start justify-center pt-[12vh] px-3" onMouseDown={(e) => e.target === e.currentTarget && setAbierto(false)}>
-      <div role="dialog" aria-label="Buscador rápido" className="w-full max-w-xl tarjeta shadow-2xl overflow-hidden">
+      <div role="dialog" aria-modal="true" aria-label="Buscador rápido" className="w-full max-w-xl tarjeta shadow-2xl overflow-hidden">
         <input ref={campo} value={q} onChange={(e) => { setQ(e.target.value); setSel(0); }} placeholder="Busca un producto, una pantalla o pregúntale a Regenta IA…" aria-label="Buscar"
           onKeyDown={(e) => {
             if (e.key === "Escape") setAbierto(false);

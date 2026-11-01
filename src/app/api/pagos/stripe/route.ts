@@ -10,13 +10,16 @@ export async function POST(req: Request) {
   if (!firmaStripeValida(cuerpo, req.headers.get("stripe-signature"), secreto)) return NextResponse.json({ error: "Firma no válida" }, { status: 400 });
   const ev = JSON.parse(cuerpo) as { type: string; data: { object: Record<string, unknown> } };
   const o = ev.data.object;
-  const ref = (o.client_reference_id as string) ?? ((o.metadata as Record<string, string> | undefined)?.referencia)
-    ?? ((o.subscription_details as { metadata?: Record<string, string> } | undefined)?.metadata?.referencia);
+  const meta = (x: unknown) => (x as { metadata?: Record<string, string> } | undefined)?.metadata?.referencia;
+  const ref = (o.client_reference_id as string) ?? meta(o) ?? meta(o.subscription_details)
+    ?? meta((o.parent as { subscription_details?: unknown } | undefined)?.subscription_details); // API 2025-03-31 en adelante
   if (!ref) return NextResponse.json({ ok: true });
   const estado = ev.type === "checkout.session.completed" ? (o.payment_status === "paid" ? "aprobado" : "pendiente")
-    : ev.type === "invoice.payment_failed" ? "rechazado" : ev.type === "customer.subscription.deleted" ? "anulado" : null;
+    : ev.type === "invoice.paid" ? "aprobado" : ev.type === "invoice.payment_failed" ? "rechazado" : ev.type === "customer.subscription.deleted" ? "anulado" : null;
+  // Transiciones: una suscripción anulada no revive por un evento atrasado; un cobro fallido se recupera con invoice.paid.
   if (estado) await sinRLS((c) => c.query(
-    `update pagos_suscripcion set estado = $2, transaccion = coalesce($3, transaccion), metodo = 'CARD_STRIPE', detalle = $4, actualizado = now() where referencia = $1 and proveedor = 'stripe'`,
+    `update pagos_suscripcion set estado = $2, transaccion = coalesce($3, transaccion), metodo = 'CARD_STRIPE', detalle = $4, actualizado = now()
+     where referencia = $1 and proveedor = 'stripe' and estado <> 'anulado' and not (estado = 'aprobado' and $2 = 'pendiente')`,
     [ref, estado, (o.subscription as string) ?? null, JSON.stringify({ evento: ev.type })]));
   return NextResponse.json({ ok: true });
 }

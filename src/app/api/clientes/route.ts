@@ -8,7 +8,15 @@ const CAMPOS = `id, tipo_doc, numero_doc, dv, nombre, email, telefono`;
 /** Buscar clientes por documento o nombre (para facturar). */
 export const GET = conSesion(async (s, req) => {
   if (!puede.vender(s.rol)) return json({ error: "No tienes permiso" }, 403);
-  const q = (new URL(req.url).searchParams.get("q") ?? "").trim().slice(0, 80);
+  const sp = new URL(req.url).searchParams;
+  if (sp.get("recientes") === "1") {
+    // Los últimos clientes a los que se les facturó (o los últimos creados), para elegir sin escribir.
+    const clientes = await comoUsuario(s, async (c) => (await c.query(
+      `select ${CAMPOS} from clientes cl left join lateral (select max(creado) u from ventas v where v.cliente_id = cl.id) x on true
+       where cl.empresa_id = $1 order by coalesce(x.u, cl.creado) desc limit 6`, [s.empresa])).rows);
+    return json({ clientes });
+  }
+  const q = (sp.get("q") ?? "").trim().slice(0, 80);
   if (q.length < 2) return json({ clientes: [] });
   const clientes = await comoUsuario(s, async (c) => (await c.query(
     `select ${CAMPOS} from clientes where empresa_id = $1 and (numero_doc like $2 || '%' or lower(nombre) like '%' || $3 || '%')

@@ -12,7 +12,7 @@ import { mesAnual, PLANES, DOC_EXTRA, NOTA_PRECIOS, SOCIO } from "@/lib/planes";
 import { pesos } from "@/lib/formato";
 import { SITIO, wa } from "@/lib/sitio";
 
-export const metadata: Metadata = metaPublica("/precios", "Tarifas de Regenta: software para droguerías desde $89.900", "Tarifas claras de Regenta: Esencial $89.900 y Pro $139.900 al mes sin asociarte. Como socio de Farmagenéricos Colombia, a mitad de precio o gratis.");
+export const metadata: Metadata = metaPublica("/precios", "Precio de software para droguería: desde $89.900/mes", "Cuánto cuesta Regenta: Esencial $89.900 y Pro $139.900 al mes, certificado digital incluido. Como socio de Farmagenéricos Colombia, a mitad de precio o gratis.");
 
 const esencial = PLANES.find((p) => p.id === "esencial")!, pro = PLANES.find((p) => p.id === "pro")!;
 const precio = (n: number) => (n === 0 ? "Gratis" : pesos(n));
@@ -46,8 +46,9 @@ const PREGUNTAS: [string, string][] = [
 
 export default function Precios() {
   const ld = [
-    { "@context": "https://schema.org", "@type": "Product", name: "Regenta", description: "Software de facturación electrónica y gestión para droguerías y distribuidoras farmacéuticas, con IA, alertas INVIMA y control de lotes.", brand: { "@type": "Brand", name: "Regenta" }, image: `${SITIO}/capturas/og.png`,
-      offers: PLANES.filter((p) => p.precio).map((p) => ({ "@type": "Offer", name: p.nombre, price: p.precio, priceCurrency: "COP", url: `${SITIO}/precios` })) },
+    { "@context": "https://schema.org", "@type": "SoftwareApplication", name: "Regenta", applicationCategory: "BusinessApplication", operatingSystem: "Web", description: "Software de facturación electrónica y gestión para droguerías y distribuidoras farmacéuticas, con IA, alertas INVIMA y control de lotes.", image: `${SITIO}/capturas/og.png`,
+      offers: PLANES.filter((p) => p.precio).map((p) => ({ "@type": "Offer", name: `Regenta ${p.nombre}`, price: p.precio, priceCurrency: "COP", url: `${SITIO}/contratar?plan=${p.id}`,
+        priceSpecification: { "@type": "UnitPriceSpecification", price: p.precio, priceCurrency: "COP", unitText: "MONTH" } })) },
     { "@context": "https://schema.org", "@type": "FAQPage", mainEntity: PREGUNTAS.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) },
   ];
   return (
@@ -56,9 +57,9 @@ export default function Precios() {
       <CabeceraPublica />
       <main>
         <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-10 pb-8">
-          <h1 className="font-cond text-[44px] sm:text-[68px] leading-[0.95]" style={{ fontWeight: 700 }}>Tarifas de Regenta: tú eliges cómo pagar</h1>
+          <h1 className="font-cond text-[36px] sm:text-[64px] leading-[0.95]" style={{ fontWeight: 700 }}>Precio de Regenta, el software para tu droguería</h1>
           <p className="mt-4 text-lg text-muted max-w-2xl">Todo incluido en cualquier plan: certificado digital y habilitación DIAN, inteligencia artificial, predicción, alertas INVIMA, lotes y carga desde Excel. Sin costo de instalación y sin permanencia.</p>
-          <ul className="mt-5 flex flex-wrap gap-2" aria-label="Incluido">
+          <ul className="mt-5 hidden sm:flex flex-wrap gap-2" aria-label="Incluido">
             {["Certificado digital incluido", "Habilitación DIAN incluida", "Sin instalación", "Sin permanencia", "Te pasamos tus productos"].map((t) => <li key={t} className="pastilla bg-teal-50 text-teal-800 border border-teal-200"><span aria-hidden="true">✓</span>{t}</li>)}
           </ul>
           <div className="mt-8 grid md:grid-cols-2 gap-4">

@@ -39,7 +39,7 @@ export function Resultado({ referencia, transaccion }: { referencia: string; tra
   return (
     <div className="mt-6 tarjeta p-6">
       <p className="text-lg font-semibold text-alerta">El pago no se aprobó{e.estado === "rechazado" ? ": el banco lo rechazó" : ""}.</p>
-      <p className="mt-2 text-muted">No se cobró nada. Puedes intentar con otro medio de pago.</p>
+      <p className="mt-2 text-muted">{e.estado === "error" ? "Hubo una diferencia en el pago. Escríbenos por WhatsApp con tu referencia y lo revisamos." : "No se cobró nada. Puedes intentar con otro medio de pago."}</p>
       <div className="mt-5 flex flex-wrap gap-3"><Link href={`/contratar?plan=${e.plan}`} className="btn-cta h-12 px-6">Intentar de nuevo</Link><a href={wa(`Hola, tuve un problema pagando Regenta. Referencia ${referencia}.`)} className="btn-borde h-12 px-6">Ayuda por WhatsApp</a></div>
     </div>
   );

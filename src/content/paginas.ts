@@ -13,9 +13,9 @@ export type Pagina = {
 export const PAGINAS: Pagina[] = [
   {
     ruta: "facturacion-electronica", grupo: "funciones", corto: "Facturación electrónica",
-    titulo: "Facturación electrónica para droguerías y distribuidoras",
+    titulo: "POS o factura electrónica en la misma caja | Regenta",
     descripcion: "Tiquete POS electrónico para el mostrador y factura electrónica de venta para clientes con NIT, desde la misma caja, con contado o crédito a plazo.",
-    h1: "Facturación electrónica para droguerías y distribuidoras",
+    h1: "POS y factura electrónica en la misma caja",
     entradilla: "En la misma caja eliges el documento: tiquete POS electrónico para el cliente de mostrador o factura electrónica de venta para la empresa, la IPS o la droguería que te compra con NIT. Buscas al cliente o lo creas en segundos, y facturas de contado o a crédito.",
     captura: { src: "/capturas/facturacion.webp", alt: "Caja de Regenta en modo factura electrónica con el cliente, la forma de pago a crédito y el plazo" },
     beneficios: [
@@ -104,7 +104,7 @@ export const PAGINAS: Pagina[] = [
   },
   {
     ruta: "caja-pos", grupo: "funciones", corto: "Caja POS",
-    titulo: "Caja POS para droguerías: rápida y por unidad",
+    titulo: "Caja de droguería con venta por caja y por unidad",
     descripcion: "Caja para droguería con lector de código de barras, venta por caja o por unidad, seis medios de pago y numeración con tu resolución. En la nube.",
     h1: "Una caja de droguería que se aprende en cinco minutos",
     entradilla: "Escanea o escribe dos letras, elige caja o unidad y cobra. Teclas rápidas para la fila (F2 buscar, F9 cobrar), cambio calculado y el producto que conviene vender primero a la vista.",
@@ -120,7 +120,7 @@ export const PAGINAS: Pagina[] = [
   },
   {
     ruta: "cartera-y-credito", grupo: "funciones", corto: "Cartera y crédito",
-    titulo: "Cartera y ventas a crédito para droguerías y distribuidoras",
+    titulo: "Cartera y crédito para droguerías y distribuidoras",
     descripcion: "Vende a crédito con factura electrónica y plazo, registra los abonos y mira quién te debe, cuánto está vencido y qué vence esta semana.",
     h1: "Vende a crédito sin perder de vista quién te debe",
     entradilla: "La distribuidora que surte droguerías, la droguería con convenio con una IPS o un hogar geriátrico: si fías, necesitas saber a quién, cuánto y hasta cuándo. Regenta guarda cada factura a crédito con su plazo, los abonos y los días de mora.",
@@ -139,10 +139,10 @@ export const PAGINAS: Pagina[] = [
     guias: ["pos-electronico-drogueria-dian"],
   },
   {
-    ruta: "distribuidoras", grupo: "para", corto: "Para distribuidoras",
-    titulo: "Software para distribuidoras farmacéuticas | Regenta",
+    ruta: "distribuidoras-medicamentos", grupo: "software", corto: "Distribuidoras de medicamentos",
+    titulo: "Software para distribuidoras de medicamentos | Regenta",
     descripcion: "Factura electrónica a droguerías con NIT, venta por caja, crédito con plazo y cartera, inventario por lote y vencimiento, alertas INVIMA y pedido sugerido.",
-    h1: "Software de facturación y gestión para distribuidoras farmacéuticas",
+    h1: "Software para distribuidoras de medicamentos",
     entradilla: "Lo hace Farmagenéricos Colombia, que también es distribuidora: le vendemos a droguerías todos los días. Regenta te deja facturar a tus clientes con NIT, venderles a crédito y cobrar, mientras cuidas cada lote y cada fecha de vencimiento en tu bodega.",
     captura: { src: "/capturas/cartera.webp", alt: "Cartera de una distribuidora en Regenta con saldos y vencimientos por cliente" },
     beneficios: [
@@ -153,6 +153,16 @@ export const PAGINAS: Pagina[] = [
       ["Pedido sugerido en cajas", "Con tus despachos reales: qué se agota primero y qué no rota."],
       ["Roles de bodega y gerencia", "Bodega recibe y ajusta; solo la gerencia ve costos, fía y cobra."],
     ],
+    secciones: [
+      { h2: "Qué necesita una distribuidora de medicamentos", p: [
+        "Una distribuidora factura a otras empresas: droguerías, clínicas, IPS y hogares geriátricos, casi siempre con NIT y muchas veces a crédito. Necesita factura electrónica de venta, control de la cartera, bodega por lote y vencimiento, y saber a tiempo si una alerta del INVIMA afecta un lote que ya despachó o que tiene en bodega.",
+        "Los ERP grandes resuelven todo eso con implementaciones largas y costosas. Los POS genéricos no lo resuelven. Regenta está en el medio: lo esencial de una distribuidora farmacéutica, en la nube y listo en días.",
+] },
+      { h2: "Cómo trabaja Regenta en la distribuidora", p: [
+        "Factura electrónica a clientes con NIT, con el dígito de verificación calculado. Ventas a crédito a 15, 30, 45, 60 o 90 días, con abonos, saldo y días de mora en Cartera. Recepción de compras por lote y despacho del lote que vence primero. Pedido sugerido en cajas con tus despachos reales.",
+        "Bodega recibe y ajusta; solo la gerencia ve costos, fía y cobra. Todo queda auditado: quién hizo qué y cuándo.",
+] },
+    ],
     preguntas: [
       ["¿Qué no hace todavía para una distribuidora?", "Hoy Regenta no maneja listas de precio distintas por cliente, cupos de crédito ni preventa con vendedores en ruta. Si tu operación los necesita, escríbenos y te decimos con franqueza si te sirve."],
       ["¿Funciona con varias bodegas?", "Cada cuenta trabaja hoy con una bodega o sede; el manejo de varias sedes está en integración."],
@@ -161,22 +171,37 @@ export const PAGINAS: Pagina[] = [
     guias: ["inventario-por-lotes-drogueria", "alertas-sanitarias-invima-drogueria", "pos-electronico-drogueria-dian"],
   },
   {
-    ruta: "droguerias", grupo: "para", corto: "Para droguerías y farmacias",
-    titulo: "Software de facturación para droguerías y farmacias | Regenta",
-    descripcion: "Caja con POS y factura electrónica, inventario por lote y vencimiento, pedido sugerido, alertas INVIMA e IA para droguerías y farmacias-droguerías.",
-    h1: "Software de facturación y gestión para droguerías y farmacias",
-    entradilla: "Todo lo del mostrador en un solo programa: vendes con tiquete POS o factura electrónica, controlas el inventario por lote y fecha, sabes qué pedir y qué se te va a vencer, y cumples con lo que revisa la secretaría de salud.",
-    captura: { src: "/capturas/caja.webp", alt: "Caja de Regenta para droguería con venta por caja y por unidad" },
+    ruta: "facturacion-electronica-droguerias", grupo: "software", corto: "Facturación electrónica para droguerías",
+    titulo: "Facturación electrónica para droguerías y farmacias",
+    descripcion: "Programa de facturación electrónica para droguerías y farmacias: POS y factura DIAN en la misma caja, certificado incluido, inventario por lote e IA.",
+    h1: "Software de facturación electrónica para droguerías",
+    entradilla: "En una droguería la facturación no termina en la DIAN: cada venta mueve un lote con fecha de vencimiento. Regenta factura y controla el inventario en el mismo paso, con el certificado digital y la habilitación incluidos.",
+    captura: { src: "/capturas/facturacion.webp", alt: "Caja de Regenta en modo factura electrónica con cliente y crédito" },
     beneficios: [
-      ["Facturación en la caja", "Tiquete POS electrónico o factura electrónica con cliente, de contado o a crédito."],
-      ["Venta por caja o por unidad", "Pastillas sueltas sin descuadrar el inventario."],
-      ["Vencimientos bajo control", "La caja vende primero el lote que vence antes y nunca uno vencido."],
-      ["Pedido sugerido", "Con tus ventas de 8 semanas: qué pedir y cuántas cajas."],
-      ["Alertas del INVIMA", "Cruzadas con tus lotes, con la constancia de la revisión."],
-      ["Regenta IA", "Le preguntas a tu droguería y te responde con tus datos."],
+      ["POS o factura, un clic", "Tiquete POS para el mostrador y factura electrónica para el cliente con NIT o cédula."],
+      ["Certificado incluido", "Certificado digital y habilitación de tu NIT ante la DIAN incluidos en todos los planes."],
+      ["Notas crédito", "Al anular una venta ya emitida, Regenta genera la nota crédito con su numeración."],
+      ["Inventario en el mismo paso", "Cada factura descuenta del lote que vence primero; nunca de uno vencido."],
     ],
-    preguntas: [["¿Sirve para una farmacia-droguería?", "Sí: la caja, el inventario por lote y los vencimientos son los mismos. Si haces preparaciones magistrales, esa parte no la maneja Regenta."]],
-    guias: ["requisitos-abrir-drogueria-colombia", "control-fechas-vencimiento-drogueria", "pos-electronico-drogueria-dian"],
+    secciones: [
+      { h2: "POS electrónico o factura electrónica: cuándo cada uno", p: [
+        "La Resolución 165 de 2023 de la DIAN permite el documento equivalente POS electrónico en ventas de hasta 5 UVT (unos $261.870 en 2026). Por encima de ese valor, o cuando el comprador la pide, va factura electrónica de venta.",
+        "En Regenta eliges el documento en la misma caja: tiquete POS para el cliente de mostrador o factura electrónica con los datos del cliente. Si es una empresa, la buscas por NIT o la creas en segundos y Regenta calcula el dígito de verificación.",
+] },
+      { h2: "Qué pedirle a un programa de facturación para droguería", p: [
+        "Que numere cada documento con tu resolución sin repetir números, que no se pueda borrar una venta (se anula con motivo y nota crédito) y que siga funcionando si la DIAN tarda: la venta se guarda y el envío se reintenta solo.",
+        "Que el certificado digital y la habilitación estén incluidos, que venda por caja y por unidad, y que lleve el inventario por lote y vencimiento. Un programa de facturación genérico cumple lo primero; una droguería necesita todo.",
+] },
+      { h2: "Cómo empezar", p: [
+        "Pruebas la demo en un clic, sin registro. Si te sirve, contratas en línea o por WhatsApp, te habilitamos ante la DIAN con tu NIT y cargamos tus productos desde Excel (en el plan Pro lo hacemos nosotros).",
+] },
+    ],
+    preguntas: [
+      ["¿El certificado digital tiene costo aparte?", "No. El certificado digital y la habilitación de tu NIT ante la DIAN están incluidos en todos los planes."],
+      ["¿Ya se envía a la DIAN?", "Cada documento queda numerado con tu resolución y en cola de envío. La emisión ante la DIAN se está integrando y se activa en tu cuenta al terminar."],
+      ["¿Sirve para farmacias-droguerías?", "Sí. La facturación, el inventario por lote y los vencimientos funcionan igual."],
+    ],
+    guias: ["pos-electronico-drogueria-dian", "cuanto-cuesta-software-drogueria", "facturacion-electronica-sector-salud-rips"],
   },
   {
     ruta: "facturacion-electronica-sector-salud", grupo: "software", corto: "Facturación sector salud",
@@ -206,9 +231,9 @@ export const PAGINAS: Pagina[] = [
   },
   {
     ruta: "pos-drogueria", grupo: "software", corto: "POS para droguería",
-    titulo: "Software POS para droguería con factura electrónica",
+    titulo: "POS para droguería y farmacia con factura electrónica",
     descripcion: "POS para droguería: lector de código de barras, venta por caja o por unidad, POS y factura electrónica, Nequi, Daviplata, QR y lote que vence primero.",
-    h1: "Software POS para droguería, con factura electrónica",
+    h1: "Sistema POS para droguerías y farmacias",
     entradilla: "La caja de una droguería atiende fila, vende pastillas sueltas, cobra con Nequi o QR y tiene que sacar primero el lote que vence antes. El POS de Regenta hace todo eso en una pantalla que una auxiliar aprende en cinco minutos.",
     captura: { src: "/capturas/caja.webp", alt: "POS de Regenta para droguería con venta por caja y por unidad" },
     beneficios: [
@@ -219,16 +244,27 @@ export const PAGINAS: Pagina[] = [
     ],
     secciones: [
       { h2: "POS genérico o POS para droguería", p: [
-        "Un POS genérico cobra y descuenta un número de inventario. Un POS para droguería además sabe de qué lote sale cada unidad, bloquea los vencidos, avisa lo que vence pronto y separa el precio por caja del precio por unidad. Esa diferencia es la que evita pérdidas y sanciones." ] },
+        "Un POS genérico cobra y descuenta un número de inventario. Un POS para droguería además sabe de qué lote sale cada unidad, bloquea los vencidos, avisa lo que vence pronto y separa el precio por caja del precio por unidad. Esa diferencia es la que evita pérdidas y sanciones.",
+        "En el mostrador la diferencia se nota en la fila: la auxiliar escanea, elige caja o unidad y cobra con el medio que traiga el cliente, mientras el sistema decide en silencio qué lote sale y si se puede vender.",
+] },
+      { h2: "Qué debe hacer un sistema POS de droguería", p: [
+        "Emitir el documento equivalente POS electrónico y, cuando el cliente la pida o la venta pase de 5 UVT, la factura electrónica de venta, como dice la Resolución 165 de 2023 de la DIAN.",
+        "Vender por caja y por unidad del mismo producto sin descuadrar el inventario, cobrar con efectivo, Nequi, Daviplata, Bre-B, QR, tarjeta o transferencia, y no duplicar una venta si se cae la red a mitad del cobro.",
+        "Sacar primero el lote que vence antes, no dejar vender un lote vencido o separado por una alerta del INVIMA y mostrar a la auxiliar qué conviene ofrecer primero.",
+] },
+      { h2: "Cómo lo hace Regenta", p: [
+        "La caja de Regenta funciona en el navegador del computador, la tableta o el celular, con lector de código de barras y teclas rápidas (F2 buscar, F9 cobrar). Cada venta queda numerada con tu resolución, nada se borra y las anulaciones llevan motivo y nota crédito.",
+        "Si un producto está agotado, la caja te muestra los parecidos que sí tienes, con el mismo principio activo y concentración, para que la venta no se pierda. Y Regenta IA te dice al final del día qué pedir y qué se te va a vencer.",
+] },
     ],
     preguntas: [["¿Funciona sin instalar nada?", "Sí, en el navegador del computador de la caja, una tableta o el celular."], ["¿Hace factura electrónica además del POS?", "Sí: en la misma caja eliges tiquete POS o factura electrónica con el cliente, de contado o a crédito."]],
     guias: ["pos-electronico-drogueria-dian", "venta-por-unidad-medicamentos-drogueria"],
   },
   {
     ruta: "farmacias", grupo: "software", corto: "Software para farmacias",
-    titulo: "Software para farmacias y droguerías en Colombia",
+    titulo: "Software para farmacias en Colombia: lotes e INVIMA",
     descripcion: "Sistema para farmacias y droguerías: facturación electrónica, inventario por lote y vencimiento, pedido sugerido, alertas INVIMA e inteligencia artificial.",
-    h1: "Software para farmacias y droguerías en Colombia",
+    h1: "Software para farmacias en Colombia",
     entradilla: "Un solo sistema para la farmacia: vender y facturar, recibir mercancía por lote, controlar vencimientos, pedir lo justo y cumplir con la secretaría de salud. Con una inteligencia artificial que responde con tus datos.",
     captura: { src: "/capturas/inicio.webp", alt: "Inicio de Regenta con las prioridades del día de la farmacia" },
     beneficios: [
@@ -236,6 +272,19 @@ export const PAGINAS: Pagina[] = [
       ["Inventario por lote", "Recepción técnica, FEFO y bloqueo de vencidos."],
       ["Pedido sugerido", "Con tus ventas de 8 semanas y el día fuerte de tu semana."],
       ["Regenta IA", "Pregúntale qué pedir o cuánto vendiste y responde con cifras."],
+    ],
+    secciones: [
+      { h2: "Qué necesita el software de una farmacia", p: [
+        "Una farmacia o farmacia-droguería necesita vender rápido, facturar ante la DIAN y llevar el inventario como lo exige el sector: por lote, con fecha de vencimiento y registro sanitario. También necesita saber qué pedir, qué se le va a vencer y si una alerta del INVIMA toca algo que tiene en la estantería.",
+        "La mayoría de programas resuelven la caja y la factura. Pocos resuelven el resto, y ahí es donde se pierde plata: en lo que se vence sin venderse, en lo que se agota el día de más venta y en el tiempo que se va revisando alertas a mano.",
+] },
+      { h2: "Lo que Regenta hace por tu farmacia", p: [
+        "Factura con POS o factura electrónica, de contado o a crédito. Recibe la mercancía por lote con su vencimiento. Vende primero lo que vence antes y no deja vender lo vencido. Calcula el pedido sugerido con tus ventas de ocho semanas y te muestra el riesgo de vencimiento en pesos meses antes.",
+        "Cruza las alertas oficiales del INVIMA con tus lotes, registros y productos, y guarda la constancia de lo que revisaste para la visita de la secretaría de salud. Y Regenta IA responde en lenguaje normal con los datos de tu farmacia.",
+] },
+      { h2: "Hecho por gente del sector", p: [
+        "Regenta lo hace Farmagenéricos Colombia, un distribuidor farmacéutico que surte droguerías. Por eso piensa como un regente y no como una tienda: el lote, la fecha y la norma están en cada pantalla.",
+] },
     ],
     preguntas: [["¿Sirve para una farmacia-droguería?", "Sí: caja, inventario por lote y vencimientos son los mismos. Si haces preparaciones magistrales, esa parte no la maneja Regenta."]],
     guias: ["requisitos-abrir-drogueria-colombia", "control-fechas-vencimiento-drogueria", "temperatura-humedad-drogueria"],

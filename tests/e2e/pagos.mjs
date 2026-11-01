@@ -64,8 +64,8 @@ const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw
 const p = await (await b.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
 const errs = []; p.on("pageerror", (e) => errs.push(e.message));
 await p.goto(B + "/contratar?plan=esencial");
-ok(await p.getByRole("radio", { name: /Esencial/ }).getAttribute("aria-checked") === "true", "contratar abre con el plan elegido");
-await p.getByRole("radio", { name: /Anual/ }).click();
+ok(await p.getByRole("button", { name: /Esencial/ }).getAttribute("aria-pressed") === "true", "contratar abre con el plan elegido");
+await p.getByRole("button", { name: /Anual/ }).click();
 ok((await p.getByText("Total a pagar hoy").locator("..").textContent()).includes("899.000"), "anual Esencial = $899.000");
 ok(await p.getByText(/QR Bancolombia/).count() >= 1, "ofrece QR Bancolombia");
 await p.getByRole("button", { name: "Pagar de forma segura" }).click();

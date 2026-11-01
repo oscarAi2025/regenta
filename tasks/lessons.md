@@ -22,3 +22,9 @@
 - Una frase de confianza también es una afirmación verificable: antes de publicar «autorizado por», buscar la fuente (web del proveedor y listado oficial de la DIAN). MATIAS se declara «software propio», no proveedor tecnológico.
 - Logos de entidades del Estado: no, aunque el proveedor tenga habilitación; sellos en texto con la norma que se cumple.
 - Pruebas de pagos: verificar la firma contra el ejemplo oficial de la pasarela, no solo contra el propio código.
+
+## 1/11/2026 · Auditoría total
+- Tailwind 3 no aplica opacidad (bg-x/95) a colores definidos como var(--x): definir los tokens como rgb(var(--x-rgb) / <alpha-value>).
+- Funciones SQL con estimaciones de filas altas disparan el JIT de Postgres (segundos de compilación): set jit = off en la función.
+- Repartir un total entre lotes redondeando cada parte deja centavos sueltos: calcular el total una vez y dar el resto al último.
+- Un sello «El más elegido» sin clientes es una afirmación falsa: usar «Recomendado».

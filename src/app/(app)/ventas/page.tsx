@@ -11,10 +11,11 @@ export const metadata = { title: "Ventas" };
 export default async function Ventas({ searchParams }: { searchParams: Promise<{ dia?: string; dian?: string }> }) {
   const s = await leerSesion();
   if (!s) redirect("/entrar");
-  if (!puede.vender(s.rol)) redirect("/inicio");
+  if (!puede.vender(s.rol)) redirect("/inicio?aviso=permiso");
   const sp = await searchParams;
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
-  const dia = /^\d{4}-\d{2}-\d{2}$/.test(sp.dia ?? "") ? sp.dia! : hoy;
+  const valida = (f?: string) => !!f && /^\d{4}-\d{2}-\d{2}$/.test(f) && new Date(f + "T12:00:00Z").toISOString().slice(0, 10) === f;
+  const dia = valida(sp.dia) ? sp.dia! : hoy;
   const dian = ["pendiente", "rechazado"].includes(sp.dian ?? "") ? sp.dian! : null;
   const filas = await comoUsuario(s, async (c) => (await c.query(`
     select v.id, v.prefijo || v.numero numero, v.total::float, v.estado, v.tipo_doc, to_char(v.creado at time zone 'America/Bogota', 'HH24:MI') hora,

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { ChatDemo } from "@/components/landing/ChatDemo";
 import { Calculadora } from "@/components/landing/Calculadora";
 import { FormDemo } from "@/components/landing/FormDemo";
@@ -7,7 +8,6 @@ import { CabeceraPublica } from "@/components/landing/Cabecera";
 import { Pie } from "@/components/landing/Pie";
 import { BarraMovil } from "@/components/landing/BarraMovil";
 import { BotonDemo } from "@/components/landing/BotonDemo";
-import { Respaldo } from "@/components/landing/Respaldo";
 import { HeroProducto } from "@/components/landing/HeroProducto";
 import { Desfile } from "@/components/landing/Desfile";
 import { Sello } from "@/components/landing/Sello";
@@ -19,7 +19,7 @@ import { mesAnual, PLANES, SOCIO } from "@/lib/planes";
 import { pesos } from "@/lib/formato";
 import { CORREO, SITIO, TELEFONO, wa } from "@/lib/sitio";
 
-const TITULO = "Software de facturación y POS para droguerías y farmacias";
+const TITULO = "Software para droguerías: POS, factura DIAN e inventario";
 const DESCRIPCION = "Facturación electrónica DIAN, POS, inventario por lote, cartera, alertas INVIMA e IA para droguerías, farmacias y distribuidoras, hecho por el sector.";
 
 export const metadata: Metadata = {
@@ -51,7 +51,7 @@ export default function Portada() {
   const ld = [
     { "@context": "https://schema.org", "@type": "SoftwareApplication", name: "Regenta", applicationCategory: "BusinessApplication", applicationSubCategory: "Software de facturación electrónica e inventario para droguerías y distribuidoras farmacéuticas",
       operatingSystem: "Web", inLanguage: "es-CO", description: DESCRIPCION, url: SITIO, image: `${SITIO}/capturas/og.png`,
-      offers: PLANES.filter((p) => p.precio).map((p) => ({ "@type": "Offer", name: p.nombre, price: p.precio, priceCurrency: "COP", url: `${SITIO}/precios` })),
+      offers: { "@type": "AggregateOffer", priceCurrency: "COP", lowPrice: Math.min(...PLANES.filter((p) => p.precio).map((p) => p.precio!)), highPrice: Math.max(...PLANES.filter((p) => p.precio).map((p) => p.precio!)), offerCount: PLANES.filter((p) => p.precio).length, url: `${SITIO}/precios` },
       publisher: { "@type": "Organization", name: "Farmagenéricos Colombia", email: CORREO, telephone: TELEFONO },
       featureList: ["Facturación electrónica: tiquete POS y factura de venta con cliente", "Venta a crédito con plazo y cartera con abonos", "Regenta IA: asistente con los datos de la droguería", "Pedido sugerido con las ventas", "Riesgo de vencimiento por lote", "Alertas sanitarias del INVIMA cruzadas con el inventario", "Caja POS con venta por unidad", "Inventario por lote y vencimiento (FEFO)", "Carga de productos desde Excel", "Usuarios con roles"] },
     { "@context": "https://schema.org", "@type": "Organization", name: "Farmagenéricos Colombia", url: SITIO, email: CORREO, telephone: TELEFONO, logo: `${SITIO}/icon.svg` },
@@ -70,10 +70,10 @@ export default function Portada() {
         <section className="fondo-hero text-white relative overflow-hidden">
           <div className="rejilla absolute inset-0" aria-hidden="true" />
           <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-10 pb-16 lg:pt-16 lg:pb-24 grid lg:grid-cols-[1.05fr_.95fr] gap-12 items-center">
-            <div className="entra">
+            <div>
               <p className="pastilla bg-white/10 border border-white/15 text-white/90"><span className="size-2 rounded-full bg-amber-300" aria-hidden="true" />Respaldado por Farmagenéricos Colombia, mayorista farmacéutico</p>
-              <h1 className="mt-5 font-cond text-[44px] sm:text-[66px] lg:text-[74px] leading-[0.95] tracking-[-0.02em]" style={{ fontWeight: 700 }}>
-                Facturación electrónica e IA para <span className="texto-degradado">droguerías, farmacias y distribuidoras</span>
+              <h1 className="mt-5 font-cond text-[38px] sm:text-[62px] lg:text-[72px] leading-[0.95] tracking-[-0.02em]" style={{ fontWeight: 700 }}>
+                Software para <span className="texto-degradado">droguerías y farmacias</span> con facturación electrónica e IA
               </h1>
               <p className="mt-6 text-lg sm:text-xl text-white/80 max-w-[34em] leading-relaxed">
                 Hecho por gente del sector farmacéutico para profesionales del sector. No es un POS genérico: factura ante la DIAN, controla cada lote, te avisa lo que se vence, cruza las alertas del INVIMA y te dice qué vender y qué pedir.
@@ -182,7 +182,7 @@ export default function Portada() {
                     <p className="mt-2 text-muted leading-relaxed">{f.descripcion}</p>
                     <p className="mt-3 font-semibold underline underline-offset-4 group-hover:text-teal-700">Ver cómo funciona</p>
                   </div>
-                  {CAPTURA[f.ruta] && <img src={CAPTURA[f.ruta]} alt={f.captura?.alt ?? f.h1} width={1440} height={900} loading="lazy" decoding="async" className="rounded-2xl border border-line w-full h-auto" />}
+                  {CAPTURA[f.ruta] && <Image src={CAPTURA[f.ruta]} alt={f.captura?.alt ?? f.h1} width={1440} height={900} sizes={i === 0 ? "(min-width: 768px) 620px, 100vw" : "(min-width: 768px) 520px, 100vw"} className="rounded-2xl border border-line w-full h-auto" />}
                 </Link>
               ))}
             </div>
@@ -206,9 +206,9 @@ export default function Portada() {
           <h2 className="font-cond text-[40px] sm:text-[52px] leading-[1]" style={{ fontWeight: 700 }}>Para todo el sector farmacéutico</h2>
           <ul className="mt-10 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              ["Droguerías", "Caja con POS y factura, venta por unidad, vencimientos y pedido.", "/para/droguerias", "border-t-teal-500"],
-              ["Farmacias-droguerías", "Todo lo de la droguería, con el control por lote que pide la norma.", "/para/droguerias", "border-t-sky-500"],
-              ["Distribuidoras", "Factura a clientes con NIT, crédito con plazo, cartera y bodega por lote.", "/para/distribuidoras", "border-t-amber-400"],
+              ["Droguerías", "Caja con POS y factura, venta por unidad, vencimientos y pedido.", "/software/pos-drogueria", "border-t-teal-500"],
+              ["Farmacias-droguerías", "Todo lo de la droguería, con el control por lote que pide la norma.", "/software/farmacias", "border-t-sky-500"],
+              ["Distribuidoras", "Factura a clientes con NIT, crédito con plazo, cartera y bodega por lote.", "/software/distribuidoras-medicamentos", "border-t-amber-400"],
               ["Regentes y dueños", "Evidencia para la visita, alertas, ventas y ganancia desde el celular.", "/para/regentes", "border-t-violet-500"],
             ].map(([t, d, h, c]) => (
               <li key={t}><Link href={h} className={`tarjeta block h-full p-6 border-t-[6px] ${c} hover:shadow-[0_24px_50px_-30px_rgba(16,42,67,.5)] transition`}>
@@ -218,16 +218,15 @@ export default function Portada() {
           </ul>
         </section>
 
-        <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-4">
+        <section className="hidden sm:block max-w-6xl mx-auto px-4 sm:px-6 pb-4">
           <p className="font-semibold text-muted">También te puede servir</p>
           <ul className="mt-3 flex flex-wrap gap-2">
-            {[["/software/facturacion-electronica-sector-salud", "Software de facturación para el sector salud"], ["/software/pos-drogueria", "Software POS para droguería"], ["/software/farmacias", "Software para farmacias"], ["/software/inventario-farmacia", "Inventario de farmacia por lote"], ["/guias/facturacion-electronica-sector-salud-rips", "Facturación en salud y RIPS"]].map(([h, t]) => (
+            {[["/software", "Software para el sector farmacéutico"], ["/software/facturacion-electronica-droguerias", "Facturación electrónica para droguerías"], ["/software/distribuidoras-medicamentos", "Software para distribuidoras de medicamentos"], ["/software/facturacion-electronica-sector-salud", "Software de facturación para el sector salud"], ["/software/pos-drogueria", "Software POS para droguería"], ["/software/farmacias", "Software para farmacias"], ["/software/inventario-farmacia", "Inventario de farmacia por lote"], ["/guias/facturacion-electronica-sector-salud-rips", "Facturación en salud y RIPS"]].map(([h, t]) => (
               <li key={h}><Link href={h} className="pastilla bg-surface border border-line hover:border-teal-600">{t}</Link></li>
             ))}
           </ul>
         </section>
 
-        <Respaldo />
 
         {/* 8. La pérdida, con sus números. */}
         <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16 lg:py-20">
@@ -280,7 +279,7 @@ export default function Portada() {
           <div className="mt-8 divide-y divide-line border-y border-line">
             {PREGUNTAS.map(([q, a]) => (
               <details key={q} className="group py-4">
-                <summary className="cursor-pointer list-none flex justify-between gap-4 font-semibold text-lg">{q}<span className="text-teal-600 text-2xl leading-none group-open:rotate-45 transition-transform" aria-hidden="true">+</span></summary>
+                <summary className="cursor-pointer list-none flex justify-between gap-4 font-semibold text-lg py-2">{q}<span className="text-teal-600 text-2xl leading-none group-open:rotate-45 transition-transform" aria-hidden="true">+</span></summary>
                 <p className="mt-2 text-muted leading-relaxed">{a}</p>
               </details>
             ))}

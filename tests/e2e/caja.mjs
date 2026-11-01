@@ -84,7 +84,7 @@ async function entrar(ctx, quien) {
   const ctx = await b.newContext();
   const { p } = await entrar(ctx, "Andrés");
   await p.goto(B + "/caja");
-  ok(p.url().endsWith("/inventario"), "bodega no entra a la caja");
+  ok(new URL(p.url()).pathname === "/inventario", "bodega no entra a la caja");
   const r = await p.request.post(B + "/api/ventas", { data: { idem_key: crypto.randomUUID(), tipo_doc: "pos", lineas: [{ producto_id: crypto.randomUUID(), presentacion: "caja", cantidad: 1 }], pagos: [{ medio: "efectivo", valor: 1000 }] } });
   ok(r.status() === 403 || r.status() === 422, "la API de ventas rechaza a bodega", `${r.status()}`);
   await ctx.close();
@@ -115,7 +115,7 @@ async function entrar(ctx, quien) {
   ok(await barra.isVisible(), "móvil: barra fija con el total al agregar");
   await p.screenshot({ path: `${OUT}/movil-barra.png` });
   await barra.getByRole("button", { name: "Cobrar" }).click();
-  await p.getByRole("radio", { name: "Nequi" }).click();
+  await p.getByRole("button", { name: "Nequi" }).click();
   await p.getByRole("button", { name: /Confirmar/ }).click();
   await p.waitForSelector("text=Venta registrada", { timeout: 15000 });
   ok(true, "móvil: venta cobrada con Nequi");

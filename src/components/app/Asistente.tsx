@@ -40,12 +40,12 @@ export function Asistente({ activa }: { activa: boolean }) {
   return (
     <>
       {!abierto && !ruta.startsWith("/caja") && (
-        <button onClick={() => { setAbierto(true); setTimeout(() => campo.current?.focus(), 50); }} className="fixed z-40 right-4 bottom-20 lg:bottom-6 h-12 pl-2 pr-4 rounded-full bg-ink text-white shadow-[0_12px_30px_-10px_rgba(16,42,67,.7)] inline-flex items-center gap-2 font-semibold hover:brightness-125">
-          <span className="rounded-full bg-white/10 p-1"><Isotipo size={26} claro /></span> Regenta IA
+        <button onClick={() => { setAbierto(true); setTimeout(() => campo.current?.focus(), 50); }} aria-label="Abrir Regenta IA" className="fixed z-40 right-3 bottom-4 lg:right-5 lg:bottom-5 size-14 lg:size-auto lg:h-12 lg:pl-2 lg:pr-4 rounded-full bg-ink text-white shadow-[0_12px_30px_-10px_rgba(16,42,67,.7)] inline-flex items-center justify-center gap-2 font-semibold hover:brightness-125">
+          <span className="rounded-full bg-white/10 p-1"><Isotipo size={26} claro /></span><span className="hidden lg:inline">Regenta IA</span>
         </button>
       )}
       {abierto && (
-        <section role="dialog" aria-label="Regenta IA" className="fixed z-50 inset-x-0 bottom-0 sm:inset-auto sm:right-4 sm:bottom-4 sm:w-[420px] h-[85vh] sm:h-[600px] bg-surface sm:rounded-2xl rounded-t-2xl shadow-2xl border border-line flex flex-col">
+        <section role="dialog" aria-modal="true" aria-label="Regenta IA" className="fixed z-50 inset-x-0 bottom-0 sm:inset-auto sm:right-4 sm:bottom-4 sm:w-[420px] h-[85vh] sm:h-[600px] bg-surface sm:rounded-2xl rounded-t-2xl shadow-2xl border border-line flex flex-col">
           <header className="flex items-center gap-3 px-4 h-14 border-b border-line">
             <Isotipo size={28} />
             <div className="flex-1"><p className="titulo text-lg leading-none">Regenta IA</p><p className="text-xs text-muted">Responde con los datos de tu droguería</p></div>

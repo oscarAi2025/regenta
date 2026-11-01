@@ -32,34 +32,34 @@ export function FormContratar({ plan: inicial, planes, activos }: { plan: "esenc
     <form onSubmit={pagar} className="tarjeta p-5 sm:p-8 grid gap-6" aria-label="Contratar Regenta">
       <fieldset>
         <legend className="font-cond text-2xl" style={{ fontWeight: 700 }}>1. Tu plan</legend>
-        <div className="mt-3 grid sm:grid-cols-2 gap-3" role="radiogroup" aria-label="Plan">
+        <div className="mt-3 grid sm:grid-cols-2 gap-3" role="group" aria-label="Plan">
           {planes.map((p) => (
-            <button type="button" key={p.id} role="radio" aria-checked={plan === p.id} onClick={() => setPlan(p.id)}
+            <button type="button" key={p.id} aria-pressed={plan === p.id} onClick={() => setPlan(p.id)}
               className={`rounded-2xl border-2 p-4 text-left ${plan === p.id ? "border-teal-600 bg-teal-50" : "border-line"}`}>
-              <span className="block font-cond text-2xl" style={{ fontWeight: 700 }}>{p.nombre}</span>
+              <span className="flex items-center justify-between gap-2"><span className="font-cond text-2xl" style={{ fontWeight: 700 }}>{p.nombre}</span>{plan === p.id && <span className="pastilla h-7 text-[12px] bg-teal-600 text-white">✓ Seleccionado</span>}</span>
               <span className="block text-sm text-muted">{p.para}</span>
               <span className="block mt-1 num font-semibold">{pesos(p.precio)} / mes</span>
             </button>
           ))}
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-paper p-1" role="radiogroup" aria-label="Periodo">
+        <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-paper p-1" role="group" aria-label="Periodo">
           {([["mes", "Mensual"], ["anio", "Anual · 2 meses gratis"]] as const).map(([k, t]) => (
-            <button type="button" key={k} role="radio" aria-checked={periodo === k} onClick={() => setPeriodo(k)} className={`h-11 rounded-lg text-sm font-semibold ${periodo === k ? "bg-ink text-white" : "text-muted"}`}>{t}</button>
+            <button type="button" key={k} aria-pressed={periodo === k} onClick={() => setPeriodo(k)} className={`h-11 rounded-lg text-sm font-semibold ${periodo === k ? "bg-ink text-white" : "text-muted"}`}>{t}</button>
           ))}
         </div>
       </fieldset>
 
       <fieldset>
         <legend className="font-cond text-2xl" style={{ fontWeight: 700 }}>2. Cómo pagas</legend>
-        <div className="mt-3 grid gap-3" role="radiogroup" aria-label="Medio de pago">
+        <div className="mt-3 grid gap-3" role="group" aria-label="Medio de pago">
           {activos.wompi && (
-            <button type="button" role="radio" aria-checked={proveedor === "wompi"} onClick={() => setProveedor("wompi")} className={`rounded-2xl border-2 p-4 text-left ${proveedor === "wompi" ? "border-teal-600 bg-teal-50" : "border-line"}`}>
+            <button type="button" aria-pressed={proveedor === "wompi"} onClick={() => setProveedor("wompi")} className={`rounded-2xl border-2 p-4 text-left ${proveedor === "wompi" ? "border-teal-600 bg-teal-50" : "border-line"}`}>
               <span className="block font-semibold">Pago en Colombia</span>
               <span className="block text-sm text-muted">Tarjeta, PSE, Nequi, Daviplata, Botón Bancolombia o código QR Bancolombia. Pasarela Wompi.</span>
             </button>
           )}
           {activos.stripe && (
-            <button type="button" role="radio" aria-checked={proveedor === "stripe"} onClick={() => setProveedor("stripe")} className={`rounded-2xl border-2 p-4 text-left ${proveedor === "stripe" ? "border-teal-600 bg-teal-50" : "border-line"}`}>
+            <button type="button" aria-pressed={proveedor === "stripe"} onClick={() => setProveedor("stripe")} className={`rounded-2xl border-2 p-4 text-left ${proveedor === "stripe" ? "border-teal-600 bg-teal-50" : "border-line"}`}>
               <span className="block font-semibold">Tarjeta con renovación automática</span>
               <span className="block text-sm text-muted">Visa, Mastercard o American Express; se cobra solo cada {periodo === "anio" ? "año" : "mes"}. Pasarela Stripe.</span>
             </button>
@@ -75,11 +75,11 @@ export function FormContratar({ plan: inicial, planes, activos }: { plan: "esenc
         <div><label htmlFor="c-nit" className="etiqueta">NIT o cédula <span className="font-normal text-muted">(para tu factura)</span></label><input id="c-nit" className="campo num" inputMode="numeric" value={f.nit} onChange={(e) => setF({ ...f, nit: e.target.value })} /></div>
         <div><label htmlFor="c-tel" className="etiqueta">Celular (WhatsApp)</label><input id="c-tel" className="campo num" required inputMode="tel" autoComplete="tel" value={f.telefono} onChange={(e) => setF({ ...f, telefono: e.target.value })} /></div>
         <div className="sm:col-span-2"><label htmlFor="c-email" className="etiqueta">Correo</label><input id="c-email" type="email" className="campo" required autoComplete="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></div>
-        <label className="sm:col-span-2 flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={f.acepta} onChange={(e) => setF({ ...f, acepta: e.target.checked })} />
+        <label className="sm:col-span-2 flex items-start gap-3 text-[15px] py-2 cursor-pointer"><input type="checkbox" required className="mt-0.5 size-6 shrink-0 accent-teal-600" checked={f.acepta} onChange={(e) => setF({ ...f, acepta: e.target.checked })} />
           <span>Autorizo el tratamiento de mis datos según la <Link href="/privacidad" className="underline">política de datos</Link> para activar y facturar mi plan.</span></label>
       </fieldset>
 
-      <div className="rounded-2xl degradado-marca text-white p-5 flex flex-wrap items-center justify-between gap-4">
+      <div className="sticky bottom-2 z-20 rounded-2xl degradado-marca text-white p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 shadow-[0_20px_40px_-20px_rgba(14,116,144,.8)]">
         <div><p className="text-white/80 text-sm">Total a pagar hoy</p><p className="num font-cond text-[40px] leading-none" style={{ fontWeight: 700 }}>{pesos(total)}</p>
           <p className="text-white/75 text-sm">{elegido.nombre} · {periodo === "anio" ? `12 meses por el precio de 10 (ahorras ${pesos(elegido.precio * 2)})` : "1 mes"}</p></div>
         <button disabled={enviando} className="btn-cta h-14 px-8 text-lg disabled:opacity-60">{enviando ? "Abriendo el pago…" : "Pagar de forma segura"}</button>

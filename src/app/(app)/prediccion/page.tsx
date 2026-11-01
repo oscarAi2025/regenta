@@ -16,7 +16,7 @@ type Quieto = { id: string; nombre: string; laboratorio: string | null; unidades
 export default async function Prediccion({ searchParams }: { searchParams: Promise<{ ver?: string }> }) {
   const s = await leerSesion();
   if (!s) redirect("/entrar");
-  if (!puede.moverInventario(s.rol)) redirect("/caja");
+  if (!puede.moverInventario(s.rol)) redirect("/caja?aviso=permiso");
   const { ver = "pedido" } = await searchParams;
   const costos = puede.verCostos(s.rol);
   const d = await comoUsuario(s, async (c) => {

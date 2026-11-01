@@ -28,3 +28,24 @@ export function mismoOrigen(req: Request) {
 }
 
 export const esUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+
+/** IP del visitante según el proxy de la plataforma (no la primera de x-forwarded-for, que la puede escribir el cliente). */
+export function ipCliente(req: Request) {
+  const h = req.headers;
+  const plataforma = h.get("x-nf-client-connection-ip") ?? h.get("x-vercel-forwarded-for") ?? h.get("x-real-ip");
+  if (plataforma) return plataforma.trim();
+  const xff = (h.get("x-forwarded-for") ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+  return xff.at(-1) ?? "local"; // el último lo agrega el proxy más cercano
+}
+
+/** Límite de peticiones en memoria por clave y ventana; limpia lo viejo para no crecer sin fin. */
+export function limitador(max: number, ventanaMs: number) {
+  const mapa = new Map<string, number[]>();
+  return (clave: string) => {
+    const ahora = Date.now();
+    if (mapa.size > 5000) for (const [k, v] of mapa) if (!v.some((t) => ahora - t < ventanaMs)) mapa.delete(k);
+    const v = (mapa.get(clave) ?? []).filter((t) => ahora - t < ventanaMs);
+    if (v.length >= max) { mapa.set(clave, v); return false; }
+    v.push(ahora); mapa.set(clave, v); return true;
+  };
+}

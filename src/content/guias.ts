@@ -10,6 +10,103 @@ export type Guia = {
 
 export const GUIAS: Guia[] = [
   {
+    slug: "como-elegir-software-drogueria",
+    titulo: "Cómo elegir software para droguería: 12 criterios",
+    descripcion: "Los 12 criterios para elegir el mejor software para tu droguería en Colombia: facturación DIAN, lotes, vencimientos, alertas INVIMA, precio real y soporte.",
+    h1: "Cómo elegir el mejor software para tu droguería",
+    entradilla: "Casi todos los programas prometen facturación electrónica. La diferencia está en lo que pasa después de cobrar: el lote que sale, lo que se vence, la alerta del INVIMA y lo que cuesta de verdad al final del año. Estos son los criterios que usamos como distribuidor que ve droguerías todos los días.",
+    actualizada: "2026-11-01",
+    bloques: [
+      { h2: "Lo básico: facturar y cobrar", lista: [
+        "1. POS electrónico y factura electrónica de venta en la misma caja, según la Resolución 165 de 2023 de la DIAN.",
+        "2. Certificado digital y habilitación ante la DIAN incluidos, o con su costo dicho desde el principio.",
+        "3. Que una venta no se duplique ni se pierda si se cae internet a mitad del cobro, y que nada se pueda borrar: se anula con motivo.",
+        "4. Todos los medios de pago del mostrador: efectivo, Nequi, Daviplata, Bre-B, QR, tarjeta y transferencia." ] },
+      { h2: "Lo que separa a un software de droguería de un POS genérico", lista: [
+        "5. Inventario por lote y fecha de vencimiento en cada movimiento, con venta del lote que vence primero.",
+        "6. Bloqueo de la venta de lotes vencidos.",
+        "7. Venta por caja y por unidad del mismo producto sin descuadrar el inventario.",
+        "8. Alertas sanitarias del INVIMA cruzadas con tus lotes y registros sanitarios, con constancia de la revisión.",
+        "9. Pedido sugerido calculado con tus ventas, no a ojo." ] },
+      { h2: "Lo que define si te sirve en el día a día", lista: [
+        "10. Precio real del año: plan, documentos incluidos y lo que cuesta pasarse del tope, certificado e implementación.",
+        "11. Que funcione en el navegador del computador, la tableta y el celular, sin instalar nada.",
+        "12. Soporte por WhatsApp de gente que conozca el sector, y que puedas probarlo antes de pagar." ],
+        nota: "Pide siempre una demostración con datos parecidos a los tuyos y revisa la página de precios del proveedor: los precios cambian." },
+      { h2: "Cómo usar estos criterios", p: [
+        "Haz una tabla con los programas que estés mirando y marca cada criterio. Los primeros cuatro los cumplen casi todos; del 5 al 9 está la diferencia entre un programa para tienda y uno para droguería; el 10 te evita sorpresas en la factura del proveedor." ] },
+    ],
+    preguntas: [
+      ["¿Cuál es el mejor software para droguería?", "El que cumpla los 12 criterios a un precio que puedas sostener. Para una droguería pesan más el control por lote y vencimiento y las alertas del INVIMA que funciones de tienda general."],
+      ["¿Un POS genérico sirve para una droguería?", "Sirve para cobrar y facturar, pero normalmente no lleva el inventario por lote, no bloquea vencidos ni cruza las alertas del INVIMA, que es donde una droguería pierde plata o se expone en la visita."],
+    ],
+    fuentes: [
+      ["Resolución DIAN 000165 de 2023 (normograma DIAN)", "https://normograma.dian.gov.co/dian/compilacion/docs/resolucion_dian_0165_2023.htm"],
+      ["Alertas sanitarias del INVIMA", "https://www.invima.gov.co/"],
+    ],
+    relacionadas: ["cuanto-cuesta-software-drogueria", "pos-electronico-drogueria-dian"],
+    cta: { titulo: "Regenta cumple los 12", texto: "Facturación DIAN con certificado incluido, lotes y vencimientos, alertas INVIMA, pedido sugerido e IA. Pruébalo en un clic, sin registro." },
+  },
+  {
+    slug: "cambiar-software-drogueria",
+    titulo: "Cambiar de software de droguería sin perder datos",
+    descripcion: "Cómo pasar de tu programa actual a uno nuevo sin perder productos, existencias por lote ni la numeración DIAN: pasos, qué exportar y en qué orden.",
+    h1: "Cómo cambiar de software de droguería sin perder inventario ni lotes",
+    entradilla: "Cambiar de programa da miedo por una razón: perder el inventario o quedarse un día sin poder facturar. Con un orden claro se hace en un fin de semana. Este es el que recomendamos.",
+    actualizada: "2026-11-01",
+    bloques: [
+      { h2: "Antes de cambiar", pasos: [
+        "Exporta desde tu programa actual la lista de productos con código de barras, precio de venta y unidades por caja (casi todos exportan a Excel).",
+        "Exporta las existencias. Si tu programa no lleva lotes, haz un conteo físico por lote y fecha de vencimiento: es el momento de empezar bien.",
+        "Revisa tu resolución de numeración con la DIAN: el programa nuevo debe usar una numeración vigente y no repetir números ya usados.",
+        "Elige un día de poco movimiento para el cambio y avisa al equipo." ] },
+      { h2: "El día del cambio", pasos: [
+        "Carga los productos en el programa nuevo desde el Excel.",
+        "Registra las existencias como inventario inicial, por lote y con su fecha de vencimiento.",
+        "Haz una venta de prueba con POS y otra con factura electrónica, y una anulación, antes de abrir.",
+        "Deja el programa viejo solo para consulta: no vendas en los dos a la vez." ] },
+      { h2: "Después del cambio", lista: [
+        "Revisa en la primera semana que los totales de caja cuadren con los medios de pago.",
+        "Confirma con tu contador cómo guardar la información del programa anterior.",
+        "Capacita a cada auxiliar con su usuario y su rol." ] },
+    ],
+    preguntas: [
+      ["¿Pierdo el historial de ventas?", "El historial queda en tu programa anterior y en los documentos electrónicos ya reportados. En el programa nuevo empiezas con productos y existencias; las ventas nuevas se registran desde ese día."],
+      ["¿Regenta me ayuda a pasarme?", "Sí. Puedes cargar tus productos desde Excel y, en el plan Pro, los cargamos nosotros. También te acompañamos en la primera venta."],
+    ],
+    fuentes: [["Resolución DIAN 000165 de 2023 (normograma DIAN)", "https://normograma.dian.gov.co/dian/compilacion/docs/resolucion_dian_0165_2023.htm"]],
+    relacionadas: ["como-elegir-software-drogueria", "inventario-por-lotes-drogueria"],
+    cta: { titulo: "Te pasamos tus productos", texto: "Carga desde Excel incluida; en el plan Pro lo hacemos nosotros. Certificado digital y habilitación DIAN incluidos." },
+  },
+  {
+    slug: "kardex-drogueria",
+    titulo: "Kardex de droguería: cómo llevarlo por lote",
+    descripcion: "Qué es el kardex de una droguería, qué debe registrar cada movimiento (lote, vencimiento, entrada, salida, saldo) y cómo llevarlo sin cuaderno ni Excel.",
+    h1: "Kardex de droguería por lote y vencimiento",
+    entradilla: "El kardex es la historia de cada producto: qué entró, qué salió y cuánto queda. En una droguería no basta con el producto: hay que saber de qué lote y con qué fecha de vencimiento.",
+    actualizada: "2026-11-01",
+    bloques: [
+      { h2: "Qué es el kardex", p: [
+        "Es el registro de todos los movimientos de inventario de un producto, en orden: compras, ventas, devoluciones, ajustes y bajas, con el saldo después de cada uno. Sirve para saber cuánto tienes, para cuadrar el inventario físico y para responder de dónde salió cada unidad." ] },
+      { h2: "Qué debe registrar cada movimiento en una droguería", lista: [
+        "Fecha y hora, y quién lo hizo.",
+        "Producto, lote y fecha de vencimiento.",
+        "Tipo de movimiento: compra, venta, devolución, ajuste, baja por vencimiento o avería.",
+        "Cantidad que entra o sale, en unidades exactas (también las vendidas sueltas).",
+        "Saldo resultante del lote y del producto.",
+        "Documento de soporte: factura del proveedor, POS o factura electrónica, acta de baja." ] },
+      { h2: "Por qué el cuaderno y el Excel se quedan cortos", p: [
+        "A mano, el kardex se atrasa el día de más venta, no cuadra con las unidades sueltas y cualquiera puede borrar una fila. Un sistema lo arma solo con cada venta y cada recepción, por lote, y no deja borrar: los errores se corrigen con un ajuste que queda registrado." ] },
+    ],
+    preguntas: [
+      ["¿El kardex se lleva por producto o por lote?", "Por producto y, en una droguería, también por lote: así sabes qué lote vendiste, cuál vence primero y qué separar si sale una alerta."],
+      ["¿Regenta lleva el kardex?", "Sí. Cada venta, recepción, ajuste y anulación queda como movimiento del lote, con quién lo hizo y cuándo; nada se borra."],
+    ],
+    fuentes: [["Alertas sanitarias del INVIMA", "https://www.invima.gov.co/"]],
+    relacionadas: ["inventario-por-lotes-drogueria", "control-fechas-vencimiento-drogueria"],
+    cta: { titulo: "Kardex automático por lote", texto: "Regenta registra cada movimiento por lote y vencimiento, sin cuaderno ni Excel, y te muestra el saldo al instante." },
+  },
+  {
     slug: "facturacion-electronica-sector-salud-rips",
     titulo: "Facturación electrónica en salud y RIPS: guía 2026",
     descripcion: "Qué exige la Resolución 948 de 2026 a IPS y prestadores (RIPS como soporte de la factura electrónica) y qué cambia o no para droguerías y distribuidoras.",

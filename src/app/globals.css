@@ -1,10 +1,10 @@
-@import "@fontsource/barlow/400.css";
-@import "@fontsource/barlow/500.css";
-@import "@fontsource/barlow/600.css";
-@import "@fontsource/barlow/700.css";
-@import "@fontsource/barlow-semi-condensed/500.css";
-@import "@fontsource/barlow-semi-condensed/600.css";
-@import "@fontsource/barlow-semi-condensed/700.css";
+/* Solo el alfabeto latino (español): menos peso por página. */
+@import "@fontsource/barlow/latin-400.css";
+@import "@fontsource/barlow/latin-500.css";
+@import "@fontsource/barlow/latin-600.css";
+@import "@fontsource/barlow/latin-700.css";
+@import "@fontsource/barlow-semi-condensed/latin-600.css";
+@import "@fontsource/barlow-semi-condensed/latin-700.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -26,6 +26,19 @@
   --aviso-soft: #fdf0dc;
   --marca: #2fc4b8;
   --tirilla: #fffefa;
+  --ink-rgb: 16 42 67;
+  --paper-rgb: 233 239 237;
+  --surface-rgb: 255 255 255;
+  --line-rgb: 211 220 217;
+  --muted-rgb: 85 103 111;
+  --cruz-rgb: 11 122 85;
+  --cruz-ink-rgb: 255 255 255;
+  --cruz-soft-rgb: 220 241 232;
+  --alerta-rgb: 180 35 24;
+  --alerta-soft-rgb: 253 232 230;
+  --aviso-rgb: 163 83 10;
+  --aviso-soft-rgb: 253 240 220;
+  --marca-rgb: 47 196 184;
   color-scheme: light;
 }
 
@@ -97,5 +110,5 @@ kbd { font-family: "Barlow Semi Condensed", sans-serif; font-weight: 600; font-s
 @layer components {
   .btn-cta { @apply btn bg-amber-400 text-[#0b1f33] hover:bg-amber-300; box-shadow: 0 14px 34px -12px rgba(251, 191, 36, .75); }
   .btn-vidrio { @apply btn border-2 border-white/25 text-white hover:border-white hover:bg-white/5; }
-  .pastilla { @apply inline-flex items-center gap-2 rounded-full px-3.5 h-9 text-[14px] font-semibold; }
+  .pastilla { @apply inline-flex items-center gap-2 rounded-full px-3.5 min-h-9 py-1 text-[14px] leading-tight font-semibold; }
 }

@@ -3,6 +3,12 @@ const csp = ["default-src 'self'", "script-src 'self' 'unsafe-inline'", "style-s
 export default {
   poweredByHeader: false,
   reactStrictMode: true,
+  async redirects() {
+    return [
+      { source: "/para/droguerias", destination: "/", permanent: true },
+      { source: "/para/distribuidoras", destination: "/software/distribuidoras-medicamentos", permanent: true },
+    ];
+  },
   async headers() {
     return [{ source: "/:path*", headers: [
       { key: "Content-Security-Policy", value: csp },

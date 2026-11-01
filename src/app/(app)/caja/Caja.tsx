@@ -9,7 +9,7 @@ type Producto = {
 };
 type Linea = { key: string; p: Producto; presentacion: "caja" | "unidad"; cantidad: number };
 type Medio = "efectivo" | "transferencia" | "nequi" | "daviplata" | "tarjeta" | "bre_b" | "qr";
-type Resultado = { venta: { prefijo: string; numero: number; total: number; cambio: number; base: number; iva: number; credito?: boolean; vence_pago?: string | null }; documento: { tipo: "pos" | "factura"; estado: string; cufe: string | null; simulado: boolean; ultimo_error: string | null } };
+type Resultado = { venta: { prefijo: string; numero: number; total: number; cambio: number; base: number; iva: number; credito?: boolean; vence_pago?: string | null; repetida?: boolean }; documento: { tipo: "pos" | "factura"; estado: string; cufe: string | null; simulado: boolean; ultimo_error: string | null } };
 const PLAZOS = [15, 30, 45, 60, 90];
 const fechaCorta = (f: string) => new Date(f + "T00:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
 
@@ -169,10 +169,10 @@ export function Caja({ fiar }: { fiar: boolean }) {
           <label htmlFor="buscar" className="sr-only">Buscar producto o escanear código de barras</label>
           <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
           <input id="buscar" ref={buscador} autoFocus value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={teclaBuscador}
-            placeholder="Buscar o escanear código" autoComplete="off" spellCheck={false}
+            placeholder="Buscar o escanear" autoComplete="off" spellCheck={false}
             className="w-full h-16 rounded-2xl bg-surface border-2 border-line focus:border-ink outline-none pl-13 pr-24 text-xl"
             style={{ paddingLeft: 52 }} />
-          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted">{buscando ? "Buscando…" : <kbd>F2</kbd>}</span>
+          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted">{buscando ? "Buscando…" : <kbd className="hidden sm:inline">F2</kbd>}</span>
         </div>
 
         {res.length > 0 ? (
@@ -191,7 +191,7 @@ export function Caja({ fiar }: { fiar: boolean }) {
               </ul>
             </section>
           )}
-          <div className="mt-6 grid sm:grid-cols-3 gap-3 text-sm text-muted">
+          <div className="mt-6 hidden sm:grid sm:grid-cols-3 gap-3 text-sm text-muted">
             <p><kbd>F2</kbd> buscar o escanear</p>
             <p><kbd>↑</kbd> <kbd>↓</kbd> elegir · <kbd>Enter</kbd> agregar caja</p>
             <p><kbd>F9</kbd> cobrar · <kbd>Esc</kbd> volver</p>
@@ -208,6 +208,9 @@ export function Caja({ fiar }: { fiar: boolean }) {
             <p className="font-cond text-2xl num" style={{ fontWeight: 700 }}>{hecho.venta.prefijo}{hecho.venta.numero}</p>
             <div className="corte my-5" />
             <div className="flex items-baseline justify-between"><span>Total</span><span className="num font-cond text-2xl" style={{ fontWeight: 700 }}>{pesos(hecho.venta.total)}</span></div>
+            {hecho.venta.repetida && (
+              <p role="alert" className="mt-4 rounded-xl bg-alerta-soft text-alerta px-4 py-3 font-semibold">Esta venta ya se había registrado antes del corte de conexión. Revisa la tirilla: si agregaste productos después, no se cobraron; regístralos en una venta nueva.</p>
+            )}
             {hecho.venta.credito && hecho.venta.vence_pago && (
               <p className="mt-4 rounded-xl bg-aviso-soft text-aviso px-4 py-3 font-semibold">A crédito · vence el {fechaCorta(hecho.venta.vence_pago)}. Queda en Cartera para registrar los abonos.</p>
             )}
@@ -232,15 +235,39 @@ export function Caja({ fiar }: { fiar: boolean }) {
               <h2 className="font-cond text-xl" style={{ fontWeight: 700 }}>Venta</h2>
               <span className="text-sm text-muted num">{totales.items} artículo{totales.items === 1 ? "" : "s"}</span>
             </div>
-            <div className="px-6 pt-3" role="radiogroup" aria-label="Documento">
+            <div className="px-6 pt-3" role="group" aria-label="Documento">
               <div className="grid grid-cols-2 gap-1 rounded-xl bg-paper p-1">
                 {([["pos", "Tiquete POS"], ["factura", "Factura electrónica"]] as const).map(([k, t]) => (
-                  <button key={k} role="radio" aria-checked={tipoDoc === k} onClick={() => { setTipoDoc(k); if (k === "pos") setCredito(false); setError(""); }}
+                  <button key={k} aria-pressed={tipoDoc === k} onClick={() => { setTipoDoc(k); if (k === "pos") setCredito(false); setError(""); }}
                     className={`h-10 rounded-lg text-sm font-semibold ${tipoDoc === k ? "bg-ink text-white" : "text-muted"}`}>{t}</button>
                 ))}
               </div>
             </div>
             {tipoDoc === "factura" && <ClienteFactura cliente={cliente} onCambio={setCliente} />}
+            {tipoDoc === "factura" && fiar && (
+                  <div className="px-6 pt-3">
+                    <p className="text-sm font-semibold mb-2">Forma de pago</p>
+                    <div className="grid grid-cols-2 gap-2" role="group" aria-label="Forma de pago">
+                      {([[false, "Contado"], [true, "Crédito"]] as const).map(([v, t]) => (
+                        <button key={t} aria-pressed={credito === v} onClick={() => setCredito(v)}
+                          className={`h-11 rounded-lg border-2 text-sm font-semibold ${credito === v ? "border-ink bg-ink text-white" : "border-line"}`}>{t}</button>
+                      ))}
+                    </div>
+                    {credito && (
+                      <div className="mt-3">
+                        <p className="text-sm font-semibold mb-2">Plazo</p>
+                        <div className="flex flex-wrap gap-2" role="group" aria-label="Plazo de pago">
+                          {PLAZOS.map((d) => (
+                            <button key={d} aria-pressed={plazo === d} onClick={() => setPlazo(d)}
+                              className={`h-9 px-3 rounded-lg border-2 text-sm font-semibold num ${plazo === d ? "border-ink bg-ink text-white" : "border-line"}`}>{d} días</button>
+                          ))}
+                        </div>
+                        <p className="mt-2 text-sm text-muted">{cliente ? `${cliente.nombre} (${documento(cliente)})` : "El cliente"} paga a {plazo} días. Los abonos se registran en Cartera.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
             <div className="pb-3" />
             <div className="corte" />
             {lineas.length === 0 ? (
@@ -258,9 +285,9 @@ export function Caja({ fiar }: { fiar: boolean }) {
                       </div>
                       <div className="mt-2 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-1">
-                          <button aria-label="Uno menos" onClick={() => setLineas((ls) => ls.map((x) => x.key === l.key ? { ...x, cantidad: Math.max(1, x.cantidad - 1) } : x))} className="size-8 rounded-lg border border-line text-lg leading-none">−</button>
+                          <button aria-label="Uno menos" onClick={() => setLineas((ls) => ls.map((x) => x.key === l.key ? { ...x, cantidad: Math.max(1, x.cantidad - 1) } : x))} className="size-10 sm:size-8 rounded-lg border border-line text-lg leading-none">−</button>
                           <span className="num w-8 text-center font-semibold">{l.cantidad}</span>
-                          <button aria-label="Uno más" onClick={() => setLineas((ls) => ls.map((x) => x.key === l.key ? { ...x, cantidad: x.cantidad + 1 } : x))} className="size-8 rounded-lg border border-line text-lg leading-none">+</button>
+                          <button aria-label="Uno más" onClick={() => setLineas((ls) => ls.map((x) => x.key === l.key ? { ...x, cantidad: x.cantidad + 1 } : x))} className="size-10 sm:size-8 rounded-lg border border-line text-lg leading-none">+</button>
                           <span className="ml-2 text-sm text-muted">{l.presentacion === "caja" ? (l.p.unidades_por_caja > 1 ? `caja x${l.p.unidades_por_caja}` : "und") : "unidad"} · {pesos(precio)}</span>
                         </div>
                         <span className="num font-semibold">{pesos(precio * l.cantidad)}</span>
@@ -283,34 +310,11 @@ export function Caja({ fiar }: { fiar: boolean }) {
 
             {cobrando ? (
               <div className="px-6 pt-5">
-                {tipoDoc === "factura" && fiar && (
-                  <div className="mb-4">
-                    <p className="text-sm font-semibold mb-2">Forma de pago</p>
-                    <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Forma de pago">
-                      {([[false, "Contado"], [true, "Crédito"]] as const).map(([v, t]) => (
-                        <button key={t} role="radio" aria-checked={credito === v} onClick={() => setCredito(v)}
-                          className={`h-11 rounded-lg border-2 text-sm font-semibold ${credito === v ? "border-ink bg-ink text-white" : "border-line"}`}>{t}</button>
-                      ))}
-                    </div>
-                    {credito && (
-                      <div className="mt-3">
-                        <p className="text-sm font-semibold mb-2">Plazo</p>
-                        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Plazo de pago">
-                          {PLAZOS.map((d) => (
-                            <button key={d} role="radio" aria-checked={plazo === d} onClick={() => setPlazo(d)}
-                              className={`h-9 px-3 rounded-lg border-2 text-sm font-semibold num ${plazo === d ? "border-ink bg-ink text-white" : "border-line"}`}>{d} días</button>
-                          ))}
-                        </div>
-                        <p className="mt-2 text-sm text-muted">{cliente ? `${cliente.nombre} (${documento(cliente)})` : "El cliente"} paga a {plazo} días. Los abonos se registran en Cartera.</p>
-                      </div>
-                    )}
-                  </div>
-                )}
                 {!aCredito && <>
                 <p className="text-sm font-semibold mb-2">Medio de pago</p>
-                <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Medio de pago">
+                <div className="grid grid-cols-3 gap-2" role="group" aria-label="Medio de pago">
                   {MEDIOS.map((m) => (
-                    <button key={m.id} role="radio" aria-checked={medio === m.id} onClick={() => setMedio(m.id)}
+                    <button key={m.id} aria-pressed={medio === m.id} onClick={() => setMedio(m.id)}
                       className={`h-11 rounded-lg border-2 text-sm font-semibold ${medio === m.id ? "border-ink bg-ink text-white" : "border-line"}`}>{m.label}</button>
                   ))}
                 </div>
@@ -382,8 +386,8 @@ function Fila({ p, activo, onHover, agregar }: { p: Producto; activo: boolean; o
       {agotado && <Alternativas id={p.id} agregar={agregar} />}
       <div className="flex gap-2">
         <button onClick={() => agregar(p, "caja")} disabled={agotado}
-          className="num rounded-xl border-2 border-ink px-3 py-2 text-left leading-tight hover:bg-ink hover:text-white disabled:pointer-events-none">
-          <span className="block text-[11px] font-semibold uppercase tracking-wide opacity-70">{p.unidades_por_caja > 1 ? `Caja x${p.unidades_por_caja}` : "Und"}</span>
+          className="num rounded-xl border-2 border-ink px-3 py-2 text-left leading-tight hover:bg-ink hover:text-white disabled:pointer-events-none disabled:opacity-40 disabled:border-line">
+          <span className="block text-[11px] font-semibold uppercase tracking-wide opacity-70">{agotado ? "Agotado" : p.unidades_por_caja > 1 ? `Caja x${p.unidades_por_caja}` : "Und"}</span>
           <span className="block font-cond text-lg" style={{ fontWeight: 700 }}>{pesos(p.precio_caja)}</span>
         </button>
         {p.precio_unidad !== null && p.unidades_por_caja > 1 && (

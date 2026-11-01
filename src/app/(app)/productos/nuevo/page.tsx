@@ -8,6 +8,6 @@ export const metadata = { title: "Agregar producto" };
 export default async function Nuevo() {
   const s = await leerSesion();
   if (!s) redirect("/entrar");
-  if (s.rol !== "dueno" && s.rol !== "admin") redirect("/productos");
+  if (s.rol !== "dueno" && s.rol !== "admin") redirect("/productos?aviso=permiso");
   return <main className="p-4 sm:p-6 grid gap-5"><Cabecera titulo="Agregar producto" sub="Búscalo en el catálogo Regenta y solo pon tu precio, o créalo a mano." /><ProductoForm /></main>;
 }
