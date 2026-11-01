@@ -1,0 +1,98 @@
+import { redirect } from "next/navigation";
+import { comoUsuario } from "@/lib/db";
+import { leerSesion, puede } from "@/lib/sesion";
+
+export const metadata = { title: "Inventario" };
+
+const pesos = (n: number) => "$" + Math.round(n).toLocaleString("es-CO");
+const fmt = (d: string | null) => (d ? new Date(d + "T00:00:00").toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" }) : "—");
+const dias = (d: string | null) => (d ? Math.round((Date.parse(d + "T00:00:00") - Date.now()) / 864e5) : null);
+
+type Fila = { id: string; nombre: string; laboratorio: string | null; unidades_por_caja: number; precio_caja: number; unidades: number; stock_minimo: number;
+  lotes: { lote: string; vence: string | null; unidades: number; costo: number | null }[] };
+
+export default async function Inventario({ searchParams }: { searchParams: Promise<{ ver?: string; q?: string }> }) {
+  const s = await leerSesion();
+  if (!s) redirect("/entrar");
+  const { ver = "vencen", q = "" } = await searchParams;
+  const costos = puede.verCostos(s.rol);
+  const datos = await comoUsuario(s, async (c) => {
+    const resumen = (await c.query(`
+      select count(*) filter (where vence < current_date and unidades > 0)::int vencidos,
+             count(*) filter (where vence between current_date and current_date + 30 and unidades > 0)::int v30,
+             count(*) filter (where vence between current_date + 31 and current_date + 90 and unidades > 0)::int v90
+      from v_stock_lotes where empresa_id = $1`, [s.empresa])).rows[0];
+    const agotados = (await c.query(`select count(*)::int n from productos p where empresa_id = $1 and activo
+      and coalesce((select sum(unidades) from v_stock_lotes where producto_id = p.id), 0) <= 0`, [s.empresa])).rows[0].n;
+    const valor = costos ? (await c.query(`select coalesce(sum(s.unidades * lc.costo_unidad), 0)::float v from v_stock_lotes s join lote_costos lc on lc.lote_id = s.lote_id where s.empresa_id = $1 and s.unidades > 0`, [s.empresa])).rows[0].v : null;
+    const filtro = ver === "agotados" ? "and coalesce(st.unidades, 0) <= 0" : ver === "todos" ? "" : "and st.proximo <= current_date + 90";
+    const palabras = q.trim().toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6);
+    const filas: Fila[] = (await c.query(`
+      select p.id, p.nombre, p.laboratorio, p.unidades_por_caja, p.precio_caja::float, p.stock_minimo, coalesce(st.unidades, 0)::int unidades,
+        coalesce((select json_agg(json_build_object('lote', l.lote, 'vence', l.vence, 'unidades', l.unidades, 'costo', ${costos ? "(select costo_unidad::float from lote_costos where lote_id = l.lote_id)" : "null"}) order by l.vence nulls last)
+                  from v_stock_lotes l where l.producto_id = p.id and l.unidades > 0), '[]') lotes
+      from productos p
+      left join lateral (select sum(unidades) unidades, min(vence) filter (where unidades > 0) proximo from v_stock_lotes where producto_id = p.id) st on true
+      where p.empresa_id = $1 and p.activo ${filtro}
+        and (cardinality($2::text[]) = 0 or (select bool_and(lower(p.nombre || ' ' || coalesce(p.laboratorio, '')) like '%' || w || '%') from unnest($2::text[]) w))
+      order by st.proximo nulls last, p.nombre limit 200`, [s.empresa, palabras])).rows;
+    return { resumen, agotados, valor, filas };
+  });
+  const tabs = [["vencen", "Vencen en 90 días"], ["agotados", "Agotados"], ["todos", "Todo"]] as const;
+  return (
+    <main className="p-4 sm:p-6">
+      <h1 className="font-cond text-3xl" style={{ fontWeight: 700 }}>Inventario</h1>
+      <div className="mt-4 grid grid-cols-2 lg:grid-cols-5 gap-3">
+        {[["Lotes vencidos", datos.resumen.vencidos, "text-alerta"], ["Vencen en 30 días", datos.resumen.v30, "text-alerta"], ["Vencen en 31–90 días", datos.resumen.v90, "text-aviso"], ["Productos agotados", datos.agotados, "text-ink"]].map(([t, n, c]) => (
+          <div key={t as string} className="bg-surface border border-line rounded-xl px-4 py-3">
+            <p className="text-sm text-muted">{t}</p><p className={`num font-cond text-3xl ${c}`} style={{ fontWeight: 700 }}>{n as number}</p>
+          </div>
+        ))}
+        {datos.valor !== null && (
+          <div className="bg-surface border border-line rounded-xl px-4 py-3 col-span-2 lg:col-span-1">
+            <p className="text-sm text-muted">Inventario a costo</p><p className="num font-cond text-3xl" style={{ fontWeight: 700 }}>{pesos(datos.valor)}</p>
+          </div>
+        )}
+      </div>
+      <form className="mt-5 flex flex-wrap items-center gap-2" role="search">
+        <nav className="flex gap-1 bg-surface border border-line rounded-xl p-1" aria-label="Filtro">
+          {tabs.map(([k, t]) => (
+            <a key={k} href={`?ver=${k}${q ? `&q=${encodeURIComponent(q)}` : ""}`} aria-current={ver === k ? "page" : undefined}
+              className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${ver === k ? "bg-ink text-white" : "text-muted"}`}>{t}</a>
+          ))}
+        </nav>
+        <input type="hidden" name="ver" value={ver} />
+        <label htmlFor="q" className="sr-only">Buscar en el inventario</label>
+        <input id="q" name="q" defaultValue={q} placeholder="Buscar producto" className="h-11 rounded-xl border border-line bg-surface px-4 flex-1 min-w-48" />
+      </form>
+      <div className="mt-4 bg-surface border border-line rounded-2xl overflow-x-auto">
+        <table className="w-full text-sm min-w-[720px]">
+          <thead className="text-left text-muted border-b border-line">
+            <tr><th className="px-4 py-3 font-semibold">Producto</th><th className="px-4 py-3 font-semibold">Existencias</th><th className="px-4 py-3 font-semibold">Lotes (vence)</th><th className="px-4 py-3 font-semibold text-right">Precio caja</th></tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {datos.filas.map((f) => (
+              <tr key={f.id} className="align-top">
+                <td className="px-4 py-3"><p className="font-semibold">{f.nombre}</p><p className="text-muted">{f.laboratorio ?? "Genérico"}</p></td>
+                <td className={`px-4 py-3 num ${f.unidades <= 0 ? "text-alerta font-semibold" : ""}`}>
+                  {f.unidades <= 0 ? "Agotado" : f.unidades_por_caja > 1 ? `${Math.floor(f.unidades / f.unidades_por_caja)} cajas${f.unidades % f.unidades_por_caja ? ` + ${f.unidades % f.unidades_por_caja} und` : ""}` : `${f.unidades} und`}
+                </td>
+                <td className="px-4 py-3">
+                  <ul className="flex flex-wrap gap-1.5">
+                    {f.lotes.map((l) => {
+                      const d = dias(l.vence);
+                      const tono = d !== null && d <= 30 ? "bg-alerta-soft text-alerta" : d !== null && d <= 90 ? "bg-aviso-soft text-aviso" : "bg-paper text-ink";
+                      return <li key={l.lote} className={`num rounded-md px-2 py-1 ${tono}`}><span className="font-semibold">{l.lote}</span> · {fmt(l.vence)} · {l.unidades} und{l.costo !== null ? ` · ${pesos(l.costo)}/und` : ""}</li>;
+                    })}
+                  </ul>
+                </td>
+                <td className="px-4 py-3 num text-right">{pesos(f.precio_caja)}</td>
+              </tr>
+            ))}
+            {datos.filas.length === 0 && <tr><td colSpan={4} className="px-4 py-10 text-center text-muted">No hay productos en este filtro.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </main>
+  );
+}

@@ -1,0 +1,51 @@
+@import "@fontsource/barlow/400.css";
+@import "@fontsource/barlow/500.css";
+@import "@fontsource/barlow/600.css";
+@import "@fontsource/barlow/700.css";
+@import "@fontsource/barlow-semi-condensed/500.css";
+@import "@fontsource/barlow-semi-condensed/600.css";
+@import "@fontsource/barlow-semi-condensed/700.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Regenta · tokens. Azul de Farmagenéricos para la tinta, verde cruz de farmacia para la acción principal,
+   rojo y ámbar solo para vencimientos y errores: el color siempre significa algo. */
+:root {
+  --ink: #102a43;
+  --paper: #e9efed;
+  --surface: #ffffff;
+  --line: #d3dcd9;
+  --muted: #55676f;
+  --cruz: #0b7a55;
+  --cruz-ink: #ffffff;
+  --cruz-soft: #dcf1e8;
+  --alerta: #b42318;
+  --alerta-soft: #fde8e6;
+  --aviso: #a3530a;
+  --aviso-soft: #fdf0dc;
+  --marca: #2fc4b8;
+  --tirilla: #fffefa;
+  color-scheme: light;
+}
+
+html, body { background: var(--paper); color: var(--ink); }
+body { font-family: Barlow, system-ui, sans-serif; font-size: 16px; -webkit-font-smoothing: antialiased; }
+.num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+:focus-visible { outline: 3px solid var(--marca); outline-offset: 2px; border-radius: 6px; }
+
+/* La tirilla: el ticket de la caja con borde troquelado, como el papel térmico. */
+.tirilla {
+  background: var(--tirilla);
+  box-shadow: 0 1px 0 var(--line), 0 18px 40px -24px rgba(16, 42, 67, .35);
+  --diente: 10px;
+  -webkit-mask: radial-gradient(circle var(--diente) at 50% 100%, #0000 98%, #000) 50% calc(100% + var(--diente) / 2) / calc(var(--diente) * 2) var(--diente) repeat-x,
+                linear-gradient(#000 0 0) top / 100% calc(100% - var(--diente) / 2) no-repeat;
+          mask: radial-gradient(circle var(--diente) at 50% 100%, #0000 98%, #000) 50% calc(100% + var(--diente) / 2) / calc(var(--diente) * 2) var(--diente) repeat-x,
+                linear-gradient(#000 0 0) top / 100% calc(100% - var(--diente) / 2) no-repeat;
+}
+.corte { border-top: 1.5px dashed var(--line); }
+
+kbd { font-family: "Barlow Semi Condensed", sans-serif; font-weight: 600; font-size: 12px; padding: 1px 6px; border-radius: 5px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
