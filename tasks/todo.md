@@ -130,3 +130,16 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [ ] Barra de navegación inferior en la app para el celular
 - [ ] Prueba social real cuando haya clientes (sin inventar)
 - [ ] Guía «software gratis para droguería» contrastada con la DIAN
+
+## Iteración 9 (1/11/2026): consola de superadministración y acceso con contraseña (pedido de Oscar)
+- [x] Cuentas con contraseña (scrypt), invitaciones de un solo uso (7 días) y /activar; /entrar con correo y contraseña
+- [x] Consola /admin: resumen (clientes, ingreso mensual estimado, cobrado, demos, cola DIAN, INVIMA), clientes (buscar, activar/suspender, entrar como, ver), alta de cliente en un paso (empresa, sede, caja, numeraciones, dueño con enlace), ficha (plan en un clic, usuarios, restablecer contraseña, nota, pagos, historial), pagos (crear cuenta desde un pago, atendido), solicitudes de demo (WhatsApp, contactada, crear cliente), sistema (procesar DIAN, sincronizar INVIMA, variables), bitácora
+- [x] Aviso de modo soporte dentro de la app al entrar como un cliente
+- [x] scripts/crear-superadmin.mjs (contraseña escrita en la terminal, nunca en el chat)
+- [x] Caja: los productos con existencias salen primero (NULL en el orden por código de barras)
+- [x] Pruebas: base 32/32 · firmas 6/6 · e2e caja, gestión, IA, facturación, pagos y consola 0 fallos · auditoría 145 revisiones 0 fallos
+
+### Pendiente
+- [ ] Oscar: crear su superadministrador en producción con scripts/crear-superadmin.mjs
+- [ ] Correo transaccional para enviar invitaciones (hoy se mandan por WhatsApp desde la consola)
+- [ ] Reinicio de la demo desde la consola

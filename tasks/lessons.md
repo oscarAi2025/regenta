@@ -28,3 +28,8 @@
 - Funciones SQL con estimaciones de filas altas disparan el JIT de Postgres (segundos de compilación): set jit = off en la función.
 - Repartir un total entre lotes redondeando cada parte deja centavos sueltos: calcular el total una vez y dar el resto al último.
 - Un sello «El más elegido» sin clientes es una afirmación falsa: usar «Recomendado».
+
+## 1/11/2026 · Consola
+- `order by (col = $x) desc` pone primero los NULL (desc = nulls first): usar coalesce(col = $x, false).
+- En consultas con join, calificar columnas comunes (estado existe en empresas y documentos_dian).
+- Next agrega un elemento con role=alert (anunciador de rutas): en pruebas, buscar alertas dentro del formulario.

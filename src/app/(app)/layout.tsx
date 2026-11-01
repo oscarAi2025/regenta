@@ -9,6 +9,8 @@ import { Buscador } from "@/components/app/Buscador";
 import { BotonBuscar } from "@/components/app/BotonBuscar";
 import { iaActiva } from "@/lib/ia/claude";
 import { AvisoPermiso } from "@/components/app/AvisoPermiso";
+import { leerAdmin } from "@/lib/admin";
+import Link from "next/link";
 
 // La aplicación nunca se indexa: solo la portada comercial es pública.
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -18,6 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!s) redirect("/entrar");
   const emp = await comoUsuario(s, async (c) => (await c.query(`select nombre_comercial, razon_social, nit, dv from empresas where id = $1`, [s.empresa])).rows[0]);
   if (!emp) redirect("/entrar");
+  const admin = await leerAdmin();
   const rol = { dueno: "Dueño", admin: "Administrador", cajero: "Cajera", bodeguero: "Bodega", vendedor: "Vendedor" }[s.rol];
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[88px_1fr]">
@@ -31,6 +34,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <BotonBuscar />
           <p className="text-sm text-muted shrink-0 hidden sm:block">{s.nombre.split(" (")[0]} · {rol}</p>
         </header>
+        {admin && (
+          <p className="bg-amber-300 text-[#0b1f33] px-4 sm:px-6 py-2 text-sm font-semibold flex flex-wrap items-center justify-between gap-2">
+            Estás dentro de {emp.nombre_comercial ?? emp.razon_social} como soporte de Regenta: todo lo que hagas queda a nombre del usuario.
+            <Link href="/admin/clientes" className="underline">Volver a la consola</Link>
+          </p>
+        )}
         <AvisoPermiso />
         <div className="pb-24">{children}</div>
       </div>

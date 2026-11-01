@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Marca } from "@/components/Marca";
 import { demoActiva, leerSesion } from "@/lib/sesion";
 import { EntrarDemo } from "./EntrarDemo";
+import { FormAcceso } from "./FormAcceso";
 
 export const metadata = { title: "Entrar", robots: { index: false, follow: true } };
 
@@ -28,7 +29,13 @@ export default async function Entrar() {
       <section className="order-1 lg:order-2 px-6 py-10 sm:px-12 flex items-center">
         <div className="w-full max-w-md mx-auto">
           <h2 className="font-cond text-3xl" style={{ fontWeight: 700 }}>Entrar</h2>
-          {demoActiva() ? <EntrarDemo /> : <p className="mt-4 text-muted">El acceso con usuario y contraseña se activa al conectar la cuenta de la empresa.</p>}
+          <FormAcceso />
+          {demoActiva() && (
+            <div className="mt-10 border-t border-line pt-6">
+              <h2 className="font-cond text-2xl" style={{ fontWeight: 700 }}>¿Solo quieres mirar? Entra a la demo</h2>
+              <EntrarDemo />
+            </div>
+          )}
         </div>
       </section>
     </main>

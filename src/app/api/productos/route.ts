@@ -28,13 +28,13 @@ export async function GET(req: Request) {
   try {
     const productos = await comoUsuario(s, async (c) => (await c.query(
       `select p.id, p.nombre, p.laboratorio, p.ean, p.iva::float, p.unidades_por_caja, p.precio_caja::float, p.precio_unidad::float,
-              p.stock_minimo, coalesce(st.unidades, 0)::int as unidades, st.proximo_vence::text as proximo_vence, (p.ean = $2) as exacto
+              p.stock_minimo, coalesce(st.unidades, 0)::int as unidades, st.proximo_vence::text as proximo_vence, coalesce(p.ean = $2, false) as exacto
        from productos p
        left join lateral (select sum(unidades) unidades, min(vence) filter (where unidades > 0) proximo_vence
                           from v_stock_vigente where producto_id = p.id) st on true
        where p.empresa_id = $1 and p.activo
          and (p.ean = $2 or (select bool_and(lower(p.nombre || ' ' || coalesce(p.laboratorio, '')) like '%' || w || '%') from unnest($3::text[]) w))
-       order by (p.ean = $2) desc, (coalesce(st.unidades, 0) > 0) desc, p.nombre
+       order by coalesce(p.ean = $2, false) desc, (coalesce(st.unidades, 0) > 0) desc, p.nombre
        limit 30`, [s.empresa, q, palabras])).rows);
     return NextResponse.json({ productos });
   } catch (e) {

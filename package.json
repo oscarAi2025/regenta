@@ -11,7 +11,8 @@
     "test": "node --test tests/db.test.mjs && node --experimental-strip-types --test tests/invima.test.mjs tests/pagos.test.mjs",
     "e2e": "node tests/e2e/caja.mjs && node tests/e2e/gestion.mjs && node tests/e2e/ia.mjs && node tests/e2e/facturacion.mjs",
     "auditoria": "node tests/e2e/auditoria.mjs",
-    "pagos": "node tests/e2e/pagos.mjs"
+    "pagos": "node tests/e2e/pagos.mjs",
+    "admin": "node tests/e2e/admin.mjs"
   },
   "dependencies": {
     "@fontsource/barlow": "^5.3.0",

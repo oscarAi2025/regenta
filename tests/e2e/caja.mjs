@@ -28,7 +28,7 @@ async function entrar(ctx, quien) {
   const { p, errs } = await entrar(ctx, "Laura");
   ok(p.url().endsWith("/caja"), "la cajera entra directo a la caja");
   await p.screenshot({ path: `${OUT}/caja-vacia.png` });
-  await p.keyboard.type("acetaminofen");
+  await p.keyboard.type("acetaminofen forte mk"); // uno con cajas de sobra (la prueba vende una caja)
   await p.waitForSelector('[role="option"]');
   const n = await p.locator('[role="option"]').count();
   ok(n > 0, "la búsqueda devuelve productos", `${n}`);
