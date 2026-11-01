@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { metaPublica } from "@/lib/seo";
 import Link from "next/link";
 import { CabeceraPublica } from "@/components/landing/Cabecera";
 import { Pie } from "@/components/landing/Pie";
@@ -6,11 +7,7 @@ import { BarraMovil } from "@/components/landing/BarraMovil";
 import { BotonDemo } from "@/components/landing/BotonDemo";
 import { wa } from "@/lib/sitio";
 
-export const metadata: Metadata = {
-  title: { absolute: "Por qué Regenta: hecho por un distribuidor farmacéutico" },
-  description: "Regenta lo hace Farmagenéricos Colombia, distribuidor que surte droguerías. Conocemos el mostrador por dentro y lo convertimos en software con IA.",
-  alternates: { canonical: "/por-que-regenta" }, robots: { index: true, follow: true },
-};
+export const metadata: Metadata = metaPublica("/por-que-regenta", "Por qué Regenta: hecho por un distribuidor farmacéutico", "Regenta lo hace Farmagenéricos Colombia, distribuidor que surte droguerías. Conocemos el mostrador por dentro y lo convertimos en software con IA.");
 
 export default function PorQue() {
   return (

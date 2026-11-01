@@ -1,15 +1,12 @@
 import type { Metadata } from "next";
+import { metaPublica } from "@/lib/seo";
 import Link from "next/link";
 import { GUIAS } from "@/content/guias";
 import { CabeceraPublica } from "@/components/landing/Cabecera";
 import { Pie } from "@/components/landing/Pie";
 import { BarraMovil } from "@/components/landing/BarraMovil";
 
-export const metadata: Metadata = {
-  title: { absolute: "Guías para regentes y droguerías | Regenta" },
-  description: "Guías prácticas para droguerías en Colombia: POS electrónico DIAN, control de vencimientos, semaforización, alertas INVIMA, registro sanitario e inventario por lotes.",
-  alternates: { canonical: "/guias" }, robots: { index: true, follow: true },
-};
+export const metadata: Metadata = metaPublica("/guias", "Guías para regentes y droguerías | Regenta", "Guías para droguerías en Colombia: POS electrónico DIAN, vencimientos, alertas INVIMA, control especial, apertura, precios y pedido, con fuentes oficiales.");
 
 export default function Guias() {
   return (

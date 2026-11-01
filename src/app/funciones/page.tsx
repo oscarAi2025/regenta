@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { metaPublica } from "@/lib/seo";
 import Link from "next/link";
 import { PAGINAS } from "@/content/paginas";
 import { CabeceraPublica } from "@/components/landing/Cabecera";
@@ -6,11 +7,7 @@ import { Pie } from "@/components/landing/Pie";
 import { BarraMovil } from "@/components/landing/BarraMovil";
 import { BotonDemo } from "@/components/landing/BotonDemo";
 
-export const metadata: Metadata = {
-  title: { absolute: "Funciones del software para droguerías | Regenta" },
-  description: "Regenta IA, pedido sugerido, vencimientos por lote, alertas INVIMA cruzadas con tu inventario y caja POS por unidad, en un solo software para droguerías.",
-  alternates: { canonical: "/funciones" }, robots: { index: true, follow: true },
-};
+export const metadata: Metadata = metaPublica("/funciones", "Funciones del software para droguerías | Regenta", "Regenta IA, pedido sugerido, vencimientos por lote, alertas INVIMA cruzadas con tu inventario y caja POS por unidad, en un solo software para droguerías.");
 
 export default function Funciones() {
   return (

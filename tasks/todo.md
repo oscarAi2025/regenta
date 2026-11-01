@@ -79,3 +79,10 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [ ] Varias sedes/cajas (hoy se usa la primera caja activa y su sede)
 - [ ] Accesibilidad del listado de la caja (aria-activedescendant)
 - [ ] Probar /api/invima contra invima.gov.co desde producción; confirmar con MATIAS consumo del POS
+
+## Iteración 5 (1/11/2026): logo minimalista, tarifas con dos caminos, auditoría página por página
+- [x] Logo: cápsula de dos tonos + «Regenta» grande + «by Farmagenéricos Colombia» pequeño; favicon
+- [x] Tarifas: «Sin asociarte» y «Como socio de Farmagenéricos» con tabla de precio final por escalón y calculadora
+- [x] Respaldo y cumplimiento (texto, sin logos de entidades: no hay aval) + razón social y NIT en el pie
+- [x] Auditoría automática (tests/e2e/auditoria.mjs): 27 páginas públicas + 14 pantallas × 3 roles × 2 tamaños = 113 revisiones, 0 fallos
+- [x] Arreglos de la auditoría: títulos/descripciones largos, Open Graph en 4 páginas, H1 de la caja; servidor ya no se cae si la base reinicia

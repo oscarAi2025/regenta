@@ -7,14 +7,15 @@ import { CabeceraPublica } from "@/components/landing/Cabecera";
 import { Pie } from "@/components/landing/Pie";
 import { BarraMovil } from "@/components/landing/BarraMovil";
 import { BotonDemo } from "@/components/landing/BotonDemo";
+import { Respaldo } from "@/components/landing/Respaldo";
 import { GUIAS } from "@/content/guias";
 import { PAGINAS } from "@/content/paginas";
 import { PLANES, SOCIO } from "@/lib/planes";
 import { pesos } from "@/lib/formato";
 import { CORREO, SITIO, TELEFONO, wa } from "@/lib/sitio";
 
-const TITULO = "Software para droguerías con IA: POS, lotes y alertas INVIMA | Regenta";
-const DESCRIPCION = "Regenta es el software de caja para droguerías en Colombia con inteligencia artificial: predice qué pedir, avisa qué se te va a vencer y cruza las alertas del INVIMA con tu inventario. Hecho por un distribuidor farmacéutico.";
+const TITULO = "Software para droguerías con IA y alertas INVIMA | Regenta";
+const DESCRIPCION = "Software de caja para droguerías con IA: predice qué pedir, avisa qué se vence y cruza las alertas del INVIMA con tu inventario. Prueba la demo gratis.";
 
 export const metadata: Metadata = {
   title: { absolute: TITULO },
@@ -135,6 +136,8 @@ export default function Portada() {
           </div>
         </section>
 
+        <Respaldo />
+
         {/* 5. La pérdida, con sus números. */}
         <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16 lg:py-20">
           <div className="rounded-3xl bg-ink text-white p-6 sm:p-10">
@@ -170,12 +173,12 @@ export default function Portada() {
             <div>
               <h2 className="font-cond text-[40px] sm:text-[52px] leading-[1]" style={{ fontWeight: 700 }}>Desde {pesos(PLANES[0].precio!)} al mes. O gratis.</h2>
               <p className="mt-4 text-lg text-muted leading-relaxed">Todo incluido: IA, predicción, alertas INVIMA, lotes y carga desde Excel. Sin costo de instalación. Y con el {SOCIO.nombre}, si le compras a Farmagenéricos Colombia, Regenta puede salirte gratis.</p>
-              <div className="mt-6 flex flex-wrap gap-3"><Link href="/precios" className="btn-oscuro h-12 px-6">Ver precios y Plan Socio</Link><BotonDemo texto="Probar la demo" className="btn-borde h-12 px-6" /></div>
+              <div className="mt-6 flex flex-wrap gap-3"><Link href="/precios" className="btn-oscuro h-12 px-6">Ver tarifas y Plan Socio</Link><BotonDemo texto="Probar la demo" className="btn-borde h-12 px-6" /></div>
             </div>
             <ul className="grid gap-3">
               {SOCIO.escalones.map((e) => (
                 <li key={e.desde} className="rounded-2xl bg-paper border border-line p-4 flex items-center justify-between gap-4">
-                  <span className="text-muted">Compras desde <b className="text-ink num">{pesos(e.desde)}</b> al mes</span><span className="font-semibold text-cruz text-right">{e.beneficio}</span>
+                  <span className="text-muted">Compras desde <b className="text-ink num">{pesos(e.desde)}</b> al mes</span><span className="font-semibold text-cruz text-right">{e.etiqueta}</span>
                 </li>
               ))}
             </ul>

@@ -13,7 +13,7 @@ export function CabeceraPublica() {
         <Link href="/" aria-label="Regenta, inicio"><Marca /></Link>
         <nav className="flex items-center gap-2 sm:gap-4 text-[15px]" aria-label="Página">
           <Link href="/funciones" className="hidden lg:inline font-medium hover:underline">Funciones</Link>
-          <Link href="/precios" className="hidden md:inline font-medium hover:underline">Precios</Link>
+          <Link href="/precios" className="hidden md:inline font-medium hover:underline">Tarifas</Link>
           <Link href="/guias" className="hidden lg:inline font-medium hover:underline">Guías</Link>
           <Link href="/por-que-regenta" className="hidden lg:inline font-medium hover:underline">Por qué Regenta</Link>
           <a href={wa("Hola, quiero conocer Regenta para mi droguería.")} className="hidden sm:inline font-semibold hover:underline">WhatsApp</a>

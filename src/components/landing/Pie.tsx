@@ -13,7 +13,7 @@ export function Pie() {
           <p className="mt-3 max-w-xs">Software de caja, inventario por lote e inteligencia artificial para droguerías de Colombia, hecho por un distribuidor farmacéutico.</p>
           <ul className="mt-4 grid gap-1.5">
             <li><Link href="/funciones" className="hover:text-white hover:underline">Funciones</Link></li>
-            <li><Link href="/precios" className="hover:text-white hover:underline">Precios y Plan Socio</Link></li>
+            <li><Link href="/precios" className="hover:text-white hover:underline">Tarifas y Plan Socio</Link></li>
             <li><Link href="/por-que-regenta" className="hover:text-white hover:underline">Por qué Regenta</Link></li>
             <li><Link href="/para/regentes" className="hover:text-white hover:underline">Para regentes</Link></li>
             <li><Link href="/para/duenos-de-drogueria" className="hover:text-white hover:underline">Para dueños</Link></li>
@@ -31,6 +31,9 @@ export function Pie() {
             <li><BotonDemo texto="Probar la demo" className="hover:text-white hover:underline" /></li>
           </ul>
         </div>
+      </div>
+      <div className="border-t border-white/10">
+        <p className="max-w-6xl mx-auto px-4 sm:px-6 py-5 text-xs text-white/50">Regenta es un producto de Farmagenéricos Colombia, establecimiento de IA DEV INVESTIMENTS COLOMBIA S.A.S., NIT 901.845.370-5, Ibagué, Tolima.</p>
       </div>
     </footer>
   );

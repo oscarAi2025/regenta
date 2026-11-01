@@ -289,7 +289,7 @@ export const GUIAS: Guia[] = [
         "Registro sanitario en la ficha y cruce con las alertas del INVIMA.",
         "Pedido sugerido con tus ventas." ] },
     ],
-    preguntas: [["¿Cuánto cuesta Regenta?", "Esencial $89.900 al mes y Pro $139.900; con el Plan Socio Farmagenéricos puede salirte gratis según tus compras. Detalle en la página de precios."]],
+    preguntas: [["¿Cuánto cuesta Regenta?", "Esencial $89.900 al mes y Pro $139.900 sin asociarte; como socio de Farmagenéricos Colombia, a mitad de precio o gratis según tus compras. Detalle en la página de tarifas."]],
     fuentes: [
       ["Alegra POS, precios", "https://www.alegra.com/colombia/pos/precios/"],
       ["Loggro, planes", "https://loggro.com/pymes/planes/"],

@@ -1,29 +1,23 @@
-/** Isotipo de Regenta: una cápsula partida (farmacia) con la cruz en su mitad verde y la chispa de la IA. */
+/** Símbolo de Regenta: una cápsula partida en dos tonos. Nada más: se reconoce a 16 px y a 160 px. */
 export function Isotipo({ size = 32, claro = false }: { size?: number; claro?: boolean }) {
-  const id = `cap${size}${claro ? "c" : ""}`;
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-      <defs>
-        <clipPath id={id}><rect x="9" y="1.5" width="14" height="29" rx="7" transform="rotate(45 16 16)" /></clipPath>
-        <linearGradient id={`${id}g`} x1="0" y1="1" x2="1" y2="0"><stop offset="0" stopColor="#0b7a55" /><stop offset="1" stopColor="#2fc4b8" /></linearGradient>
-      </defs>
-      <g clipPath={`url(#${id})`}>
-        <rect width="32" height="32" fill={`url(#${id}g)`} />
-        <path d="M0 0L32 32H0Z" fill={claro ? "#ffffff" : "#102a43"} />
+      <g transform="rotate(-45 16 16)">
+        <path d="M16 1.5a7.5 7.5 0 0 1 7.5 7.5V16h-15V9A7.5 7.5 0 0 1 16 1.5z" fill="#2fc4b8" />
+        <path d="M8.5 16h15v7a7.5 7.5 0 0 1-15 0z" fill={claro ? "#ffffff" : "#102a43"} />
       </g>
-      <path d="M19.4 7.6h2.6v2.6h2.6v2.6H22v2.6h-2.6v-2.6h-2.6v-2.6h2.6z" fill="#fff" />
-      <path d="M26.6 22.4l1 2.4 2.4 1-2.4 1-1 2.4-1-2.4-2.4-1 2.4-1z" fill="#2fc4b8" />
     </svg>
   );
 }
 
-export function Marca({ claro = false, sub = "by Farmagenéricos Colombia" }: { claro?: boolean; sub?: string }) {
+/** Logotipo: símbolo + «Regenta» con peso y, debajo, la firma pequeña de Farmagenéricos Colombia. */
+export function Marca({ claro = false, firma = true }: { claro?: boolean; firma?: boolean }) {
   return (
-    <span className="inline-flex items-center gap-2.5">
-      <Isotipo size={34} claro={claro} />
+    <span className="inline-flex items-center gap-2" aria-label="Regenta by Farmagenéricos Colombia">
+      <Isotipo size={30} claro={claro} />
       <span className="leading-none">
-        <span className={`block font-cond text-[24px] tracking-[-0.02em] ${claro ? "text-white" : "text-ink"}`} style={{ fontWeight: 700 }}>Regenta<span className="text-marca">.</span></span>
-        <span className={`block text-[11px] whitespace-nowrap ${claro ? "text-white/70" : "text-muted"}`}>{sub}</span>
+        <span className={`block font-cond text-[27px] tracking-[-0.035em] ${claro ? "text-white" : "text-ink"}`} style={{ fontWeight: 700 }}>Regenta</span>
+        {firma && <span className={`block text-[10px] tracking-[0.01em] mt-[3px] whitespace-nowrap ${claro ? "text-white/60" : "text-muted"}`}>by Farmagenéricos Colombia</span>}
       </span>
     </span>
   );

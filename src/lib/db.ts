@@ -12,6 +12,13 @@ export const pool = (g.__regentaPool ??= new pg.Pool({
   options: "-c timezone=America/Bogota", // «hoy» es el día de Bogotá en todas las consultas
 }));
 
+// Si la base cierra una conexión inactiva (reinicio, mantenimiento de Supabase), el pool la descarta y abre otra:
+// sin este manejador, Node trataría el error como no capturado y tumbaría el servidor.
+if (!(g as { __regentaPoolErr?: boolean }).__regentaPoolErr) {
+  pool.on("error", (e) => console.error("Conexión inactiva cerrada por la base de datos:", (e as Error).message));
+  (g as { __regentaPoolErr?: boolean }).__regentaPoolErr = true;
+}
+
 export type Tx = pg.PoolClient;
 
 /** Ejecuta fn como el usuario de la sesión, en una transacción. */
