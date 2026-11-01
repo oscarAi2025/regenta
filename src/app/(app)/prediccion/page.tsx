@@ -43,7 +43,7 @@ export default async function Prediccion({ searchParams }: { searchParams: Promi
   const tabs = [["pedido", `Pedido sugerido (${d.pedido.length})`], ["vencimiento", `Se pueden vencer (${d.riesgo.length})`], ["quietos", `Sin rotación (${d.quietos.length})`]] as const;
 
   return (
-    <main className="p-4 sm:p-6 grid gap-5">
+    <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
       <Cabecera titulo="Predicción" sub={`Calculado con tus ventas reales de las últimas 8 semanas, vendiendo primero lo que vence antes.`} />
       {d.historia < 21 && (
         <p className="rounded-xl bg-aviso-soft text-aviso px-4 py-3 font-semibold">Llevas {d.historia} días vendiendo con Regenta. Las predicciones se vuelven confiables desde las 3 semanas de ventas; mientras tanto tómalas como una guía.</p>

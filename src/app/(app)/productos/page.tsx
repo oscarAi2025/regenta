@@ -27,7 +27,7 @@ export default async function Productos({ searchParams }: { searchParams: Promis
     return { filas, total, hallados: (filas[0]?.hallados as number | undefined) ?? 0 };
   });
   return (
-    <main className="p-4 sm:p-6 grid gap-5">
+    <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
       <Cabecera titulo="Productos" sub={`${total.toLocaleString("es-CO")} productos en tu droguería`}>
         {gestiona && <><Link href="/productos/nuevo" className="btn-primario">Agregar producto</Link><Link href="/productos/importar" className="btn-borde">Cargar desde Excel</Link></>}
       </Cabecera>

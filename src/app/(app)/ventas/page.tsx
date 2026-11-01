@@ -30,7 +30,7 @@ export default async function Ventas({ searchParams }: { searchParams: Promise<{
   const total = cerradas.reduce((a, f) => a + f.total, 0);
   const otro = (n: number) => { const d = new Date(dia + "T12:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
   return (
-    <main className="p-4 sm:p-6 grid gap-5">
+    <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
       <Cabecera titulo="Ventas" sub={dian ? `Documentos ${dian === "pendiente" ? "esperando a la DIAN" : "rechazados por la DIAN"}` : new Date(dia + "T12:00:00").toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}>
         {!dian && <>
           <Link href={`/ventas?dia=${otro(-1)}`} className="btn-borde" aria-label="Día anterior">←</Link>

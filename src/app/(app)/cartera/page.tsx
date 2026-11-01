@@ -24,7 +24,7 @@ export default async function Cartera({ searchParams }: { searchParams: Promise<
   const vencidas = filas.filter((f) => f.dias_mora > 0);
   const semana = filas.filter((f) => f.dias_mora === 0 && Date.parse(f.vence_pago + "T00:00:00") - Date.now() <= 7 * 864e5);
   return (
-    <main className="p-4 sm:p-6 grid gap-5">
+    <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
       <Cabecera titulo="Cartera" sub="Facturas a crédito de tus clientes: lo que te deben, lo que vence y los abonos." />
       {ver !== "pagadas" && (
         <section className="grid grid-cols-2 lg:grid-cols-3 gap-3">

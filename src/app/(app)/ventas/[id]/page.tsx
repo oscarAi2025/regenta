@@ -29,7 +29,7 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
   if (!d) notFound();
   const { v } = d;
   return (
-    <main className="p-4 sm:p-6 grid lg:grid-cols-[440px_1fr] gap-6 items-start">
+    <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[440px_minmax(0,1fr)] gap-6 items-start">
       <article className="tirilla rounded-t-2xl px-6 pt-6 pb-10" aria-label="Tiquete">
         <p className="text-center titulo text-lg">{v.razon_social}</p>
         <p className="text-center text-sm text-muted">NIT {v.nit}-{v.dv} · {v.direccion}, {v.ciudad}</p>

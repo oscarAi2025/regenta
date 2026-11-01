@@ -27,7 +27,7 @@ export default async function Alertas() {
   const gestiona = puede.moverInventario(s.rol);
 
   return (
-    <main className="p-4 sm:p-6 grid gap-5">
+    <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
       <Cabecera titulo="Alertas INVIMA" sub={`Alertas sanitarias de medicamentos publicadas por el INVIMA en el último año, cruzadas con tu inventario por lote, registro sanitario y nombre.${ultima ? ` Última actualización: ${ultima}.` : ""}`} />
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Dato titulo="Te tocan y falta revisar" valor={pendientes.length} tono={pendientes.length ? "alerta" : "cruz"} nota={pendientes.length ? "revísalas hoy" : "todo revisado"} />

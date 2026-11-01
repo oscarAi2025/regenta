@@ -68,7 +68,7 @@ export default async function Inicio() {
   const ganancia = d.margen ? d.margen.base - d.margen.costo : null;
 
   return (
-    <main className="p-4 sm:p-6 grid gap-5">
+    <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
       <Cabecera titulo={`${saludo}, ${s.nombre.split(" (")[0]}`} sub={new Date().toLocaleDateString("es-CO", { timeZone: "America/Bogota", weekday: "long", day: "numeric", month: "long" })}>
         {puede.vender(s.rol) && <Link href="/caja" className="btn-primario">Abrir caja</Link>}
         {puede.moverInventario(s.rol) && <Link href="/inventario/recibir" className="btn-borde">Recibir mercancía</Link>}
@@ -91,7 +91,7 @@ export default async function Inicio() {
       )}
 
       {d.pred && (
-        <section className="rounded-2xl bg-ink text-white p-5 sm:p-6 grid lg:grid-cols-[1.3fr_1fr] gap-6" aria-label="Prioridades de hoy">
+        <section className="rounded-2xl bg-ink text-white p-5 sm:p-6 grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-6" aria-label="Prioridades de hoy">
           <div>
             <div className="flex items-center gap-2"><Isotipo size={26} claro /><h2 className="titulo text-2xl">Tus prioridades de hoy</h2></div>
             <ol className="mt-4 grid gap-3 text-white/85">
@@ -111,7 +111,7 @@ export default async function Inicio() {
         </section>
       )}
 
-      <div className="grid lg:grid-cols-[1.4fr_1fr] gap-5">
+      <div className="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-5">
         <section className="tarjeta p-5" aria-label="Últimos 7 días">
           <h2 className="titulo text-xl">Ventas de los últimos 7 días</h2>
           <div className="mt-5 h-44 flex items-end gap-2 sm:gap-4">
@@ -139,7 +139,7 @@ export default async function Inicio() {
         </section>
       </div>
 
-      <div className="grid lg:grid-cols-[1fr_1.4fr] gap-5">
+      <div className="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-5">
         <section className="tarjeta p-5" aria-label="Pendientes">
           <h2 className="titulo text-xl">Para revisar</h2>
           <ul className="mt-3 divide-y divide-line">
@@ -161,7 +161,7 @@ export default async function Inicio() {
               {d.ultimas.map((v) => (
                 <li key={v.id}><Link href={`/ventas/${v.id}`} className="flex items-center gap-3 py-2.5 hover:bg-paper/60 rounded-lg px-1">
                   <span className="num text-muted w-12">{v.hora}</span>
-                  <span className="num font-semibold flex-1">{v.numero}</span>
+                  <span className="num font-semibold flex-1 min-w-0 truncate">{v.numero}</span>
                   {v.estado === "anulada" ? <span className="text-sm text-alerta">Anulada</span> : <EstadoDian e={v.dian} />}
                   <span className={`num font-semibold w-24 text-right ${v.estado === "anulada" ? "line-through text-muted" : ""}`}>{pesos(v.total)}</span>
                 </Link></li>
