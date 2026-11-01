@@ -18,7 +18,7 @@ export default async function Editar({ params }: { params: Promise<{ id: string 
     <main className="p-4 sm:p-6 grid gap-5">
       <Cabecera titulo="Editar producto" sub={p.nombre} />
       <ProductoForm id={p.id} inicial={{ nombre: p.nombre, laboratorio: p.laboratorio ?? "", ean: p.ean ?? "", iva: Number(p.iva) as 0 | 5 | 19, unidades_por_caja: p.unidades_por_caja,
-        precio_caja: String(Math.round(p.precio_caja)), precio_unidad: p.precio_unidad ? String(Math.round(p.precio_unidad)) : "", stock_minimo: p.stock_minimo }} />
+        precio_caja: String(Math.round(p.precio_caja)), precio_unidad: p.precio_unidad ? String(Math.round(p.precio_unidad)) : "", stock_minimo: p.stock_minimo, registro_sanitario: p.registro_sanitario ?? "" }} />
     </main>
   );
 }

@@ -12,6 +12,7 @@ export const ProductoEntrada = z.object({
   precio_caja: z.number().positive("Pon el precio de venta").max(100_000_000),
   precio_unidad: z.number().positive().max(100_000_000).nullish(),
   stock_minimo: z.number().int().min(0).max(100000).default(0),
+  registro_sanitario: z.string().trim().max(60).nullish(),
 });
 export type ProductoEntrada = z.infer<typeof ProductoEntrada>;
 

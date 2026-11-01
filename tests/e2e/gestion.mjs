@@ -73,6 +73,32 @@ async function entrar(ctx, quien) {
   await ctx.close();
 }
 
+// ── Guías y demo de un clic
+{
+  const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
+  const p = await ctx.newPage();
+  const errs = vigilar(p);
+  await p.goto(B + "/guias");
+  const enlaces = await p.locator('main a[href^="/guias/"]').evaluateAll((xs) => xs.map((x) => x.getAttribute("href")));
+  ok(enlaces.length >= 6, "índice de guías", `${enlaces.length}`);
+  for (const h of enlaces) {
+    const r = await p.goto(B + h);
+    const t = await p.title(), d = await p.locator('meta[name="description"]').getAttribute("content");
+    const ld = await p.locator('script[type="application/ld+json"]').textContent();
+    ok(r.status() === 200 && t.length <= 60 && d.length <= 160 && ld.includes("Article") && ld.includes("BreadcrumbList") && await p.locator("h1").count() === 1 && await p.locator('a[href="/demo"]').count() >= 2,
+      `guía ${h}`, `${t.length} car. título, ${d.length} descripción`);
+  }
+  await p.screenshot({ path: `${OUT}/guia.png` });
+  const sm = await (await p.request.get(B + "/sitemap.xml")).text();
+  ok(enlaces.every((h) => sm.includes(h)), "el sitemap incluye todas las guías");
+  await p.goto(B + "/");
+  await p.locator('main a[href="/demo"]').first().click();
+  await p.waitForURL(/\/inicio/);
+  ok(true, "«Probar la demo» entra en un clic al inicio del dueño");
+  ok(errs.length === 0, "guías y demo sin errores de JavaScript", errs.join(" | "));
+  await ctx.close();
+}
+
 // ── Dueño
 {
   const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
@@ -153,9 +179,32 @@ async function entrar(ctx, quien) {
   const fin = (await (await p.request.get(B + "/api/productos?q=7709990000017")).json()).productos[0];
   ok(fin.unidades === 105, "al anular, las unidades vuelven", `${fin.unidades}`);
 
+  // Predicción
+  await p.goto(B + "/prediccion");
+  ok(await p.getByText("Pedido sugerido (").count() === 1, "predicción: pestaña de pedido sugerido");
+  const filasPedido = await p.locator("tbody tr").count();
+  ok(filasPedido > 0, "predicción: hay productos para pedir", `${filasPedido}`);
+  await p.screenshot({ path: `${OUT}/prediccion.png` });
+  await p.goto(B + "/prediccion?ver=vencimiento");
+  ok(await p.getByText("Valor a costo").count() === 1, "el dueño ve el valor en riesgo");
+  // Alertas INVIMA: el lote F0537A está en existencias
+  await p.goto(B + "/inicio");
+  ok(await p.getByText("Tienes en existencias un lote con alerta del INVIMA").count() === 1, "inicio avisa del lote con alerta INVIMA");
+  await p.goto(B + "/alertas");
+  ok(await p.getByText("Tienes este lote").count() === 1, "alertas: detecta el lote F0537A");
+  if (CAP) await p.screenshot({ path: `${CAP}/alertas.png` });
+  await p.screenshot({ path: `${OUT}/alertas.png` });
+  await p.getByRole("button", { name: "Separé el producto" }).first().click();
+  await p.waitForSelector("text=Producto separado");
+  ok(true, "alertas: queda la constancia de la revisión");
+  await p.goto(B + "/inicio");
+  ok(await p.getByText("Tienes en existencias un lote con alerta del INVIMA").count() === 0, "tras revisar, el aviso rojo desaparece");
+
   if (CAP) {
     // Capturas para la portada (escritorio 1440×900)
     await p.goto(B + "/inicio"); await p.screenshot({ path: `${CAP}/inicio.png` });
+    await p.goto(B + "/prediccion?ver=pedido"); await p.screenshot({ path: `${CAP}/prediccion.png` });
+    await p.goto(B + "/prediccion?ver=vencimiento"); await p.screenshot({ path: `${CAP}/vencimiento.png` });
     await p.goto(B + "/inventario"); await p.screenshot({ path: `${CAP}/inventario.png` });
     const muestra = ["nombre;codigo_barras;laboratorio;iva;unidades_por_caja;precio_caja;precio_unidad;stock_minimo;lote;vence;cantidad_unidades;costo_unidad",
       "Losartán 50 mg tabletas caja x 30;7709990001014;Genérico;0;30;18900;700;4;LS2405;2027-03-31;120;310",
@@ -201,6 +250,8 @@ async function entrar(ctx, quien) {
   await p.fill("#buscar-recibir", "7709990000017");
   await p.waitForSelector('input[id^="lote-"]');
   ok(await p.locator('input[id^="costo-"]').count() === 0, "bodega no ve el campo de costo");
+  await p.goto(B + "/prediccion?ver=vencimiento");
+  ok(p.url().includes("/prediccion") && await p.getByText("Valor a costo").count() === 0, "bodega ve la predicción sin costos");
   await ctx.close();
 }
 

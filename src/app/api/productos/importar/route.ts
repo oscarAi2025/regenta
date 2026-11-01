@@ -18,6 +18,7 @@ const Fila = z.object({
   vence: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, "La fecha de vencimiento va como AAAA-MM-DD").or(z.literal("")).default(""),
   cantidad_unidades: z.coerce.number().int().min(0).default(0),
   costo_unidad: z.coerce.number().min(0).optional(),
+  registro_sanitario: z.string().trim().max(60).default(""),
 });
 const Peticion = z.object({ simular: z.boolean(), filas: z.array(z.record(z.string(), z.unknown())).min(1).max(5000) });
 
@@ -54,12 +55,12 @@ export const POST = conSesion(async (s, req) => {
       const pu = f.unidades_por_caja > 1 ? f.precio_unidad ?? null : null;
       let id = f.codigo_barras ? existentes.get(f.codigo_barras) : undefined;
       if (id) {
-        await c.query(`update productos set nombre = $2, laboratorio = nullif($3, ''), iva = $4, unidades_por_caja = $5, precio_caja = $6, precio_unidad = $7, stock_minimo = $8 where id = $1`,
-          [id, f.nombre, f.laboratorio, f.iva, f.unidades_por_caja, f.precio_caja, pu, f.stock_minimo]);
+        await c.query(`update productos set nombre = $2, laboratorio = nullif($3, ''), iva = $4, unidades_por_caja = $5, precio_caja = $6, precio_unidad = $7, stock_minimo = $8, registro_sanitario = coalesce(nullif(upper($9), ''), registro_sanitario) where id = $1`,
+          [id, f.nombre, f.laboratorio, f.iva, f.unidades_por_caja, f.precio_caja, pu, f.stock_minimo, f.registro_sanitario]);
       } else {
-        id = (await c.query(`insert into productos (empresa_id, maestro_id, nombre, laboratorio, ean, iva, unidades_por_caja, precio_caja, precio_unidad, stock_minimo)
-          values ($1, $2, $3, nullif($4, ''), nullif($5, ''), $6, $7, $8, $9, $10) returning id`,
-          [s.empresa, f.codigo_barras ? maestro.get(f.codigo_barras) ?? null : null, f.nombre, f.laboratorio, f.codigo_barras, f.iva, f.unidades_por_caja, f.precio_caja, pu, f.stock_minimo])).rows[0].id;
+        id = (await c.query(`insert into productos (empresa_id, maestro_id, nombre, laboratorio, ean, iva, unidades_por_caja, precio_caja, precio_unidad, stock_minimo, registro_sanitario)
+          values ($1, $2, $3, nullif($4, ''), nullif($5, ''), $6, $7, $8, $9, $10, nullif(upper($11), '')) returning id`,
+          [s.empresa, f.codigo_barras ? maestro.get(f.codigo_barras) ?? null : null, f.nombre, f.laboratorio, f.codigo_barras, f.iva, f.unidades_por_caja, f.precio_caja, pu, f.stock_minimo, f.registro_sanitario])).rows[0].id;
       }
       if (f.cantidad_unidades > 0) lineas.push({ producto_id: id!, lote: f.lote, vence: f.vence || null, unidades: f.cantidad_unidades, ...(f.costo_unidad !== undefined ? { costo_unidad: f.costo_unidad } : {}) });
     }

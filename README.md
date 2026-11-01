@@ -31,3 +31,12 @@ node tests/e2e/caja.mjs            # recorrido real en el navegador (escritorio 
 | `REGENTA_DEMO` | `1` solo en el entorno de demostración |
 
 En Supabase se aplican `db/migrations/*.sql` (no `db/local/`, que imita a Supabase solo en local).
+
+## Tareas programadas (producción)
+- `POST /api/dian` con `Authorization: Bearer $REGENTA_CRON_KEY`: procesa la cola de documentos DIAN.
+- `POST /api/invima` con el mismo encabezado, cada 6 horas: trae las alertas sanitarias nuevas de medicamentos de invima.gov.co.
+- `REGENTA_URL`: dominio público (canonical, sitemap, Open Graph).
+- `REGENTA_DEMO=1` habilita «Probar la demo» (/demo) sobre la droguería de ejemplo.
+
+## Pruebas
+`node scripts/db-reset.mjs && node --test tests/db.test.mjs && node --experimental-strip-types --test tests/invima.test.mjs`, y con el servidor en :4500: `node tests/e2e/caja.mjs && node tests/e2e/gestion.mjs`.

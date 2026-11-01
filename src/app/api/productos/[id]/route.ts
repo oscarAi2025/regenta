@@ -20,9 +20,9 @@ export const PATCH = conSesion(async (s, req, ctx) => {
       if (ya) throw Object.assign(new Error(`Ya tienes otro producto con ese código de barras: ${ya.nombre}`), { code: "P0001" });
     }
     return (await c.query(
-      `update productos set nombre = $3, laboratorio = $4, ean = nullif($5, ''), iva = $6, unidades_por_caja = $7, precio_caja = $8, precio_unidad = $9, stock_minimo = $10
+      `update productos set nombre = $3, laboratorio = $4, ean = nullif($5, ''), iva = $6, unidades_por_caja = $7, precio_caja = $8, precio_unidad = $9, stock_minimo = $10, registro_sanitario = nullif(upper($11), '')
        where id = $1 and empresa_id = $2`,
-      [id, s.empresa, d.nombre, d.laboratorio || null, d.ean ?? "", d.iva, d.unidades_por_caja, d.precio_caja, d.precio_unidad ?? null, d.stock_minimo])).rowCount;
+      [id, s.empresa, d.nombre, d.laboratorio || null, d.ean ?? "", d.iva, d.unidades_por_caja, d.precio_caja, d.precio_unidad ?? null, d.stock_minimo, d.registro_sanitario ?? ""])).rowCount;
   });
   return n ? json({ ok: true }) : json({ error: "No tienes permiso para editar productos" }, 403);
 });

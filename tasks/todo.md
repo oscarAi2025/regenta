@@ -38,3 +38,5 @@ Especificación: https://claude.ai/artifact/78qFbvxbiGftd3bxur2Q7z (Claude Doc �
 - [ ] Aviso al equipo cuando entra una solicitud de demo (hoy solo se guarda)
 - [ ] Supabase + Netlify (Oscar crea las cuentas), emisor MATIAS, clientes y factura electrónica, varias sedes, venta sin internet
 - [ ] Precios de los planes tras investigar competidores con fuentes
+
+PLACEHOLDER

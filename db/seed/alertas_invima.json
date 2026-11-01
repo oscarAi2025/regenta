@@ -1,0 +1,19 @@
+[
+  { "numero": "329-2026", "tipo": "alerta", "titulo": "FALSIFICACIÓN DEL PRODUCTO BUSCAPINA® COMPOSITUM NF TABLETAS RECUBIERTAS LOTE F0537A", "motivo": "Producto fraudulento", "fecha": "2026-10-09",
+    "url": "https://www.invima.gov.co/alertas-sanitarias/falsificacion-del-producto-buscapina-compositum-nf-tabletas-recubiertas-lote-f0537a", "pdf": "https://www.invima.gov.co/alertas-sanitarias/12844/pdf",
+    "registros": ["INVIMA 2020M-003171-R4"], "lotes": ["F0537A"], "palabras": ["buscapina", "compositum"],
+    "resumen": "El titular confirmó la falsificación del lote F0537A: el lote original venció en julio de 2021 y el falsificado muestra fechas y diseño alterados.",
+    "recomendacion": "Las droguerías no deben distribuir ni comercializar este lote; hacerlo puede acarrear medidas sanitarias de seguridad." },
+  { "numero": "368-2026", "tipo": "alerta", "titulo": "FALSIFICACIÓN DEL PRODUCTO DARZALEX® SC 120 MG/ML SOLUCIÓN INYECTABLE, CON LOTE PJS0C02", "motivo": "Producto fraudulento", "fecha": "2026-10-30",
+    "url": "https://www.invima.gov.co/alertas-sanitarias/falsificacion-del-producto-darzalex-sc-120-mgml-solucion-inyectable-con-lote-pjs0c02", "pdf": "https://www.invima.gov.co/alertas-sanitarias/13041/pdf",
+    "registros": [], "lotes": ["PJS0C02"], "palabras": ["darzalex"], "resumen": null, "recomendacion": null },
+  { "numero": "153-2026", "tipo": "informe", "titulo": "RIESGO DE NEFROPATÍA ASOCIADA A ANTICOAGULANTES ORALES", "motivo": null, "fecha": "2026-10-30",
+    "url": "https://www.invima.gov.co/alertas-sanitarias/riesgo-de-nefropatia-asociada-a-anticoagulantes-orales", "pdf": "https://www.invima.gov.co/alertas-sanitarias/12979/pdf",
+    "registros": [], "lotes": [], "palabras": [], "resumen": null, "recomendacion": null },
+  { "numero": "152-2026", "tipo": "informe", "titulo": "RIESGO DE ENCEFALOPATÍA HIPERAMONÉMICA ASOCIADO AL USO DE SUNITINIB", "motivo": null, "fecha": "2026-10-30",
+    "url": "https://www.invima.gov.co/alertas-sanitarias/riesgo-de-encefalopatia-hiperamonemica-asociado-al-uso-de-sunitinib", "pdf": "https://www.invima.gov.co/alertas-sanitarias/12980/pdf",
+    "registros": [], "lotes": [], "palabras": ["sunitinib"], "resumen": null, "recomendacion": null },
+  { "numero": "285-2026", "tipo": "alerta", "titulo": "Productos fraudulentos promocionados como suplementos dietarios en comercio electrónico", "motivo": "Producto fraudulento", "fecha": "2026-09-01",
+    "url": "https://www.invima.gov.co/alertas-sanitarias/productos-fraudulentos-promocionados-como-suplementos-dietarios-en-comercio-electronico", "pdf": null,
+    "registros": [], "lotes": [], "palabras": [], "resumen": null, "recomendacion": null }
+]

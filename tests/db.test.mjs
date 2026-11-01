@@ -79,7 +79,7 @@ test("venta POS: descuenta del lote que vence antes, calcula IVA y numera", asyn
   const r = await como(U.cajera, async (c) => {
     const antes = (await c.query("select lote_id, vence, unidades from v_stock_lotes where producto_id = $1 and unidades > 0 order by vence", [prod.id])).rows;
     const v = (await c.query("select registrar_venta($1) r", [venta([{ producto_id: prod.id, presentacion: "unidad", cantidad: 1 }], { pagos: [{ medio: "efectivo", valor: 100000 }] })])).rows[0].r;
-    const despues = (await c.query("select lote_id, unidades from v_stock_lotes where producto_id = $1 order by vence", [prod.id])).rows;
+    const despues = (await c.query("select lote_id, unidades from v_stock_lotes where lote_id = any($1) order by vence", [antes.map((l) => l.lote_id)])).rows;
     const doc = (await c.query("select estado, prefijo, numero from documentos_dian where venta_id = $1", [v.venta_id])).rows[0];
     return { antes, despues, v, doc };
   });
@@ -167,4 +167,59 @@ test("un ajuste sin motivo se rechaza y no puede dejar un lote en negativo", asy
     const l = (await c.query("select lote, unidades from v_stock_lotes where producto_id = $1 and unidades > 0 limit 1", [prod.id])).rows[0];
     await c.query("select registrar_entrada($1)", [{ empresa_id: E.A, sede_id: S.A, tipo: "ajuste", motivo: "conteo", lineas: [{ producto_id: prod.id, lote: l.lote, unidades: -(l.unidades + 1) }] }]);
   }), /negativo/);
+});
+
+// ── Predicción
+test("predicción: ritmo, riesgo de vencimiento FEFO y pedido sugerido con un caso controlado", async () => {
+  const r = await como(U.carlos, async (c) => {
+    const id = (await c.query(`insert into productos (empresa_id, nombre, iva, unidades_por_caja, precio_caja) values ($1, 'Prueba predicción', 0, 1, 1000) returning id`, [E.A])).rows[0].id;
+    const dias = (n) => `(current_date + ${n})::text`;
+    await c.query(`select registrar_entrada(jsonb_build_object('empresa_id', $1::uuid, 'sede_id', $2::uuid, 'tipo', 'compra', 'lineas', jsonb_build_array(
+      jsonb_build_object('producto_id', $3::uuid, 'lote', 'X', 'vence', ${dias(10)}, 'unidades', 50, 'costo_unidad', 400),
+      jsonb_build_object('producto_id', $3::uuid, 'lote', 'Y', 'vence', ${dias(100)}, 'unidades', 20, 'costo_unidad', 400))))`, [E.A, S.A, id]);
+    await c.query(`select registrar_venta($1)`, [venta([{ producto_id: id, presentacion: "caja", cantidad: 28 }], { pagos: [{ medio: "efectivo", valor: 28000 }] })]);
+    const p = (await c.query(`select existencias, venta_dia::float, sugerido_unidades from prediccion_productos($1) where producto_id = $2`, [E.A, id])).rows[0];
+    const riesgo = (await c.query(`select lote, unidades_en_riesgo, valor_en_riesgo::float from riesgo_vencimiento($1) where producto_id = $2`, [E.A, id])).rows;
+    const p2 = (await c.query(`select sugerido_unidades, sugerido_cajas from prediccion_productos($1, 3, 60) where producto_id = $2`, [E.A, id])).rows[0];
+    return { p, riesgo, p2 };
+  });
+  // 28 unidades en los últimos 14 días → 0,6 × 28/14 = 1,2 und/día
+  assert.equal(r.p.venta_dia, 1.2);
+  assert.equal(r.p.existencias, 42);
+  assert.equal(r.p.sugerido_unidades, 0, "42 unidades cubren 18 días a 1,2/día");
+  // lote X: quedan 22 (la venta salió de X por FEFO), en 10 días se venden 12 → 10 en riesgo; lote Y alcanza
+  assert.deepEqual(r.riesgo, [{ lote: "X", unidades_en_riesgo: 10, valor_en_riesgo: 4000 }]);
+  // con 63 días de horizonte: 1,2 × 63 = 75,6 → faltan 34 unidades
+  assert.equal(r.p2.sugerido_unidades, 34);
+});
+
+test("predicción: otra empresa no ve nada y la cajera no ve costos en riesgo", async () => {
+  const b = await como(U.duenoB, async (c) => (await c.query(`select count(*)::int n from prediccion_productos($1)`, [E.A])).rows[0].n);
+  assert.equal(b, 0);
+  const caj = await como(U.cajera, async (c) => (await c.query(`select count(*)::int n, count(valor_en_riesgo)::int con_valor from riesgo_vencimiento($1)`, [E.A])).rows[0]);
+  assert.ok(caj.n > 0, "la cajera ve los lotes en riesgo");
+  assert.equal(caj.con_valor, 0, "pero sin el valor a costo");
+});
+
+test("nunca se vende un lote vencido, aunque sea el primero por FEFO", async () => {
+  await assert.rejects(como(U.carlos, async (c) => {
+    const id = (await c.query(`insert into productos (empresa_id, nombre, iva, unidades_por_caja, precio_caja) values ($1, 'Prueba vencido', 0, 1, 1000) returning id`, [E.A])).rows[0].id;
+    await c.query(`select registrar_entrada(jsonb_build_object('empresa_id', $1::uuid, 'sede_id', $2::uuid, 'tipo', 'compra', 'lineas', jsonb_build_array(
+      jsonb_build_object('producto_id', $3::uuid, 'lote', 'VIEJO', 'vence', (current_date - 1)::text, 'unidades', 5),
+      jsonb_build_object('producto_id', $3::uuid, 'lote', 'NUEVO', 'vence', (current_date + 200)::text, 'unidades', 2))))`, [E.A, S.A, id]);
+    const v = (await c.query(`select registrar_venta($1) r`, [venta([{ producto_id: id, presentacion: "caja", cantidad: 2 }], { pagos: [{ medio: "efectivo", valor: 2000 }] })])).rows[0].r;
+    const lotes = (await c.query(`select l.lote from venta_lineas vl join lotes l on l.id = vl.lote_id where vl.venta_id = $1`, [v.venta_id])).rows.map((x) => x.lote);
+    assert.deepEqual(lotes, ["NUEVO"], "sale del lote vigente");
+    await c.query(`select registrar_venta($1)`, [venta([{ producto_id: id, presentacion: "caja", cantidad: 1 }], { pagos: [{ medio: "efectivo", valor: 1000 }] })]);
+  }), /vencido y no se puede vender/);
+});
+
+test("alertas INVIMA: cruce por lote, registro y nombre; otra empresa no ve el cruce de A", async () => {
+  const a = await como(U.carlos, async (c) => (await c.query(`select numero, producto, nivel, lote, unidades from alertas_empresa($1) where producto is not null order by nivel`, [E.A])).rows);
+  const lote = a.find((x) => x.nivel === "lote");
+  assert.ok(lote && lote.numero === "329-2026" && lote.lote === "F0537A" && lote.unidades > 0, "detecta el lote F0537A en existencias");
+  assert.ok(a.some((x) => x.nivel === "nombre" && /compositum/i.test(x.producto)), "marca para revisar otros Buscapina Compositum por nombre");
+  const b = await como(U.duenoB, async (c) => (await c.query(`select count(*)::int n from alertas_empresa($1) where producto_id is not null`, [E.A])).rows[0].n);
+  assert.equal(b, 0);
+  await assert.rejects(como(U.cajera, (c) => c.query(`insert into alertas_revision (empresa_id, alerta_id, resultado) select $1, id, 'no_aplica' from alertas_invima limit 1`, [E.A])), /row-level security|permission/);
 });

@@ -385,12 +385,12 @@ begin
     end if;
 
     -- Lotes con existencias de esta sede, el que vence antes primero (FEFO). Una línea puede repartirse en varios lotes.
-    -- Bloqueo por producto: dos cajas no pueden descontar el mismo lote a la vez.
+    -- Nunca se vende un lote vencido. Bloqueo por producto: dos cajas no pueden descontar el mismo lote a la vez.
     perform pg_advisory_xact_lock(hashtext(v_prod.id::text));
     v_falta := v_unid;
     for r in
       select s.lote_id, s.unidades from v_stock_lotes s
-      where s.producto_id = v_prod.id and s.sede_id = v_sede and s.unidades > 0
+      where s.producto_id = v_prod.id and s.sede_id = v_sede and s.unidades > 0 and (s.vence is null or s.vence >= current_date)
       order by s.vence nulls last, s.lote_id
     loop
       exit when v_falta = 0;
@@ -409,6 +409,9 @@ begin
       v_falta := v_falta - v_toma;
     end loop;
     if v_falta > 0 then
+      if exists (select 1 from v_stock_lotes s where s.producto_id = v_prod.id and s.sede_id = v_sede and s.unidades > 0 and s.vence < current_date) then
+        raise exception 'No hay existencias vigentes suficientes de % (faltan % unidades; lo demás está vencido y no se puede vender)', v_prod.nombre, v_falta using errcode = 'P0001';
+      end if;
       raise exception 'No hay existencias suficientes de % (faltan % unidades)', v_prod.nombre, v_falta using errcode = 'P0001';
     end if;
   end loop;

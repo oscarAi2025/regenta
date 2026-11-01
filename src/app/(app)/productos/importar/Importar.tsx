@@ -1,10 +1,10 @@
 "use client";
 import { useState } from "react";
 
-const COLUMNAS = ["nombre", "codigo_barras", "laboratorio", "iva", "unidades_por_caja", "precio_caja", "precio_unidad", "stock_minimo", "lote", "vence", "cantidad_unidades", "costo_unidad"];
+const COLUMNAS = ["nombre", "codigo_barras", "laboratorio", "iva", "unidades_por_caja", "precio_caja", "precio_unidad", "stock_minimo", "lote", "vence", "cantidad_unidades", "costo_unidad", "registro_sanitario"];
 const EJEMPLO = [
-  ["Acetaminofen 500 mg tabletas caja x 100", "7702057000000", "Genérico", "0", "100", "12000", "200", "3", "L2026A", "2027-08-31", "300", "80"],
-  ["Crema dental 75 ml", "7891024000000", "Marca", "19", "1", "6500", "", "6", "C55", "2028-01-31", "24", "4100"],
+  ["Acetaminofen 500 mg tabletas caja x 100", "7702057000000", "Genérico", "0", "100", "12000", "200", "3", "L2026A", "2027-08-31", "300", "80", ""],
+  ["Crema dental 75 ml", "7891024000000", "Marca", "19", "1", "6500", "", "6", "C55", "2028-01-31", "24", "4100", ""],
 ];
 
 /** Lee un CSV de Excel (separado por ; o ,), con comillas. Devuelve filas como objetos con las columnas del encabezado. */

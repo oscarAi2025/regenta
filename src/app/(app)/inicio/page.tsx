@@ -45,7 +45,14 @@ export default async function Inicio() {
       select v.id, v.prefijo || v.numero numero, v.total::float, v.estado, to_char(v.creado at time zone 'America/Bogota', 'HH24:MI') hora, d.estado dian
       from ventas v left join documentos_dian d on d.venta_id = v.id and d.tipo = v.tipo_doc
       where v.empresa_id = $1 order by v.creado desc limit 6`, [s.empresa])).rows;
-    return { hoy, medios, semana, margen, alertas, ultimas };
+    const pred = puede.moverInventario(s.rol) ? (await c.query(`
+      select (select count(*) from prediccion_productos($1) where sugerido_unidades > 0 and venta_dia > 0)::int pedir,
+             (select count(*) from prediccion_productos($1) where venta_dia > 0 and dias_cobertura < 7)::int agotan,
+             (select count(*) from riesgo_vencimiento($1))::int lotes,
+             (select coalesce(sum(valor_en_riesgo), 0) from riesgo_vencimiento($1))::float riesgo`, [s.empresa])).rows[0] : null;
+    const invima = (await c.query(`select count(*) filter (where nivel is not null and revisada is null)::int pendientes,
+      count(*) filter (where nivel = 'lote' and revisada is null)::int lote from alertas_empresa($1)`, [s.empresa])).rows[0];
+    return { hoy, medios, semana, margen, alertas, ultimas, pred, invima };
   });
   const max = Math.max(1, ...d.semana.map((x) => x.total));
   const hora = Number(new Date().toLocaleString("en-US", { timeZone: "America/Bogota", hour: "numeric", hour12: false }));
@@ -66,6 +73,28 @@ export default async function Inicio() {
           : <Dato titulo="Ventas de hoy" valor={d.hoy.ventas} />}
         <Dato titulo="Por vencer en 30 días" valor={d.alertas.vencen} tono={d.alertas.vencen ? "alerta" : undefined} nota={<Link className="underline" href="/inventario">Ver lotes</Link>} />
       </section>
+
+      {d.invima.pendientes > 0 && (
+        <Link href="/alertas" className={`rounded-2xl p-5 flex flex-wrap items-center gap-4 ${d.invima.lote ? "bg-alerta text-white" : "bg-aviso-soft text-aviso"} hover:brightness-105`}>
+          <p className="flex-1 min-w-60"><b className="titulo text-xl">{d.invima.lote ? `Tienes en existencias un lote con alerta del INVIMA` : `${d.invima.pendientes} alerta${d.invima.pendientes === 1 ? "" : "s"} del INVIMA coincide${d.invima.pendientes === 1 ? "" : "n"} con tu inventario`}</b>
+            <span className="block mt-1 opacity-90">Revísalo ahora y deja constancia de lo que hiciste.</span></p>
+          <span className={d.invima.lote ? "btn bg-white text-alerta" : "btn-oscuro"}>Revisar alertas</span>
+        </Link>
+      )}
+
+      {d.pred && (
+        <Link href="/prediccion" className="rounded-2xl bg-ink text-white p-5 grid sm:grid-cols-[1fr_auto] gap-4 items-center hover:brightness-110">
+          <div>
+            <p className="titulo text-xl">Lo que viene, según tus ventas</p>
+            <p className="mt-2 text-white/80 flex flex-wrap gap-x-6 gap-y-1">
+              <span><b className="num text-white text-lg">{d.pred.pedir}</b> para pedir</span>
+              <span><b className={`num text-lg ${d.pred.agotan ? "text-[#ffb4ab]" : "text-white"}`}>{d.pred.agotan}</b> se agotan en 7 días</span>
+              <span><b className="num text-white text-lg">{costos ? pesos(d.pred.riesgo) : d.pred.lotes + " lotes"}</b> se vencerían sin venderse</span>
+            </p>
+          </div>
+          <span className="btn-primario">Ver pedido sugerido</span>
+        </Link>
+      )}
 
       <div className="grid lg:grid-cols-[1.4fr_1fr] gap-5">
         <section className="tarjeta p-5" aria-label="Últimos 7 días">
