@@ -202,6 +202,31 @@ await p.getByRole("link", { name: "Cancelados" }).click(); await p.waitForURL(/v
 ok(await p.getByRole("cell", { name: conEmail }).count() === 5, "filtra los cancelados");
 await p.screenshot({ path: "test-results/admin-correos.png", fullPage: true });
 
+// ── Pago con el QR de la cuenta Bancolombia (sin pasarela): orden, instrucciones, pantalla con el QR y confirmación en la consola
+const pqEmail = `qr${sufijo}@pago.test`;
+const rq = await fetch(B + "/api/pagos", { method: "POST", headers: { origin: B, "content-type": "application/json", "x-real-ip": `10.9.${Math.floor(Math.random() * 250)}.7` },
+  body: JSON.stringify({ plan: "pro", periodo: "mes", proveedor: "qr", nombre: "Pablo QR", empresa: "Droguería QR", nit: "", email: pqEmail, telefono: "3005556677", acepta: true }) });
+const jq = await rq.json();
+ok(rq.status === 201 && jq.url?.startsWith("/contratar/resultado?ref="), "QR: crea la orden y lleva a la página del QR", String(rq.status));
+ok((await correo(pqEmail, "pago_qr"))?.estado === "simulado", "QR: correo con las instrucciones de pago");
+const pq = await (await b.newContext({ ...devices["iPhone 13"] })).newPage();
+await pq.goto(B + jq.url);
+await pq.getByText("Paga exactamente").waitFor();
+ok(await pq.getByText("$139.900").count() >= 1 && await pq.getByRole("link", { name: /enviar comprobante por WhatsApp/ }).count() === 1, "QR: muestra monto exacto, llave y botón del comprobante");
+await pq.screenshot({ path: "test-results/pago-qr.png", fullPage: true });
+await p.goto(B + "/admin/pagos?ver=qr");
+const filaQr = p.locator("tr", { hasText: jq.referencia });
+await filaQr.getByRole("button", { name: "Confirmar: el dinero llegó" }).click();
+await filaQr.getByRole("button", { name: /¿Llegaron \$139\.900\? Sí/ }).click();
+await p.getByText("Pago confirmado").waitFor();
+const pagoQr = (await pool.query(`select estado, vence, confirmado_por from pagos_suscripcion where referencia = $1`, [jq.referencia])).rows[0];
+ok(pagoQr.estado === "aprobado" && pagoQr.vence && pagoQr.confirmado_por, "QR: confirmado en la consola, con periodo pagado y quién lo confirmó");
+ok((await correo(pqEmail, "pago_aprobado"))?.estado === "simulado", "QR: correo de pago aprobado");
+await pq.reload(); await pq.getByText("¡Pago aprobado!").waitFor({ timeout: 20000 });
+ok(true, "QR: la página del cliente pasa a pago aprobado");
+const otraVez = await p.request.patch(B + "/api/admin/pagos", { headers: { origin: B }, data: { referencia: jq.referencia, confirmar: "aprobado" } });
+ok(otraVez.status() === 409, "QR: no se confirma dos veces");
+
 // ── Móvil y salida
 const m = await (await b.newContext(devices["Pixel 7"])).newPage();
 await m.context().addCookies(await ctx.cookies());

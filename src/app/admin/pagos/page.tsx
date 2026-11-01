@@ -12,12 +12,12 @@ export default async function Pagos({ searchParams }: { searchParams: Promise<{ 
   await exigirAdmin();
   const { ver = "todos" } = await searchParams;
   const filas = await sinRLS(async (c) => (await c.query(`select p.*, coalesce(e.nombre_comercial, e.razon_social) cliente from pagos_suscripcion p left join empresas e on e.id = p.empresa_id
-    where ($1 = 'todos' or ($1 = 'atender' and p.estado = 'aprobado' and not p.atendido)) order by p.creado desc limit 300`, [ver === "atender" ? "atender" : "todos"])).rows);
+    where ($1 = 'todos' or ($1 = 'atender' and p.estado = 'aprobado' and not p.atendido) or ($1 = 'qr' and p.proveedor = 'qr' and p.estado = 'pendiente')) order by p.creado desc limit 300`, [["atender", "qr"].includes(ver) ? ver : "todos"])).rows);
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
-      <Cabecera titulo="Pagos" sub="Pagos de planes desde la web (Wompi y Stripe). Un pago aprobado sin atender es un cliente esperando su cuenta." />
+      <Cabecera titulo="Pagos" sub="Pagos de planes desde la web (QR Bancolombia, Stripe y Wompi). Los pagos por QR se confirman aquí al ver el dinero en la cuenta. Un pago aprobado sin atender es un cliente esperando su cuenta." />
       <nav className="flex gap-1 tarjeta p-1 w-fit" aria-label="Vista">
-        {([["todos", "Todos"], ["atender", "Aprobados sin atender"]] as const).map(([k, t]) => <Link key={k} href={`?ver=${k}`} aria-current={ver === k ? "page" : undefined} className={`px-3.5 py-2 rounded-xl text-sm font-semibold ${ver === k ? "bg-ink text-white" : "text-muted"}`}>{t}</Link>)}
+        {([["todos", "Todos"], ["qr", "QR por confirmar"], ["atender", "Aprobados sin atender"]] as const).map(([k, t]) => <Link key={k} href={`?ver=${k}`} aria-current={ver === k ? "page" : undefined} className={`px-3.5 py-2 rounded-xl text-sm font-semibold ${ver === k ? "bg-ink text-white" : "text-muted"}`}>{t}</Link>)}
       </nav>
       <div className="tarjeta overflow-x-auto">
         <table className="w-full text-[15px] min-w-[1000px]">
@@ -27,10 +27,14 @@ export default async function Pagos({ searchParams }: { searchParams: Promise<{ 
               <tr key={p.referencia} className="align-top">
                 <td className="px-4 py-3 text-sm">{fechaHora(p.creado)}<p className="text-xs text-muted font-mono">{p.referencia}</p></td>
                 <td className="px-4 py-3"><p className="font-semibold">{p.empresa}</p><p className="text-sm text-muted">{p.nombre} · {p.telefono} · {p.email}{p.nit ? ` · NIT ${p.nit}` : ""}</p>{p.cliente && <Link href={`/admin/clientes/${p.empresa_id}`} className="text-sm text-cruz underline">Cliente: {p.cliente}</Link>}</td>
-                <td className="px-4 py-3">{NOMBRE_PLAN[p.plan]} {p.periodo === "anio" ? "anual" : "mensual"}<p className="text-sm text-muted">{p.proveedor === "wompi" ? "Wompi" : "Stripe"}{p.metodo ? ` · ${p.metodo}` : ""}</p></td>
+                <td className="px-4 py-3">{NOMBRE_PLAN[p.plan]} {p.periodo === "anio" ? "anual" : "mensual"}<p className="text-sm text-muted">{p.proveedor === "qr" ? "QR Bancolombia" : p.proveedor === "wompi" ? "Wompi" : "Stripe"}{p.metodo ? ` · ${p.metodo}` : ""}</p></td>
                 <td className="px-4 py-3 num text-right font-semibold">{pesos(p.monto)}</td>
                 <td className="px-4 py-3"><span className={`font-semibold ${ESTADO[p.estado] ?? ""}`}>{p.estado}</span>{p.atendido && <p className="text-sm text-muted">atendido</p>}</td>
                 <td className="px-4 py-3"><div className="flex flex-wrap gap-2">
+                  {p.proveedor === "qr" && p.estado === "pendiente" && <>
+                    <Accion url="/api/admin/pagos" metodo="PATCH" cuerpo={{ referencia: p.referencia, confirmar: "aprobado" }} texto="Confirmar: el dinero llegó" confirmar={`¿Llegaron ${pesos(p.monto)}? Sí`} clase="btn-primario h-9 text-sm" />
+                    <Accion url="/api/admin/pagos" metodo="PATCH" cuerpo={{ referencia: p.referencia, confirmar: "rechazado" }} texto="No llegó" confirmar="¿Marcar como no recibido? Sí" clase="btn-borde h-9 text-sm text-muted" />
+                  </>}
                   {p.estado === "aprobado" && !p.empresa_id && <Link href={`/admin/clientes/nuevo?pago=${encodeURIComponent(p.referencia)}`} className="btn-primario h-9 text-sm">Crear su cuenta</Link>}
                   {!p.atendido && <Accion url="/api/admin/pagos" metodo="PATCH" cuerpo={{ referencia: p.referencia, atendido: true }} texto="Marcar atendido" clase="btn-borde h-9 text-sm" />}
                   <a href={`https://wa.me/57${String(p.telefono).replace(/\D/g, "").slice(-10)}`} target="_blank" rel="noopener" className="btn-borde h-9 text-sm">WhatsApp</a>

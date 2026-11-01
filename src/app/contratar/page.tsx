@@ -5,17 +5,17 @@ import { Pie } from "@/components/landing/Pie";
 import { Sello } from "@/components/landing/Sello";
 import { metaPublica } from "@/lib/seo";
 import { PLANES, SOCIO } from "@/lib/planes";
-import { stripeActivo, wompiActivo } from "@/lib/pagos";
+import { qrActivo, stripeActivo, wompiActivo } from "@/lib/pagos";
 import { wa } from "@/lib/sitio";
 import { FormContratar } from "./FormContratar";
 
-export const metadata: Metadata = metaPublica("/contratar", "Contratar Regenta: paga con PSE, Nequi, tarjeta o QR", "Contrata Regenta en línea: pago seguro con tarjeta, PSE, Nequi, Daviplata, Botón o QR Bancolombia. Plan mensual o anual con 2 meses gratis.");
+export const metadata: Metadata = metaPublica("/contratar", "Contratar Regenta: paga con QR Bancolombia o tarjeta", "Contrata Regenta en línea: paga con el QR Bancolombia desde cualquier banco, Nequi o Daviplata, o con tarjeta. Plan mensual o anual con 2 meses gratis.");
 export const dynamic = "force-dynamic";
 
 export default async function Contratar({ searchParams }: { searchParams: Promise<{ plan?: string; cancelado?: string }> }) {
   const sp = await searchParams;
   const plan = sp.plan === "esencial" ? "esencial" : "pro";
-  const activos = { wompi: wompiActivo(), stripe: stripeActivo() };
+  const activos = { qr: qrActivo(), wompi: wompiActivo(), stripe: stripeActivo() };
   return (
     <div className="bg-paper text-ink min-h-screen">
       <CabeceraPublica />
@@ -30,7 +30,7 @@ export default async function Contratar({ searchParams }: { searchParams: Promis
         </section>
         <section className="max-w-6xl mx-auto px-4 sm:px-6 py-10 grid lg:grid-cols-[1.15fr_.85fr] gap-8 items-start">
           {sp.cancelado && <p role="status" className="lg:col-span-2 rounded-2xl bg-aviso-soft text-aviso px-4 py-3 font-semibold">El pago se canceló y no se cobró nada. Puedes intentarlo de nuevo cuando quieras.</p>}
-          {activos.wompi || activos.stripe ? <FormContratar plan={plan} activos={activos} planes={PLANES.filter((p) => p.precio).map((p) => ({ id: p.id as "esencial" | "pro", nombre: p.nombre, precio: p.precio!, para: p.para }))} /> : (
+          {activos.qr || activos.wompi || activos.stripe ? <FormContratar plan={plan} activos={activos} planes={PLANES.filter((p) => p.precio).map((p) => ({ id: p.id as "esencial" | "pro", nombre: p.nombre, precio: p.precio!, para: p.para }))} /> : (
             <div className="tarjeta p-6 sm:p-8">
               <h2 className="font-cond text-3xl" style={{ fontWeight: 700 }}>Contrata por WhatsApp</h2>
               <p className="mt-3 text-muted text-lg">El pago en línea se está activando. Mientras tanto te enviamos el enlace de pago por WhatsApp y activamos tu cuenta el mismo día.</p>

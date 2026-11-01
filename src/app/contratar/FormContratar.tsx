@@ -6,10 +6,10 @@ import { pesos } from "@/lib/formato";
 type PlanVenta = { id: "esencial" | "pro"; nombre: string; precio: number; para: string };
 
 /** Formulario de compra: plan, periodo, medio de pago y datos de contacto. La pasarela recibe el pago; aquí nada de tarjetas. */
-export function FormContratar({ plan: inicial, planes, activos }: { plan: "esencial" | "pro"; planes: PlanVenta[]; activos: { wompi: boolean; stripe: boolean } }) {
+export function FormContratar({ plan: inicial, planes, activos }: { plan: "esencial" | "pro"; planes: PlanVenta[]; activos: { qr: boolean; wompi: boolean; stripe: boolean } }) {
   const [plan, setPlan] = useState(inicial);
   const [periodo, setPeriodo] = useState<"mes" | "anio">("mes");
-  const [proveedor, setProveedor] = useState<"wompi" | "stripe">(activos.wompi ? "wompi" : "stripe");
+  const [proveedor, setProveedor] = useState<"qr" | "wompi" | "stripe">(activos.qr ? "qr" : activos.stripe ? "stripe" : "wompi");
   const [f, setF] = useState({ nombre: "", empresa: "", nit: "", email: "", telefono: "", acepta: false });
   const [error, setError] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -52,6 +52,12 @@ export function FormContratar({ plan: inicial, planes, activos }: { plan: "esenc
       <fieldset>
         <legend className="font-cond text-2xl" style={{ fontWeight: 700 }}>2. Cómo pagas</legend>
         <div className="mt-3 grid gap-3" role="group" aria-label="Medio de pago">
+          {activos.qr && (
+            <button type="button" aria-pressed={proveedor === "qr"} onClick={() => setProveedor("qr")} className={`rounded-2xl border-2 p-4 text-left ${proveedor === "qr" ? "border-teal-600 bg-teal-50" : "border-line"}`}>
+              <span className="block font-semibold">QR Bancolombia</span>
+              <span className="block text-sm text-muted">Escaneas el QR desde la app de cualquier banco, Nequi o Daviplata (Bre-B) y nos envías el comprobante.</span>
+            </button>
+          )}
           {activos.wompi && (
             <button type="button" aria-pressed={proveedor === "wompi"} onClick={() => setProveedor("wompi")} className={`rounded-2xl border-2 p-4 text-left ${proveedor === "wompi" ? "border-teal-600 bg-teal-50" : "border-line"}`}>
               <span className="block font-semibold">Pago en Colombia</span>
@@ -65,6 +71,7 @@ export function FormContratar({ plan: inicial, planes, activos }: { plan: "esenc
             </button>
           )}
         </div>
+        {proveedor === "qr" && <p className="mt-2 text-sm text-muted">Al continuar ves el QR y el monto exacto. Pagas este {periodo === "anio" ? "año" : "mes"}; antes del siguiente te avisamos para renovar.</p>}
         {proveedor === "wompi" && <p className="mt-2 text-sm text-muted">Con Wompi pagas este {periodo === "anio" ? "año" : "mes"}; antes del siguiente te enviamos el enlace para renovar.</p>}
       </fieldset>
 
@@ -82,11 +89,11 @@ export function FormContratar({ plan: inicial, planes, activos }: { plan: "esenc
       <div className="sticky bottom-2 z-20 rounded-2xl degradado-marca text-white p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 shadow-[0_20px_40px_-20px_rgba(14,116,144,.8)]">
         <div><p className="text-white/80 text-sm">Total a pagar hoy</p><p className="num font-cond text-[40px] leading-none" style={{ fontWeight: 700 }}>{pesos(total)}</p>
           <p className="text-white/75 text-sm">{elegido.nombre} · {periodo === "anio" ? `12 meses por el precio de 10 (ahorras ${pesos(elegido.precio * 2)})` : "1 mes"}</p></div>
-        <button disabled={enviando} className="btn-cta h-14 px-8 text-lg disabled:opacity-60">{enviando ? "Abriendo el pago…" : "Pagar de forma segura"}</button>
+        <button disabled={enviando} className="btn-cta h-14 px-8 text-lg disabled:opacity-60">{enviando ? "Abriendo el pago…" : proveedor === "qr" ? "Ver el QR para pagar" : "Pagar de forma segura"}</button>
       </div>
       {error && <p role="alert" className="text-alerta font-semibold">{error}</p>}
       <p className="text-sm font-semibold text-teal-800">✓ Incluye certificado digital y habilitación de tu NIT ante la DIAN, sin costo adicional.</p>
-      <p className="text-xs text-muted">El pago lo procesa la pasarela; Regenta no ve ni guarda los datos de tu tarjeta o tu cuenta.</p>
+      <p className="text-xs text-muted">{proveedor === "qr" ? "Pagas desde la app de tu banco: Regenta no ve ni guarda los datos de tu cuenta." : "El pago lo procesa la pasarela; Regenta no ve ni guarda los datos de tu tarjeta."}</p>
     </form>
   );
 }

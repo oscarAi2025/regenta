@@ -50,25 +50,35 @@ repositorio: van solo en el panel de cada servicio.
 | `RESEND_API_KEY` | La llave de Resend |
 | `CORREO_REMITENTE` | `Regenta <hola@correo.tudominio.co>` (dominio verificado) |
 | `CORREO_RESPUESTA` | `gerencia@farmagenericoscolombia.com` (opcional; es el valor por defecto) |
-| `WOMPI_PUBLIC_KEY`, `WOMPI_INTEGRITY_SECRET`, `WOMPI_EVENTS_SECRET` | Panel de Wompi → Desarrolladores. Primero las de pruebas (`pub_test_…`) y luego las de producción. |
+| `REGENTA_QR_LLAVE` | La llave Bre-B de la cuenta empresarial Bancolombia (la que el cliente escribe si no escanea). Con ella aparece «QR Bancolombia» en /contratar. |
+| `REGENTA_QR_IMAGEN` | `/qr-pago.png`: la imagen del QR de la cuenta, guardada en `public/qr-pago.png` |
+| `REGENTA_QR_TITULAR` | Opcional. Titular que ve el cliente (por defecto IA DEV INVESTIMENTS COLOMBIA S.A.S.) |
+| `WOMPI_PUBLIC_KEY`, `WOMPI_INTEGRITY_SECRET`, `WOMPI_EVENTS_SECRET` | No se usan por ahora (sin Wompi). Si algún día se activa, salen del panel de Wompi. |
 | `ANTHROPIC_API_KEY` | Activa Regenta IA |
 | `REGENTA_DEMO` | `1` si habrá demo pública |
 | `REGENTA_DIAN` | `simulado` hasta tener MATIAS configurado |
-| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Opcional. Solo con la cuenta de la LLC. |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Cuenta Stripe de la LLC: pago con tarjeta y renovación automática. |
 
 3. Desplegar y conectar el dominio. Netlify da el HTTPS.
 4. Tarea programada: `netlify/functions/tareas.mjs` corre cada hora, en hora UTC, solo en el sitio publicado. En
    Netlify → Functions → `tareas` → «Run now», el registro debe mostrar `tareas 200` con el resumen.
 
-## 4. Wompi (cobros)
-1. En el panel de Wompi, poner la URL de eventos `https://tudominio.co/api/pagos/wompi`. Hay que hacerlo en pruebas y
-   en producción.
-2. Hacer un pago de prueba en /contratar con la tarjeta de pruebas de Wompi. Comprobar que:
-   - /contratar/resultado dice «Pago aprobado».
-   - /admin/pagos lo muestra como aprobado.
-   - Llega el correo «Pago aprobado».
-3. Wompi no cobra solo cada mes. Regenta envía recordatorios de renovación 5 días antes, 1 día antes y 1 día después
-   del vencimiento.
+## 4. Cobros: QR Bancolombia y Stripe
+**QR de la cuenta empresarial Bancolombia (llave Bre-B), sin pasarela**
+1. En Bancolombia (canales digitales de la cuenta empresarial) registrar la llave Bre-B y descargar el QR. Guardar la
+   imagen como `public/qr-pago.png` y poner `REGENTA_QR_LLAVE` y `REGENTA_QR_IMAGEN`.
+2. Flujo:
+   - El cliente elige «QR Bancolombia» en /contratar y ve el monto exacto, el QR y la llave. También le llegan por correo.
+   - Paga desde cualquier banco, Nequi o Daviplata y manda el comprobante por WhatsApp con su referencia.
+   - Al ver el dinero en la cuenta, en /admin/pagos → «QR por confirmar» → «Confirmar: el dinero llegó». El cliente
+     recibe «Pago aprobado» y su página cambia sola.
+3. No hay aviso automático del banco: la confirmación es manual. Un pago sin confirmar queda pendiente, nunca se aprueba solo.
+4. El QR no cobra solo cada mes: Regenta envía recordatorios 5 días antes, 1 día antes y 1 día después del vencimiento.
+
+**Stripe (tarjeta, renovación automática), cuenta de la LLC**
+1. Webhook en Stripe: `https://tudominio.co/api/pagos/stripe` con los eventos `checkout.session.completed`,
+   `invoice.paid`, `invoice.payment_failed` y `customer.subscription.deleted`.
+2. Pago de prueba con la tarjeta de pruebas de Stripe (modo test): /contratar/resultado debe decir «Pago aprobado».
 
 ## 5. Primer cliente (el mismo día)
 1. /admin/clientes/nuevo:

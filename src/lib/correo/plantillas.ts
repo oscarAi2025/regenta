@@ -81,6 +81,14 @@ export const PLANTILLAS = {
       "Si aún no tienes tu cuenta, te escribimos por WhatsApp para activarla y cargar tus productos."],
     boton: { texto: "Entrar a Regenta", href: url("/entrar", "pago") } }) }),
 
+  pago_qr: (d: Datos): Correo => ({ asunto: `Paga tu plan de Regenta con QR${d.monto ? `: ${pesos(Number(d.monto))}` : ""}`, ...marco({
+    previa: "Escanea el QR desde la app de tu banco y envíanos el comprobante.", titulo: "Así pagas con QR",
+    parrafos: [`${hola(d.nombre)}, para activar Regenta${d.plan ? ` <b>${esc(d.plan)}</b>` : ""}${d.periodo ? ` (${esc(PERIODO[String(d.periodo)] ?? d.periodo)})` : ""} paga${d.monto ? ` <b>${pesos(Number(d.monto))}</b>` : ""} desde la app de tu banco, Nequi o Daviplata:`,
+      `<b>1.</b> Abre la página de tu pago y escanea el QR${d.llave ? `, o transfiere a la llave Bre-B <b>${esc(d.llave)}</b>` : ""}${d.titular ? ` (a nombre de ${esc(d.titular)})` : ""}.`,
+      `<b>2.</b> Envíanos el comprobante por WhatsApp con tu referencia${d.referencia ? ` <b>${esc(d.referencia)}</b>` : ""}.`,
+      "<b>3.</b> Al ver el pago en la cuenta lo confirmamos, te llega el correo de pago aprobado y activamos tu cuenta."],
+    boton: { texto: "Ver el QR y el monto", href: enlace(d.enlace) } }) }),
+
   pago_rechazado: (d: Datos): Correo => ({ asunto: "Tu pago de Regenta no se aprobó", ...marco({
     previa: "No se cobró nada. Puedes intentarlo con otro medio.", titulo: "El pago no se aprobó",
     parrafos: [`${hola(d.nombre)}, el banco no aprobó tu pago de Regenta${d.plan ? ` ${esc(d.plan)}` : ""}. No se cobró nada.`, "Puedes intentarlo con otro medio: tarjeta, PSE, Nequi o QR Bancolombia."],

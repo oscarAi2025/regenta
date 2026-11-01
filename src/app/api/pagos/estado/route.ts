@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { sinRLS } from "@/lib/db";
-import { estadoWompi, transaccionWompi, wompiActivo } from "@/lib/pagos";
+import { datosQr, estadoWompi, transaccionWompi, wompiActivo } from "@/lib/pagos";
 import { alCambiarPago } from "@/lib/pagos-eventos";
 import { enviarAhora } from "@/lib/correo";
 
@@ -24,5 +24,6 @@ export async function GET(req: Request) {
       o = { ...o, estado };
     }
   }
-  return NextResponse.json({ estado: o.estado, plan: o.plan, periodo: o.periodo, monto: o.monto });
+  // Para el QR se devuelven los datos públicos de la cuenta (llave y titular) para mostrarlos junto al monto.
+  return NextResponse.json({ estado: o.estado, plan: o.plan, periodo: o.periodo, monto: o.monto, proveedor: o.proveedor, ...(o.proveedor === "qr" ? { qr: datosQr() } : {}) });
 }

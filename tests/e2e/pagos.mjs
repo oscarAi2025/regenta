@@ -18,7 +18,8 @@ const B = process.env.BASE ?? "http://localhost:4500";
 let fallos = 0;
 const ok = (c, m, x = "") => { console.log(`${c ? "PASS" : "FAIL"} ${m}${x ? " — " + x : ""}`); if (!c) fallos++; };
 const sha = (s) => createHash("sha256").update(s).digest("hex");
-const post = (ruta, cuerpo, h = {}) => fetch(B + ruta, { method: "POST", headers: { "content-type": "application/json", origin: B, ...h }, body: typeof cuerpo === "string" ? cuerpo : JSON.stringify(cuerpo) });
+const IP = `10.77.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`; // IP propia por corrida (límite de órdenes por IP)
+const post = (ruta, cuerpo, h = {}) => fetch(B + ruta, { method: "POST", headers: { "content-type": "application/json", origin: B, "x-real-ip": IP, ...h }, body: typeof cuerpo === "string" ? cuerpo : JSON.stringify(cuerpo) });
 const estado = async (ref) => (await (await fetch(`${B}/api/pagos/estado?ref=${ref}`)).json()).estado;
 const datos = { nombre: "Prueba Pagos", empresa: "Droguería Prueba", nit: "901845370", email: "pagos@prueba.example", telefono: "3001234567", acepta: true };
 
@@ -37,7 +38,8 @@ const evento = (t, secreto = "test_events_prueba") => {
   e.signature.checksum = sha(`${t.id}${t.status}${t.amount_in_cents}${e.timestamp}${secreto}`);
   return e;
 };
-const tx = { id: "12345-1700000000-11111", reference: j.referencia, status: "APPROVED", amount_in_cents: 139900 * 10 * 100, currency: "COP", payment_method_type: "BANCOLOMBIA_QR" };
+const RUN = Date.now().toString(36); // ids de transacción únicos por corrida (en Wompi nunca se repiten)
+const tx = { id: `12345-${RUN}-11111`, reference: j.referencia, status: "APPROVED", amount_in_cents: 139900 * 10 * 100, currency: "COP", payment_method_type: "BANCOLOMBIA_QR" };
 WOMPI.set(tx.id, tx);
 ok((await post("/api/pagos/wompi", evento(tx, "secreto_falso"))).status === 401, "Wompi: evento con firma falsa rechazado");
 ok(await estado(j.referencia) === "pendiente", "la firma falsa no cambia nada");
@@ -52,13 +54,13 @@ ok((await post("/api/pagos/wompi", evento({ ...tx, id: "no-existe-1" }))).status
 
 // Monto alterado: la orden no se aprueba
 const r2 = await (await post("/api/pagos", { plan: "esencial", periodo: "mes", proveedor: "wompi", ...datos })).json();
-WOMPI.set("999-1-1", { ...tx, id: "999-1-1", reference: r2.referencia, amount_in_cents: 100 });
-await post("/api/pagos/wompi", evento({ ...tx, id: "999-1-1", reference: r2.referencia, amount_in_cents: 100 }));
+WOMPI.set(`999-${RUN}`, { ...tx, id: `999-${RUN}`, reference: r2.referencia, amount_in_cents: 100 });
+await post("/api/pagos/wompi", evento({ ...tx, id: `999-${RUN}`, reference: r2.referencia, amount_in_cents: 100 }));
 ok(await estado(r2.referencia) === "error", "Wompi: monto distinto al de la orden queda en error");
 
 // Anulado es final: un APPROVED reenviado no lo revive
 const r4 = await (await post("/api/pagos", { plan: "esencial", periodo: "mes", proveedor: "wompi", ...datos })).json();
-const tx4 = { ...tx, id: "444-1-1", reference: r4.referencia, amount_in_cents: 89900 * 100 };
+const tx4 = { ...tx, id: `444-${RUN}`, reference: r4.referencia, amount_in_cents: 89900 * 100 };
 WOMPI.set(tx4.id, tx4); await post("/api/pagos/wompi", evento(tx4));
 const aprobado4 = await estado(r4.referencia);
 WOMPI.set(tx4.id, { ...tx4, status: "VOIDED" }); await post("/api/pagos/wompi", evento({ ...tx4, status: "VOIDED" }));
@@ -94,7 +96,7 @@ ok(await p.getByRole("button", { name: /Esencial/ }).getAttribute("aria-pressed"
 await p.getByRole("button", { name: /Anual/ }).click();
 ok((await p.getByText("Total a pagar hoy").locator("..").textContent()).includes("899.000"), "anual Esencial = $899.000");
 ok(await p.getByText(/QR Bancolombia/).count() >= 1, "ofrece QR Bancolombia");
-await p.getByRole("button", { name: "Pagar de forma segura" }).click();
+await p.getByRole("button", { name: /Pagar de forma segura|Ver el QR para pagar/ }).click();
 ok(await p.locator("#c-nombre:invalid").count() === 1, "pide los datos antes de pagar");
 await p.goto(`${B}/contratar/resultado?ref=${j.referencia}`);
 await p.getByText("¡Pago aprobado!").waitFor({ timeout: 10000 });

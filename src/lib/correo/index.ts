@@ -107,13 +107,13 @@ export async function enviarAhora(clave: string) {
   } catch (e) { console.error("correo", e); }
 }
 
-/** Recordatorios de renovación de pagos con Wompi (no se cobran solos): 5 días antes, 1 día antes y 1 día después. */
+/** Recordatorios de renovación de pagos con QR o Wompi (no se cobran solos): 5 días antes, 1 día antes y 1 día después. */
 export async function programarRecordatorios() {
   return sinRLS(async (c) => {
     const filas = (await c.query(`
       select distinct on (p.empresa_id) p.empresa_id, p.referencia, p.plan, p.vence::text vence, p.email, p.nombre, coalesce(e.nombre_comercial, e.razon_social) empresa
       from pagos_suscripcion p join empresas e on e.id = p.empresa_id
-      where p.estado = 'aprobado' and p.proveedor = 'wompi' and p.vence is not null and e.estado = 'activa' and not e.demo
+      where p.estado = 'aprobado' and p.proveedor in ('wompi', 'qr') and p.vence is not null and e.estado = 'activa' and not e.demo
       order by p.empresa_id, p.vence desc`)).rows;
     let n = 0;
     const hoy = new Date(new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" }) + "T00:00:00Z");
@@ -127,7 +127,7 @@ export async function programarRecordatorios() {
         datos: { nombre: f.nombre, empresa: f.empresa, plan: f.plan === "pro" ? "Pro" : "Esencial", plan_id: f.plan, vence: venceTxt } })) n++;
     }
     // Pagos que se quedaron a medias (pendientes de más de 1 hora y menos de 2 días): un solo correo de ayuda.
-    const abandonados = (await c.query(`select referencia, email, nombre, plan from pagos_suscripcion p where estado = 'pendiente' and creado between now() - interval '2 days' and now() - interval '1 hour'
+    const abandonados = (await c.query(`select referencia, email, nombre, plan from pagos_suscripcion p where estado = 'pendiente' and proveedor <> 'qr' and creado between now() - interval '2 days' and now() - interval '1 hour'
       and not exists (select 1 from pagos_suscripcion q where lower(q.email) = lower(p.email) and q.estado = 'aprobado' and q.creado > p.creado)`)).rows;
     for (const a of abandonados) if (await encolar(c, { clave: `abandonado:${a.email.toLowerCase()}:${a.plan}`, para: a.email, plantilla: "pago_abandonado", datos: { nombre: a.nombre, plan: a.plan === "pro" ? "Pro" : "Esencial", plan_id: a.plan } })) n++;
     return { encolados: n };

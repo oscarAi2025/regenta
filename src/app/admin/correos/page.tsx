@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 const VISTAS = [["todos", "Todos"], ["pendiente", "Programados"], ["enviado", "Enviados"], ["simulado", "Simulados"], ["error", "Con error"], ["cancelado", "Cancelados"]] as const;
 const NOMBRE: Record<string, string> = {
   invitacion: "Invitación", restablecer: "Restablecer contraseña", bienvenida: "Bienvenida", solicitud_recibida: "Solicitud recibida",
-  pago_aprobado: "Pago aprobado", pago_rechazado: "Pago rechazado", pago_abandonado: "Pago sin terminar", renovacion_proxima: "Renovación próxima",
+  pago_qr: "Instrucciones de pago QR", pago_aprobado: "Pago aprobado", pago_rechazado: "Pago rechazado", pago_abandonado: "Pago sin terminar", renovacion_proxima: "Renovación próxima",
   renovacion_vencida: "Plan vencido", cuenta_suspendida: "Cuenta suspendida", embudo_1: "Embudo 1 · día 1", embudo_2: "Embudo 2 · día 3",
   embudo_3: "Embudo 3 · día 6", embudo_4: "Embudo 4 · día 10", embudo_5: "Embudo 5 · día 15",
 };

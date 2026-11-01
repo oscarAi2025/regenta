@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sinRLS } from "@/lib/db";
 import { ipCliente, limitador, mismoOrigen } from "@/lib/api";
-import { enlaceWompi, nuevaReferencia, precio, sesionStripe, stripeActivo, wompiActivo } from "@/lib/pagos";
+import { datosQr, enlaceWompi, nuevaReferencia, precio, qrActivo, sesionStripe, stripeActivo, wompiActivo } from "@/lib/pagos";
+import { encolar, enviarAhora } from "@/lib/correo";
+import { SITIO } from "@/lib/sitio";
 
 const Contratar = z.object({
-  plan: z.enum(["esencial", "pro"]), periodo: z.enum(["mes", "anio"]), proveedor: z.enum(["wompi", "stripe"]),
+  plan: z.enum(["esencial", "pro"]), periodo: z.enum(["mes", "anio"]), proveedor: z.enum(["qr", "wompi", "stripe"]),
   nombre: z.string().trim().min(3, "Escribe tu nombre").max(120),
   empresa: z.string().trim().min(2, "Escribe el nombre de la droguería o empresa").max(160),
   nit: z.string().trim().regex(/^[\d.\s-]{6,15}$/, "Escribe el NIT o la cédula sin letras").nullish().or(z.literal("")),
@@ -23,11 +25,18 @@ export async function POST(req: Request) {
   const p = Contratar.safeParse(await req.json().catch(() => null));
   if (!p.success) return NextResponse.json({ error: p.error.issues[0]?.message ?? "Revisa los datos" }, { status: 400 });
   const d = p.data;
-  if (d.proveedor === "wompi" ? !wompiActivo() : !stripeActivo()) return NextResponse.json({ error: "Ese medio de pago aún no está activo. Escríbenos por WhatsApp y te ayudamos." }, { status: 503 });
+  if (!(d.proveedor === "qr" ? qrActivo() : d.proveedor === "wompi" ? wompiActivo() : stripeActivo())) return NextResponse.json({ error: "Ese medio de pago aún no está activo. Escríbenos por WhatsApp y te ayudamos." }, { status: 503 });
   const referencia = nuevaReferencia(d.plan), monto = precio(d.plan, d.periodo);
   await sinRLS((c) => c.query(
     `insert into pagos_suscripcion (referencia, plan, periodo, monto, proveedor, nombre, empresa, nit, email, telefono) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
     [referencia, d.plan, d.periodo, monto, d.proveedor, d.nombre, d.empresa, d.nit || null, d.email, d.telefono]));
+  if (d.proveedor === "qr") {
+    // Sin pasarela: la orden queda pendiente con las instrucciones (también por correo) hasta que se confirme en la consola.
+    const q = datosQr(), clave = `pago:${referencia}:qr`;
+    await sinRLS((c) => encolar(c, { clave, para: d.email, plantilla: "pago_qr", datos: { nombre: d.nombre, plan: d.plan === "pro" ? "Pro" : "Esencial", periodo: d.periodo, monto, referencia, llave: q.llave, titular: q.titular, enlace: `${SITIO}/contratar/resultado?ref=${referencia}` } }));
+    await enviarAhora(clave);
+    return NextResponse.json({ url: `/contratar/resultado?ref=${encodeURIComponent(referencia)}`, referencia }, { status: 201 });
+  }
   try {
     if (d.proveedor === "wompi") return NextResponse.json({ url: enlaceWompi({ referencia, monto, email: d.email, nombre: d.nombre, telefono: d.telefono, nit: d.nit }), referencia }, { status: 201 });
     const s = await sesionStripe({ referencia, plan: d.plan, periodo: d.periodo, monto, email: d.email });
