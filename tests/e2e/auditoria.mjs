@@ -78,8 +78,8 @@ console.log(`enlaces externos distintos: ${enlaces.size}`);
 
 // ── App interna por rol
 const PANTALLAS = ["/inicio", "/caja", "/ventas", "/productos", "/productos/nuevo", "/productos/importar", "/inventario", "/inventario?ver=agotados", "/inventario?ver=todos",
-  "/inventario/recibir", "/prediccion", "/prediccion?ver=vencimiento", "/prediccion?ver=quietos", "/alertas"];
-const PROHIBIDAS = { cajero: { "/productos/nuevo": "/productos", "/productos/importar": "/productos", "/inventario/recibir": "/caja", "/prediccion": "/caja" }, bodega: { "/caja": "/inventario", "/ventas": null } , dueno: {} };
+  "/inventario/recibir", "/prediccion", "/prediccion?ver=vencimiento", "/prediccion?ver=quietos", "/alertas", "/cartera", "/cartera?ver=pagadas"];
+const PROHIBIDAS = { cajero: { "/productos/nuevo": "/productos", "/productos/importar": "/productos", "/inventario/recibir": "/caja", "/prediccion": "/caja", "/cartera": "/inicio", "/cartera?ver=pagadas": "/inicio" }, bodega: { "/caja": "/inventario", "/ventas": null, "/cartera": "/inicio", "/cartera?ver=pagadas": "/inicio" } , dueno: {} };
 for (const rol of ["dueno", "cajero", "bodega"]) {
   for (const [nombre, opts] of [["escritorio", { viewport: { width: 1440, height: 900 } }], ["móvil", devices["iPhone 13"]]]) {
     const c = await b.newContext(opts);

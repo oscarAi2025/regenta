@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 
 type Item = { id: string; titulo: string; sub?: string; ir: () => void };
 const PAGINAS = [
-  { href: "/inicio", t: "Inicio", roles: "*" }, { href: "/caja", t: "Caja: vender", roles: "dueno,admin,cajero" }, { href: "/ventas", t: "Ventas del día", roles: "dueno,admin,cajero" },
+  { href: "/inicio", t: "Inicio", roles: "*" }, { href: "/caja", t: "Caja: vender", roles: "dueno,admin,cajero" }, { href: "/ventas", t: "Ventas del día", roles: "dueno,admin,cajero" }, { href: "/cartera", t: "Cartera: lo que te deben", roles: "dueno,admin" },
   { href: "/productos", t: "Productos", roles: "*" }, { href: "/productos/nuevo", t: "Agregar producto", roles: "dueno,admin" }, { href: "/productos/importar", t: "Cargar productos desde Excel", roles: "dueno,admin" },
   { href: "/inventario", t: "Inventario y lotes", roles: "*" }, { href: "/inventario/recibir", t: "Recibir mercancía", roles: "dueno,admin,bodeguero" },
   { href: "/prediccion", t: "Pedido sugerido", roles: "dueno,admin,bodeguero" }, { href: "/prediccion?ver=vencimiento", t: "Lo que se puede vencer", roles: "dueno,admin,bodeguero" },

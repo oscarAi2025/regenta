@@ -14,8 +14,8 @@ import { PLANES, SOCIO } from "@/lib/planes";
 import { pesos } from "@/lib/formato";
 import { CORREO, SITIO, TELEFONO, wa } from "@/lib/sitio";
 
-const TITULO = "Software para droguerías con IA y alertas INVIMA | Regenta";
-const DESCRIPCION = "Software de caja para droguerías con IA: predice qué pedir, avisa qué se vence y cruza las alertas del INVIMA con tu inventario. Prueba la demo gratis.";
+const TITULO = "Software de facturación para droguerías y distribuidoras";
+const DESCRIPCION = "Facturación electrónica, inventario por lote, cartera, alertas INVIMA e IA para droguerías, farmacias y distribuidoras farmacéuticas. Prueba la demo gratis.";
 
 export const metadata: Metadata = {
   title: { absolute: TITULO },
@@ -31,22 +31,24 @@ const PREGUNTAS: [string, string][] = [
   ["¿Qué hace la inteligencia artificial?", "Regenta IA responde en lenguaje normal con los datos de tu droguería (ventas, lotes, pedido sugerido, vencimientos, alertas) y te dice de dónde sale cada cifra. Además, Regenta calcula con tus ventas qué pedir y qué se te va a vencer, y te muestra tus prioridades del día."],
   ["¿Cómo funcionan las alertas del INVIMA?", "Regenta lee las alertas sanitarias de medicamentos del INVIMA y las cruza con tu inventario por lote, registro sanitario y nombre. Solo te avisa cuando algo te toca y guarda la constancia de la revisión."],
   ["¿Por qué Regenta y no otro programa?", "Porque lo hace un distribuidor farmacéutico que surte droguerías: conocemos los agotados, los vencidos y las visitas de la secretaría de salud desde adentro. Y porque, de 15 programas para droguerías que revisamos, ninguno ofrece cruzar las alertas del INVIMA con tu inventario."],
-  ["¿Hace factura electrónica y POS electrónico DIAN?", "Cada venta queda numerada con tu resolución y en cola para la DIAN. La emisión se está integrando con un proveedor tecnológico autorizado y se activa en tu cuenta al terminar; en la demostración te mostramos el estado exacto."],
+  ["¿Regenta es un software de facturación?", "Sí. Es facturación y gestión en un solo programa: desde la caja emites tiquete POS electrónico o factura electrónica de venta a clientes con NIT o cédula, de contado o a crédito, y además manejas inventario por lote, cartera, pedidos y alertas del INVIMA."],
+  ["¿Ya se envía a la DIAN?", "Cada documento queda numerado con tu resolución y en cola para la DIAN. La emisión se está integrando con un proveedor tecnológico autorizado y se activa en tu cuenta al terminar; en la demostración la emisión es simulada y así lo dice en pantalla."],
+  ["¿Sirve para distribuidoras farmacéuticas?", "Sí, para facturar a droguerías y empresas con NIT, vender por caja, dar crédito con plazo y llevar la cartera, con la bodega por lote y vencimiento. Hoy no maneja listas de precio por cliente, cupos de crédito ni preventa en ruta: si los necesitas, te lo decimos antes de que pagues."],
   ["¿Puedo vender pastillas sueltas?", "Sí: precio por caja y por unidad; el inventario descuenta unidades exactas del lote que vence antes, y la caja nunca vende un lote vencido."],
   ["¿Cuánto cuesta?", `Esencial ${pesos(PLANES[0].precio!)} al mes y Pro ${pesos(PLANES[1].precio!)}. Con el ${SOCIO.nombre}, si le compras a Farmagenéricos Colombia, puede salirte gratis.`],
   ["¿Hay que instalar algo?", "No. Funciona en el navegador del computador de la caja, en una tableta o en el celular, y cada droguería solo ve sus datos."],
 ];
 
-const CAPTURA: Record<string, string> = { "regenta-ia": "/capturas/ia.webp", "pedido-sugerido": "/capturas/prediccion.webp", "control-de-vencimientos": "/capturas/vencimiento.webp", "alertas-invima": "/capturas/alertas.webp", "caja-pos": "/capturas/caja.webp" };
+const CAPTURA: Record<string, string> = { "facturacion-electronica": "/capturas/facturacion.webp", "cartera-y-credito": "/capturas/cartera.webp", "regenta-ia": "/capturas/ia.webp", "pedido-sugerido": "/capturas/prediccion.webp", "control-de-vencimientos": "/capturas/vencimiento.webp", "alertas-invima": "/capturas/alertas.webp", "caja-pos": "/capturas/caja.webp" };
 
 export default function Portada() {
   const funciones = PAGINAS.filter((p) => p.grupo === "funciones");
   const ld = [
-    { "@context": "https://schema.org", "@type": "SoftwareApplication", name: "Regenta", applicationCategory: "BusinessApplication", applicationSubCategory: "Software POS para droguerías",
+    { "@context": "https://schema.org", "@type": "SoftwareApplication", name: "Regenta", applicationCategory: "BusinessApplication", applicationSubCategory: "Software de facturación electrónica e inventario para droguerías y distribuidoras farmacéuticas",
       operatingSystem: "Web", inLanguage: "es-CO", description: DESCRIPCION, url: SITIO, image: `${SITIO}/capturas/og.png`,
       offers: PLANES.filter((p) => p.precio).map((p) => ({ "@type": "Offer", name: p.nombre, price: p.precio, priceCurrency: "COP", url: `${SITIO}/precios` })),
       publisher: { "@type": "Organization", name: "Farmagenéricos Colombia", email: CORREO, telephone: TELEFONO },
-      featureList: ["Regenta IA: asistente con los datos de la droguería", "Pedido sugerido con las ventas", "Riesgo de vencimiento por lote", "Alertas sanitarias del INVIMA cruzadas con el inventario", "Caja POS con venta por unidad", "Inventario por lote y vencimiento (FEFO)", "Carga de productos desde Excel", "Usuarios con roles"] },
+      featureList: ["Facturación electrónica: tiquete POS y factura de venta con cliente", "Venta a crédito con plazo y cartera con abonos", "Regenta IA: asistente con los datos de la droguería", "Pedido sugerido con las ventas", "Riesgo de vencimiento por lote", "Alertas sanitarias del INVIMA cruzadas con el inventario", "Caja POS con venta por unidad", "Inventario por lote y vencimiento (FEFO)", "Carga de productos desde Excel", "Usuarios con roles"] },
     { "@context": "https://schema.org", "@type": "Organization", name: "Farmagenéricos Colombia", url: SITIO, email: CORREO, telephone: TELEFONO, logo: `${SITIO}/icon.svg` },
     { "@context": "https://schema.org", "@type": "FAQPage", mainEntity: PREGUNTAS.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) },
   ];
@@ -61,16 +63,21 @@ export default function Portada() {
         <section className="bg-ink text-white">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-12 pb-16 lg:pt-16 lg:pb-24 grid lg:grid-cols-[1.1fr_.9fr] gap-12 items-center">
             <div>
-              <p className="font-semibold text-marca text-lg">Software para droguerías con inteligencia artificial</p>
-              <h1 className="font-cond text-[48px] sm:text-[76px] lg:text-[88px] leading-[0.9] tracking-[-0.02em] mt-3" style={{ fontWeight: 700 }}>
-                Deja de perder plata en vencidos y agotados.
+              <p className="font-semibold text-marca text-lg">Software de facturación electrónica y gestión farmacéutica</p>
+              <h1 className="font-cond text-[46px] sm:text-[72px] lg:text-[80px] leading-[0.92] tracking-[-0.02em] mt-3" style={{ fontWeight: 700 }}>
+                Factura y gestiona tu droguería o distribuidora en un solo programa.
               </h1>
               <p className="mt-6 text-lg sm:text-xl text-white/75 max-w-[34em] leading-relaxed">
-                Regenta es la caja de tu droguería que piensa: te dice qué pedir, qué se te va a vencer antes de venderlo y qué alerta del INVIMA toca tu estantería. Y le preguntas lo que quieras, como a tu regente.
+                Tiquete POS y factura electrónica, inventario por lote y vencimiento, crédito y cartera. Y una inteligencia artificial que te dice qué pedir, qué se te va a vencer y qué alerta del INVIMA toca tu estantería, para que dejes de perder plata en vencidos y agotados.
               </p>
+              <ul className="mt-6 flex flex-wrap gap-2 text-[15px]" aria-label="Para quién es">
+                {[["/para/droguerias", "Droguerías"], ["/para/droguerias", "Farmacias-droguerías"], ["/para/distribuidoras", "Distribuidoras farmacéuticas"], ["/precios#planes", "Cadenas y varias sedes"]].map(([h, t]) => (
+                  <li key={t}><Link href={h} className="inline-flex items-center h-9 px-3.5 rounded-full border border-white/25 text-white/90 hover:border-white hover:text-white">{t}</Link></li>
+                ))}
+              </ul>
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <BotonDemo texto="Probar la demo gratis ahora" className="btn-primario h-14 px-7 text-lg" />
-                <a href={wa("Hola, quiero conocer Regenta para mi droguería.")} className="btn h-14 px-6 text-lg border-2 border-white/30 text-white hover:border-white">Hablar por WhatsApp</a>
+                <a href={wa("Hola, quiero conocer Regenta para mi droguería o distribuidora.")} className="btn h-14 px-6 text-lg border-2 border-white/30 text-white hover:border-white">Hablar por WhatsApp</a>
               </div>
               <p className="mt-4 text-[15px] text-white/60">Un clic, sin registro, sin tarjeta. Entras a una droguería de ejemplo con 8 semanas de ventas.</p>
             </div>
@@ -78,7 +85,7 @@ export default function Portada() {
           </div>
           <div className="border-t border-white/10">
             <dl className="max-w-6xl mx-auto px-4 sm:px-6 py-6 grid grid-cols-2 lg:grid-cols-4 gap-6 text-sm">
-              {[["Hecho por un distribuidor", "Farmagenéricos Colombia surte droguerías: conocemos el mostrador por dentro"], ["IA con tus datos", "Modelos Claude de Anthropic, con solo lectura y tus permisos"], ["Alertas oficiales del INVIMA", "Cruzadas con tus lotes y registros sanitarios"], ["Catálogo de casi 10.000 productos", "Para no digitar: buscas y pones tu precio"]].map(([t, d]) => (
+              {[["Facturación electrónica", "Tiquete POS y factura de venta, de contado o a crédito"], ["Hecho por un distribuidor", "Farmagenéricos Colombia surte droguerías: conocemos el sector por dentro"], ["Alertas oficiales del INVIMA", "Cruzadas con tus lotes y registros sanitarios"], ["IA con tus datos", "Modelos Claude de Anthropic, con solo lectura y tus permisos"]].map(([t, d]) => (
                 <div key={t}><dt className="font-cond text-xl text-white" style={{ fontWeight: 600 }}>{t}</dt><dd className="text-white/60 mt-1">{d}</dd></div>
               ))}
             </dl>
@@ -107,7 +114,7 @@ export default function Portada() {
         {/* 3. Lo que hace, función por función, con capturas reales y enlace a cada página. */}
         <section className="bg-surface border-y border-line">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 lg:py-24">
-            <h2 className="font-cond text-[40px] sm:text-[52px] leading-[1]" style={{ fontWeight: 700 }}>Todo lo que tu droguería necesita, en una sola pantalla</h2>
+            <h2 className="font-cond text-[40px] sm:text-[52px] leading-[1]" style={{ fontWeight: 700 }}>Facturación y gestión, en un solo programa</h2>
             <div className="mt-10 grid md:grid-cols-2 gap-5">
               {funciones.map((f, i) => (
                 <Link key={f.ruta} href={`/funciones/${f.ruta}`} className={`group rounded-2xl border border-line bg-paper p-5 grid gap-4 hover:border-ink ${i === 0 ? "md:col-span-2 md:grid-cols-[.9fr_1.1fr] items-center" : ""}`}>
@@ -226,7 +233,7 @@ export default function Portada() {
               <p className="mt-5 text-lg text-white/75 max-w-[28em]">Entra a la demo en un clic, o déjanos tus datos y te mostramos Regenta con tus propios productos en 20 minutos.</p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <BotonDemo texto="Probar la demo gratis ahora" className="btn-primario h-14 px-7 text-lg" />
-                <a href={wa("Hola, quiero conocer Regenta para mi droguería.")} className="btn h-14 px-6 text-lg border-2 border-white/30 text-white hover:border-white">Hablar por WhatsApp</a>
+                <a href={wa("Hola, quiero conocer Regenta para mi droguería o distribuidora.")} className="btn h-14 px-6 text-lg border-2 border-white/30 text-white hover:border-white">Hablar por WhatsApp</a>
               </div>
             </div>
             <FormDemo />

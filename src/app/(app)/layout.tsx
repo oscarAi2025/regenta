@@ -26,7 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </aside>
       <div className="min-w-0">
         <header className="flex items-center justify-between gap-4 px-4 sm:px-6 h-14 border-b border-line bg-surface">
-          <p className="truncate"><span className="font-semibold">{emp.nombre_comercial ?? emp.razon_social}</span><span className="text-muted text-sm"> · NIT {emp.nit}-{emp.dv}</span></p>
+          <p className="truncate"><span className="font-semibold">{emp.nombre_comercial ?? emp.razon_social}</span><span className="text-muted text-sm"> · NIT {emp.nit}-{emp.dv}</span><span className="hidden 2xl:inline text-muted text-sm"> · Regenta, facturación y gestión farmacéutica</span></p>
           <BotonBuscar />
           <p className="text-sm text-muted shrink-0 hidden sm:block">{s.nombre.split(" (")[0]} · {rol}</p>
         </header>

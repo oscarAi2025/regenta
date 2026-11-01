@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit",
     "db:reset": "node scripts/db-reset.mjs",
     "test": "node --test tests/db.test.mjs && node --experimental-strip-types --test tests/invima.test.mjs",
-    "e2e": "node tests/e2e/caja.mjs && node tests/e2e/gestion.mjs && node tests/e2e/ia.mjs",
+    "e2e": "node tests/e2e/caja.mjs && node tests/e2e/gestion.mjs && node tests/e2e/ia.mjs && node tests/e2e/facturacion.mjs",
     "auditoria": "node tests/e2e/auditoria.mjs"
   },
   "dependencies": {

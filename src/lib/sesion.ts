@@ -42,4 +42,7 @@ export const puede = {
   verCostos: (r: Rol) => r === "dueno" || r === "admin",
   moverInventario: (r: Rol) => r === "dueno" || r === "admin" || r === "bodeguero",
   anular: (r: Rol) => r === "dueno" || r === "admin",
+  cartera: (r: Rol) => r === "dueno" || r === "admin",
+  /** Vender a crédito: quien responde por la cartera. */
+  fiar: (r: Rol) => r === "dueno" || r === "admin",
 };

@@ -9,10 +9,12 @@ import { sinRLS } from "../db";
 export type DocumentoParaEmitir = {
   id: string; tipo: "pos" | "factura" | "nota_credito"; prefijo: string; numero: number; fecha: string;
   emisor: { nit: string; dv: string | null; razon_social: string; responsable_iva: boolean };
-  cliente: { tipo_doc: string; numero_doc: string; nombre: string; email: string | null } | null;
+  cliente: { tipo_doc: string; numero_doc: string; dv: string | null; nombre: string; email: string | null } | null;
   lineas: { descripcion: string; cantidad: number; precio: number; iva_pct: number; base: number; iva: number; total: number }[];
   totales: { base: number; iva: number; total: number };
   pagos: { medio: string; valor: number }[];
+  /** Forma de pago DIAN: contado (1) o crédito (2, con fecha de vencimiento). */
+  forma_pago: { tipo: "contado" } | { tipo: "credito"; vence: string; plazo_dias: number };
 };
 export type ResultadoEmision =
   | { ok: true; cufe: string; qr: string; simulado: boolean; respuesta: unknown }
@@ -82,7 +84,7 @@ export async function procesarCola(max = 20, venta?: string) {
 async function armar(id: string): Promise<{ documento: DocumentoParaEmitir; resolucionPruebas: boolean | null; cerrado?: false } | { cerrado: true; anulado?: boolean }> {
   return sinRLS(async (c) => {
     const { rows: [d] } = await c.query(
-      `select d.*, v.base, v.iva as iva_total, v.total, v.creado as fecha, v.cliente_id, v.estado as venta_estado,
+      `select d.*, v.base, v.iva as iva_total, v.total, v.creado as fecha, v.cliente_id, v.estado as venta_estado, v.condicion, v.vence_pago::text, v.plazo_dias,
               e.nit, e.dv, e.razon_social, e.responsable_iva,
               (select pruebas from resoluciones_dian r where r.empresa_id = d.empresa_id and r.tipo = d.tipo and r.prefijo = d.prefijo order by activa desc limit 1) as pruebas
        from documentos_dian d join ventas v on v.id = d.venta_id join empresas e on e.id = d.empresa_id where d.id = $1`, [id]);
@@ -93,13 +95,14 @@ async function armar(id: string): Promise<{ documento: DocumentoParaEmitir; reso
       `select descripcion, sum(cantidad)::float cantidad, precio::float, iva_pct::float, sum(base)::float base, sum(iva)::float iva, sum(total)::float total
        from venta_lineas where venta_id = $1 group by descripcion, precio, iva_pct, producto_id, presentacion order by min(id)`, [d.venta_id])).rows;
     const pagos = (await c.query(`select medio, valor::float from pagos where venta_id = $1`, [d.venta_id])).rows;
-    const cli = d.cliente_id ? (await c.query(`select tipo_doc, numero_doc, nombre, email from clientes where id = $1`, [d.cliente_id])).rows[0] : null;
+    const cli = d.cliente_id ? (await c.query(`select tipo_doc, numero_doc, dv, nombre, email from clientes where id = $1`, [d.cliente_id])).rows[0] : null;
     return {
       resolucionPruebas: d.pruebas,
       documento: {
         id, tipo: d.tipo, prefijo: d.prefijo, numero: Number(d.numero), fecha: new Date(d.fecha).toISOString(),
         emisor: { nit: d.nit, dv: d.dv, razon_social: d.razon_social, responsable_iva: d.responsable_iva },
         cliente: cli, lineas, pagos,
+        forma_pago: d.condicion === "credito" ? { tipo: "credito", vence: d.vence_pago, plazo_dias: d.plazo_dias } : { tipo: "contado" },
         totales: { base: Number(d.base), iva: Number(d.iva_total), total: Number(d.total) },
       },
     };

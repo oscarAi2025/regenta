@@ -4,7 +4,7 @@ import { SITIO } from "@/lib/sitio";
 
 export const metadata: Metadata = {
   title: { default: "Regenta", template: "%s · Regenta" },
-  description: "Regenta by Farmagenéricos Colombia: caja, facturación electrónica DIAN e inventario por lote para droguerías.",
+  description: "Regenta by Farmagenéricos Colombia: software de facturación electrónica y gestión para droguerías, farmacias y distribuidoras farmacéuticas.",
   metadataBase: new URL(SITIO),
 };
 export const viewport: Viewport = { themeColor: "#102a43" };

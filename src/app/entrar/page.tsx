@@ -16,7 +16,7 @@ export default async function Entrar() {
             Vende, factura y controla cada lote desde el mostrador.
           </h1>
           <p className="mt-6 text-lg text-white/75 max-w-md">
-            Caja con tiquete POS electrónico, facturación DIAN e inventario por vencimiento para droguerías y distribuidores.
+            Software de facturación electrónica y gestión para droguerías, farmacias y distribuidoras: tiquete POS y factura, inventario por lote, cartera e IA.
           </p>
         </div>
         <dl className="grid grid-cols-3 gap-4 max-w-lg text-sm">

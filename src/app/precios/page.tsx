@@ -19,6 +19,8 @@ const FILAS: [string, string, string, string][] = [
   ["Cajas", "1", "Hasta 3", "Por sede"],
   ["Usuarios", "Hasta 3", "Ilimitados", "Ilimitados"],
   ["Documentos electrónicos al mes", "2.000", "5.000", "Según volumen"],
+  ["Tiquete POS y factura electrónica con cliente", "Sí", "Sí", "Sí"],
+  ["Venta a crédito y cartera con abonos", "Sí", "Sí", "Sí"],
   ["Regenta IA y prioridades del día", "Sí", "Sí", "Sí"],
   ["Pedido sugerido y riesgo de vencimiento", "Sí", "Sí", "Sí"],
   ["Alertas INVIMA cruzadas con el inventario", "Sí", "Sí", "Sí"],
@@ -37,7 +39,7 @@ const PREGUNTAS: [string, string][] = [
 
 export default function Precios() {
   const ld = [
-    { "@context": "https://schema.org", "@type": "Product", name: "Regenta", description: "Software para droguerías con IA, alertas INVIMA y control de lotes.", brand: { "@type": "Brand", name: "Regenta" }, image: `${SITIO}/capturas/og.png`,
+    { "@context": "https://schema.org", "@type": "Product", name: "Regenta", description: "Software de facturación electrónica y gestión para droguerías y distribuidoras farmacéuticas, con IA, alertas INVIMA y control de lotes.", brand: { "@type": "Brand", name: "Regenta" }, image: `${SITIO}/capturas/og.png`,
       offers: PLANES.filter((p) => p.precio).map((p) => ({ "@type": "Offer", name: p.nombre, price: p.precio, priceCurrency: "COP", url: `${SITIO}/precios` })) },
     { "@context": "https://schema.org", "@type": "FAQPage", mainEntity: PREGUNTAS.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) },
   ];

@@ -22,7 +22,7 @@ export function FormDemo() {
     <div role="status" className="rounded-2xl bg-white/10 p-6">
       <p className="font-cond text-3xl" style={{ fontWeight: 700 }}>Listo, {nombre.split(" ")[0]}.</p>
       <p className="mt-2 text-white/80">Te escribimos al celular para agendar la demostración. Si prefieres no esperar, abre WhatsApp y te atendemos de una vez.</p>
-      <a href={`https://wa.me/${WA}?text=${encodeURIComponent("Hola, acabo de pedir la demo de Regenta para mi droguería.")}`} className="btn-primario mt-5">Abrir WhatsApp</a>
+      <a href={`https://wa.me/${WA}?text=${encodeURIComponent("Hola, acabo de pedir la demo de Regenta para mi droguería o distribuidora.")}`} className="btn-primario mt-5">Abrir WhatsApp</a>
     </div>
   );
 

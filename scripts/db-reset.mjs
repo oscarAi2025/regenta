@@ -177,6 +177,33 @@ for (const v of plan) {
     ventasDemo.push({ id: r.venta_id, dia: v.dia, minuto: v.minuto });
   } catch (e) { await db.query("rollback"); if (fallidas++ === 0) console.error("venta demo:", e.message); }
 }
+
+// Clientes con NIT y facturas a crédito (convenios de la droguería): dos al día, una con abono parcial y una vencida.
+const CLIENTES = [
+  ["NIT", "900456789", "4", "Hogar Geriátrico San José S.A.S.", "compras@hogarsanjose.example"],
+  ["NIT", "901234567", "7", "IPS Salud Vital Ibagué S.A.S.", "facturas@saludvital.example"],
+  ["NIT", "800987654", "4", "Transportes del Tolima Ltda. (botiquines)", "contabilidad@transtolima.example"],
+  ["CC", "1110456789", null, "María Fernanda Rojas", null],
+];
+const cli = [];
+for (const [t, n, dv, nombre, email] of CLIENTES)
+  cli.push((await db.query(`insert into clientes (empresa_id, tipo_doc, numero_doc, dv, nombre, email, autoriza_datos) values ($1, $2, $3, $4, $5, $6, true) returning id`, [E.A, t, n, dv, nombre, email])).rows[0].id);
+const creditos = [[0, 45, 30, 0.5], [1, 20, 30, 0], [2, 12, 15, 0], [0, 6, 30, 0], [1, 52, 45, 1]]; // cliente, hace días, plazo, fracción abonada
+const conStock = (await db.query(`select s.producto_id, p.unidades_por_caja upc, sum(s.unidades)::int u from v_stock_vigente s join productos p on p.id = s.producto_id
+  where s.empresa_id = $1 group by 1, 2 having sum(s.unidades) >= p.unidades_por_caja * 6 order by 3 desc limit 40`, [E.A])).rows;
+const creditosDemo = [];
+for (const [k, [ci, dia, plazo, fr]] of creditos.entries()) {
+  const ls = conStock.slice(k * 6, k * 6 + 4).map((p, i) => ({ producto_id: p.producto_id, presentacion: "caja", cantidad: 1 + (i % 3) }));
+  await db.query("begin");
+  await db.query(`select set_config('request.jwt.claims', $1, true)`, [JSON.stringify({ sub: U.carlos, role: "authenticated" })]);
+  await db.query("set local role authenticated");
+  const r = (await db.query(`select registrar_venta($1::jsonb) r`, [JSON.stringify({ empresa_id: E.A, sede_id: S.A, caja_id: C.A, idem_key: crypto.randomUUID(), tipo_doc: "factura",
+    cliente_id: cli[ci], condicion: "credito", plazo_dias: plazo, lineas: ls, pagos: [] })])).rows[0].r;
+  if (fr > 0) await db.query(`select registrar_abono($1, 'transferencia', $2, 'Abono convenio')`, [r.venta_id, Math.round(Number(r.total) * fr)]);
+  await db.query("commit");
+  ventasDemo.push({ id: r.venta_id, dia, minuto: 600 + k * 37 });
+  creditosDemo.push(r.venta_id);
+}
 // Reparto en el tiempo: ventas, sus movimientos y documentos; la compra hace 57 días y el inventario inicial hace 60.
 await db.query("begin");
 await db.query("set local session_replication_role = replica");
@@ -184,6 +211,8 @@ await db.query(`create temp table _t (id uuid, dia int, minuto int) on commit dr
 await db.query(`insert into _t select * from jsonb_to_recordset($1::jsonb) as x(id uuid, dia int, minuto int)`, [JSON.stringify(ventasDemo)]);
 await db.query(`update ventas v set creado = (date_trunc('day', now() at time zone 'America/Bogota') - make_interval(days => t.dia) + make_interval(mins => t.minuto)) at time zone 'America/Bogota' from _t t where v.id = t.id`);
 await db.query(`update movimientos m set creado = v.creado from ventas v where m.tipo = 'venta' and m.ref_id = v.id and v.empresa_id = $1`, [E.A]);
+await db.query(`update ventas set vence_pago = (creado at time zone 'America/Bogota')::date + plazo_dias where empresa_id = $1 and condicion = 'credito'`, [E.A]);
+await db.query(`update abonos a set creado = v.creado + interval '9 days' from ventas v where v.id = a.venta_id and a.empresa_id = $1`, [E.A]);
 await db.query(`update documentos_dian d set estado = 'aceptado', simulado = true, intentos = 1, cufe = encode(sha384(convert_to('SIMULADO-' || d.id::text, 'UTF8')), 'hex') where d.empresa_id = $1`, [E.A]);
 await db.query(`update movimientos set creado = now() - interval '57 days' where empresa_id = $1 and tipo = 'compra'`, [E.A]);
 await db.query(`update movimientos set creado = now() - interval '60 days' where empresa_id = $1 and tipo = 'inicial'`, [E.A]);

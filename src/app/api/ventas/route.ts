@@ -3,18 +3,22 @@ import { comoUsuario, puestoDeTrabajo } from "@/lib/db";
 import { conSesion, json } from "@/lib/api";
 import { procesarCola } from "@/lib/dian";
 
+const Pago = z.object({ medio: z.enum(["efectivo", "transferencia", "nequi", "daviplata", "tarjeta", "bre_b"]), valor: z.number().positive(), referencia: z.string().max(60).nullish() });
 const Venta = z.object({
   idem_key: z.string().uuid(),
   tipo_doc: z.enum(["pos", "factura"]),
   cliente_id: z.string().uuid().nullish(),
+  condicion: z.enum(["contado", "credito"]).default("contado"),
+  plazo_dias: z.number().int().min(1).max(180).nullish(),
   lineas: z.array(z.object({ producto_id: z.string().uuid(), presentacion: z.enum(["caja", "unidad"]), cantidad: z.number().int().positive().max(10000) })).min(1).max(200),
-  pagos: z.array(z.object({ medio: z.enum(["efectivo", "transferencia", "nequi", "daviplata", "tarjeta", "bre_b"]), valor: z.number().positive(), referencia: z.string().max(60).nullish() })).min(1).max(6),
-});
+  pagos: z.array(Pago).max(6),
+}).refine((v) => v.condicion === "credito" ? v.pagos.length === 0 : v.pagos.length > 0, { message: "Datos de pago incompletos" })
+  .refine((v) => v.tipo_doc === "pos" || v.cliente_id, { message: "La factura electrónica necesita el cliente" });
 
-/** Registra la venta (la base de datos fija precios, lotes y numeración) y emite su documento DIAN. */
+/** Registra la venta (la base de datos fija precios, lotes, numeración y reglas de crédito) y emite su documento DIAN. */
 export const POST = conSesion(async (s, req) => {
   const p = Venta.safeParse(await req.json().catch(() => null));
-  if (!p.success) return json({ error: "Datos de la venta incompletos" }, 400);
+  if (!p.success) return json({ error: p.error.issues.find((i) => i.code === "custom")?.message ?? "Datos de la venta incompletos" }, 400);
   const r = await comoUsuario(s, async (c) => {
     const puesto = await puestoDeTrabajo(c, s.empresa);
     if (!puesto.caja_id) throw Object.assign(new Error("Esta empresa no tiene cajas activas"), { code: "P0001" });
@@ -22,6 +26,6 @@ export const POST = conSesion(async (s, req) => {
   });
   // Emite solo el documento de esta venta: si la DIAN tarda o falla, la venta ya está guardada y la cola reintenta.
   await procesarCola(1, r.venta_id).catch((e) => console.error("cola DIAN", e));
-  const doc = await comoUsuario(s, async (c) => (await c.query(`select estado, cufe, qr, simulado, ultimo_error from documentos_dian where venta_id = $1 and tipo <> 'nota_credito'`, [r.venta_id])).rows[0]);
+  const doc = await comoUsuario(s, async (c) => (await c.query(`select tipo, estado, cufe, qr, simulado, ultimo_error from documentos_dian where venta_id = $1 and tipo <> 'nota_credito'`, [r.venta_id])).rows[0]);
   return json({ venta: r, documento: doc });
 });

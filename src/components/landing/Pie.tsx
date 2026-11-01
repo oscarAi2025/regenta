@@ -10,11 +10,14 @@ export function Pie() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12 grid md:grid-cols-[1.2fr_1fr_1fr] gap-8 text-sm">
         <div>
           <p className="inline-flex items-center gap-2 text-white font-semibold"><Isotipo size={26} claro /> Regenta by Farmagenéricos Colombia</p>
-          <p className="mt-3 max-w-xs">Software de caja, inventario por lote e inteligencia artificial para droguerías de Colombia, hecho por un distribuidor farmacéutico.</p>
+          <p className="mt-3 max-w-xs">Software de facturación electrónica y gestión para droguerías, farmacias y distribuidoras farmacéuticas de Colombia, hecho por un distribuidor del sector.</p>
           <ul className="mt-4 grid gap-1.5">
             <li><Link href="/funciones" className="hover:text-white hover:underline">Funciones</Link></li>
             <li><Link href="/precios" className="hover:text-white hover:underline">Tarifas y Plan Socio</Link></li>
             <li><Link href="/por-que-regenta" className="hover:text-white hover:underline">Por qué Regenta</Link></li>
+            <li><Link href="/funciones/facturacion-electronica" className="hover:text-white hover:underline">Facturación electrónica</Link></li>
+            <li><Link href="/para/droguerias" className="hover:text-white hover:underline">Para droguerías y farmacias</Link></li>
+            <li><Link href="/para/distribuidoras" className="hover:text-white hover:underline">Para distribuidoras</Link></li>
             <li><Link href="/para/regentes" className="hover:text-white hover:underline">Para regentes</Link></li>
             <li><Link href="/para/duenos-de-drogueria" className="hover:text-white hover:underline">Para dueños</Link></li>
           </ul>

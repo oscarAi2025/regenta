@@ -14,8 +14,9 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const d = await comoUsuario(s, async (c) => {
-    const v = (await c.query(`select v.*, to_char(v.creado at time zone 'America/Bogota', 'DD/MM/YYYY HH24:MI') fecha, m.nombre cajero, e.razon_social, e.nit, e.dv, e.direccion, e.ciudad
-      from ventas v join empresas e on e.id = v.empresa_id left join miembros m on m.empresa_id = v.empresa_id and m.user_id = v.usuario_id where v.id = $1`, [id])).rows[0];
+    const v = (await c.query(`select v.*, to_char(v.creado at time zone 'America/Bogota', 'DD/MM/YYYY HH24:MI') fecha, m.nombre cajero, e.razon_social, e.nit, e.dv, e.direccion, e.ciudad,
+      cl.nombre cliente, cl.tipo_doc cli_tipo, cl.numero_doc cli_num, cl.dv cli_dv, to_char(v.vence_pago, 'DD/MM/YYYY') vence
+      from ventas v join empresas e on e.id = v.empresa_id left join clientes cl on cl.id = v.cliente_id left join miembros m on m.empresa_id = v.empresa_id and m.user_id = v.usuario_id where v.id = $1`, [id])).rows[0];
     if (!v) return null;
     const lineas = (await c.query(`select vl.descripcion, vl.presentacion, sum(vl.cantidad)::float cantidad, vl.precio::float, sum(vl.total)::float total, vl.iva_pct::float, string_agg(l.lote, ', ') lotes
       from venta_lineas vl join lotes l on l.id = vl.lote_id where vl.venta_id = $1 group by vl.descripcion, vl.presentacion, vl.precio, vl.iva_pct, vl.producto_id order by min(vl.id)`, [id])).rows;
@@ -33,6 +34,8 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
         <div className="corte my-4" />
         <p className="flex justify-between text-sm"><span>{v.tipo_doc === "pos" ? "Tiquete POS electrónico" : "Factura electrónica"}</span><span className="num font-semibold">{v.prefijo}{v.numero}</span></p>
         <p className="flex justify-between text-sm text-muted"><span>{v.fecha}</span><span>{String(v.cajero ?? "").split(" (")[0]}</span></p>
+        {v.cliente && <p className="mt-2 text-sm"><span className="text-muted">Cliente: </span>{v.cliente} · <span className="num">{v.cli_tipo} {v.cli_num}{v.cli_dv ? `-${v.cli_dv}` : ""}</span></p>}
+        {v.condicion === "credito" && <p className="text-sm"><span className="text-muted">Forma de pago: </span>crédito a {v.plazo_dias} días · vence {v.vence}</p>}
         <div className="corte my-4" />
         <ul className="grid gap-3">
           {d.lineas.map((l, i) => (

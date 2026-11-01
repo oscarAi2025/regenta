@@ -73,7 +73,7 @@ export default async function PaginaGuia({ params }: { params: Promise<{ slug: s
           <ul className="mt-3 grid sm:grid-cols-2 gap-3">
             {g.relacionadas.map((s) => guia(s)!).map((r) => <li key={r.slug}><Link href={`/guias/${r.slug}`} className="tarjeta block p-4 hover:border-ink"><span className="font-semibold">{r.h1}</span><span className="block text-sm text-muted mt-1">{r.descripcion}</span></Link></li>)}
           </ul>
-          <p className="mt-6"><Link href="/" className="font-semibold text-cruz underline">Software para droguerías con inventario por lote y alertas INVIMA</Link></p>
+          <p className="mt-6"><Link href="/" className="font-semibold text-cruz underline">Software de facturación y gestión para droguerías y distribuidoras</Link></p>
         </section>
       </main>
       <Pie />

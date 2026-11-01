@@ -8,5 +8,5 @@ export default async function PaginaCaja() {
   const s = await leerSesion();
   if (!s) redirect("/entrar");
   if (!puede.vender(s.rol)) redirect("/inventario");
-  return <main><h1 className="sr-only">Caja</h1><Caja /></main>;
+  return <main><h1 className="sr-only">Caja</h1><Caja fiar={puede.fiar(s.rol)} /></main>;
 }

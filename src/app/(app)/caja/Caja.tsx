@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pesos } from "@/lib/formato";
+import { ClienteFactura, documento, type Cliente } from "./ClienteFactura";
 
 type Producto = {
   id: string; nombre: string; laboratorio: string | null; ean: string | null; iva: number; unidades_por_caja: number;
@@ -8,7 +9,9 @@ type Producto = {
 };
 type Linea = { key: string; p: Producto; presentacion: "caja" | "unidad"; cantidad: number };
 type Medio = "efectivo" | "transferencia" | "nequi" | "daviplata" | "tarjeta" | "bre_b";
-type Resultado = { venta: { prefijo: string; numero: number; total: number; cambio: number; base: number; iva: number }; documento: { estado: string; cufe: string | null; simulado: boolean; ultimo_error: string | null } };
+type Resultado = { venta: { prefijo: string; numero: number; total: number; cambio: number; base: number; iva: number; credito?: boolean; vence_pago?: string | null }; documento: { tipo: "pos" | "factura"; estado: string; cufe: string | null; simulado: boolean; ultimo_error: string | null } };
+const PLAZOS = [15, 30, 45, 60, 90];
+const fechaCorta = (f: string) => new Date(f + "T00:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
 
 const MEDIOS: { id: Medio; label: string }[] = [
   { id: "efectivo", label: "Efectivo" }, { id: "nequi", label: "Nequi" }, { id: "daviplata", label: "Daviplata" },
@@ -38,7 +41,7 @@ function existencias(p: Producto) {
   return `${c} caja${c === 1 ? "" : "s"}${u ? ` + ${u} und` : ""}`;
 }
 
-export function Caja() {
+export function Caja({ fiar }: { fiar: boolean }) {
   const [q, setQ] = useState("");
   const [res, setRes] = useState<Producto[]>([]);
   const [sel, setSel] = useState(0);
@@ -51,6 +54,10 @@ export function Caja() {
   const [error, setError] = useState("");
   const [hecho, setHecho] = useState<Resultado | null>(null);
   const [vencen, setVencen] = useState<Producto[]>([]);
+  const [tipoDoc, setTipoDoc] = useState<"pos" | "factura">("pos");
+  const [cliente, setCliente] = useState<Cliente | null>(null);
+  const [credito, setCredito] = useState(false);
+  const [plazo, setPlazo] = useState(30);
   const idem = useRef<string>(crypto.randomUUID());
   const buscador = useRef<HTMLInputElement>(null);
   const recibidoRef = useRef<HTMLInputElement>(null);
@@ -103,26 +110,29 @@ export function Caja() {
     ls.filter((l) => l.p.id === p.id).reduce((a, l) => a + l.cantidad * (l.presentacion === "caja" ? p.unidades_por_caja : 1), 0) > p.unidades, []);
 
   const nueva = useCallback(() => {
-    setLineas([]); setHecho(null); setCobrando(false); setRecibido(""); setMedio("efectivo"); setError("");
+    setLineas([]); setHecho(null); setCobrando(false); setRecibido(""); setMedio("efectivo"); setError(""); setCliente(null); setCredito(false);
     idem.current = crypto.randomUUID();
     setTimeout(() => buscador.current?.focus(), 0);
   }, []);
 
-  const recibidoNum = medio === "efectivo" ? Number(recibido.replace(/\D/g, "")) || 0 : totales.total;
+  const aCredito = credito && tipoDoc === "factura" && fiar;
+  const recibidoNum = medio === "efectivo" && !aCredito ? Number(recibido.replace(/\D/g, "")) || 0 : totales.total;
   const cambio = Math.max(0, recibidoNum - totales.total);
-  const puedeCobrar = lineas.length > 0 && !lineas.some((l) => excede(lineas, l.p));
+  const faltaCliente = tipoDoc === "factura" && !cliente;
+  const puedeCobrar = lineas.length > 0 && !lineas.some((l) => excede(lineas, l.p)) && !faltaCliente;
 
   async function confirmar() {
     if (enviando || !puedeCobrar) return;
-    if (medio === "efectivo" && recibidoNum < Math.round(totales.total)) { setError("El efectivo recibido no cubre el total"); return; }
+    if (!aCredito && medio === "efectivo" && recibidoNum < Math.round(totales.total)) { setError("El efectivo recibido no cubre el total"); return; }
     setEnviando(true); setError("");
     try {
       const r = await fetch("/api/ventas", {
         method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          idem_key: idem.current, tipo_doc: "pos",
+          idem_key: idem.current, tipo_doc: tipoDoc, cliente_id: tipoDoc === "factura" ? cliente?.id : null,
+          condicion: aCredito ? "credito" : "contado", plazo_dias: aCredito ? plazo : null,
           lineas: lineas.map((l) => ({ producto_id: l.p.id, presentacion: l.presentacion, cantidad: l.cantidad })),
-          pagos: [{ medio, valor: medio === "efectivo" ? recibidoNum : Math.round(totales.total) }],
+          pagos: aCredito ? [] : [{ medio, valor: medio === "efectivo" ? recibidoNum : Math.round(totales.total) }],
         }),
       });
       const j = await r.json();
@@ -194,10 +204,13 @@ export function Caja() {
       <aside id="venta" aria-label="Venta actual" className="tirilla rounded-t-2xl xl:sticky xl:top-6 pb-8 scroll-mt-4">
         {hecho ? (
           <div className="px-6 pt-6">
-            <p className="text-sm text-muted">Venta registrada</p>
+            <p className="text-sm text-muted">{hecho.documento?.tipo === "factura" ? "Factura electrónica registrada" : "Venta registrada"}</p>
             <p className="font-cond text-2xl num" style={{ fontWeight: 700 }}>{hecho.venta.prefijo}{hecho.venta.numero}</p>
             <div className="corte my-5" />
             <div className="flex items-baseline justify-between"><span>Total</span><span className="num font-cond text-2xl" style={{ fontWeight: 700 }}>{pesos(hecho.venta.total)}</span></div>
+            {hecho.venta.credito && hecho.venta.vence_pago && (
+              <p className="mt-4 rounded-xl bg-aviso-soft text-aviso px-4 py-3 font-semibold">A crédito · vence el {fechaCorta(hecho.venta.vence_pago)}. Queda en Cartera para registrar los abonos.</p>
+            )}
             {Number(hecho.venta.cambio) > 0 && (
               <div className="mt-4 rounded-xl bg-cruz text-cruz-ink px-5 py-4 flex items-baseline justify-between">
                 <span className="text-lg">Cambio</span><span className="num font-cond text-[44px] leading-none" style={{ fontWeight: 700 }}>{pesos(hecho.venta.cambio)}</span>
@@ -206,7 +219,7 @@ export function Caja() {
             <div className="mt-5 flex items-center gap-2 text-sm">
               <span className={`size-2.5 rounded-full ${hecho.documento?.estado === "aceptado" ? "bg-cruz" : hecho.documento?.estado === "rechazado" ? "bg-alerta" : "bg-aviso"}`} />
               <span>
-                {hecho.documento?.estado === "aceptado" ? "Tiquete POS electrónico aceptado" : hecho.documento?.estado === "rechazado" ? `DIAN rechazó el documento: ${hecho.documento.ultimo_error}` : "Enviando a la DIAN: la cola lo reintenta sola"}
+                {hecho.documento?.estado === "aceptado" ? (hecho.documento.tipo === "factura" ? "Factura electrónica aceptada" : "Tiquete POS electrónico aceptado") : hecho.documento?.estado === "rechazado" ? `DIAN rechazó el documento: ${hecho.documento.ultimo_error}` : "Enviando a la DIAN: la cola lo reintenta sola"}
                 {hecho.documento?.simulado && <span className="text-muted"> · emisión simulada (pruebas)</span>}
               </span>
             </div>
@@ -215,10 +228,20 @@ export function Caja() {
           </div>
         ) : (
           <>
-            <div className="px-6 pt-5 pb-3 flex items-baseline justify-between">
+            <div className="px-6 pt-5 flex items-baseline justify-between">
               <h2 className="font-cond text-xl" style={{ fontWeight: 700 }}>Venta</h2>
               <span className="text-sm text-muted num">{totales.items} artículo{totales.items === 1 ? "" : "s"}</span>
             </div>
+            <div className="px-6 pt-3" role="radiogroup" aria-label="Documento">
+              <div className="grid grid-cols-2 gap-1 rounded-xl bg-paper p-1">
+                {([["pos", "Tiquete POS"], ["factura", "Factura electrónica"]] as const).map(([k, t]) => (
+                  <button key={k} role="radio" aria-checked={tipoDoc === k} onClick={() => { setTipoDoc(k); if (k === "pos") setCredito(false); setError(""); }}
+                    className={`h-10 rounded-lg text-sm font-semibold ${tipoDoc === k ? "bg-ink text-white" : "text-muted"}`}>{t}</button>
+                ))}
+              </div>
+            </div>
+            {tipoDoc === "factura" && <ClienteFactura cliente={cliente} onCambio={setCliente} />}
+            <div className="pb-3" />
             <div className="corte" />
             {lineas.length === 0 ? (
               <p className="px-6 py-10 text-muted text-center">Escanea o busca un producto para empezar.</p>
@@ -260,6 +283,30 @@ export function Caja() {
 
             {cobrando ? (
               <div className="px-6 pt-5">
+                {tipoDoc === "factura" && fiar && (
+                  <div className="mb-4">
+                    <p className="text-sm font-semibold mb-2">Forma de pago</p>
+                    <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Forma de pago">
+                      {([[false, "Contado"], [true, "Crédito"]] as const).map(([v, t]) => (
+                        <button key={t} role="radio" aria-checked={credito === v} onClick={() => setCredito(v)}
+                          className={`h-11 rounded-lg border-2 text-sm font-semibold ${credito === v ? "border-ink bg-ink text-white" : "border-line"}`}>{t}</button>
+                      ))}
+                    </div>
+                    {credito && (
+                      <div className="mt-3">
+                        <p className="text-sm font-semibold mb-2">Plazo</p>
+                        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Plazo de pago">
+                          {PLAZOS.map((d) => (
+                            <button key={d} role="radio" aria-checked={plazo === d} onClick={() => setPlazo(d)}
+                              className={`h-9 px-3 rounded-lg border-2 text-sm font-semibold num ${plazo === d ? "border-ink bg-ink text-white" : "border-line"}`}>{d} días</button>
+                          ))}
+                        </div>
+                        <p className="mt-2 text-sm text-muted">{cliente ? `${cliente.nombre} (${documento(cliente)})` : "El cliente"} paga a {plazo} días. Los abonos se registran en Cartera.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {!aCredito && <>
                 <p className="text-sm font-semibold mb-2">Medio de pago</p>
                 <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Medio de pago">
                   {MEDIOS.map((m) => (
@@ -281,9 +328,10 @@ export function Caja() {
                     {recibidoNum >= totales.total && <p className="mt-3 flex justify-between text-lg"><span>Cambio</span><span className="num font-cond text-2xl" style={{ fontWeight: 700 }}>{pesos(cambio)}</span></p>}
                   </div>
                 )}
+                </>}
                 {error && <p role="alert" className="mt-3 text-alerta text-sm">{error}</p>}
                 <button onClick={confirmar} disabled={enviando} className="mt-4 w-full h-14 rounded-xl bg-cruz text-cruz-ink text-lg font-semibold disabled:opacity-60">
-                  {enviando ? "Registrando…" : `Confirmar ${pesos(totales.total)}`}
+                  {enviando ? "Registrando…" : aCredito ? `Facturar a crédito ${pesos(totales.total)}` : tipoDoc === "factura" ? `Facturar ${pesos(totales.total)}` : `Confirmar ${pesos(totales.total)}`}
                 </button>
                 <button onClick={() => { setCobrando(false); buscador.current?.focus(); }} className="mt-2 w-full h-10 text-muted text-sm">Volver a la venta <kbd>Esc</kbd></button>
               </div>
@@ -294,7 +342,7 @@ export function Caja() {
                   className="w-full h-16 rounded-xl bg-cruz text-cruz-ink text-xl font-semibold disabled:opacity-40 flex items-center justify-center gap-3">
                   Cobrar <kbd className="!bg-transparent !text-white/80 !border-white/40">F9</kbd>
                 </button>
-                <p className="mt-3 text-center text-[13px] text-muted">Tiquete POS electrónico · el lote que vence antes sale primero</p>
+                <p className="mt-3 text-center text-[13px] text-muted">{faltaCliente && lineas.length > 0 ? "Elige o crea el cliente para facturar" : `${tipoDoc === "factura" ? "Factura electrónica de venta" : "Tiquete POS electrónico"} · el lote que vence antes sale primero`}</p>
               </div>
             )}
           </>

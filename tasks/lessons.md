@@ -12,3 +12,8 @@
 - (1/11/2026) En plpgsql, un alias de SQL con el mismo nombre que una variable (ln) es «ambiguo»: usar alias distintos en las consultas dentro de funciones.
 - (1/11/2026) pg.Pool sin `pool.on("error")` tumba el proceso cuando la base cierra conexiones inactivas (lo vimos al reiniciar la base con el servidor arriba). Siempre registrar el manejador.
 - (1/11/2026) Oscar pidió logos de la DIAN y de superintendencias como respaldo: no se ponen logos de entidades sin aval (sería dar a entender una certificación que no existe). Se usa texto con la norma que se cumple, el respaldo real (empresa, NIT) y la aclaración de que no hay aval.
+
+## 1/11/2026 · «Debe quedar claro que es facturación, y para distribuidoras»
+- La categoría va primero: si el producto es un software de facturación, el H1, el título, la cabecera y el pie lo dicen con esas palabras. Los beneficios (IA, vencidos) van después, nunca en lugar de la categoría.
+- Antes de anunciar un público nuevo (distribuidoras), verificar que el producto lo atiende de verdad. Si faltaba (factura con cliente en la caja, crédito, cartera), se construye primero; lo que aún no existe (listas por cliente, cupos, preventa) se dice en la página.
+- Pruebas de navegador que se repiten sobre la misma base deben elegir datos con margen (productos con existencias de sobra), no «el primero de la lista».

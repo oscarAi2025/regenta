@@ -298,3 +298,44 @@ test("una revisión de alerta no puede citar un producto de otra empresa", async
   const ajeno = (await pool.query(`select id from productos where empresa_id = $1 limit 1`, [E.A])).rows[0].id;
   await assert.rejects(como(U.duenoB, (c) => c.query(`insert into alertas_revision (empresa_id, alerta_id, producto_id, resultado) select $1, id, $2, 'no_aplica' from alertas_invima limit 1`, [E.B, ajeno])), /row-level security/);
 });
+
+test("venta a crédito: factura, cliente y plazo; la cajera no puede fiar", async () => {
+  const cli = (await pool.query(`select id from clientes where empresa_id = $1 and tipo_doc = 'NIT' limit 1`, [E.A])).rows[0].id;
+  const credito = (extra) => venta([{ producto_id: prod.id, presentacion: "unidad", cantidad: 1 }], { tipo_doc: "factura", cliente_id: cli, condicion: "credito", plazo_dias: 30, pagos: [], ...extra });
+  await assert.rejects(como(U.cajera, (c) => c.query("select registrar_venta($1)", [credito()])), /dueño o el administrador/);
+  await assert.rejects(como(U.carlos, (c) => c.query("select registrar_venta($1)", [credito({ tipo_doc: "pos" })])), /factura electrónica/);
+  await assert.rejects(como(U.carlos, (c) => c.query("select registrar_venta($1)", [credito({ plazo_dias: 0 })])), /plazo/);
+  await assert.rejects(como(U.carlos, (c) => c.query("select registrar_venta($1)", [credito({ cliente_id: null })])), /cliente/);
+  const r = await como(U.carlos, async (c) => {
+    const v = (await c.query("select registrar_venta($1) r", [credito()])).rows[0].r;
+    const cart = (await c.query("select saldo::float, dias_mora from v_cartera where venta_id = $1", [v.venta_id])).rows[0];
+    const fila = (await c.query("select vence_pago::text, recibido::float from ventas where id = $1", [v.venta_id])).rows[0];
+    return { v, cart, fila };
+  });
+  assert.equal(r.v.credito, true);
+  assert.equal(r.cart.saldo, Number(r.v.total));
+  assert.equal(r.cart.dias_mora, 0);
+  assert.equal(r.fila.recibido, 0);
+});
+
+test("abonos: no superan el saldo, solo gerencia, y bloquean la anulación", async () => {
+  const cli = (await pool.query(`select id from clientes where empresa_id = $1 and tipo_doc = 'NIT' limit 1`, [E.A])).rows[0].id;
+  const r = await como(U.carlos, async (c) => {
+    const v = (await c.query("select registrar_venta($1) r", [venta([{ producto_id: prod.id, presentacion: "unidad", cantidad: 2 }], { tipo_doc: "factura", cliente_id: cli, condicion: "credito", plazo_dias: 15, pagos: [] })])).rows[0].r;
+    const total = Number(v.total);
+    const a = (await c.query("select registrar_abono($1, 'nequi', $2) r", [v.venta_id, Math.floor(total / 2)])).rows[0].r;
+    let excede = null, anula = null;
+    try { await c.query("savepoint s"); await c.query("select registrar_abono($1, 'nequi', $2)", [v.venta_id, total]); } catch (e) { excede = e.message; await c.query("rollback to savepoint s"); }
+    try { await c.query("savepoint t"); await c.query("select anular_venta($1, 'prueba')", [v.venta_id]); } catch (e) { anula = e.message; await c.query("rollback to savepoint t"); }
+    const cart = (await c.query("select saldo::float from v_cartera where venta_id = $1", [v.venta_id])).rows[0];
+    return { total, a, excede, anula, cart };
+  });
+  assert.equal(r.cart.saldo, r.total - Math.floor(r.total / 2));
+  assert.match(r.excede, /supera el saldo/);
+  assert.match(r.anula, /abonos/);
+  const id = (await pool.query(`select id from ventas where empresa_id = $1 and condicion = 'credito' limit 1`, [E.A])).rows[0].id;
+  await assert.rejects(como(U.cajera, (c) => c.query("select registrar_abono($1, 'efectivo', 1000)", [id])), /dueño o el administrador/);
+  await assert.rejects(como(U.duenoB, (c) => c.query("select registrar_abono($1, 'efectivo', 1000)", [id])), /dueño o el administrador/);
+  const vista = await como(U.cajera, (c) => c.query("select count(*)::int n from v_cartera"));
+  assert.equal(vista.rows[0].n, 0, "la cajera no ve la cartera");
+});

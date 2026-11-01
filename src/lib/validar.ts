@@ -17,3 +17,21 @@ export const ProductoEntrada = z.object({
 export type ProductoEntrada = z.infer<typeof ProductoEntrada>;
 
 export const primerError = (e: z.ZodError) => e.issues[0]?.message ?? "Datos no válidos";
+
+/** Dígito de verificación del NIT (algoritmo de la DIAN: módulo 11 con los pesos 3, 7, 13, 17, 19… de derecha a izquierda). */
+export function dvNit(nit: string) {
+  const pesos = [3, 7, 13, 17, 19, 23, 29, 37, 41, 43, 47, 53, 59, 67, 71];
+  const d = nit.replace(/\D/g, "").split("").reverse();
+  const s = d.reduce((a, x, i) => a + Number(x) * pesos[i], 0) % 11;
+  return String(s > 1 ? 11 - s : s);
+}
+
+/** Cliente para factura electrónica. El DV del NIT lo calcula Regenta. */
+export const ClienteEntrada = z.object({
+  tipo_doc: z.enum(["NIT", "CC", "CE", "PP", "PEP"]),
+  numero_doc: z.string().trim().regex(/^[0-9A-Za-z]{3,15}$/, "Escribe el número de documento sin puntos ni guiones"),
+  nombre: z.string().trim().min(3, "Escribe el nombre o la razón social").max(200),
+  email: z.string().trim().email("El correo no es válido: la DIAN envía la factura a ese correo").max(120).nullish().or(z.literal("")),
+  telefono: z.string().trim().max(30).nullish(),
+  autoriza_datos: z.boolean().default(false),
+}).refine((c) => c.tipo_doc !== "NIT" || /^\d{6,10}$/.test(c.numero_doc), { message: "El NIT va sin dígito de verificación: de 6 a 10 números", path: ["numero_doc"] });
