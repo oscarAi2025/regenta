@@ -15,6 +15,6 @@ export const DELETE = conSesion(async (s, req, ctx) => {
     await c.query(`select anular_abono($1, $2)`, [id, p.data.motivo]);
     return true;
   });
-  if (!ok) return json({ error: "No encontrado" }, 404);
+  if (!ok) return json({ error: "Ese registro no existe en tu droguería" }, 404);
   return json({ ok: true });
 });

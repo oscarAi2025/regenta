@@ -134,7 +134,7 @@ prods.forEach((p, i) => {
 const busc = prods.find((p) => /^Buscapina compositum nf comprimidos caja x 20/i.test(p.nombre ?? ""));
 if (busc) {
   await db.query(`update productos set registro_sanitario = 'INVIMA 2020M-003171-R4' where id = $1`, [busc.id]);
-  lineas.push({ producto_id: busc.id, lote: "F0537A", vence: "2026-07-31", unidades: 40, costo_unidad: 900 });
+  lineas.push({ producto_id: busc.id, lote: "F0537A", vence: "2029-07-31", unidades: 40, costo_unidad: 900 });
 }
 // Se carga como el dueño, por la misma función que usará la app (respeta permisos y auditoría).
 await db.query("begin");

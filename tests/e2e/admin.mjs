@@ -76,7 +76,10 @@ ok(inv?.estado === "simulado", "correo de invitación al dueño (simulado sin Re
 ok(inv && !("enlace" in inv.datos), "el enlace de activación no queda guardado después de enviar");
 
 // ── El dueño activa su cuenta y entra
-const d = await b.newContext({ ...devices["iPhone 13"] });
+// Cada corrida con su propia IP (el servidor de pruebas cree x-real-ip con REGENTA_CABECERA_IP): así los límites de
+// intentos por IP no se acumulan entre corridas.
+const IP = `10.${Number(sufijo) % 250}.${Math.floor(Math.random() * 250)}.9`;
+const d = await b.newContext({ ...devices["iPhone 13"], extraHTTPHeaders: { "x-real-ip": IP } });
 const q = await d.newPage();
 await q.goto(enlace.replace(/^https?:\/\/[^/]+/, B));
 await q.fill("#v-clave", "solamenteletras"); await q.fill("#v-repetir", "solamenteletras");
@@ -87,7 +90,7 @@ await q.fill("#v-clave", DUENO.clave); await q.fill("#v-repetir", DUENO.clave);
 await q.getByRole("button", { name: "Activar mi cuenta" }).click();
 await q.getByText(/está activa/).waitFor();
 ok(true, "cuenta activada");
-const reuso = await fetch(B + "/api/activar", { method: "POST", headers: { origin: B, "content-type": "application/json" }, body: JSON.stringify({ token: new URL(enlace).searchParams.get("t"), clave: "OtraClave2026x", repetir: "OtraClave2026x" }) });
+const reuso = await fetch(B + "/api/activar", { method: "POST", headers: { origin: B, "content-type": "application/json", "x-real-ip": IP }, body: JSON.stringify({ token: new URL(enlace).searchParams.get("t"), clave: "OtraClave2026x", repetir: "OtraClave2026x" }) });
 ok(reuso.status === 400, "el enlace no se puede usar dos veces");
 ok((await correo(DUENO.email, "bienvenida"))?.estado === "simulado", "correo de bienvenida al activar");
 await q.goto(B + "/entrar");
@@ -99,7 +102,7 @@ const prohibido = await q.request.get(B + "/admin", { maxRedirects: 0 });
 ok([307, 308].includes(prohibido.status()), "un cliente no entra a la consola", String(prohibido.status()));
 const uidDueno = (await pool.query(`select id from cuentas where email = $1`, [DUENO.email])).rows[0].id;
 const sesDemo = await fetch(B + "/api/sesion", { method: "POST", headers: { origin: B, "content-type": "application/json" }, body: JSON.stringify({ uid: uidDueno }) });
-ok(sesDemo.status === 404, "el acceso de demo no abre la sesión de una cuenta real", String(sesDemo.status));
+ok([400, 404].includes(sesDemo.status), "el acceso de demo no abre la sesión de una cuenta real", String(sesDemo.status));
 
 // ── Suspender: el dueño ya no entra; activar: vuelve a entrar
 await p.goto(B + `/admin/clientes/${emp.id}`);

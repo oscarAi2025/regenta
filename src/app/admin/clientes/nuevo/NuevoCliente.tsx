@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
+import { dvNit } from "@/lib/validar";
 import { Enlace } from "@/components/admin/Enlace";
 
 type Pre = Partial<{ solicitud: number; pago: string; razon_social: string; nit: string; ciudad: string; telefono: string; email: string; plan: string; dueno_nombre: string; dueno_email: string }>;
@@ -14,14 +15,28 @@ export function NuevoCliente({ pre }: { pre: Pre }) {
   const [hecho, setHecho] = useState<{ empresa: string; enlace: string | null } | null>(null);
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.type === "checkbox" ? (e.target as HTMLInputElement).checked : e.target.value });
   const numeracion = (p: string, d: string, h: string, v: string) => num(d) && num(h) ? { prefijo: p.trim().toUpperCase(), desde: num(d), hasta: num(h), vigente_hasta: v || null, pruebas: f.pruebas } : null;
+  /** Revisa lo escrito antes de enviar: NIT con o sin DV (si viene, debe cuadrar) y numeraciones completas. */
+  function revisar(): string | { nit: string } {
+    const [base, dv] = f.nit.split("-");
+    const nit = (base ?? "").replace(/\D/g, "");
+    if (!/^\d{6,10}$/.test(nit)) return "Escribe el NIT con 6 a 10 dígitos (el dígito de verificación va después del guion o se omite)";
+    if (dv !== undefined && dv.replace(/\D/g, "") !== "" && dv.replace(/\D/g, "") !== dvNit(nit)) return `El dígito de verificación de ese NIT es ${dvNit(nit)}, no ${dv.replace(/\D/g, "")}: revisa el número`;
+    for (const [t, d, h] of [["POS", f.pos_desde, f.pos_hasta], ["Factura", f.fac_desde, f.fac_hasta]] as const) {
+      if ((d.trim() || h.trim()) && (!num(d) || !num(h))) return `Numeración ${t}: escribe «desde» y «hasta» (mayores que cero) o deja ambos vacíos`;
+      if (num(d) && num(h) && num(h) < num(d)) return `Numeración ${t}: «hasta» debe ser mayor que «desde»`;
+    }
+    return { nit };
+  }
 
   async function crear(e: React.FormEvent) {
     e.preventDefault();
     if (enviando) return;
+    const rev = revisar();
+    if (typeof rev === "string") { setError(rev); return; }
     setEnviando(true); setError("");
     try {
       const r = await fetch("/api/admin/clientes", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
-        razon_social: f.razon_social, nombre_comercial: f.nombre_comercial || null, nit: f.nit.replace(/\D/g, ""), ciudad: f.ciudad || null, direccion: f.direccion || null, telefono: f.telefono || null, email: f.email || "",
+        razon_social: f.razon_social, nombre_comercial: f.nombre_comercial || null, nit: rev.nit, ciudad: f.ciudad || null, direccion: f.direccion || null, telefono: f.telefono || null, email: f.email || "",
         plan: f.plan, responsable_iva: f.responsable_iva, dueno: { nombre: f.dueno_nombre, email: f.dueno_email },
         pos: numeracion(f.pos_prefijo, f.pos_desde, f.pos_hasta, f.pos_vence), factura: numeracion(f.fac_prefijo, f.fac_desde, f.fac_hasta, f.fac_vence),
         solicitud: pre.solicitud ?? null, pago: pre.pago ?? null }) });
@@ -50,7 +65,7 @@ export function NuevoCliente({ pre }: { pre: Pre }) {
         <legend className="titulo text-xl px-1">Empresa</legend>
         {campo("razon_social", "Razón social", { required: true })}
         {campo("nombre_comercial", "Nombre comercial")}
-        {campo("nit", "NIT (sin dígito de verificación)", { required: true, inputMode: "numeric" })}
+        {campo("nit", "NIT (con o sin dígito de verificación)", { required: true, inputMode: "numeric", maxLength: 15 })}
         <div><label htmlFor="n-plan" className="etiqueta">Plan</label><select id="n-plan" className="campo" value={f.plan} onChange={set("plan")}><option value="esencial">Esencial</option><option value="pro">Pro</option><option value="cadena">Cadena</option><option value="socio">Socio de Farmagenéricos</option></select></div>
         {campo("ciudad", "Ciudad")}
         {campo("direccion", "Dirección")}

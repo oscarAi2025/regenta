@@ -204,8 +204,10 @@ test("predicción: otra empresa no ve nada y la cajera no ve costos en riesgo", 
 test("nunca se vende un lote vencido, aunque sea el primero por FEFO", async () => {
   await assert.rejects(como(U.carlos, async (c) => {
     const id = (await c.query(`insert into productos (empresa_id, nombre, iva, unidades_por_caja, precio_caja) values ($1, 'Prueba vencido', 0, 1, 1000) returning id`, [E.A])).rows[0].id;
+    // Un lote que se venció en la estantería (se registra como ajuste: una compra vencida ya no se puede recibir).
+    await c.query(`select registrar_entrada(jsonb_build_object('empresa_id', $1::uuid, 'sede_id', $2::uuid, 'tipo', 'ajuste', 'motivo', 'Conteo físico', 'lineas', jsonb_build_array(
+      jsonb_build_object('producto_id', $3::uuid, 'lote', 'VIEJO', 'vence', (current_date - 1)::text, 'unidades', 5))))`, [E.A, S.A, id]);
     await c.query(`select registrar_entrada(jsonb_build_object('empresa_id', $1::uuid, 'sede_id', $2::uuid, 'tipo', 'compra', 'lineas', jsonb_build_array(
-      jsonb_build_object('producto_id', $3::uuid, 'lote', 'VIEJO', 'vence', (current_date - 1)::text, 'unidades', 5),
       jsonb_build_object('producto_id', $3::uuid, 'lote', 'NUEVO', 'vence', (current_date + 200)::text, 'unidades', 2))))`, [E.A, S.A, id]);
     const v = (await c.query(`select registrar_venta($1) r`, [venta([{ producto_id: id, presentacion: "caja", cantidad: 2 }], { pagos: [{ medio: "efectivo", valor: 2000 }] })])).rows[0].r;
     const lotes = (await c.query(`select l.lote from venta_lineas vl join lotes l on l.id = vl.lote_id where vl.venta_id = $1`, [v.venta_id])).rows.map((x) => x.lote);
@@ -384,4 +386,15 @@ test("abonos: se anulan con motivo, liberan el saldo y desbloquean la anulación
   });
   assert.equal(r.saldo, r.total);
   assert.equal(r.cambio, 0);
+});
+
+test("recibir: un lote existente no cambia de fecha y no se recibe mercancía vencida", async () => {
+  const entrada = (c, id, lote, vence) => c.query(`select registrar_entrada(jsonb_build_object('empresa_id', $1::uuid, 'sede_id', $2::uuid, 'tipo', 'compra', 'lineas',
+    jsonb_build_array(jsonb_build_object('producto_id', $3::uuid, 'lote', $4::text, 'vence', $5::text, 'unidades', 1, 'costo_unidad', 100))))`, [E.A, S.A, id, lote, vence]);
+  const nuevo = (c) => c.query(`insert into productos (empresa_id, nombre, iva, unidades_por_caja, precio_caja) values ($1, 'Prueba lote fijo', 0, 1, 1000) returning id`, [E.A]).then((r) => r.rows[0].id);
+  await assert.rejects(como(U.carlos, async (c) => { const id = await nuevo(c); await entrada(c, id, "FIJO", "2030-01-01"); await entrada(c, id, "FIJO", "2031-01-01"); }), /ya existe con vencimiento 01\/01\/2030/);
+  await assert.rejects(como(U.carlos, async (c) => { await entrada(c, await nuevo(c), "VENCIDO", "2020-01-01"); }), /ya está vencido/);
+  const n = await como(U.carlos, async (c) => { const id = await nuevo(c); await entrada(c, id, "MISMA", "2030-01-01"); await entrada(c, id, "MISMA", "2030-01-01");
+    return (await c.query(`select unidades from v_stock_lotes where producto_id = $1`, [id])).rows[0].unidades; });
+  assert.equal(Number(n), 2, "el mismo lote con la misma fecha suma");
 });

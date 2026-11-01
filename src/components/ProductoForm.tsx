@@ -5,8 +5,11 @@ type Datos = { maestro_id?: string | null; nombre: string; laboratorio: string; 
 type Maestro = { id: string; nombre: string; laboratorio: string | null; ean: string | null; iva: number; categoria: string | null };
 
 const vacio: Datos = { nombre: "", laboratorio: "", ean: "", iva: 0, unidades_por_caja: 1, precio_caja: "", precio_unidad: "", stock_minimo: 0 };
-const num = (s: string) => Number(String(s).replace(/\D/g, "")) || 0;
-const fmt = (s: string) => (s.replace(/\D/g, "") ? Number(s.replace(/\D/g, "")).toLocaleString("es-CO") : "");
+// Pesos sin centavos: «2.500», «2500» y «1,500» son miles; una coma con 1 o 2 cifras al final son centavos y se descartan
+// («2500,50» → 2.500), en vez de pegarlos al número.
+const sinCentavos = (s: string) => String(s).replace(/,\d{1,2}$/, "");
+const num = (s: string) => Number(sinCentavos(s).replace(/\D/g, "")) || 0;
+const fmt = (s: string) => (sinCentavos(s).replace(/\D/g, "") ? Number(sinCentavos(s).replace(/\D/g, "")).toLocaleString("es-CO") : "");
 
 /** Alta y edición de productos. En el alta se busca primero en el catálogo Regenta para no escribir nada a mano. */
 export function ProductoForm({ id, inicial }: { id?: string; inicial?: Datos }) {
@@ -26,7 +29,9 @@ export function ProductoForm({ id, inicial }: { id?: string; inicial?: Datos }) 
   }, [q, modo]);
 
   function elegir(m: Maestro) {
-    const porCaja = /tableta|capsula|cápsula|comprimido|gragea/i.test(m.nombre) ? /(?:caja|frasco|blister)\s*x\s*(\d{1,3})\b|x\s*(\d{2,3})\s*unds?\b/i.exec(m.nombre) : null;
+    // Sólidos orales: «caja x 30», «cjx 30 tab», «x 30 unds», «x30 tabletas».
+    const porCaja = /tableta|\btabs?\b|capsula|cápsula|\bcaps?\b|comprimido|gragea/i.test(m.nombre)
+      ? /(?:caja|cja?|frasco|blister)\s*x\s*(\d{1,3})\b|x\s*(\d{2,3})\s*(?:unds?|tabs?|tabletas|caps?|c[aá]psulas|comprimidos)\b/i.exec(m.nombre) : null;
     setD({ ...vacio, maestro_id: m.id, nombre: m.nombre, laboratorio: m.laboratorio ?? "", ean: m.ean ?? "", iva: (m.iva === 5 || m.iva === 19 ? m.iva : 0) as 0 | 5 | 19, categoria: m.categoria, unidades_por_caja: porCaja ? Number(porCaja[1] ?? porCaja[2]) : 1 });
     setModo("manual"); setRes([]);
     setTimeout(() => document.getElementById("precio_caja")?.focus(), 0);
@@ -43,8 +48,10 @@ export function ProductoForm({ id, inicial }: { id?: string; inicial?: Datos }) 
     setError((await r.json().catch(() => ({}))).error ?? "No se pudo guardar"); setEnviando(false);
   }
 
+  const [confirmar, setConfirmar] = useState(false);
   async function retirar() {
     if (!id) return;
+    if (!confirmar) { setConfirmar(true); return; }
     const r = await fetch(`/api/productos/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ activo: false }) }).catch(() => null);
     if (!r) { setError("Sin conexión: revisa internet e intenta de nuevo."); return; }
     if (r.ok) location.href = "/productos"; else setError((await r.json().catch(() => ({}))).error ?? "No se pudo retirar");
@@ -95,7 +102,10 @@ export function ProductoForm({ id, inicial }: { id?: string; inicial?: Datos }) 
           <div className="sm:col-span-2 flex flex-wrap gap-2 pt-1">
             <button disabled={enviando} className="btn-primario">{enviando ? "Guardando…" : id ? "Guardar cambios" : "Agregar a mi droguería"}</button>
             <a href="/productos" className="btn-borde">Cancelar</a>
-            {id && <button type="button" onClick={retirar} className="btn-peligro ml-auto">Retirar producto</button>}
+            {id && <span className="ml-auto inline-flex items-center gap-3">
+              {confirmar && <button type="button" onClick={() => setConfirmar(false)} className="text-sm text-muted">Cancelar</button>}
+              <button type="button" onClick={retirar} className="btn-peligro">{confirmar ? "¿Retirar? Sí, retirar" : "Retirar producto"}</button>
+            </span>}
           </div>
         </form>
       )}

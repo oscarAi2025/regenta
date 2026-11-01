@@ -1,3 +1,4 @@
+import "./zod-es";
 import { z } from "zod";
 
 /** Producto tal como lo crea o edita la droguería. Precios con IVA, en pesos. */
@@ -13,8 +14,11 @@ export const ProductoEntrada = z.object({
   precio_unidad: z.number().int("El precio va en pesos, sin centavos").positive().max(100_000_000).nullish(),
   stock_minimo: z.number().int().min(0).max(100000).default(0),
   registro_sanitario: z.string().trim().max(60).nullish(),
-});
+}).refine((p) => !p.precio_unidad || p.precio_unidad <= p.precio_caja, { message: "El precio por unidad no puede ser mayor que el de la caja completa", path: ["precio_unidad"] });
 export type ProductoEntrada = z.infer<typeof ProductoEntrada>;
+
+/** Fecha AAAA-MM-DD que existe de verdad (no 2027-02-31). */
+export const fechaReal = (s: string) => { const d = new Date(s + "T00:00:00Z"); return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s; };
 
 export const primerError = (e: z.ZodError) => e.issues[0]?.message ?? "Datos no válidos";
 

@@ -3,7 +3,7 @@ import { comoUsuario, puestoDeTrabajo } from "@/lib/db";
 import { conSesion, json } from "@/lib/api";
 import { procesarCola } from "@/lib/dian";
 
-const Pago = z.object({ medio: z.enum(["efectivo", "transferencia", "nequi", "daviplata", "tarjeta", "bre_b", "qr"]), valor: z.number().positive(), referencia: z.string().max(60).nullish() });
+const Pago = z.object({ medio: z.enum(["efectivo", "transferencia", "nequi", "daviplata", "tarjeta", "bre_b", "qr"]), valor: z.number().positive().max(1_000_000_000, "Revisa el valor recibido"), referencia: z.string().max(60).nullish() });
 const Venta = z.object({
   idem_key: z.string().uuid(),
   tipo_doc: z.enum(["pos", "factura"]),
@@ -18,7 +18,7 @@ const Venta = z.object({
 /** Registra la venta (la base de datos fija precios, lotes, numeración y reglas de crédito) y emite su documento DIAN. */
 export const POST = conSesion(async (s, req) => {
   const p = Venta.safeParse(await req.json().catch(() => null));
-  if (!p.success) return json({ error: p.error.issues.find((i) => i.code === "custom")?.message ?? "Datos de la venta incompletos" }, 400);
+  if (!p.success) return json({ error: p.error.issues.find((i) => i.code === "custom")?.message ?? p.error.issues.find((i) => i.path.includes("pagos"))?.message ?? "Datos de la venta incompletos" }, 400);
   const r = await comoUsuario(s, async (c) => {
     const puesto = await puestoDeTrabajo(c, s.empresa);
     if (!puesto.caja_id) throw Object.assign(new Error("Esta empresa no tiene cajas activas"), { code: "P0001" });

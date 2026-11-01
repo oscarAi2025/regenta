@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { comoUsuario, puestoDeTrabajo } from "@/lib/db";
 import { conSesion, json } from "@/lib/api";
+import { fechaReal } from "@/lib/validar";
 
 // Carga masiva de productos (y existencias iniciales) desde una hoja de cálculo exportada a CSV.
 // Primero se llama con simular=true: valida todo y dice qué va a pasar fila por fila. Si no hay errores, se llama
@@ -11,13 +12,13 @@ const Fila = z.object({
   laboratorio: z.string().trim().max(120).default(""),
   iva: z.coerce.number().refine((n) => [0, 5, 19].includes(n), "El IVA debe ser 0, 5 o 19"),
   unidades_por_caja: z.coerce.number().int().min(1).max(1000).default(1),
-  precio_caja: z.coerce.number().int("El precio va en pesos, sin centavos").positive("Falta el precio de venta"),
-  precio_unidad: z.coerce.number().int("El precio va en pesos, sin centavos").positive().optional(),
-  stock_minimo: z.coerce.number().int().min(0).default(0),
+  precio_caja: z.coerce.number().int("El precio va en pesos, sin centavos").positive("Falta el precio de venta").max(100_000_000),
+  precio_unidad: z.coerce.number().int("El precio va en pesos, sin centavos").positive().max(100_000_000).optional(),
+  stock_minimo: z.coerce.number().int().min(0).max(100000).default(0),
   lote: z.string().trim().max(40).default(""),
-  vence: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, "La fecha de vencimiento va como AAAA-MM-DD").or(z.literal("")).default(""),
-  cantidad_unidades: z.coerce.number().int().min(0).default(0),
-  costo_unidad: z.coerce.number().min(0).optional(),
+  vence: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, "La fecha de vencimiento va como AAAA-MM-DD").refine(fechaReal, "Esa fecha de vencimiento no existe").or(z.literal("")).default(""),
+  cantidad_unidades: z.coerce.number().int().min(0).max(1_000_000).default(0),
+  costo_unidad: z.coerce.number().min(0).max(100_000_000).optional(),
   registro_sanitario: z.string().trim().max(60).default(""),
 });
 const Peticion = z.object({ simular: z.boolean(), idem_key: z.string().max(80).nullish(), filas: z.array(z.record(z.string(), z.unknown())).min(1).max(5000) });

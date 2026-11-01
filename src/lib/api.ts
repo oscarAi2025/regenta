@@ -1,4 +1,5 @@
 import "server-only";
+import "./zod-es";
 import { NextResponse } from "next/server";
 import { mensajeError } from "./db";
 import { leerSesion, type Sesion } from "./sesion";

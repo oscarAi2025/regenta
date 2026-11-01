@@ -43,6 +43,9 @@ export function Recibir({ verCosto }: { verCosto: boolean }) {
     setError("");
     const mal = lineas.find((l) => !l.lote.trim() || unidades(l) <= 0);
     if (mal) { setError(`Falta ${!mal.lote.trim() ? "el lote" : "la cantidad"} de ${mal.p.nombre}.`); document.getElementById(`lote-${mal.key}`)?.focus(); return; }
+    const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+    const vencida = lineas.find((l) => l.vence && l.vence < hoy);
+    if (vencida) { setError(`${vencida.p.nombre}: el lote ${vencida.lote.trim()} ya está vencido. La mercancía vencida no se recibe para la venta.`); document.getElementById(`vence-${vencida.key}`)?.focus(); return; }
     setEnviando(true);
     let r: Response;
     try {
@@ -91,7 +94,7 @@ export function Recibir({ verCosto }: { verCosto: boolean }) {
                 <div><label htmlFor={`sueltas-${l.key}`} className="etiqueta">{l.p.unidades_por_caja > 1 ? "Unidades sueltas" : "Unidades"}</label><input id={`sueltas-${l.key}`} inputMode="numeric" value={l.sueltas} onChange={(e) => cambiar(l.key, "sueltas", e.target.value.replace(/\D/g, ""))} className="campo num" /></div>
                 {verCosto && <div><label htmlFor={`costo-${l.key}`} className="etiqueta">Costo {l.p.unidades_por_caja > 1 && n(l.cajas) && !n(l.sueltas) ? "por caja" : "por unidad"}</label><input id={`costo-${l.key}`} inputMode="numeric" value={fmt(l.costo)} onChange={(e) => cambiar(l.key, "costo", e.target.value)} className="campo num" placeholder="$" /></div>}
               </div>
-              <p className="text-sm text-muted num">Entran {unidades(l).toLocaleString("es-CO")} unidades{l.vence && Date.parse(l.vence) < Date.now() + 90 * 864e5 ? <span className="text-aviso font-semibold"> · vence en menos de 90 días</span> : null}</p>
+              <p className="text-sm text-muted num">Entran {unidades(l).toLocaleString("es-CO")} unidades{l.vence && Date.parse(l.vence) < Date.now() - 864e5 ? <span className="text-alerta font-semibold"> · ya está vencido: no se puede recibir</span> : l.vence && Date.parse(l.vence) < Date.now() + 90 * 864e5 ? <span className="text-aviso font-semibold"> · vence en menos de 90 días</span> : null}</p>
             </article>
           ))}
           {error && <p role="alert" className="text-alerta">{error}</p>}

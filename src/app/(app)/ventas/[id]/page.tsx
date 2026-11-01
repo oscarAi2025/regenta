@@ -12,6 +12,7 @@ export const metadata = { title: "Venta" };
 export default async function Venta({ params }: { params: Promise<{ id: string }> }) {
   const s = await leerSesion();
   if (!s) redirect("/entrar");
+  if (!puede.vender(s.rol)) redirect("/inicio?aviso=permiso"); // bodega no ve ventas ni clientes
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const d = await comoUsuario(s, async (c) => {

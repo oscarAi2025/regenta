@@ -55,7 +55,11 @@ export function Importar() {
     const f = e.target.files?.[0]; if (!f) return;
     setError(""); setArchivo(f.name); setEstado("revisando"); setIdem(crypto.randomUUID());
     if (!/\.csv$/i.test(f.name)) { setError("Guarda tu Excel como «CSV (delimitado por comas)» y súbelo de nuevo."); setEstado(""); return; }
-    const leidas = leerCSV(await f.text());
+    // Excel en español guarda el CSV en Windows-1252: si el archivo no es UTF-8 válido se lee con esa codificación.
+    const bytes = await f.arrayBuffer();
+    let texto: string;
+    try { texto = new TextDecoder("utf-8", { fatal: true }).decode(bytes); } catch { texto = new TextDecoder("windows-1252").decode(bytes); }
+    const leidas = leerCSV(texto.replace(/^\uFEFF/, ""));
     if (!leidas.length || !("nombre" in leidas[0]) || !("precio_caja" in leidas[0])) { setError("El archivo debe tener al menos las columnas «nombre» y «precio_caja». Descarga la plantilla para ver el formato."); setEstado(""); return; }
     setFilas(leidas);
     try { const j = await enviar(leidas, true); setPlan(j.plan ?? []); setErrores(j.errores ?? []); setEstado("listo"); }
