@@ -148,3 +148,11 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] Correos (Resend, cola con clave única, reintentos): invitación, contraseña nueva, bienvenida, solicitud, pagos, renovación, suspensión; embudo de 5 correos con autorización y baja de un clic; /admin/correos
 - [x] Seguridad (auditoría adversarial): sesión revalidada en la base, soporte de 1 hora, superadmins intocables desde clientes, demo solo con usuarios fijos, filtros por empresa, límites de intentos en la base, webhook Wompi confirmado contra su API, errores 500 → 400
 - [x] Despliegue: netlify.toml, tarea horaria, conexión al pooler de Supabase con CA, migraciones registradas en producción, tasks/despliegue.md
+- [x] QA funcional: lote con fecha fija, NIT con DV, límites sin errores 500, mensajes en español, CSV Windows-1252, permisos de bodega, confirmaciones
+- [x] Pruebas: base 33/33 · firmas 6/6 · correos 17/17 · e2e caja, gestión, IA, facturación, pagos y consola (63 revisiones) 0 fallos · auditoría 145 pantallas 0 fallos
+
+### Pendiente
+- [ ] Oscar: cuentas y variables según tasks/despliegue.md (Supabase, Resend con dominio, Netlify, Wompi, superadmin)
+- [ ] Emisor MATIAS real en src/lib/dian (requiere contrato Casa de Software y su URL de producción; hoy «simulado»)
+- [ ] Un mismo correo dueño de dos droguerías: elegir droguería al entrar (hoy entra a la más antigua)
+- [ ] Caja: conservar la venta en curso si se recarga la página
