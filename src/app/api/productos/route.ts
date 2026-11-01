@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   const s = await leerSesion();
   if (!s) return NextResponse.json({ error: "Sesión vencida" }, { status: 401 });
   const sp = new URL(req.url).searchParams;
-  const q = (sp.get("q") ?? "").trim().slice(0, 80);
+  const q = (sp.get("q") ?? "").replace(/\0/g, "").trim().slice(0, 80);
   if (sp.get("vencen") === "1") {
     // Para la caja en reposo: lo que conviene vender primero (lotes con existencias que vencen en 60 días).
     try {

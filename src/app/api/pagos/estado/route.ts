@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { sinRLS } from "@/lib/db";
 import { estadoWompi, transaccionWompi, wompiActivo } from "@/lib/pagos";
+import { alCambiarPago } from "@/lib/pagos-eventos";
+import { enviarAhora } from "@/lib/correo";
 
 /** Estado de una orden por su referencia (solo estado y plan: nada personal). Al volver de Wompi con ?id= se confirma
  *  contra la API de Wompi por si el evento aún no llegó. */
@@ -14,7 +16,11 @@ export async function GET(req: Request) {
     const t = await transaccionWompi(id).catch(() => null);
     if (t && t.reference === ref && t.amount_in_cents === o.monto * 100 && t.currency === "COP") {
       const estado = estadoWompi(t.status);
-      await sinRLS((c) => c.query(`update pagos_suscripcion set estado = $2, transaccion = $3, metodo = $4, actualizado = now() where referencia = $1 and estado = 'pendiente'`, [ref, estado, t.id, t.payment_method_type ?? null]));
+      const clave = await sinRLS(async (c) => {
+        const n = await c.query(`update pagos_suscripcion set estado = $2, transaccion = $3, metodo = $4, actualizado = now() where referencia = $1 and estado = 'pendiente'`, [ref, estado, t.id, t.payment_method_type ?? null]);
+        return n.rowCount && estado !== "pendiente" ? alCambiarPago(c, ref) : null;
+      });
+      if (clave) await enviarAhora(clave);
       o = { ...o, estado };
     }
   }

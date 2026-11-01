@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 
-import { WHATSAPP as WA } from "@/lib/sitio";
+import { TEXTO_CORREOS, WHATSAPP as WA } from "@/lib/sitio";
 
 export function FormDemo() {
   const [estado, setEstado] = useState<"" | "enviando" | "ok">("");
@@ -32,8 +32,13 @@ export function FormDemo() {
       <div><label htmlFor="d-drogueria" className="etiqueta text-white">Droguería o empresa</label><input id="d-drogueria" name="drogueria" required autoComplete="organization" className="campo" /></div>
       <div><label htmlFor="d-tel" className="etiqueta text-white">Celular / WhatsApp</label><input id="d-tel" name="telefono" required type="tel" inputMode="tel" autoComplete="tel" className="campo" /></div>
       <div><label htmlFor="d-ciudad" className="etiqueta text-white">Ciudad</label><input id="d-ciudad" name="ciudad" autoComplete="address-level2" className="campo" /></div>
-      <div className="sm:col-span-2"><label htmlFor="d-cajas" className="etiqueta text-white">¿Cuántas cajas registradoras tienes?</label>
+      <div><label htmlFor="d-email" className="etiqueta text-white">Correo (opcional)</label><input id="d-email" name="email" type="email" inputMode="email" autoComplete="email" className="campo" /></div>
+      <div><label htmlFor="d-cajas" className="etiqueta text-white">¿Cuántas cajas registradoras tienes?</label>
         <select id="d-cajas" name="cajas" className="campo" defaultValue="1"><option value="1">1</option><option value="2-3">2 a 3</option><option value="4+">4 o más / varias sedes</option><option value="distribuidor">Soy distribuidor</option></select></div>
+      <label className="sm:col-span-2 flex items-start gap-2.5 text-sm text-white/85">
+        <input type="checkbox" name="acepta" className="mt-1 size-4 shrink-0 accent-[#fff]" />
+        <span>{TEXTO_CORREOS}</span>
+      </label>
       <div className="hidden" aria-hidden="true"><label htmlFor="d-web">Web</label><input id="d-web" name="web" tabIndex={-1} autoComplete="off" /></div>
       {error && <p role="alert" className="sm:col-span-2 text-[#ffb4ab] font-semibold">{error}</p>}
       <div className="sm:col-span-2 flex flex-wrap items-center gap-3 pt-1">

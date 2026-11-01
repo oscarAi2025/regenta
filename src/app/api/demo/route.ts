@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sinRLS } from "@/lib/db";
 import { ipCliente, limitador, mismoOrigen } from "@/lib/api";
+import { encolarEmbudo, enviarAhora } from "@/lib/correo";
+import { TEXTO_CORREOS } from "@/lib/sitio";
 
 const Solicitud = z.object({
   nombre: z.string().trim().min(2, "Escribe tu nombre").max(120),
@@ -12,6 +14,7 @@ const Solicitud = z.object({
   cajas: z.string().trim().max(20).nullish(),
   mensaje: z.string().trim().max(1000).nullish(),
   origen: z.string().trim().max(200).nullish(),
+  acepta: z.union([z.boolean(), z.literal("on"), z.literal("")]).nullish(),
   web: z.string().optional(),
 });
 
@@ -28,8 +31,15 @@ export async function POST(req: Request) {
   const p = Solicitud.safeParse(cuerpo);
   if (!p.success) return NextResponse.json({ error: p.error.issues[0]?.message ?? "Revisa los datos" }, { status: 400 });
   const d = p.data;
-  await sinRLS((c) => c.query(
-    `insert into solicitudes_demo (nombre, drogueria, ciudad, telefono, email, cajas, mensaje, origen) values ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [d.nombre, d.drogueria, d.ciudad || null, d.telefono, d.email || null, d.cajas || null, d.mensaje || null, d.origen || null]));
+  const acepta = !!d.email && (d.acepta === true || d.acepta === "on");
+  const consentimiento = acepta ? { texto: TEXTO_CORREOS, fecha: new Date().toISOString(), ip: ipCliente(req), navegador: (req.headers.get("user-agent") ?? "").slice(0, 200), origen: d.origen ?? null } : null;
+  const id = await sinRLS(async (c) => {
+    const id = Number((await c.query(
+      `insert into solicitudes_demo (nombre, drogueria, ciudad, telefono, email, cajas, mensaje, origen, acepta_correos, consentimiento) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning id`,
+      [d.nombre, d.drogueria, d.ciudad || null, d.telefono, d.email || null, d.cajas || null, d.mensaje || null, d.origen || null, acepta, consentimiento ? JSON.stringify(consentimiento) : null])).rows[0].id);
+    if (d.email) await encolarEmbudo(c, { id, email: d.email, nombre: d.nombre, drogueria: d.drogueria, acepta });
+    return id;
+  });
+  if (d.email) await enviarAhora(`solicitud:${id}`);
   return NextResponse.json({ ok: true }, { status: 201 });
 }

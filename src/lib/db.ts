@@ -6,10 +6,18 @@ import type { Sesion } from "./sesion";
 // con sus claims, igual que en Supabase: la seguridad por fila decide qué ve. La conexión privilegiada (sinRLS)
 // solo la usan procesos internos del servidor (cola DIAN, consola Regenta).
 const g = globalThis as unknown as { __regentaPool?: pg.Pool };
+// Producción (Supabase): DATABASE_URL = pooler en modo transacción (puerto 6543). Ese modo no acepta parámetros de
+// arranque, así que la zona horaria va en la base (migración 013) y en cada transacción. El certificado de Supabase lo
+// firma su propia CA: se pega en DATABASE_CA (PEM, se descarga del panel) y la conexión se verifica siempre.
+const url = process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp";
+const remota = !/localhost|127\.0\.0\.1|host=\/tmp/.test(url);
 export const pool = (g.__regentaPool ??= new pg.Pool({
-  connectionString: process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp",
-  max: 10,
-  options: "-c timezone=America/Bogota", // «hoy» es el día de Bogotá en todas las consultas
+  connectionString: url.replace(/[?&]sslmode=[^&]*/g, ""),
+  max: remota ? 3 : 10, // en funciones serverless cada instancia abre pocas conexiones: el pooler reparte
+  idleTimeoutMillis: remota ? 10000 : 30000,
+  ...(remota
+    ? { ssl: process.env.DATABASE_CA ? { ca: process.env.DATABASE_CA.replace(/\\n/g, "\n"), rejectUnauthorized: true } : { rejectUnauthorized: true } }
+    : { options: "-c timezone=America/Bogota" }), // «hoy» es el día de Bogotá en todas las consultas
 }));
 
 // Si la base cierra una conexión inactiva (reinicio, mantenimiento de Supabase), el pool la descarta y abre otra:
@@ -27,7 +35,7 @@ export async function comoUsuario<T>(s: Pick<Sesion, "uid">, fn: (c: Tx) => Prom
   try {
     await c.query("begin");
     await c.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: s.uid, role: "authenticated" })]);
-    await c.query("set local role authenticated");
+    await c.query("set local role authenticated; set local timezone = 'America/Bogota'");
     const r = await fn(c);
     await c.query("commit");
     return r;
@@ -44,6 +52,7 @@ export async function sinRLS<T>(fn: (c: Tx) => Promise<T>): Promise<T> {
   const c = await pool.connect();
   try {
     await c.query("begin");
+    await c.query("set local timezone = 'America/Bogota'");
     const r = await fn(c);
     await c.query("commit");
     return r;
@@ -60,7 +69,7 @@ export function mensajeError(e: unknown): { status: number; error: string } {
   const err = e as { code?: string; message?: string };
   if (err?.code === "P0001") return { status: 422, error: err.message ?? "Operación no válida" };
   if (err?.code === "42501") return { status: 403, error: /permission denied|row-level security/.test(err.message ?? "") ? "No tienes permiso para esta acción" : err.message ?? "Sin permiso" };
-  if (err?.code === "22P02" || err?.code === "23514" || err?.code === "22007" || err?.code === "22008") return { status: 400, error: "Hay un dato con formato no válido" };
+  if (err?.code === "22P02" || err?.code === "23514" || err?.code === "22007" || err?.code === "22008" || err?.code === "22003" || err?.code === "22021" || err?.code === "22001") return { status: 400, error: "Hay un dato con formato no válido" };
   if (err?.code === "23505") return { status: 409, error: "Ese registro ya existe" };
   if (err?.code === "40P01" || err?.code === "40001") return { status: 409, error: "Otra operación estaba usando los mismos productos. Intenta de nuevo." };
   console.error(e);

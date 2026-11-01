@@ -1,29 +1,48 @@
-// Recrea la base local desde cero: stub de Supabase (solo local), migraciones y datos de demostración.
-// Uso: DATABASE_URL=postgres://postgres@localhost:5433/regenta?host=/tmp node scripts/db-reset.mjs
+// LOCAL: recrea la base desde cero: stub de Supabase (solo local), migraciones y datos de demostración.
+//   DATABASE_URL=postgres://postgres@localhost:5433/regenta?host=/tmp node scripts/db-reset.mjs
+// PRODUCCIÓN (Supabase): aplica solo las migraciones pendientes (quedan registradas en regenta_migraciones) y carga el
+// catálogo maestro y las alertas INVIMA si están vacíos. Nunca borra nada. Con --demo crea además la droguería de
+// demostración si no existe. La conexión se verifica con la CA de Supabase (DATABASE_CA = ruta al .crt o el PEM).
+//   DATABASE_URL=<pooler en modo sesión, puerto 5432> DATABASE_CA=./prod-ca-2021.crt node scripts/db-reset.mjs --produccion [--demo]
 import pg from "pg";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 
+const PROD = process.argv.includes("--produccion"), DEMO = !PROD || process.argv.includes("--demo");
 const url = process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp";
-if (!/localhost|127\.0\.0\.1/.test(url)) throw new Error("db-reset solo se ejecuta contra una base local");
-const nombre = new URL(url).pathname.slice(1);
-const admin = new pg.Client({ connectionString: url.replace(`/${nombre}`, "/postgres") });
-await admin.connect();
-await admin.query(`drop database if exists ${nombre} with (force)`);
-await admin.query(`create database ${nombre}`);
-await admin.end();
-
-const db = new pg.Client({ connectionString: url });
-await db.connect();
+const local = /localhost|127\.0\.0\.1|host=\/tmp/.test(url);
+if (!PROD && !local) throw new Error("db-reset sin --produccion solo se ejecuta contra una base local");
 const sql = (f) => readFileSync(new URL(f, import.meta.url), "utf8");
-await db.query(sql("../db/local/00_supabase_stub.sql"));
+let db;
+if (!PROD) {
+  const nombre = new URL(url).pathname.slice(1);
+  const admin = new pg.Client({ connectionString: url.replace(`/${nombre}`, "/postgres") });
+  await admin.connect();
+  await admin.query(`drop database if exists ${nombre} with (force)`);
+  await admin.query(`create database ${nombre}`);
+  await admin.end();
+  db = new pg.Client({ connectionString: url });
+  await db.connect();
+  await db.query(sql("../db/local/00_supabase_stub.sql"));
+} else {
+  const ca = process.env.DATABASE_CA ? (existsSync(process.env.DATABASE_CA) ? readFileSync(process.env.DATABASE_CA, "utf8") : process.env.DATABASE_CA.replace(/\\n/g, "\n")) : undefined;
+  db = new pg.Client({ connectionString: url.replace(/[?&]sslmode=[^&]*/g, ""), ...(local ? {} : { ssl: { ca, rejectUnauthorized: true } }) });
+  await db.connect();
+}
+await db.query(`create table if not exists regenta_migraciones (nombre text primary key, aplicada timestamptz not null default now())`);
+await db.query(`revoke all on regenta_migraciones from public`);
+const hechas = new Set((await db.query(`select nombre from regenta_migraciones`)).rows.map((r) => r.nombre));
 for (const f of readdirSync(new URL("../db/migrations/", import.meta.url)).filter((f) => f.endsWith(".sql")).sort()) {
-  await db.query(sql(`../db/migrations/${f}`));
+  if (hechas.has(f)) continue;
+  await db.query("begin");
+  try { await db.query(sql(`../db/migrations/${f}`)); await db.query(`insert into regenta_migraciones (nombre) values ($1)`, [f]); await db.query("commit"); }
+  catch (e) { await db.query("rollback"); console.error(`La migración ${f} falló y no se aplicó:`, e.message); process.exit(1); }
   console.log("migración", f);
 }
 
 // Catálogo maestro (común a todas las empresas).
 const M = JSON.parse(sql("../db/seed/maestro.json"));
-for (let i = 0; i < M.length; i += 1000) {
+const yaMaestro = Number((await db.query(`select count(*) n from productos_maestro`)).rows[0].n) > 0;
+if (!yaMaestro) for (let i = 0; i < M.length; i += 1000) {
   const parte = M.slice(i, i + 1000);
   await db.query(
     `insert into productos_maestro (ref, nombre, laboratorio, ean, iva, categoria)
@@ -35,12 +54,18 @@ console.log("catálogo maestro:", M.length);
 
 // Alertas sanitarias reales del INVIMA (verificadas en invima.gov.co el 01/11/2026). En producción las trae /api/invima.
 const AL = JSON.parse(sql("../db/seed/alertas_invima.json"));
-await db.query(`insert into alertas_invima (numero, tipo, titulo, motivo, fecha, url, pdf, registros, lotes, palabras, resumen, recomendacion)
+if (Number((await db.query(`select count(*) n from alertas_invima`)).rows[0].n) === 0) await db.query(`insert into alertas_invima (numero, tipo, titulo, motivo, fecha, url, pdf, registros, lotes, palabras, resumen, recomendacion)
   select numero, tipo, titulo, motivo, fecha, url, pdf, registros, lotes, palabras, resumen, recomendacion
   from jsonb_to_recordset($1::jsonb) as x(numero text, tipo text, titulo text, motivo text, fecha date, url text, pdf text, registros text[], lotes text[], palabras text[], resumen text, recomendacion text)`, [JSON.stringify(AL)]);
 console.log("alertas INVIMA:", AL.length);
 
-// Demostración: dos droguerías (para probar el aislamiento) con usuarios fijos.
+if (!DEMO || (await db.query(`select 1 from empresas where demo`)).rowCount) {
+  console.log(PROD ? "listo (producción)" : "listo");
+  await db.end();
+  process.exit(0);
+}
+
+// Demostración: dos droguerías (para probar el aislamiento) con usuarios fijos. En producción, solo la de demostración.
 const U = {
   carlos: "00000000-0000-4000-8000-000000000001", // dueño A
   cajeraA: "00000000-0000-4000-8000-000000000002", // cajera A
@@ -50,23 +75,28 @@ const U = {
 const E = { A: "10000000-0000-4000-8000-00000000000a", B: "10000000-0000-4000-8000-00000000000b" };
 const S = { A: "20000000-0000-4000-8000-00000000000a", B: "20000000-0000-4000-8000-00000000000b" };
 const C = { A: "30000000-0000-4000-8000-00000000000a", B: "30000000-0000-4000-8000-00000000000b" };
-await db.query(`insert into auth.users (id, email) values
+if (!PROD) await db.query(`insert into auth.users (id, email) values
   ($1, 'carlos@demo.regenta.co'), ($2, 'cajera@demo.regenta.co'), ($3, 'bodega@demo.regenta.co'), ($4, 'dueno.b@demo.regenta.co')`,
   [U.carlos, U.cajeraA, U.bodegaA, U.duenoB]);
 await db.query(`insert into empresas (id, nit, dv, razon_social, nombre_comercial, ciudad, direccion, telefono) values
-  ($1, '900000001', '1', 'DROGUERÍA DEMO CARLOS S.A.S.', 'Droguería Demo', 'Ibagué', 'Calle 1 # 2-3', '3000000000'),
-  ($2, '900000002', '2', 'DROGUERÍA VECINA S.A.S.', 'Droguería Vecina', 'Ibagué', 'Calle 9 # 9-9', '3000000001')`, [E.A, E.B]);
-await db.query(`insert into sedes (id, empresa_id, nombre, ciudad) values ($1, $2, 'Principal', 'Ibagué'), ($3, $4, 'Principal', 'Ibagué')`, [S.A, E.A, S.B, E.B]);
+  ($1, '900000001', '1', 'DROGUERÍA DEMO CARLOS S.A.S.', 'Droguería Demo', 'Ibagué', 'Calle 1 # 2-3', '3000000000')`, [E.A]);
+await db.query(`insert into sedes (id, empresa_id, nombre, ciudad) values ($1, $2, 'Principal', 'Ibagué')`, [S.A, E.A]);
 await db.query(`update empresas set demo = true where id = $1`, [E.A]); // la droguería pública de demostración
-await db.query(`insert into cajas (id, empresa_id, sede_id, nombre) values ($1, $2, $3, 'Caja 1'), ($4, $5, $6, 'Caja 1')`, [C.A, E.A, S.A, C.B, E.B, S.B]);
+await db.query(`insert into cajas (id, empresa_id, sede_id, nombre) values ($1, $2, $3, 'Caja 1')`, [C.A, E.A, S.A]);
 await db.query(`insert into miembros (empresa_id, user_id, nombre, rol) values
-  ($1, $2, 'Carlos (dueño)', 'dueno'), ($1, $3, 'Laura (cajera)', 'cajero'), ($1, $4, 'Andrés (bodega)', 'bodeguero'),
-  ($5, $6, 'Dueño Vecina', 'dueno')`, [E.A, U.carlos, U.cajeraA, U.bodegaA, E.B, U.duenoB]);
+  ($1, $2, 'Carlos (dueño)', 'dueno'), ($1, $3, 'Laura (cajera)', 'cajero'), ($1, $4, 'Andrés (bodega)', 'bodeguero')`, [E.A, U.carlos, U.cajeraA, U.bodegaA]);
 await db.query(`insert into resoluciones_dian (empresa_id, tipo, prefijo, desde, hasta, actual, vigente_hasta, pruebas) values
   ($1, 'pos', 'SETP', 990000000, 995000000, 989999999, '2027-12-31', true),
   ($1, 'factura', 'SETT', 1, 5000000, 0, '2027-12-31', true),
-  ($1, 'nota_credito', 'NCSE', 1, 1000000, 0, '2027-12-31', true),
-  ($2, 'pos', 'POSB', 1, 1000000, 0, '2027-12-31', true)`, [E.A, E.B]);
+  ($1, 'nota_credito', 'NCSE', 1, 1000000, 0, '2027-12-31', true)`, [E.A]);
+// Segunda droguería, solo en local: las pruebas comprueban que una empresa nunca ve los datos de otra.
+if (!PROD) {
+  await db.query(`insert into empresas (id, nit, dv, razon_social, nombre_comercial, ciudad, direccion, telefono) values ($1, '900000002', '2', 'DROGUERÍA VECINA S.A.S.', 'Droguería Vecina', 'Ibagué', 'Calle 9 # 9-9', '3000000001')`, [E.B]);
+  await db.query(`insert into sedes (id, empresa_id, nombre, ciudad) values ($1, $2, 'Principal', 'Ibagué')`, [S.B, E.B]);
+  await db.query(`insert into cajas (id, empresa_id, sede_id, nombre) values ($1, $2, $3, 'Caja 1')`, [C.B, E.B, S.B]);
+  await db.query(`insert into miembros (empresa_id, user_id, nombre, rol) values ($1, $2, 'Dueño Vecina', 'dueno')`, [E.B, U.duenoB]);
+  await db.query(`insert into resoluciones_dian (empresa_id, tipo, prefijo, desde, hasta, actual, vigente_hasta, pruebas) values ($1, 'pos', 'POSB', 1, 1000000, 0, '2027-12-31', true)`, [E.B]);
+}
 
 // Productos de la droguería demo: 400 del catálogo maestro con EAN, precio al público de ejemplo.
 // Surtido típico de droguería de barrio: primero lo que más se vende, luego el resto hasta 600.
@@ -205,8 +235,11 @@ for (const [k, [ci, dia, plazo, fr]] of creditos.entries()) {
   creditosDemo.push(r.venta_id);
 }
 // Reparto en el tiempo: ventas, sus movimientos y documentos; la compra hace 57 días y el inventario inicial hace 60.
+// session_replication_role pide superusuario: si la base no lo permite (Supabase), las ventas quedan con la fecha de hoy.
 await db.query("begin");
-await db.query("set local session_replication_role = replica");
+try { await db.query("set local session_replication_role = replica"); } catch (e) {
+  await db.query("rollback"); console.warn("No se pudo repartir la historia en el tiempo:", e.message); await db.end(); process.exit(0);
+}
 await db.query(`create temp table _t (id uuid, dia int, minuto int) on commit drop`);
 await db.query(`insert into _t select * from jsonb_to_recordset($1::jsonb) as x(id uuid, dia int, minuto int)`, [JSON.stringify(ventasDemo)]);
 await db.query(`update ventas v set creado = (date_trunc('day', now() at time zone 'America/Bogota') - make_interval(days => t.dia) + make_interval(mins => t.minuto)) at time zone 'America/Bogota' from _t t where v.id = t.id`);

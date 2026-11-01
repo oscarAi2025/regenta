@@ -3,15 +3,22 @@ import { NextResponse } from "next/server";
 import { conAdmin, evento } from "@/lib/admin";
 import { procesarCola } from "@/lib/dian";
 import { sincronizarInvima } from "@/lib/invima";
+import { enviarPendientes, programarRecordatorios } from "@/lib/correo";
 
 /** Acciones de sistema con un clic: procesar la cola DIAN o traer las alertas nuevas del INVIMA. */
 export const POST = conAdmin(async (a, req) => {
-  const p = z.object({ accion: z.enum(["dian", "invima"]) }).safeParse(await req.json().catch(() => null));
+  const p = z.object({ accion: z.enum(["dian", "invima", "correos"]) }).safeParse(await req.json().catch(() => null));
   if (!p.success) return NextResponse.json({ error: "Acción no válida" }, { status: 400 });
   if (p.data.accion === "dian") {
     const r = await procesarCola(50);
     await evento(a, "procesar_dian", null, r);
     return NextResponse.json({ ok: true, mensaje: `Enviados ${r.enviados}: ${r.aceptados} aceptados, ${r.rechazados} rechazados, ${r.reintentos} para reintentar` });
+  }
+  if (p.data.accion === "correos") {
+    const rec = await programarRecordatorios();
+    const r = await enviarPendientes(100);
+    await evento(a, "enviar_correos", null, { ...r, ...rec });
+    return NextResponse.json({ ok: true, mensaje: `Correos: ${r.enviados} enviados, ${r.simulados} simulados, ${r.errores} con error · ${rec.encolados} recordatorios nuevos` });
   }
   try {
     const r = await sincronizarInvima();

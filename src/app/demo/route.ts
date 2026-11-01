@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { sinRLS } from "@/lib/db";
 import { mismoOrigen } from "@/lib/api";
-import { crearSesion, demoActiva, leerSesion, type Rol } from "@/lib/sesion";
+import { crearSesion, demoActiva, leerSesion, USUARIOS_DEMO, type Rol } from "@/lib/sesion";
 
 // «Probar la demo»: un clic (formulario POST desde el propio sitio) entra a la droguería de demostración, sin registro.
 // Es POST con verificación de origen para que otro sitio no pueda cambiarle la sesión a nadie, y nunca reemplaza
 // la sesión de una droguería real.
-const DEMO: Record<string, string> = { dueno: "00000000-0000-4000-8000-000000000001", cajero: "00000000-0000-4000-8000-000000000002", bodega: "00000000-0000-4000-8000-000000000003" };
+const DEMO: Record<string, string> = USUARIOS_DEMO;
 
 export async function POST(req: Request) {
   const url = new URL(req.url);

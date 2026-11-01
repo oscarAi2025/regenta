@@ -29,13 +29,15 @@ export function mismoOrigen(req: Request) {
 
 export const esUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
-/** IP del visitante según el proxy de la plataforma (no la primera de x-forwarded-for, que la puede escribir el cliente). */
+/** IP del visitante. Solo se cree la cabecera que pone la plataforma donde corre el sitio (Netlify o Vercel la
+ *  sobrescriben siempre); fuera de ellas, solo si REGENTA_CABECERA_IP la nombra (p. ej. detrás de un proxy propio).
+ *  Cualquier otra cabecera la puede escribir el visitante y se ignora. */
 export function ipCliente(req: Request) {
   const h = req.headers;
-  const plataforma = h.get("x-nf-client-connection-ip") ?? h.get("x-vercel-forwarded-for") ?? h.get("x-real-ip");
-  if (plataforma) return plataforma.trim();
-  const xff = (h.get("x-forwarded-for") ?? "").split(",").map((x) => x.trim()).filter(Boolean);
-  return xff.at(-1) ?? "local"; // el último lo agrega el proxy más cercano
+  const cabecera = process.env.REGENTA_CABECERA_IP
+    ?? (process.env.NETLIFY || process.env.SITE_ID ? "x-nf-client-connection-ip" : process.env.VERCEL ? "x-vercel-forwarded-for" : null);
+  const v = cabecera ? h.get(cabecera)?.split(",")[0]?.trim() : null;
+  return v || "local";
 }
 
 /** Límite de peticiones en memoria por clave y ventana; limpia lo viejo para no crecer sin fin. */

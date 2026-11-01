@@ -11,11 +11,12 @@ const VARIABLES: [string, string][] = [
   ["REGENTA_URL", "URL pública del sitio (SEO, enlaces de activación y pagos)"],
   ["REGENTA_SESSION_SECRET", "Firma de las sesiones"],
   ["DATABASE_URL", "Base de datos"],
-  ["REGENTA_CRON_KEY", "Tareas programadas (cola DIAN, INVIMA)"],
+  ["REGENTA_CRON_KEY", "Tareas programadas (cola DIAN, correos, INVIMA)"],
   ["ANTHROPIC_API_KEY", "Regenta IA"],
   ["WOMPI_PUBLIC_KEY", "Pagos en Colombia (Wompi)"], ["WOMPI_INTEGRITY_SECRET", "Firma de pagos Wompi"], ["WOMPI_EVENTS_SECRET", "Eventos de Wompi"],
   ["STRIPE_SECRET_KEY", "Pagos con tarjeta internacional (Stripe)"], ["STRIPE_WEBHOOK_SECRET", "Eventos de Stripe"],
   ["REGENTA_DIAN", "Proveedor de emisión DIAN (hoy: simulado)"],
+  ["RESEND_API_KEY", "Envío de correos (Resend)"], ["CORREO_REMITENTE", "Remitente, p. ej. Regenta <hola@tudominio.co> (dominio verificado)"], ["CORREO_RESPUESTA", "A dónde llegan las respuestas (opcional)"],
 ];
 
 export default async function Sistema() {

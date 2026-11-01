@@ -16,7 +16,7 @@ export const GET = conSesion(async (s, req) => {
        where cl.empresa_id = $1 order by coalesce(x.u, cl.creado) desc limit 6`, [s.empresa])).rows);
     return json({ clientes });
   }
-  const q = (sp.get("q") ?? "").trim().slice(0, 80);
+  const q = (sp.get("q") ?? "").replace(/\0/g, "").trim().slice(0, 80);
   if (q.length < 2) return json({ clientes: [] });
   const clientes = await comoUsuario(s, async (c) => (await c.query(
     `select ${CAMPOS} from clientes where empresa_id = $1 and (numero_doc like $2 || '%' or lower(nombre) like '%' || $3 || '%')

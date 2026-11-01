@@ -1,0 +1,90 @@
+# Puesta en producción de Regenta (Netlify + Supabase + Resend + Wompi)
+
+Orden recomendado. Cada paso dice qué hace Oscar y cómo se comprueba. Las claves nunca se pegan en el chat ni en el
+repositorio: van solo en el panel de cada servicio.
+
+## 1. Supabase (base de datos)
+1. Crear el proyecto en la región más cercana (São Paulo, `sa-east-1`).
+2. Panel → Project Settings → Database:
+   - Descargar el certificado SSL (`prod-ca-2021.crt`). Es la CA con la que se verifica la conexión.
+   - Copiar la cadena del **pooler en modo transacción** (puerto 6543). Esta es la `DATABASE_URL` de Netlify.
+   - Copiar la del **pooler en modo sesión** (puerto 5432). Esta se usa solo desde el computador para migrar.
+3. Desde el computador, en la carpeta del proyecto:
+   ```bash
+   DATABASE_URL='<pooler modo sesión>' DATABASE_CA=./prod-ca-2021.crt node scripts/db-reset.mjs --produccion --demo
+   ```
+   - Aplica las migraciones 001–013 y las registra en `regenta_migraciones`. Nunca borra nada.
+   - Carga el catálogo maestro (~10.000 productos) y las alertas INVIMA si la base está vacía.
+   - `--demo` crea la droguería de demostración. Quítalo si no habrá demo pública.
+   - Para actualizaciones futuras se corre el mismo comando sin `--demo`: solo aplica lo pendiente.
+4. Crear el superadministrador. La contraseña se escribe en la terminal y no se muestra:
+   ```bash
+   DATABASE_URL='<pooler modo sesión>' DATABASE_CA=./prod-ca-2021.crt node scripts/crear-superadmin.mjs tu@correo.com "Oscar"
+   ```
+5. Comprobar que el pooler permite el cambio de rol que usa la seguridad por fila. Es el único punto que la
+   documentación de Supabase no confirma. En el editor SQL de Supabase:
+   ```sql
+   begin; select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+   set local role authenticated; select auth.uid(), current_user; rollback;
+   ```
+   Debe devolver el uuid y `authenticated`.
+
+## 2. Resend (correos)
+1. Crear la cuenta y agregar el dominio. Resend recomienda un subdominio, por ejemplo `correo.tudominio.co`.
+2. Copiar en el DNS del dominio los registros SPF y DKIM que muestra Resend y esperar a que diga «Verified»
+   (normalmente unos 15 minutos, hasta 72 horas).
+3. Crear una API key con permiso «Sending access».
+4. Sin `RESEND_API_KEY` y `CORREO_REMITENTE`, los correos quedan como «simulados» en /admin/correos y no llegan a nadie.
+
+## 3. Netlify (sitio)
+1. Importar el repositorio de GitHub. Netlify detecta Next.js 15 solo; no hay que instalar plugins.
+2. Site configuration → Environment variables, con alcance **Builds y Functions**:
+
+| Variable | Valor |
+| --- | --- |
+| `REGENTA_URL` | `https://tudominio.co`, sin barra al final. Sin ella el build se detiene a propósito. |
+| `REGENTA_SESSION_SECRET` | 48 o más caracteres aleatorios (`openssl rand -base64 48`) |
+| `REGENTA_CRON_KEY` | 32 o más caracteres aleatorios, distinta de la anterior |
+| `DATABASE_URL` | Pooler de Supabase en modo transacción (puerto 6543) |
+| `DATABASE_CA` | Contenido del `prod-ca-2021.crt`, pegado completo. Si el panel no acepta varias líneas, cambia cada salto de línea por `\n`. |
+| `RESEND_API_KEY` | La llave de Resend |
+| `CORREO_REMITENTE` | `Regenta <hola@correo.tudominio.co>` (dominio verificado) |
+| `CORREO_RESPUESTA` | `gerencia@farmagenericoscolombia.com` (opcional; es el valor por defecto) |
+| `WOMPI_PUBLIC_KEY`, `WOMPI_INTEGRITY_SECRET`, `WOMPI_EVENTS_SECRET` | Panel de Wompi → Desarrolladores. Primero las de pruebas (`pub_test_…`) y luego las de producción. |
+| `ANTHROPIC_API_KEY` | Activa Regenta IA |
+| `REGENTA_DEMO` | `1` si habrá demo pública |
+| `REGENTA_DIAN` | `simulado` hasta tener MATIAS configurado |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Opcional. Solo con la cuenta de la LLC. |
+
+3. Desplegar y conectar el dominio. Netlify da el HTTPS.
+4. Tarea programada: `netlify/functions/tareas.mjs` corre cada hora, en hora UTC, solo en el sitio publicado. En
+   Netlify → Functions → `tareas` → «Run now», el registro debe mostrar `tareas 200` con el resumen.
+
+## 4. Wompi (cobros)
+1. En el panel de Wompi, poner la URL de eventos `https://tudominio.co/api/pagos/wompi`. Hay que hacerlo en pruebas y
+   en producción.
+2. Hacer un pago de prueba en /contratar con la tarjeta de pruebas de Wompi. Comprobar que:
+   - /contratar/resultado dice «Pago aprobado».
+   - /admin/pagos lo muestra como aprobado.
+   - Llega el correo «Pago aprobado».
+3. Wompi no cobra solo cada mes. Regenta envía recordatorios de renovación 5 días antes, 1 día antes y 1 día después
+   del vencimiento.
+
+## 5. Primer cliente (el mismo día)
+1. /admin/clientes/nuevo:
+   - Datos de la droguería, plan y dueño.
+   - Numeración POS. Si todavía no hay resolución DIAN, usar la de pruebas.
+2. El dueño recibe el correo «Activa tu cuenta». El mismo enlace también se puede mandar por WhatsApp desde la ficha.
+3. El dueño crea su contraseña, recibe la bienvenida y entra a /entrar.
+4. La factura electrónica real exige MATIAS (Casa de Software) y el certificado digital del NIT. Mientras tanto, el POS
+   funciona y los documentos quedan en la cola DIAN como «simulado».
+
+## Comprobado en local antes de publicar
+`npm test` · `node --test tests/correos.test.mjs` · `npm run e2e` · `npm run pagos` · `npm run admin` · `npm run auditoria`
+
+## No verificado (comprobarlo en el primer despliegue)
+- Que el usuario del pooler de Supabase pueda hacer `set local role authenticated` (prueba del paso 1.5).
+- Que el pooler en modo transacción acepte las consultas parametrizadas de `pg` sin nombre. Según la documentación,
+  solo prohíbe las sentencias preparadas con nombre, y Regenta no las usa.
+- MATIAS: la URL de producción se recibe al contratar. Falta confirmar en su sandbox el `type_document_id` de la factura
+  de venta (la documentación dice 1 en un lugar y 7 en otro).

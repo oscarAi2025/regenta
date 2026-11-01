@@ -12,7 +12,7 @@ export default async function Editar({ params }: { params: Promise<{ id: string 
   if (s.rol !== "dueno" && s.rol !== "admin") redirect("/productos?aviso=permiso");
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
-  const p = await comoUsuario(s, async (c) => (await c.query(`select * from productos where id = $1 and activo`, [id])).rows[0]);
+  const p = await comoUsuario(s, async (c) => (await c.query(`select * from productos where id = $1 and empresa_id = $2 and activo`, [id, s.empresa])).rows[0]);
   if (!p) notFound();
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">

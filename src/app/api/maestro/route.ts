@@ -3,7 +3,7 @@ import { conSesion, json } from "@/lib/api";
 
 /** Busca en el catálogo maestro de Regenta lo que la droguería todavía no tiene. */
 export const GET = conSesion(async (s, req) => {
-  const q = (new URL(req.url).searchParams.get("q") ?? "").trim().toLowerCase().slice(0, 80);
+  const q = (new URL(req.url).searchParams.get("q") ?? "").replace(/\0/g, "").trim().toLowerCase().slice(0, 80);
   const palabras = q.split(/\s+/).filter(Boolean).slice(0, 6).map(sinComodines);
   if (!palabras.length) return json({ productos: [] });
   const productos = await comoUsuario(s, async (c) => (await c.query(

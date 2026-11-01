@@ -16,6 +16,8 @@ export default function Privacidad() {
         <h2 className="font-cond text-3xl" style={{ fontWeight: 700 }}>Qué datos y para qué</h2>
         <p>Los datos que nos das al pedir una demostración o contratar (nombre, empresa, NIT o cédula, correo y celular) se usan para contactarte, activar y facturar tu plan y darte soporte. Los pagos los procesa la pasarela (Wompi o Stripe): Regenta no recibe ni guarda los datos de tu tarjeta o tu cuenta.</p>
         <p>Los datos que cada droguería registra en Regenta (sus clientes, ventas e inventario) son de esa droguería: Regenta los guarda y procesa por encargo suyo, y cada empresa solo puede ver los propios.</p>
+        <h2 className="font-cond text-3xl" style={{ fontWeight: 700 }}>Correos</h2>
+        <p>Te escribimos por correo lo necesario para tu cuenta: activación, bienvenida, pagos y avisos de renovación. Los correos con consejos y novedades solo los recibes si marcaste la casilla que lo autoriza; guardamos el texto que aceptaste, la fecha y la dirección IP como prueba. Cada uno trae un enlace para darte de baja con un clic, y la baja se aplica de inmediato. Los correos se envían a través de un proveedor de envío (Resend) que actúa como encargado y solo los usa para entregarlos.</p>
         <h2 className="font-cond text-3xl" style={{ fontWeight: 700 }}>Tus derechos</h2>
         <p>Como titular puedes conocer, actualizar, rectificar y pedir la supresión de tus datos, revocar la autorización y pedir prueba de ella, conforme a la Ley 1581 de 2012. Escríbenos a {CORREO} y te respondemos dentro de los plazos de ley.</p>
       </main>

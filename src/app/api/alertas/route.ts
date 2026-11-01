@@ -2,7 +2,7 @@ import { z } from "zod";
 import { comoUsuario } from "@/lib/db";
 import { conSesion, json } from "@/lib/api";
 
-const Revision = z.object({ alerta_id: z.coerce.number().int().positive(), producto_id: z.string().uuid().nullish(), resultado: z.enum(["no_aplica", "sin_lote", "separado"]), nota: z.string().trim().max(300).nullish() });
+const Revision = z.object({ alerta_id: z.coerce.number().int().positive().max(Number.MAX_SAFE_INTEGER), producto_id: z.string().uuid().nullish(), resultado: z.enum(["no_aplica", "sin_lote", "separado"]), nota: z.string().trim().max(300).nullish() });
 
 /** Deja constancia de qué hizo la droguería con una alerta (quién y cuándo lo guarda la base de datos). */
 export const POST = conSesion(async (s, req) => {

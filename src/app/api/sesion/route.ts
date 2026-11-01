@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { sinRLS } from "@/lib/db";
-import { crearSesion, cerrarSesion, demoActiva, leerSesion, type Rol } from "@/lib/sesion";
+import { crearSesion, cerrarSesion, demoActiva, leerSesion, USUARIOS_DEMO, type Rol } from "@/lib/sesion";
 import { mismoOrigen } from "@/lib/api";
 
 /** Acceso de demostración con los usuarios sembrados (se apaga en producción sin REGENTA_DEMO=1). */
@@ -14,7 +14,8 @@ export async function POST(req: Request) {
     if (!esDemo) return NextResponse.json({ error: "Ya tienes una sesión abierta: sal primero" }, { status: 409 });
   }
   const { uid } = (await req.json().catch(() => ({}))) as { uid?: string };
-  if (!uid || !/^[0-9a-f-]{36}$/.test(uid)) return NextResponse.json({ error: "Usuario no válido" }, { status: 400 });
+  // Solo los tres usuarios sembrados: nunca una cuenta real, aunque alguien la agregue a la empresa demo.
+  if (!uid || !(Object.values(USUARIOS_DEMO) as string[]).includes(uid)) return NextResponse.json({ error: "Usuario no válido" }, { status: 400 });
   const m = await sinRLS(async (c) => (await c.query(
     `select m.empresa_id, m.nombre, m.rol from miembros m join empresas e on e.id = m.empresa_id
      where m.user_id = $1 and m.activo and e.demo order by m.creado limit 1`, [uid])).rows[0]);

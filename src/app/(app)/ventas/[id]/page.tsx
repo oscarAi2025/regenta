@@ -17,7 +17,7 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
   const d = await comoUsuario(s, async (c) => {
     const v = (await c.query(`select v.*, to_char(v.creado at time zone 'America/Bogota', 'DD/MM/YYYY HH24:MI') fecha, m.nombre cajero, e.razon_social, e.nit, e.dv, e.direccion, e.ciudad,
       cl.nombre cliente, cl.tipo_doc cli_tipo, cl.numero_doc cli_num, cl.dv cli_dv, to_char(v.vence_pago, 'DD/MM/YYYY') vence
-      from ventas v join empresas e on e.id = v.empresa_id left join clientes cl on cl.id = v.cliente_id left join miembros m on m.empresa_id = v.empresa_id and m.user_id = v.usuario_id where v.id = $1`, [id])).rows[0];
+      from ventas v join empresas e on e.id = v.empresa_id left join clientes cl on cl.id = v.cliente_id left join miembros m on m.empresa_id = v.empresa_id and m.user_id = v.usuario_id where v.id = $1 and v.empresa_id = $2`, [id, s.empresa])).rows[0];
     if (!v) return null;
     const lineas = (await c.query(`select vl.descripcion, vl.presentacion, sum(vl.cantidad)::float cantidad, vl.precio::float, sum(vl.total)::float total, vl.iva_pct::float, string_agg(l.lote, ', ') lotes
       from venta_lineas vl join lotes l on l.id = vl.lote_id where vl.venta_id = $1 group by vl.descripcion, vl.presentacion, vl.precio, vl.iva_pct, vl.producto_id order by min(vl.id)`, [id])).rows;

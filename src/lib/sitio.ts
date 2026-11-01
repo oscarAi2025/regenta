@@ -5,5 +5,7 @@ if (!process.env.REGENTA_URL && (process.env.NETLIFY || process.env.VERCEL)) thr
 export const SITIO = process.env.REGENTA_URL ?? "http://localhost:4500";
 export const WHATSAPP = "573212141970";
 export const CORREO = "gerencia@farmagenericoscolombia.com";
+/** Texto exacto de la autorización de correos comerciales: se guarda con cada solicitud como prueba (Ley 1581, art. 17.b). */
+export const TEXTO_CORREOS = "Quiero recibir por correo consejos y novedades de Regenta para droguerías. Puedo darme de baja con un clic en cualquier correo.";
 export const TELEFONO = "+57 321 214 1970";
 export const wa = (texto: string) => `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(texto)}`;

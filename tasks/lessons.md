@@ -33,3 +33,10 @@
 - `order by (col = $x) desc` pone primero los NULL (desc = nulls first): usar coalesce(col = $x, false).
 - En consultas con join, calificar columnas comunes (estado existe en empresas y documentos_dian).
 - Next agrega un elemento con role=alert (anunciador de rutas): en pruebas, buscar alertas dentro del formulario.
+
+## 1/11/2026 · Auditoría adversarial de la consola
+- Una sesión firmada que no se vuelve a comprobar en la base sobrevive a suspensiones y cambios de contraseña: toda sesión se valida contra la base en cada petición (empresa activa, miembro activo, versión de contraseña).
+- Las acciones de soporte («entrar como») deben llevar su propia marca y caducidad, no depender de otra cookie.
+- Un webhook firmado solo avisa: la verdad se consulta en la API del proveedor (referencia y monto pueden no estar firmados).
+- Los límites de intentos en memoria no sirven en serverless y las cabeceras de IP las puede escribir el cliente: contar solo fallos, en la base, y creer solo la cabecera de la plataforma.
+- Las rutas que reciben un id deben filtrar por la empresa de la sesión aunque RLS ya proteja.

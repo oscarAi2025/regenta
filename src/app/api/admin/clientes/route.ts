@@ -4,8 +4,11 @@ import { sinRLS } from "@/lib/db";
 import { conAdmin, evento } from "@/lib/admin";
 import { invitar } from "@/lib/admin-datos";
 import { dvNit } from "@/lib/validar";
+import { encolar, enviarAhora } from "@/lib/correo";
 
-const Num = z.object({ prefijo: z.string().trim().max(10), desde: z.number().int().positive(), hasta: z.number().int().positive(), vigente_hasta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish(), pruebas: z.boolean() }).nullish();
+const fechaReal = (s: string) => { const d = new Date(s + "T00:00:00Z"); return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s; };
+const Num = z.object({ prefijo: z.string().trim().regex(/^[A-Z0-9]{0,10}$/i, "Prefijo: solo letras y números"), desde: z.number().int().positive().max(1e12), hasta: z.number().int().positive().max(1e12),
+  vigente_hasta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(fechaReal, "Fecha de vigencia no válida").nullish(), pruebas: z.boolean() }).nullish();
 const Nuevo = z.object({
   razon_social: z.string().trim().min(3, "Escribe la razón social").max(200),
   nombre_comercial: z.string().trim().max(200).nullish(),
@@ -16,7 +19,7 @@ const Nuevo = z.object({
   responsable_iva: z.boolean().default(false),
   dueno: z.object({ nombre: z.string().trim().min(3, "Escribe el nombre del dueño").max(120), email: z.string().trim().email("Correo del dueño no válido").max(160) }),
   pos: Num, factura: Num,
-  solicitud: z.number().int().positive().nullish(), pago: z.string().max(80).nullish(),
+  solicitud: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).nullish(), pago: z.string().max(80).nullish(),
 });
 
 /** Alta de un cliente en un solo paso: empresa, sede, caja, numeraciones, dueño con invitación. */
@@ -34,10 +37,15 @@ export const POST = conAdmin(async (a, req) => {
       await c.query(`insert into resoluciones_dian (empresa_id, tipo, prefijo, desde, hasta, actual, vigente_hasta, pruebas) values ($1, $2, $3, $4, $5, $6, $7, $8)`, [e, tipo, n.prefijo, n.desde, n.hasta, n.desde - 1, n.vigente_hasta ?? null, n.pruebas]);
     }
     const inv = await invitar(c, e, { ...d.dueno, rol: "dueno" });
-    if (d.solicitud) await c.query(`update solicitudes_demo set estado = 'cliente' where id = $1`, [d.solicitud]);
-    if (d.pago) await c.query(`update pagos_suscripcion set empresa_id = $2, atendido = true where referencia = $1`, [d.pago, e]);
-    return { empresa: e, enlace: inv.enlace };
+    const correo = inv.enlace ? `invitacion:${inv.cuenta_id}:${Date.now()}` : null;
+    if (correo) await encolar(c, { clave: correo, para: d.dueno.email, plantilla: "invitacion", empresa: e, datos: { nombre: d.dueno.nombre, empresa: d.nombre_comercial || d.razon_social, enlace: inv.enlace } });
+    const falla = (m: string) => Object.assign(new Error(m), { code: "P0001" });
+    if (d.solicitud && !(await c.query(`update solicitudes_demo set estado = 'cliente' where id = $1`, [d.solicitud])).rowCount) throw falla("La solicitud de demo no existe");
+    if (d.pago && !(await c.query(`update pagos_suscripcion set empresa_id = $2, atendido = true where referencia = $1 and estado = 'aprobado' and empresa_id is null`, [d.pago, e])).rowCount)
+      throw falla("Ese pago no existe, no está aprobado o ya está ligado a otro cliente");
+    await evento(a, "crear_cliente", e, { nit: d.nit, plan: d.plan, dueno: d.dueno.email }, c);
+    return { empresa: e, enlace: inv.enlace, correo };
   });
-  await evento(a, "crear_cliente", r.empresa, { nit: d.nit, plan: d.plan, dueno: d.dueno.email });
+  if (r.correo) await enviarAhora(r.correo);
   return NextResponse.json(r, { status: 201 });
 });

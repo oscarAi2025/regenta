@@ -143,3 +143,8 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [ ] Oscar: crear su superadministrador en producción con scripts/crear-superadmin.mjs
 - [ ] Correo transaccional para enviar invitaciones (hoy se mandan por WhatsApp desde la consola)
 - [ ] Reinicio de la demo desde la consola
+
+## Iteración 10 (1/11/2026): correos, seguridad de la consola y despliegue
+- [x] Correos (Resend, cola con clave única, reintentos): invitación, contraseña nueva, bienvenida, solicitud, pagos, renovación, suspensión; embudo de 5 correos con autorización y baja de un clic; /admin/correos
+- [x] Seguridad (auditoría adversarial): sesión revalidada en la base, soporte de 1 hora, superadmins intocables desde clientes, demo solo con usuarios fijos, filtros por empresa, límites de intentos en la base, webhook Wompi confirmado contra su API, errores 500 → 400
+- [x] Despliegue: netlify.toml, tarea horaria, conexión al pooler de Supabase con CA, migraciones registradas en producción, tasks/despliegue.md

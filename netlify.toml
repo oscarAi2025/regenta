@@ -1,0 +1,8 @@
+# Netlify detecta Next.js 15 y usa su adaptador oficial automáticamente (no instalar @netlify/plugin-nextjs).
+# Las variables de entorno van en el panel de Netlify (alcance «Builds» y «Functions»): las de este archivo no llegan
+# a las funciones. Lista completa y orden de puesta en marcha: tasks/despliegue.md
+[build]
+  command = "npm run build"
+
+[build.environment]
+  NODE_VERSION = "22"

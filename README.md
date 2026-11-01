@@ -32,7 +32,19 @@ node tests/e2e/caja.mjs            # recorrido real en el navegador (escritorio 
 
 En Supabase se aplican `db/migrations/*.sql` (no `db/local/`, que imita a Supabase solo en local).
 
+## Puesta en producción
+Paso a paso (Supabase, Resend, Netlify, Wompi y primer cliente) y lista completa de variables: `tasks/despliegue.md`.
+Migraciones en producción: `node scripts/db-reset.mjs --produccion` (solo aplica las pendientes; nunca borra).
+
+## Correos
+Cola en la tabla `correos` (cada correo con clave única: nunca sale dos veces). Proveedor Resend (`RESEND_API_KEY`,
+`CORREO_REMITENTE`); sin ellas quedan «simulados». Transaccionales: invitación, contraseña nueva, bienvenida, solicitud
+recibida, pago aprobado/rechazado/sin terminar, renovación próxima/vencida, cuenta suspendida. Embudo comercial de 5
+correos (días 1, 3, 6, 10 y 15) solo con autorización expresa, con baja de un clic (`/baja`, `List-Unsubscribe`).
+Consola: /admin/correos.
+
 ## Tareas programadas (producción)
+- `netlify/functions/tareas.mjs` (cada hora) → `POST /api/tareas` con `Authorization: Bearer $REGENTA_CRON_KEY`: correos pendientes, recordatorios de renovación, cola DIAN, limpieza y, cada 6 horas, INVIMA.
 - `POST /api/dian` con `Authorization: Bearer $REGENTA_CRON_KEY`: procesa la cola de documentos DIAN.
 - `POST /api/invima` con el mismo encabezado, cada 6 horas: trae las alertas sanitarias nuevas de medicamentos de invima.gov.co.
 - `REGENTA_URL`: dominio público (canonical, sitemap, Open Graph).

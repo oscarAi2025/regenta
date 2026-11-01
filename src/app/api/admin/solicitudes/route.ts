@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { sinRLS } from "@/lib/db";
 import { conAdmin, evento } from "@/lib/admin";
 
-const Cambio = z.object({ id: z.number().int().positive(), estado: z.enum(["nueva", "contactada", "cliente", "descartada"]), nota: z.string().trim().max(1000).nullish() });
+const Cambio = z.object({ id: z.number().int().positive().max(Number.MAX_SAFE_INTEGER), estado: z.enum(["nueva", "contactada", "cliente", "descartada"]), nota: z.string().trim().max(1000).nullish() });
 
 /** Cambiar el estado de una solicitud de demo. */
 export const PATCH = conAdmin(async (a, req) => {

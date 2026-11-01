@@ -4,6 +4,7 @@
 import pg from "pg";
 import { randomBytes, scrypt } from "node:crypto";
 import readline from "node:readline";
+import { existsSync, readFileSync } from "node:fs";
 
 const [email, nombre = "Superadministrador"] = process.argv.slice(2);
 if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { console.error("Uso: node scripts/crear-superadmin.mjs correo@dominio.com \"Nombre\""); process.exit(1); }
@@ -24,11 +25,15 @@ if (clave.length < 10 || !/[a-zA-Z]/.test(clave) || !/\d/.test(clave)) { console
 const sal = randomBytes(16);
 const hash = await new Promise((ok, mal) => scrypt(clave.normalize("NFKC"), sal, 64, { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 }, (e, k) => (e ? mal(e) : ok(k))));
 
-const db = new pg.Client({ connectionString: process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp" });
+// En Supabase la conexión se verifica con su CA (DATABASE_CA = ruta al .crt descargado del panel, o el PEM).
+const url = process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp";
+const local = /localhost|127\.0\.0\.1|host=\/tmp/.test(url);
+const ca = process.env.DATABASE_CA ? (existsSync(process.env.DATABASE_CA) ? readFileSync(process.env.DATABASE_CA, "utf8") : process.env.DATABASE_CA.replace(/\\n/g, "\n")) : undefined;
+const db = new pg.Client({ connectionString: url.replace(/[?&]sslmode=[^&]*/g, ""), ...(local ? {} : { ssl: { ca, rejectUnauthorized: true } }) });
 await db.connect();
 const { rows } = await db.query(
   `insert into cuentas (email, nombre, clave_hash) values ($1, $2, $3)
-   on conflict ((lower(email))) do update set clave_hash = excluded.clave_hash, nombre = excluded.nombre, activa = true returning id`,
+   on conflict ((lower(email))) do update set clave_hash = excluded.clave_hash, nombre = excluded.nombre, activa = true, version_sesion = cuentas.version_sesion + 1 returning id`,
   [email.toLowerCase(), nombre, `${sal.toString("hex")}:${hash.toString("hex")}`]);
 await db.query(`insert into superadmins (user_id, nombre) values ($1, $2) on conflict (user_id) do update set nombre = excluded.nombre`, [rows[0].id, nombre]);
 await db.end();

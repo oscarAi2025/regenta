@@ -2,7 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { SignJWT, jwtVerify } from "jose";
-import { sinRLS } from "./db";
+import { sinRLS, type Tx } from "./db";
 import { mismoOrigen } from "./api";
 
 // Sesión de la consola de superadministración: cookie aparte, 8 horas, SameSite estricto. Cada uso se vuelve a
@@ -34,8 +34,11 @@ export async function leerAdmin(): Promise<Admin | null> {
 }
 
 /** Registra en la bitácora lo que hace el superadministrador. */
-export const evento = (a: Admin, accion: string, empresa: string | null, datos?: unknown) =>
-  sinRLS((c) => c.query(`insert into admin_eventos (cuenta_id, accion, empresa_id, datos) values ($1, $2, $3, $4)`, [a.uid, accion, empresa, datos ? JSON.stringify(datos) : null]));
+/** Con `tx` se escribe en la misma transacción de la acción: si la bitácora falla, la acción tampoco queda. */
+export const evento = (a: Admin, accion: string, empresa: string | null, datos?: unknown, tx?: Tx) => {
+  const q = (c: Tx) => c.query(`insert into admin_eventos (cuenta_id, accion, empresa_id, datos) values ($1, $2, $3, $4)`, [a.uid, accion, empresa, datos ? JSON.stringify(datos) : null]);
+  return tx ? q(tx) : sinRLS(q);
+};
 
 /** Envuelve una ruta de la consola: mismo origen, sesión de superadministrador y errores claros. */
 export function conAdmin(fn: (a: Admin, req: Request, ctx: { params: Promise<Record<string, string>> }) => Promise<Response>) {
@@ -47,7 +50,8 @@ export function conAdmin(fn: (a: Admin, req: Request, ctx: { params: Promise<Rec
     catch (e) {
       const c = (e as { code?: string }).code;
       if (c === "23505") return NextResponse.json({ error: "Ya existe un registro con esos datos (NIT o correo repetido)" }, { status: 409 });
-      if (c === "P0001" || c === "23514" || c === "22P02") return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+      if (c === "P0001" || c === "23514") return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+      if (c === "22P02" || c === "22003" || c === "22007" || c === "22008" || c === "22021" || c === "22001") return NextResponse.json({ error: "Hay un dato fuera de rango o con formato no válido" }, { status: 400 });
       console.error("admin", e);
       return NextResponse.json({ error: "No se pudo completar la acción" }, { status: 500 });
     }
