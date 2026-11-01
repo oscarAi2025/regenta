@@ -6,7 +6,8 @@ import { Pie } from "@/components/landing/Pie";
 import { BarraMovil } from "@/components/landing/BarraMovil";
 import { BotonDemo } from "@/components/landing/BotonDemo";
 import { CalculadoraSocio } from "@/components/landing/CalculadoraSocio";
-import { PLANES, DOC_EXTRA, NOTA_PRECIOS, SOCIO } from "@/lib/planes";
+import { IncluyeTodo } from "@/components/landing/IncluyeTodo";
+import { mesAnual, PLANES, DOC_EXTRA, NOTA_PRECIOS, SOCIO } from "@/lib/planes";
 import { pesos } from "@/lib/formato";
 import { SITIO, wa } from "@/lib/sitio";
 
@@ -21,7 +22,11 @@ const FILAS: [string, string, string, string][] = [
   ["Documentos electrónicos al mes", "2.000", "5.000", "Según volumen"],
   ["Tiquete POS y factura electrónica con cliente", "Sí", "Sí", "Sí"],
   ["Venta a crédito y cartera con abonos", "Sí", "Sí", "Sí"],
+  ["Certificado digital y habilitación DIAN", "Incluidos", "Incluidos", "Incluidos por NIT"],
+  ["IA predictiva: pedido, vencimientos y patrón semanal", "Sí", "Sí", "Sí"],
   ["Regenta IA y prioridades del día", "Sí", "Sí", "Sí"],
+  ["Apoyo en ventas: ofrécelos primero y alternativas", "Sí", "Sí", "Sí"],
+  ["Formación del equipo", "Capacitación inicial", "Todo el equipo + primer mes", "Plan por sede"],
   ["Pedido sugerido y riesgo de vencimiento", "Sí", "Sí", "Sí"],
   ["Alertas INVIMA cruzadas con el inventario", "Sí", "Sí", "Sí"],
   ["Lotes, FEFO y bloqueo de vencidos", "Sí", "Sí", "Sí"],
@@ -35,6 +40,7 @@ const PREGUNTAS: [string, string][] = [
   ["¿Hay costo de instalación?", "No. Funciona en el navegador y la carga de productos desde Excel está incluida."],
   ["¿Qué pasa si paso de los documentos del plan?", `Cada documento adicional cuesta ${pesos(DOC_EXTRA)}. Te avisamos antes de llegar al tope.`],
   ["¿Puedo cancelar cuando quiera?", "Sí, el plan es mensual. Si pagas el año completo, tienes 2 meses gratis."],
+  ["¿El certificado digital tiene costo?", "No. El certificado digital y la habilitación de tu NIT ante la DIAN van incluidos en todos los planes: no pagas nada aparte."],
 ];
 
 export default function Precios() {
@@ -50,7 +56,10 @@ export default function Precios() {
       <main>
         <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-10 pb-8">
           <h1 className="font-cond text-[44px] sm:text-[68px] leading-[0.95]" style={{ fontWeight: 700 }}>Tarifas de Regenta: tú eliges cómo pagar</h1>
-          <p className="mt-4 text-lg text-muted max-w-2xl">Todo incluido en cualquier plan: inteligencia artificial, predicción, alertas INVIMA, lotes y carga desde Excel. Sin costo de instalación y sin permanencia.</p>
+          <p className="mt-4 text-lg text-muted max-w-2xl">Todo incluido en cualquier plan: certificado digital y habilitación DIAN, inteligencia artificial, predicción, alertas INVIMA, lotes y carga desde Excel. Sin costo de instalación y sin permanencia.</p>
+          <ul className="mt-5 flex flex-wrap gap-2" aria-label="Incluido">
+            {["Certificado digital incluido", "Habilitación DIAN incluida", "Sin instalación", "Sin permanencia", "Te pasamos tus productos"].map((t) => <li key={t} className="pastilla bg-teal-50 text-teal-800 border border-teal-200"><span aria-hidden="true">✓</span>{t}</li>)}
+          </ul>
           <div className="mt-8 grid md:grid-cols-2 gap-4">
             <a href="#planes" className="tarjeta p-5 hover:border-ink">
               <p className="font-cond text-2xl" style={{ fontWeight: 700 }}>Sin asociarte</p>
@@ -65,6 +74,8 @@ export default function Precios() {
           </div>
         </section>
 
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-6"><IncluyeTodo titulo="Pagues lo que pagues, te llevas todo esto" /></section>
+
         <section id="planes" className="max-w-6xl mx-auto px-4 sm:px-6 py-10 scroll-mt-20">
           <h2 className="font-cond text-[36px] sm:text-[46px] leading-none" style={{ fontWeight: 700 }}>Sin asociarte: precio mensual</h2>
           <div className="mt-8 grid md:grid-cols-3 gap-5 items-stretch">
@@ -74,7 +85,8 @@ export default function Precios() {
                 <h3 className="font-cond text-[30px] mt-1" style={{ fontWeight: 700 }}>{p.nombre}</h3>
                 <p className="text-muted">{p.para}</p>
                 <p className="mt-4 font-cond text-[46px] leading-none num" style={{ fontWeight: 700 }}>{p.precio ? pesos(p.precio) : "A tu medida"}{p.precio && <span className="text-base font-sans font-normal text-muted"> /mes</span>}</p>
-                <ul className="mt-5 grid gap-2 flex-1">{p.incluye.map((x) => <li key={x} className="flex gap-2"><span className="text-cruz font-bold" aria-hidden="true">✓</span>{x}</li>)}</ul>
+                {p.precio && <p className="mt-2 text-sm"><span className="pastilla h-7 text-[13px] bg-amber-100 text-amber-900">o {pesos(mesAnual(p.precio))}/mes pagando el año</span></p>}
+                <ul className="mt-5 grid content-start gap-2 flex-1">{p.incluye.map((x) => <li key={x} className="flex gap-2"><span className="text-cruz font-bold" aria-hidden="true">✓</span>{x}</li>)}</ul>
                 {p.precio ? <div className="mt-6 grid gap-2"><Link href={`/contratar?plan=${p.id}`} className={`h-12 ${p.destacado ? "btn-cta" : "btn-oscuro"}`}>Contratar {p.nombre}</Link><BotonDemo texto="Probar antes gratis" className="h-11 w-full btn-borde" /></div>
                   : <a href={wa("Hola, quiero una cotización de Regenta para mi distribuidora o mis sedes.")} className="mt-6 h-12 btn-oscuro">Pedir cotización</a>}
               </div>

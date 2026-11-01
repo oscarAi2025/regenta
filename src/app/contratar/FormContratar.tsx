@@ -85,6 +85,7 @@ export function FormContratar({ plan: inicial, planes, activos }: { plan: "esenc
         <button disabled={enviando} className="btn-cta h-14 px-8 text-lg disabled:opacity-60">{enviando ? "Abriendo el pago…" : "Pagar de forma segura"}</button>
       </div>
       {error && <p role="alert" className="text-alerta font-semibold">{error}</p>}
+      <p className="text-sm font-semibold text-teal-800">✓ Incluye certificado digital y habilitación de tu NIT ante la DIAN, sin costo adicional.</p>
       <p className="text-xs text-muted">El pago lo procesa la pasarela; Regenta no ve ni guarda los datos de tu tarjeta o tu cuenta.</p>
     </form>
   );

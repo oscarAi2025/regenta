@@ -1,14 +1,16 @@
 // Planes y precios publicados en la portada (COP al mes). Un solo lugar para cambiarlos.
 export const PLANES = [
   { id: "esencial", nombre: "Esencial", precio: 89900, para: "Droguería de una caja", destacado: false,
-    incluye: ["1 caja", "Hasta 3 usuarios", "2.000 documentos electrónicos al mes (POS y factura)", "Crédito y cartera de clientes", "Pedido sugerido y riesgo de vencimiento", "Alertas INVIMA cruzadas con tu inventario", "Carga de productos desde Excel"] },
+    incluye: ["Certificado digital y habilitación DIAN incluidos", "IA predictiva: qué pedir, qué se vence y tu día fuerte de la semana", "Regenta IA: tu asistente responde con tus datos", "Apoyo en ventas: qué ofrecer primero y alternativas a lo agotado", "Gestión completa: inventario por lote, cartera, roles y auditoría", "Formación: capacitación inicial a tu equipo", "1 caja y hasta 3 usuarios", "2.000 documentos al mes (POS y factura), unas 65 ventas al día"] },
   { id: "pro", nombre: "Pro", precio: 139900, para: "Droguería con más movimiento", destacado: true,
-    incluye: ["Hasta 3 cajas", "Usuarios ilimitados", "5.000 documentos electrónicos al mes", "Todo lo de Esencial", "Soporte prioritario por WhatsApp", "Te cargamos los productos"] },
+    incluye: ["Todo lo de Esencial", "Formación a todo tu equipo y acompañamiento el primer mes", "Hasta 3 cajas y usuarios ilimitados", "5.000 documentos al mes (POS y factura)", "Soporte prioritario por WhatsApp", "Te cargamos los productos"] },
   { id: "cadena", nombre: "Cadena", precio: null, para: "Distribuidoras y varias sedes", destacado: false,
-    incluye: ["Precio por sede", "Documentos según volumen", "Todo lo de Pro", "Acompañamiento en la puesta en marcha"] },
+    incluye: ["Todo lo de Pro", "Certificado digital y habilitación DIAN por cada NIT", "Plan de formación por sede", "Precio por sede y documentos según volumen", "Acompañamiento en la puesta en marcha"] },
 ] as const;
 export const DOC_EXTRA = 20; // COP por documento adicional
-export const NOTA_PRECIOS = "Precios de lanzamiento, mensuales. Pagando el año completo, 2 meses gratis. La emisión electrónica ante la DIAN se activa en tu cuenta al terminar su integración.";
+export const NOTA_PRECIOS = "Precios de lanzamiento, mensuales. Pagando el año completo, 2 meses gratis. Certificado digital y habilitación ante la DIAN incluidos en todos los planes. La emisión electrónica ante la DIAN se activa en tu cuenta al terminar su integración.";
+/** Lo que se paga al mes si se paga el año completo (10 meses repartidos en 12). */
+export const mesAnual = (precio: number) => Math.round((precio * 10) / 12);
 
 // Plan Socio Farmagenéricos: Regenta como beneficio para las droguerías que compran a Farmagenéricos Colombia.
 // Precio final mensual de cada plan según las compras del mes anterior (antes de IVA). 0 = gratis.

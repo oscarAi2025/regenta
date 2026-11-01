@@ -11,9 +11,10 @@ import { Respaldo } from "@/components/landing/Respaldo";
 import { HeroProducto } from "@/components/landing/HeroProducto";
 import { Desfile } from "@/components/landing/Desfile";
 import { Sello } from "@/components/landing/Sello";
+import { IncluyeTodo } from "@/components/landing/IncluyeTodo";
 import { GUIAS } from "@/content/guias";
 import { PAGINAS } from "@/content/paginas";
-import { PLANES, SOCIO } from "@/lib/planes";
+import { mesAnual, PLANES, SOCIO } from "@/lib/planes";
 import { pesos } from "@/lib/formato";
 import { CORREO, SITIO, TELEFONO, wa } from "@/lib/sitio";
 
@@ -241,14 +242,16 @@ export default function Portada() {
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 lg:py-20">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <h2 className="font-cond text-[40px] sm:text-[52px] leading-[1]" style={{ fontWeight: 700 }}>Desde {pesos(PLANES[0].precio!)} al mes. O gratis.</h2>
-              <p className="text-muted max-w-md">Precios de lanzamiento. Sin instalación ni permanencia. Con el {SOCIO.nombre}, si le compras a Farmagenéricos, puede salirte gratis.</p>
+              <p className="text-muted max-w-md">Certificado digital y habilitación DIAN incluidos. Precios de lanzamiento, sin instalación ni permanencia. Con el {SOCIO.nombre}, si le compras a Farmagenéricos, puede salirte gratis.</p>
             </div>
-            <ul className="mt-10 grid md:grid-cols-3 gap-5">
+            <div className="mt-8"><IncluyeTodo /></div>
+            <ul className="mt-8 grid md:grid-cols-3 gap-5">
               {PLANES.map((pl) => (
                 <li key={pl.id} className={`rounded-3xl p-6 sm:p-7 flex flex-col ${pl.destacado ? "degradado-marca text-white shadow-[0_30px_60px_-30px_rgba(14,116,144,.8)]" : "bg-paper border border-line"}`}>
-                  <p className="font-cond text-[28px]" style={{ fontWeight: 700 }}>{pl.nombre}{pl.destacado && <span className="ml-2 align-middle pastilla h-7 text-[12px] bg-amber-300 text-[#0b1f33]">El más elegido</span>}</p>
+                  <p className="font-cond text-[28px]" style={{ fontWeight: 700 }}>{pl.nombre}{pl.destacado && <span className="ml-2 align-middle pastilla h-7 text-[12px] bg-amber-300 text-[#0b1f33]">Recomendado</span>}</p>
                   <p className={`text-sm ${pl.destacado ? "text-white/75" : "text-muted"}`}>{pl.para}</p>
                   <p className="mt-4 num font-cond text-[44px] leading-none" style={{ fontWeight: 700 }}>{pl.precio ? pesos(pl.precio) : "A medida"}<span className={`text-base font-sans ${pl.destacado ? "text-white/70" : "text-muted"}`} style={{ fontWeight: 400 }}>{pl.precio ? " / mes" : ""}</span></p>
+                  {pl.precio && <p className={`mt-2 text-sm font-semibold ${pl.destacado ? "text-amber-200" : "text-teal-700"}`}>o {pesos(mesAnual(pl.precio))}/mes pagando el año</p>}
                   <ul className={`mt-5 grid content-start gap-2 text-[15px] flex-1 ${pl.destacado ? "text-white/90" : ""}`}>{pl.incluye.map((x) => <li key={x} className="flex gap-2"><span className={pl.destacado ? "text-amber-300" : "text-teal-600"} aria-hidden="true">✓</span>{x}</li>)}</ul>
                   <div className="mt-6 grid gap-2">
                     {pl.precio ? <Link href={`/contratar?plan=${pl.id}`} className={`${pl.destacado ? "btn-cta" : "btn-oscuro"} h-12`}>Contratar {pl.nombre}</Link>
