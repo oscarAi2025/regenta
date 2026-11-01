@@ -36,9 +36,12 @@ function emisor(): Emisor {
 }
 
 const ESPERA = [30, 120, 600, 1800, 7200]; // segundos entre reintentos
+const MAX_INTENTOS = 8; // después, rechazo definitivo para revisión manual
 
-/** Procesa hasta `max` documentos pendientes. Devuelve el resumen. */
-export async function procesarCola(max = 20) {
+/** Procesa hasta `max` documentos pendientes (o solo los de una venta). Devuelve el resumen.
+ *  Un envío que quedó «enviando» más de 5 minutos se reintenta: el proveedor rechaza el mismo prefijo+número dos veces,
+ *  así que el reintento no duplica la emisión. */
+export async function procesarCola(max = 20, venta?: string) {
   const e = emisor();
   const r = { enviados: 0, aceptados: 0, rechazados: 0, reintentos: 0 };
   for (let i = 0; i < max; i++) {
@@ -47,36 +50,45 @@ export async function procesarCola(max = 20) {
       const { rows } = await c.query(
         `update documentos_dian set estado = 'enviando', intentos = intentos + 1, actualizado = now()
          where id = (select id from documentos_dian
-                     where (estado = 'pendiente' and proximo_intento <= now())
-                        or (estado = 'enviando' and actualizado < now() - interval '5 minutes')  -- envío que se cayó a medias
+                     where ((estado = 'pendiente' and proximo_intento <= now())
+                        or (estado = 'enviando' and actualizado < now() - interval '5 minutes'))  -- envío que se cayó a medias
+                       and ($1::uuid is null or venta_id = $1)
                      order by creado limit 1 for update skip locked)
-         returning id`);
-      return rows[0]?.id as string | undefined;
+         returning id, intentos`, [venta ?? null]);
+      return rows[0] as { id: string; intentos: number } | undefined;
     });
     if (!doc) break;
+    const id = doc.id;
     r.enviados++;
-    const d = await armar(doc);
-    if (d.cerrado) { r.rechazados++; continue; }
+    if (doc.intentos > MAX_INTENTOS) { await guardar(id, { ok: false, definitivo: true, error: `Sin respuesta tras ${MAX_INTENTOS} intentos: revisar manualmente` }); r.rechazados++; continue; }
+    const d = await armar(id);
+    if (d.cerrado) {
+      if (d.anulado) await sinRLS((c) => c.query(`update documentos_dian set estado = 'anulado', ultimo_error = 'Venta anulada antes de emitirse', actualizado = now() where id = $1`, [id]));
+      else await guardar(id, { ok: false, definitivo: true, error: "Documento sin venta asociada" });
+      r.rechazados++; continue;
+    }
     if (d.resolucionPruebas === false && e.nombre === "simulado") {
-      await guardar(doc, { ok: false, definitivo: true, error: "Resolución de producción con emisor simulado: configure MATIAS" });
+      await guardar(id, { ok: false, definitivo: true, error: "Resolución de producción con emisor simulado: configure MATIAS" });
       r.rechazados++; continue;
     }
     let res: ResultadoEmision;
     try { res = await e.emitir(d.documento); } catch (err) { res = { ok: false, definitivo: false, error: String((err as Error).message) }; }
-    await guardar(doc, res);
+    await guardar(id, res);
     if (res.ok) r.aceptados++; else if (res.definitivo) r.rechazados++; else r.reintentos++;
   }
   return r;
 }
 
-async function armar(id: string): Promise<{ documento: DocumentoParaEmitir; resolucionPruebas: boolean | null; cerrado?: false } | { cerrado: true }> {
+async function armar(id: string): Promise<{ documento: DocumentoParaEmitir; resolucionPruebas: boolean | null; cerrado?: false } | { cerrado: true; anulado?: boolean }> {
   return sinRLS(async (c) => {
     const { rows: [d] } = await c.query(
-      `select d.*, v.base, v.iva as iva_total, v.total, v.creado as fecha, v.cliente_id,
+      `select d.*, v.base, v.iva as iva_total, v.total, v.creado as fecha, v.cliente_id, v.estado as venta_estado,
               e.nit, e.dv, e.razon_social, e.responsable_iva,
               (select pruebas from resoluciones_dian r where r.empresa_id = d.empresa_id and r.tipo = d.tipo and r.prefijo = d.prefijo order by activa desc limit 1) as pruebas
        from documentos_dian d join ventas v on v.id = d.venta_id join empresas e on e.id = d.empresa_id where d.id = $1`, [id]);
     if (!d) return { cerrado: true as const };
+    // Una venta anulada antes de emitirse no se envía (su nota crédito sí: tipo nota_credito).
+    if (d.venta_estado === 'anulada' && d.tipo !== 'nota_credito') return { cerrado: true as const, anulado: true };
     const lineas = (await c.query(
       `select descripcion, sum(cantidad)::float cantidad, precio::float, iva_pct::float, sum(base)::float base, sum(iva)::float iva, sum(total)::float total
        from venta_lineas where venta_id = $1 group by descripcion, precio, iva_pct, producto_id, presentacion order by min(id)`, [d.venta_id])).rows;

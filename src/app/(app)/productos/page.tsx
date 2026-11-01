@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { comoUsuario } from "@/lib/db";
+import { comoUsuario, sinComodines } from "@/lib/db";
 import { leerSesion } from "@/lib/sesion";
 import { Cabecera, existenciasTexto, pesos } from "@/components/ui/Cabecera";
 
@@ -11,12 +11,12 @@ export default async function Productos({ searchParams }: { searchParams: Promis
   if (!s) redirect("/entrar");
   const { q = "", ver = "" } = await searchParams;
   const gestiona = s.rol === "dueno" || s.rol === "admin";
-  const palabras = q.trim().toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6);
+  const palabras = q.trim().toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6).map(sinComodines);
   const { filas, total } = await comoUsuario(s, async (c) => {
     const filas = (await c.query(`
       select p.id, p.nombre, p.laboratorio, p.ean, p.iva::float, p.unidades_por_caja, p.precio_caja::float, p.precio_unidad::float, p.stock_minimo,
              coalesce(st.u, 0)::int unidades
-      from productos p left join lateral (select sum(unidades) u from v_stock_lotes where producto_id = p.id) st on true
+      from productos p left join lateral (select sum(unidades) u from v_stock_vigente where producto_id = p.id) st on true
       where p.empresa_id = $1 and p.activo
         and (cardinality($2::text[]) = 0 or p.ean = $3 or (select bool_and(lower(p.nombre || ' ' || coalesce(p.laboratorio, '')) like '%' || w || '%') from unnest($2::text[]) w))
         ${ver === "bajos" ? "and p.stock_minimo > 0 and coalesce(st.u, 0) <= p.stock_minimo * p.unidades_por_caja" : ""}

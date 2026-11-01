@@ -66,3 +66,7 @@ kbd { font-family: "Barlow Semi Condensed", sans-serif; font-weight: 600; font-s
 /* Portada: el tiquete se imprime una sola vez al cargar (con movimiento reducido aparece completo). */
 @keyframes imprime { from { opacity: 0; transform: translateY(-6px); clip-path: inset(0 0 100% 0); } to { opacity: 1; transform: none; clip-path: inset(0); } }
 .imprime { animation: imprime .42s cubic-bezier(.2,.7,.2,1) backwards; }
+/* «Pensando…» del ejemplo de Regenta IA: aparece y se va antes de la respuesta (con movimiento reducido no se ve). */
+@keyframes pensando { 0%, 100% { opacity: 0; } 15%, 80% { opacity: 1; } }
+.pensando { opacity: 0; animation: pensando 1.6s ease 700ms 1 both; }
+@media (prefers-reduced-motion: reduce) { .pensando { display: none; } }

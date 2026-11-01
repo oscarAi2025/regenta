@@ -53,8 +53,10 @@ async function entrar(ctx, quien) {
   await p.waitForSelector("text=Listo, Prueba");
   ok(true, "la solicitud de demo se guarda");
   await p.screenshot({ path: `${OUT}/portada-demo.png` });
-  const bot = await p.request.post(B + "/api/demo", { data: { nombre: "Bot", drogueria: "Bot", telefono: "3210000000", web: "spam" } });
-  ok(bot.status() === 400, "la trampa anti-bots rechaza el envío", `${bot.status()}`);
+  const bot = await p.request.post(B + "/api/demo", { data: { nombre: "Bot Trampa", drogueria: "Bot", telefono: "3210000000", web: "spam" } });
+  const { execSync } = await import("node:child_process");
+  const guardado = execSync(`psql -h /tmp -p 5433 -U postgres regenta -Atc "select count(*) from solicitudes_demo where nombre = 'Bot Trampa'"`).toString().trim();
+  ok(bot.status() === 201 && guardado === "0", "la trampa anti-bots responde normal pero no guarda nada", `${bot.status()} / ${guardado}`);
   ok((await p.request.get(B + "/sitemap.xml")).ok() && (await (await p.request.get(B + "/robots.txt")).text()).includes("Disallow: /caja"), "sitemap.xml y robots.txt");
   const app = await (await p.request.get(B + "/entrar")).text();
   ok(app.includes("noindex"), "entrar no se indexa");
@@ -85,14 +87,24 @@ async function entrar(ctx, quien) {
     const r = await p.goto(B + h);
     const t = await p.title(), d = await p.locator('meta[name="description"]').getAttribute("content");
     const ld = await p.locator('script[type="application/ld+json"]').textContent();
-    ok(r.status() === 200 && t.length <= 60 && d.length <= 160 && ld.includes("Article") && ld.includes("BreadcrumbList") && await p.locator("h1").count() === 1 && await p.locator('a[href="/demo"]').count() >= 2,
+    ok(r.status() === 200 && t.length <= 60 && d.length <= 160 && ld.includes("Article") && ld.includes("BreadcrumbList") && await p.locator("h1").count() === 1 && await p.locator('form[action="/demo"]').count() >= 2,
       `guía ${h}`, `${t.length} car. título, ${d.length} descripción`);
   }
   await p.screenshot({ path: `${OUT}/guia.png` });
   const sm = await (await p.request.get(B + "/sitemap.xml")).text();
   ok(enlaces.every((h) => sm.includes(h)), "el sitemap incluye todas las guías");
+  // Páginas comerciales
+  for (const ruta of ["/precios", "/por-que-regenta", "/funciones", "/funciones/regenta-ia", "/funciones/pedido-sugerido", "/funciones/control-de-vencimientos", "/funciones/alertas-invima", "/funciones/caja-pos", "/para/regentes", "/para/duenos-de-drogueria"]) {
+    const r = await p.goto(B + ruta);
+    const t = await p.title(), d = await p.locator('meta[name="description"]').getAttribute("content");
+    ok(r.status() === 200 && t.length <= 70 && d && d.length <= 160 && await p.locator("h1").count() === 1 && await p.locator('link[rel="canonical"]').count() === 1 && sm.includes(ruta === "/funciones" ? "/funciones<" : ruta), `página ${ruta}`, `${t.length}/${d?.length}`);
+  }
+  // Demo: un formulario POST desde el sitio; otro sitio no puede crear la sesión
+  const ajeno = await p.request.post(B + "/demo", { form: { rol: "dueno" }, headers: { origin: "https://otro-sitio.example" }, maxRedirects: 0 });
+  ok(ajeno.status() === 303 && (ajeno.headers()["location"] ?? "").includes("#demo") && !(ajeno.headers()["set-cookie"] ?? "").includes("regenta_sesion"), "otro sitio no puede abrir la demo (CSRF)");
+  ok((await p.request.get(B + "/demo")).ok() && !((await p.request.get(B + "/demo")).headers()["set-cookie"] ?? "").includes("regenta_sesion"), "un GET a /demo nunca crea sesión");
   await p.goto(B + "/");
-  await p.locator('main a[href="/demo"]').first().click();
+  await p.getByRole("button", { name: /Probar la demo/ }).first().click();
   await p.waitForURL(/\/inicio/);
   ok(true, "«Probar la demo» entra en un clic al inicio del dueño");
   ok(errs.length === 0, "guías y demo sin errores de JavaScript", errs.join(" | "));

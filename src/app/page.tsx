@@ -1,17 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Avisos } from "@/components/landing/Avisos";
+import { ChatDemo } from "@/components/landing/ChatDemo";
 import { Calculadora } from "@/components/landing/Calculadora";
 import { FormDemo } from "@/components/landing/FormDemo";
 import { CabeceraPublica } from "@/components/landing/Cabecera";
 import { Pie } from "@/components/landing/Pie";
 import { BarraMovil } from "@/components/landing/BarraMovil";
+import { BotonDemo } from "@/components/landing/BotonDemo";
 import { GUIAS } from "@/content/guias";
-import { PLANES, DOC_EXTRA, NOTA_PRECIOS } from "@/lib/planes";
+import { PAGINAS } from "@/content/paginas";
+import { PLANES, SOCIO } from "@/lib/planes";
+import { pesos } from "@/lib/formato";
 import { CORREO, SITIO, TELEFONO, wa } from "@/lib/sitio";
 
-const TITULO = "Software para droguerías: POS, lotes y alertas INVIMA | Regenta";
-const DESCRIPCION = "Programa de caja para droguerías en Colombia que predice qué pedir, avisa qué se te va a vencer y cruza las alertas del INVIMA con tu inventario. En la nube. Prueba la demo sin registrarte.";
+const TITULO = "Software para droguerías con IA: POS, lotes y alertas INVIMA | Regenta";
+const DESCRIPCION = "Regenta es el software de caja para droguerías en Colombia con inteligencia artificial: predice qué pedir, avisa qué se te va a vencer y cruza las alertas del INVIMA con tu inventario. Hecho por un distribuidor farmacéutico.";
 
 export const metadata: Metadata = {
   title: { absolute: TITULO },
@@ -22,43 +25,28 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", title: TITULO, description: DESCRIPCION, images: ["/capturas/og.png"] },
 };
 
-const pesos = (n: number) => "$" + n.toLocaleString("es-CO");
-
 const PREGUNTAS: [string, string][] = [
-  ["¿Puedo probarla antes de pagar?", "Sí, ahora mismo: el botón «Probar la demo» te deja entrar a una droguería de ejemplo con ventas de 8 semanas, sin registrarte y sin tarjeta. Vende, recibe mercancía, mira el pedido sugerido y las alertas."],
-  ["¿De dónde salen las predicciones?", "De tus propias ventas: Regenta calcula cuánto vendes por día de cada producto (con más peso a las últimas dos semanas), para cuántos días te alcanza lo que tienes y cuántas cajas pedir. Con el mismo ritmo calcula qué lotes no alcanzarás a vender antes de su fecha. No es una caja negra: cada número se explica en pantalla."],
-  ["¿Cómo funcionan las alertas del INVIMA?", "Regenta lee las alertas sanitarias de medicamentos que publica el INVIMA y las cruza con tu inventario por lote, por registro sanitario y por nombre. Solo te avisa cuando algo te toca, y guarda quién lo revisó, cuándo y qué hizo, para tu evidencia ante la secretaría de salud."],
-  ["¿Puedo vender pastillas sueltas?", "Sí. Cada producto tiene precio por caja y por unidad; el inventario descuenta unidades exactas del lote que vence antes. Y Regenta no deja vender un lote vencido."],
-  ["¿Hace factura electrónica y POS electrónico DIAN?", "Cada venta queda numerada con tu resolución y en cola para la DIAN. La emisión se está integrando con un proveedor tecnológico autorizado por la DIAN y se activa en tu cuenta al terminar; en la demostración te mostramos el estado exacto."],
-  ["¿Tengo que digitar todos mis productos?", "No. Buscas en un catálogo de casi 10.000 productos y solo pones tu precio, o subes tu Excel con existencias, lote, vencimiento y registro sanitario. En el plan Pro te los cargamos nosotros."],
-  ["¿Hay que instalar algo?", "No. Funciona en el navegador del computador de la caja, en una tableta o en el celular. Cada droguería solo ve sus datos."],
-  ["¿Mis empleados pueden ver costos o borrar ventas?", "No. La cajera vende; bodega recibe mercancía; los costos y la utilidad solo los ve el dueño o el administrador. Ninguna venta se borra: se anula con motivo y queda quién lo hizo."],
+  ["¿Puedo probarla antes de pagar?", "Sí, ahora mismo: «Probar la demo» te deja entrar a una droguería de ejemplo con 8 semanas de ventas, sin registrarte y sin tarjeta."],
+  ["¿Qué hace la inteligencia artificial?", "Regenta IA responde en lenguaje normal con los datos de tu droguería (ventas, lotes, pedido sugerido, vencimientos, alertas) y te dice de dónde sale cada cifra. Además, Regenta calcula con tus ventas qué pedir y qué se te va a vencer, y te muestra tus prioridades del día."],
+  ["¿Cómo funcionan las alertas del INVIMA?", "Regenta lee las alertas sanitarias de medicamentos del INVIMA y las cruza con tu inventario por lote, registro sanitario y nombre. Solo te avisa cuando algo te toca y guarda la constancia de la revisión."],
+  ["¿Por qué Regenta y no otro programa?", "Porque lo hace un distribuidor farmacéutico que surte droguerías: conocemos los agotados, los vencidos y las visitas de la secretaría de salud desde adentro. Y porque, de 15 programas para droguerías que revisamos, ninguno ofrece cruzar las alertas del INVIMA con tu inventario."],
+  ["¿Hace factura electrónica y POS electrónico DIAN?", "Cada venta queda numerada con tu resolución y en cola para la DIAN. La emisión se está integrando con un proveedor tecnológico autorizado y se activa en tu cuenta al terminar; en la demostración te mostramos el estado exacto."],
+  ["¿Puedo vender pastillas sueltas?", "Sí: precio por caja y por unidad; el inventario descuenta unidades exactas del lote que vence antes, y la caja nunca vende un lote vencido."],
+  ["¿Cuánto cuesta?", `Esencial ${pesos(PLANES[0].precio!)} al mes y Pro ${pesos(PLANES[1].precio!)}. Con el ${SOCIO.nombre}, si le compras a Farmagenéricos Colombia, puede salirte gratis.`],
+  ["¿Hay que instalar algo?", "No. Funciona en el navegador del computador de la caja, en una tableta o en el celular, y cada droguería solo ve sus datos."],
 ];
 
-function Captura({ src, alt }: { src: string; alt: string }) {
-  return (
-    <div className="rounded-[18px] bg-ink p-1.5 shadow-[0_30px_60px_-30px_rgba(16,42,67,.55)]">
-      <img src={src} alt={alt} width={1440} height={900} loading="lazy" decoding="async" className="rounded-[13px] w-full h-auto bg-paper" />
-    </div>
-  );
-}
-
-function Cta({ claro = false, texto = "Probar la demo ahora" }: { claro?: boolean; texto?: string }) {
-  return (
-    <div className="flex flex-wrap items-center gap-3">
-      <a href="/demo" className="btn-primario h-14 px-7 text-lg">{texto}</a>
-      <a href={wa("Hola, quiero conocer Regenta para mi droguería.")} className={`btn h-14 px-6 text-lg border-2 ${claro ? "border-white/35 text-white hover:border-white" : "border-line bg-surface text-ink hover:border-ink"}`}>Hablar por WhatsApp</a>
-    </div>
-  );
-}
+const CAPTURA: Record<string, string> = { "regenta-ia": "/capturas/ia.webp", "pedido-sugerido": "/capturas/prediccion.webp", "control-de-vencimientos": "/capturas/vencimiento.webp", "alertas-invima": "/capturas/alertas.webp", "caja-pos": "/capturas/caja.webp" };
 
 export default function Portada() {
+  const funciones = PAGINAS.filter((p) => p.grupo === "funciones");
   const ld = [
     { "@context": "https://schema.org", "@type": "SoftwareApplication", name: "Regenta", applicationCategory: "BusinessApplication", applicationSubCategory: "Software POS para droguerías",
-      operatingSystem: "Web", inLanguage: "es-CO", description: DESCRIPCION, url: SITIO,
-      offers: PLANES.filter((p) => p.precio).map((p) => ({ "@type": "Offer", name: p.nombre, price: p.precio, priceCurrency: "COP", url: `${SITIO}/#precios` })),
+      operatingSystem: "Web", inLanguage: "es-CO", description: DESCRIPCION, url: SITIO, image: `${SITIO}/capturas/og.png`,
+      offers: PLANES.filter((p) => p.precio).map((p) => ({ "@type": "Offer", name: p.nombre, price: p.precio, priceCurrency: "COP", url: `${SITIO}/precios` })),
       publisher: { "@type": "Organization", name: "Farmagenéricos Colombia", email: CORREO, telephone: TELEFONO },
-      featureList: ["Caja POS con lector de código de barras", "Venta por caja o por unidad", "Inventario por lote y vencimiento (FEFO)", "Pedido sugerido con las ventas de la droguería", "Riesgo de vencimiento por lote", "Alertas sanitarias del INVIMA cruzadas con el inventario", "Carga de productos desde Excel", "Usuarios con roles"] },
+      featureList: ["Regenta IA: asistente con los datos de la droguería", "Pedido sugerido con las ventas", "Riesgo de vencimiento por lote", "Alertas sanitarias del INVIMA cruzadas con el inventario", "Caja POS con venta por unidad", "Inventario por lote y vencimiento (FEFO)", "Carga de productos desde Excel", "Usuarios con roles"] },
+    { "@context": "https://schema.org", "@type": "Organization", name: "Farmagenéricos Colombia", url: SITIO, email: CORREO, telephone: TELEFONO, logo: `${SITIO}/icon.svg` },
     { "@context": "https://schema.org", "@type": "FAQPage", mainEntity: PREGUNTAS.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) },
   ];
 
@@ -68,85 +56,96 @@ export default function Portada() {
       <CabeceraPublica />
 
       <main>
-        {/* 1. La promesa, con la pérdida delante y la acción a un clic. */}
-        <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-10 pb-16 lg:pt-14 lg:pb-24 grid lg:grid-cols-[1.15fr_.85fr] gap-12 items-center">
+        {/* 1. Portada oscura: la promesa, la IA en acción y la acción a un clic. */}
+        <section className="bg-ink text-white">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-12 pb-16 lg:pt-16 lg:pb-24 grid lg:grid-cols-[1.1fr_.9fr] gap-12 items-center">
+            <div>
+              <p className="font-semibold text-marca text-lg">Software para droguerías con inteligencia artificial</p>
+              <h1 className="font-cond text-[48px] sm:text-[76px] lg:text-[88px] leading-[0.9] tracking-[-0.02em] mt-3" style={{ fontWeight: 700 }}>
+                Deja de perder plata en vencidos y agotados.
+              </h1>
+              <p className="mt-6 text-lg sm:text-xl text-white/75 max-w-[34em] leading-relaxed">
+                Regenta es la caja de tu droguería que piensa: te dice qué pedir, qué se te va a vencer antes de venderlo y qué alerta del INVIMA toca tu estantería. Y le preguntas lo que quieras, como a tu regente.
+              </p>
+              <div className="mt-8 flex flex-wrap items-center gap-3">
+                <BotonDemo texto="Probar la demo gratis ahora" className="btn-primario h-14 px-7 text-lg" />
+                <a href={wa("Hola, quiero conocer Regenta para mi droguería.")} className="btn h-14 px-6 text-lg border-2 border-white/30 text-white hover:border-white">Hablar por WhatsApp</a>
+              </div>
+              <p className="mt-4 text-[15px] text-white/60">Un clic, sin registro, sin tarjeta. Entras a una droguería de ejemplo con 8 semanas de ventas.</p>
+            </div>
+            <div className="flex justify-center lg:justify-end"><ChatDemo /></div>
+          </div>
+          <div className="border-t border-white/10">
+            <dl className="max-w-6xl mx-auto px-4 sm:px-6 py-6 grid grid-cols-2 lg:grid-cols-4 gap-6 text-sm">
+              {[["Hecho por un distribuidor", "Farmagenéricos Colombia surte droguerías: conocemos el mostrador por dentro"], ["IA con tus datos", "Modelos Claude de Anthropic, con solo lectura y tus permisos"], ["Alertas oficiales del INVIMA", "Cruzadas con tus lotes y registros sanitarios"], ["Catálogo de casi 10.000 productos", "Para no digitar: buscas y pones tu precio"]].map(([t, d]) => (
+                <div key={t}><dt className="font-cond text-xl text-white" style={{ fontWeight: 600 }}>{t}</dt><dd className="text-white/60 mt-1">{d}</dd></div>
+              ))}
+            </dl>
+          </div>
+        </section>
+
+        {/* 2. Por qué somos distintos: venimos de adentro del sector. */}
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16 lg:py-24 grid lg:grid-cols-[1fr_1.1fr] gap-12 items-start">
           <div>
-            <p className="font-semibold text-cruz text-lg">Para regentes, auxiliares y dueños de droguería</p>
-            <h1 className="font-cond text-[48px] sm:text-[74px] lg:text-[86px] leading-[0.9] tracking-[-0.02em] mt-3" style={{ fontWeight: 700 }}>
-              Deja de perder plata en vencidos y agotados.
-            </h1>
-            <p className="mt-6 text-lg sm:text-xl text-muted max-w-[34em] leading-relaxed">
-              Regenta es la caja de tu droguería que, con tus propias ventas, te dice qué pedir, qué se te va a vencer antes de venderlo y qué alerta del INVIMA toca tu inventario.
-            </p>
-            <div className="mt-8"><Cta /></div>
-            <p className="mt-4 text-[15px] text-muted">Entras en un clic a una droguería de ejemplo con 8 semanas de ventas. Sin registro, sin tarjeta, desde el celular.</p>
+            <h2 className="font-cond text-[40px] sm:text-[56px] leading-[0.95]" style={{ fontWeight: 700 }}>No es un programa genérico. Lo hicimos desde adentro.</h2>
+            <p className="mt-5 text-lg text-muted leading-relaxed max-w-[32em]">Farmagenéricos Colombia es un distribuidor farmacéutico que surte droguerías. Todos los días vemos lo que les cuesta plata: el producto que se agotó el sábado, la caja que se venció al fondo del cajón, la alerta del INVIMA que nadie alcanzó a leer. Regenta nace de ahí, con la técnica de un equipo de software y el criterio de quienes trabajan en el sector.</p>
+            <Link href="/por-que-regenta" className="inline-block mt-6 font-semibold text-cruz underline underline-offset-4">Conoce por qué Regenta es distinto</Link>
           </div>
-          <div className="flex justify-center lg:justify-end"><Avisos /></div>
+          <ul className="grid sm:grid-cols-2 gap-4">
+            {[
+              ["Criterio farmacéutico", "Lote y vencimiento en cada movimiento, FEFO, bloqueo de vencidos, registro sanitario y evidencia para la visita de la secretaría de salud."],
+              ["Ojo de distribuidor", "Pedido sugerido en cajas, lo que se agota primero, lo que no rota y la plata parada en la estantería."],
+              ["Inteligencia artificial útil", "Preguntas en lenguaje normal, respuestas con tus cifras y prioridades del día. Sin cajas negras: te dice de dónde sale cada dato."],
+              ["Tecnología seria", "En la nube, seguridad por fila (cada droguería ve solo lo suyo), permisos por rol y nada se borra: todo queda auditado."],
+            ].map(([t, d]) => (
+              <li key={t} className="tarjeta p-5"><h3 className="font-cond text-2xl" style={{ fontWeight: 700 }}>{t}</h3><p className="mt-2 text-muted leading-relaxed">{d}</p></li>
+            ))}
+          </ul>
         </section>
 
-        {/* 2. Lo que no encontramos en otro programa, dicho con precisión. */}
+        {/* 3. Lo que hace, función por función, con capturas reales y enlace a cada página. */}
+        <section className="bg-surface border-y border-line">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 lg:py-24">
+            <h2 className="font-cond text-[40px] sm:text-[52px] leading-[1]" style={{ fontWeight: 700 }}>Todo lo que tu droguería necesita, en una sola pantalla</h2>
+            <div className="mt-10 grid md:grid-cols-2 gap-5">
+              {funciones.map((f, i) => (
+                <Link key={f.ruta} href={`/funciones/${f.ruta}`} className={`group rounded-2xl border border-line bg-paper p-5 grid gap-4 hover:border-ink ${i === 0 ? "md:col-span-2 md:grid-cols-[.9fr_1.1fr] items-center" : ""}`}>
+                  <div>
+                    <p className="text-sm font-semibold text-cruz">{f.corto}</p>
+                    <h3 className="font-cond text-[28px] leading-tight mt-1" style={{ fontWeight: 700 }}>{f.h1}</h3>
+                    <p className="mt-2 text-muted leading-relaxed">{f.descripcion}</p>
+                    <p className="mt-3 font-semibold underline underline-offset-4 group-hover:text-cruz">Ver cómo funciona</p>
+                  </div>
+                  {CAPTURA[f.ruta] && <img src={CAPTURA[f.ruta]} alt={f.captura?.alt ?? f.h1} width={1440} height={900} loading="lazy" decoding="async" className="rounded-xl border border-line w-full h-auto" />}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* 4. El diferencial verificado. */}
         <section className="bg-ink text-white">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 grid lg:grid-cols-[1fr_1.2fr] gap-10 items-center">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 grid lg:grid-cols-[1.2fr_1fr] gap-10 items-center">
             <h2 className="font-cond text-[34px] sm:text-[46px] leading-[1]" style={{ fontWeight: 700 }}>Revisamos 15 programas para droguerías en Colombia. Ninguno ofrece cruzar las alertas del INVIMA con tu inventario.</h2>
-            <div className="grid gap-4 text-white/80 text-lg">
-              <p>Regenta sí: lee cada alerta sanitaria de medicamentos y te avisa si tienes <b className="text-white">ese lote</b>, <b className="text-white">ese registro sanitario</b> o <b className="text-white">ese producto</b>. Y guarda quién la revisó y qué hizo, para la visita de la secretaría de salud.</p>
-              <p className="text-sm text-white/55">Según lo que publican en sus páginas 15 programas de caja y facturación usados por droguerías en Colombia, revisados el 1 de noviembre de 2026.</p>
+            <div className="grid gap-4">
+              <p className="text-white/80 text-lg">Regenta sí. Y además te dice qué pedir y qué se te va a vencer con tus propias ventas.</p>
+              <div><BotonDemo texto="Verlo en la demo" className="btn-primario h-12 px-6" /></div>
+              <p className="text-sm text-white/50">Según lo que publican en sus páginas 15 programas de caja y facturación usados por droguerías en Colombia, revisados el 1 de noviembre de 2026.</p>
             </div>
           </div>
         </section>
 
-        {/* 3. Los tres avisos que cambian el negocio, con capturas reales. */}
-        <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16 lg:py-24 grid gap-20">
-          <article className="grid lg:grid-cols-[.85fr_1.15fr] gap-10 items-center">
-            <div>
-              <h2 className="font-cond text-[36px] sm:text-[48px] leading-[1]" style={{ fontWeight: 700 }}>El pedido sale solo. Tú solo lo revisas.</h2>
-              <p className="mt-4 text-lg text-muted leading-relaxed">Regenta mira cuánto vendes de cada producto, para cuántos días te alcanza y cuánto tarda tu proveedor. Te arma el pedido en cajas completas, lo ajustas y lo mandas por WhatsApp o en Excel.</p>
-              <ul className="mt-5 grid gap-2 text-[17px]">
-                <li>Lo que se agota esta semana, primero.</li>
-                <li>Flechas que te dicen qué se está vendiendo más o menos que antes.</li>
-                <li>Lo que no rota hace 45 días, aparte: no lo vuelvas a pedir.</li>
-              </ul>
-            </div>
-            <Captura src="/capturas/prediccion.webp" alt="Pedido sugerido de Regenta con existencias, venta por semana, días de cobertura y cajas a pedir" />
-          </article>
-
-          <article className="grid lg:grid-cols-[1.15fr_.85fr] gap-10 items-center">
-            <div className="lg:order-2">
-              <h2 className="font-cond text-[36px] sm:text-[48px] leading-[1]" style={{ fontWeight: 700 }}>Sabes qué se va a vencer meses antes, en pesos.</h2>
-              <p className="mt-4 text-lg text-muted leading-relaxed">Con tu ritmo de venta y vendiendo primero lo que vence antes, Regenta calcula cuántas unidades de cada lote no alcanzarás a vender antes de su fecha y cuánta plata son. Aún estás a tiempo de exhibirlas, ofertarlas o devolverlas.</p>
-              <p className="mt-3 text-lg text-muted leading-relaxed">Y en la caja, lo vencido simplemente no se puede vender.</p>
-            </div>
-            <div className="lg:order-1"><Captura src="/capturas/vencimiento.webp" alt="Lotes que se vencerían sin venderse, con fecha, unidades en riesgo y valor a costo" /></div>
-          </article>
-
-          <article className="grid lg:grid-cols-[.85fr_1.15fr] gap-10 items-center">
-            <div>
-              <h2 className="font-cond text-[36px] sm:text-[48px] leading-[1]" style={{ fontWeight: 700 }}>Una alerta del INVIMA no te toma por sorpresa.</h2>
-              <p className="mt-4 text-lg text-muted leading-relaxed">Cuando sale una alerta de un medicamento falsificado o defectuoso, Regenta la cruza con tus lotes y registros sanitarios. Si te toca, lo ves en el inicio, lo separas con un clic y queda la constancia.</p>
-            </div>
-            <Captura src="/capturas/alertas.webp" alt="Alerta del INVIMA cruzada con el inventario: la droguería tiene el lote alertado" />
-          </article>
-
-          <article className="grid lg:grid-cols-[1.15fr_.85fr] gap-10 items-center">
-            <div className="lg:order-2">
-              <h2 className="font-cond text-[36px] sm:text-[48px] leading-[1]" style={{ fontWeight: 700 }}>Y una caja que se aprende en cinco minutos.</h2>
-              <p className="mt-4 text-lg text-muted leading-relaxed">Escanea o escribe dos letras, elige caja o unidad y cobra en efectivo, Nequi, Daviplata, tarjeta, transferencia o Bre-B. Si se cae la red a mitad del cobro, la venta no se duplica.</p>
-            </div>
-            <div className="lg:order-1"><Captura src="/capturas/caja.webp" alt="Caja de Regenta con búsqueda de productos, precios por caja y por unidad y el tiquete de la venta" /></div>
-          </article>
-        </section>
-
-        {/* 4. La pérdida, con sus números. */}
-        <section className="bg-ink text-white">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 lg:py-20">
+        {/* 5. La pérdida, con sus números. */}
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16 lg:py-20">
+          <div className="rounded-3xl bg-ink text-white p-6 sm:p-10">
             <h2 className="font-cond text-[36px] sm:text-[52px] leading-[1] max-w-[16em]" style={{ fontWeight: 700 }}>¿Cuánta plata se te vence al año?</h2>
-            <div className="mt-10"><Calculadora precioMes={PLANES[0].precio!} /></div>
-            <div className="mt-10"><Cta claro texto="Ver mis vencimientos en la demo" /></div>
+            <div className="mt-8"><Calculadora precioMes={PLANES[0].precio!} /></div>
+            <div className="mt-8"><BotonDemo texto="Ver mis vencimientos en la demo" className="btn-primario h-14 px-7 text-lg" /></div>
           </div>
         </section>
 
-        {/* 5. Antes y después. */}
-        <section className="max-w-5xl mx-auto px-4 sm:px-6 py-16 lg:py-24">
+        {/* 6. Antes y después. */}
+        <section className="max-w-5xl mx-auto px-4 sm:px-6 pb-16 lg:pb-24">
           <h2 className="font-cond text-[36px] sm:text-[48px] leading-[1]" style={{ fontWeight: 700 }}>El cuaderno y el Excel contra Regenta</h2>
           <div className="mt-8 tarjeta overflow-x-auto">
             <table className="w-full min-w-[560px] text-[16px]">
@@ -154,10 +153,10 @@ export default function Portada() {
               <tbody className="divide-y divide-line">
                 {[
                   ["Qué pedir", "A ojo, mirando la estantería", "Pedido sugerido con tus ventas, en cajas"],
+                  ["Preguntas del día", "Buscar en papeles o en Excel", "Le preguntas a Regenta IA y responde con cifras"],
                   ["Vencimientos", "Revisión mensual a mano", "Riesgo por lote, en pesos, meses antes"],
                   ["Vender lo vencido", "Depende de que alguien lo vea", "La caja no lo deja vender"],
                   ["Alertas del INVIMA", "Si alguien las lee y busca", "Cruzadas con tus lotes y registros"],
-                  ["Pastillas sueltas", "Se descuadra el inventario", "Descuenta unidades del lote correcto"],
                   ["Evidencia para la visita", "Papeles sueltos", "Quién revisó qué y cuándo"],
                 ].map(([a, b, c]) => <tr key={a}><td className="p-4 font-semibold">{a}</td><td className="p-4 text-muted">{b}</td><td className="p-4">{c}</td></tr>)}
               </tbody>
@@ -165,44 +164,41 @@ export default function Portada() {
           </div>
         </section>
 
-        {/* 6. Para cada persona del mostrador. */}
+        {/* 7. Precios y Plan Socio. */}
         <section className="bg-surface border-y border-line">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 grid md:grid-cols-3 gap-8">
-            {[
-              ["Regente", "Vencimientos, alertas del INVIMA y recepción de mercancía por lote, con la evidencia guardada para la visita de la secretaría de salud."],
-              ["Auxiliar de farmacia", "Una caja rápida con lector, caja o unidad en un toque, el cambio calculado y el producto que conviene vender primero a la vista."],
-              ["Dueño", "Ventas, utilidad y medios de pago del día; el pedido sugerido y la plata parada en la estantería, desde el celular."],
-            ].map(([t, d]) => (
-              <div key={t}><h3 className="font-cond text-[28px]" style={{ fontWeight: 700 }}>{t}</h3><p className="mt-2 text-muted text-lg leading-relaxed">{d}</p></div>
-            ))}
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 lg:py-20 grid lg:grid-cols-[1fr_1fr] gap-10 items-center">
+            <div>
+              <h2 className="font-cond text-[40px] sm:text-[52px] leading-[1]" style={{ fontWeight: 700 }}>Desde {pesos(PLANES[0].precio!)} al mes. O gratis.</h2>
+              <p className="mt-4 text-lg text-muted leading-relaxed">Todo incluido: IA, predicción, alertas INVIMA, lotes y carga desde Excel. Sin costo de instalación. Y con el {SOCIO.nombre}, si le compras a Farmagenéricos Colombia, Regenta puede salirte gratis.</p>
+              <div className="mt-6 flex flex-wrap gap-3"><Link href="/precios" className="btn-oscuro h-12 px-6">Ver precios y Plan Socio</Link><BotonDemo texto="Probar la demo" className="btn-borde h-12 px-6" /></div>
+            </div>
+            <ul className="grid gap-3">
+              {SOCIO.escalones.map((e) => (
+                <li key={e.desde} className="rounded-2xl bg-paper border border-line p-4 flex items-center justify-between gap-4">
+                  <span className="text-muted">Compras desde <b className="text-ink num">{pesos(e.desde)}</b> al mes</span><span className="font-semibold text-cruz text-right">{e.beneficio}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
 
-        {/* 7. Precios claros. */}
-        <section id="precios" className="max-w-6xl mx-auto px-4 sm:px-6 py-16 lg:py-24 scroll-mt-20">
-          <h2 className="font-cond text-[36px] sm:text-[52px] leading-[1]" style={{ fontWeight: 700 }}>Precios claros, sin sorpresas</h2>
-          <p className="mt-3 text-lg text-muted max-w-2xl">Todo incluido: predicción, alertas INVIMA, lotes, carga desde Excel y actualizaciones. Sin costo de instalación.</p>
-          <div className="mt-10 grid md:grid-cols-3 gap-5 items-stretch">
-            {PLANES.map((p) => (
-              <div key={p.id} className={`rounded-2xl p-6 flex flex-col ${p.destacado ? "bg-ink text-white ring-4 ring-cruz" : "tarjeta"}`}>
-                {p.destacado && <p className="text-sm font-semibold text-marca">Recomendado</p>}
-                <h3 className="font-cond text-[30px] mt-1" style={{ fontWeight: 700 }}>{p.nombre}</h3>
-                <p className={p.destacado ? "text-white/70" : "text-muted"}>{p.para}</p>
-                <p className="mt-4 font-cond text-[44px] leading-none num" style={{ fontWeight: 700 }}>{p.precio ? pesos(p.precio) : "A tu medida"}{p.precio && <span className="text-base font-sans font-normal opacity-70"> /mes</span>}</p>
-                <ul className={`mt-5 grid gap-2 flex-1 ${p.destacado ? "text-white/85" : ""}`}>{p.incluye.map((x) => <li key={x} className="flex gap-2"><span className="text-cruz font-bold" aria-hidden="true">✓</span>{x}</li>)}</ul>
-                <a href={p.precio ? "/demo" : wa("Hola, quiero una cotización de Regenta para varias sedes.")} className={`mt-6 h-12 ${p.destacado ? "btn-primario" : "btn-borde"}`}>{p.precio ? "Probar la demo gratis" : "Pedir cotización"}</a>
-              </div>
-            ))}
-          </div>
-          <p className="mt-6 text-sm text-muted max-w-3xl">{NOTA_PRECIOS} Documento adicional: {pesos(DOC_EXTRA)}.</p>
+        {/* 8. Para quién. */}
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16 grid md:grid-cols-3 gap-6">
+          {[
+            ["Regente", "Vencimientos, alertas del INVIMA con constancia, recepción por lote y registro sanitario.", "/para/regentes"],
+            ["Auxiliar de farmacia", "Caja rápida con lector, caja o unidad en un toque y el producto que conviene vender primero.", "/funciones/caja-pos"],
+            ["Dueño", "Ventas, ganancia, pedido sugerido y plata parada en la estantería, desde el celular.", "/para/duenos-de-drogueria"],
+          ].map(([t, d, h]) => (
+            <Link key={t} href={h} className="tarjeta p-6 hover:border-ink"><h3 className="font-cond text-[30px]" style={{ fontWeight: 700 }}>{t}</h3><p className="mt-2 text-muted text-lg leading-relaxed">{d}</p></Link>
+          ))}
         </section>
 
-        {/* 8. Guías (silo SEO). */}
+        {/* 9. Guías (silo SEO). */}
         <section className="bg-surface border-y border-line">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14">
-            <h2 className="font-cond text-[32px] sm:text-[42px] leading-[1]" style={{ fontWeight: 700 }}>Guías para regentes</h2>
+            <div className="flex flex-wrap items-end justify-between gap-3"><h2 className="font-cond text-[32px] sm:text-[42px] leading-[1]" style={{ fontWeight: 700 }}>Guías para regentes y dueños</h2><Link href="/guias" className="font-semibold text-cruz underline underline-offset-4">Ver las {GUIAS.length} guías</Link></div>
             <ul className="mt-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {GUIAS.map((g) => <li key={g.slug}><Link href={`/guias/${g.slug}`} className="block rounded-xl border border-line p-4 h-full hover:border-ink"><span className="font-semibold">{g.h1}</span></Link></li>)}
+              {GUIAS.slice(0, 9).map((g) => <li key={g.slug}><Link href={`/guias/${g.slug}`} className="block rounded-xl border border-line p-4 h-full hover:border-ink"><span className="font-semibold">{g.h1}</span></Link></li>)}
             </ul>
           </div>
         </section>
@@ -219,13 +215,16 @@ export default function Portada() {
           </div>
         </section>
 
-        {/* 9. Cierre: dos caminos, los dos inmediatos. */}
+        {/* 10. Cierre: dos caminos inmediatos. */}
         <section id="demo" className="bg-ink text-white scroll-mt-16">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 lg:py-20 grid lg:grid-cols-[1fr_1fr] gap-12">
             <div>
               <h2 className="font-cond text-[42px] sm:text-[60px] leading-[0.95]" style={{ fontWeight: 700 }}>La próxima alerta del INVIMA puede estar ya en tu estantería.</h2>
               <p className="mt-5 text-lg text-white/75 max-w-[28em]">Entra a la demo en un clic, o déjanos tus datos y te mostramos Regenta con tus propios productos en 20 minutos.</p>
-              <div className="mt-8"><Cta claro /></div>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <BotonDemo texto="Probar la demo gratis ahora" className="btn-primario h-14 px-7 text-lg" />
+                <a href={wa("Hola, quiero conocer Regenta para mi droguería.")} className="btn h-14 px-6 text-lg border-2 border-white/30 text-white hover:border-white">Hablar por WhatsApp</a>
+              </div>
             </div>
             <FormDemo />
           </div>

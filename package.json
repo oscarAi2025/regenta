@@ -8,8 +8,8 @@
     "start": "next start -p 4500",
     "typecheck": "tsc --noEmit",
     "db:reset": "node scripts/db-reset.mjs",
-    "test": "node --test tests/*.test.mjs",
-    "e2e": "node tests/e2e/caja.mjs"
+    "test": "node --test tests/db.test.mjs && node --experimental-strip-types --test tests/invima.test.mjs",
+    "e2e": "node tests/e2e/caja.mjs && node tests/e2e/gestion.mjs && node tests/e2e/ia.mjs"
   },
   "dependencies": {
     "@fontsource/barlow": "^5.3.0",

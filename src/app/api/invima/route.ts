@@ -5,6 +5,6 @@ import { sincronizarInvima } from "@/lib/invima";
 export async function POST(req: Request) {
   const clave = process.env.REGENTA_CRON_KEY;
   if (!clave || req.headers.get("authorization") !== `Bearer ${clave}`) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  try { return NextResponse.json({ nuevas: await sincronizarInvima() }); }
+  try { return NextResponse.json(await sincronizarInvima()); }
   catch (e) { return NextResponse.json({ error: (e as Error).message }, { status: 502 }); }
 }

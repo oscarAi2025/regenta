@@ -22,10 +22,4 @@ export function Dato({ titulo, valor, tono, nota }: { titulo: string; valor: Rea
   );
 }
 
-export const pesos = (n: number) => "$" + Math.round(Number(n)).toLocaleString("es-CO");
-export const existenciasTexto = (unidades: number, upc: number) => {
-  if (unidades <= 0) return "Agotado";
-  if (upc <= 1) return `${unidades} und`;
-  const c = Math.floor(unidades / upc), u = unidades % upc;
-  return `${c} caja${c === 1 ? "" : "s"}${u ? ` + ${u} und` : ""}`;
-};
+export { pesos, existenciasTexto } from "@/lib/formato";

@@ -35,6 +35,7 @@ export function Importar() {
   const [errores, setErrores] = useState<{ fila: number; error: string }[]>([]);
   const [estado, setEstado] = useState<"" | "revisando" | "listo" | "importando" | "hecho">("");
   const [error, setError] = useState("");
+  const [idem, setIdem] = useState("");
 
   function plantilla() {
     const csv = [COLUMNAS.join(";"), ...EJEMPLO.map((f) => f.join(";"))].join("\r\n");
@@ -44,7 +45,7 @@ export function Importar() {
   }
 
   async function enviar(f: Record<string, string>[], simular: boolean) {
-    const r = await fetch("/api/productos/importar", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ simular, filas: f }) });
+    const r = await fetch("/api/productos/importar", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ simular, filas: f, idem_key: simular ? null : idem }) });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error ?? "No se pudo procesar el archivo");
     return j;
@@ -52,7 +53,7 @@ export function Importar() {
 
   async function elegir(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]; if (!f) return;
-    setError(""); setArchivo(f.name); setEstado("revisando");
+    setError(""); setArchivo(f.name); setEstado("revisando"); setIdem(crypto.randomUUID());
     if (!/\.csv$/i.test(f.name)) { setError("Guarda tu Excel como «CSV (delimitado por comas)» y súbelo de nuevo."); setEstado(""); return; }
     const leidas = leerCSV(await f.text());
     if (!leidas.length || !("nombre" in leidas[0]) || !("precio_caja" in leidas[0])) { setError("El archivo debe tener al menos las columnas «nombre» y «precio_caja». Descarga la plantilla para ver el formato."); setEstado(""); return; }

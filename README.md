@@ -40,3 +40,11 @@ En Supabase se aplican `db/migrations/*.sql` (no `db/local/`, que imita a Supaba
 
 ## Pruebas
 `node scripts/db-reset.mjs && node --test tests/db.test.mjs && node --experimental-strip-types --test tests/invima.test.mjs`, y con el servidor en :4500: `node tests/e2e/caja.mjs && node tests/e2e/gestion.mjs`.
+
+## Regenta IA
+- `ANTHROPIC_API_KEY` (variable de entorno del servidor) activa el asistente; sin ella, el panel explica que no está activado.
+- `REGENTA_IA_MODELO` (opcional, por defecto `claude-sonnet-5-5`). `REGENTA_IA_URL` solo para pruebas (servidor simulado en tests/e2e/ia.mjs).
+- Las herramientas de la IA son de solo lectura y corren con los permisos del usuario (RLS): la cajera no recibe costos.
+
+## Demo pública
+- «Probar la demo» es un POST con verificación de origen (/demo). La empresa demo (`empresas.demo = true`) no deja cambiar usuarios ni datos de empresa. Conviene reiniciar sus datos cada noche.

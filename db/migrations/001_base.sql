@@ -240,7 +240,7 @@ create table documentos_dian (
   tipo text not null check (tipo in ('pos', 'factura', 'nota_credito')),
   prefijo text not null,
   numero bigint not null,
-  estado text not null default 'pendiente' check (estado in ('pendiente', 'enviando', 'aceptado', 'rechazado')),
+  estado text not null default 'pendiente' check (estado in ('pendiente', 'enviando', 'aceptado', 'rechazado', 'anulado')),
   cufe text,
   qr text,
   intentos integer not null default 0,
@@ -350,7 +350,9 @@ begin
   end if;
   if jsonb_array_length(coalesce(p -> 'lineas', '[]')) = 0 then raise exception 'La venta no tiene productos' using errcode = 'P0001'; end if;
 
-  -- Reintento de una venta ya registrada (la caja volvió a enviarla): se devuelve la misma.
+  -- Reintento de una venta ya registrada (la caja volvió a enviarla): se devuelve la misma. El candado sobre la clave
+  -- evita que dos envíos simultáneos de la misma venta choquen.
+  perform pg_advisory_xact_lock(hashtext(v_emp::text || ':' || (p ->> 'idem_key')));
   select * into v_existente from ventas where empresa_id = v_emp and idem_key = p ->> 'idem_key';
   if found then
     return jsonb_build_object('venta_id', v_existente.id, 'prefijo', v_existente.prefijo, 'numero', v_existente.numero,
@@ -366,6 +368,9 @@ begin
   v_num := v_res.actual + 1;
   if v_num > v_res.hasta then raise exception 'Se agotó la numeración autorizada (%-%)', v_res.prefijo, v_res.hasta using errcode = 'P0001'; end if;
   update resoluciones_dian set actual = v_num where id = v_res.id;
+
+  -- Candados por producto en orden fijo (evita bloqueos mutuos con otra venta o un ajuste).
+  perform pg_advisory_xact_lock(hashtext(x)) from (select distinct e ->> 'producto_id' x from jsonb_array_elements(p -> 'lineas') e order by 1) s;
 
   -- La venta se inserta al final, ya con sus totales: las líneas y pagos la referencian con FK diferida.
   v_venta := gen_random_uuid();

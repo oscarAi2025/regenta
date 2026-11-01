@@ -9,3 +9,15 @@ export const PLANES = [
 ] as const;
 export const DOC_EXTRA = 20; // COP por documento adicional
 export const NOTA_PRECIOS = "Precios de lanzamiento, mensuales. Pagando el año completo, 2 meses gratis. La emisión electrónica ante la DIAN se activa en tu cuenta al terminar la integración con el proveedor tecnológico autorizado.";
+
+// Plan Socio Farmagenéricos: Regenta como beneficio para las droguerías que compran a Farmagenéricos Colombia.
+export const SOCIO = {
+  nombre: "Plan Socio Farmagenéricos",
+  resumen: "Si tu droguería le compra a Farmagenéricos Colombia, Regenta te sale con descuento o gratis.",
+  escalones: [
+    { desde: 1_000_000, beneficio: "50 % de descuento en Regenta Esencial" },
+    { desde: 2_000_000, beneficio: "Regenta Esencial gratis" },
+    { desde: 4_000_000, beneficio: "Regenta Pro gratis" },
+  ],
+  nota: "Compras del mes anterior a Farmagenéricos Colombia, antes de IVA. El beneficio se aplica en la factura de Regenta del mes siguiente.",
+} as const;

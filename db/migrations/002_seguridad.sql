@@ -61,7 +61,8 @@ create policy venta_actualiza_cliente on clientes for update to authenticated
 grant select on empresas, sedes, cajas, miembros, productos_maestro, productos, lotes, lote_costos, movimientos, clientes,
   resoluciones_dian, ventas, venta_lineas, pagos, documentos_dian, auditoria, v_stock_lotes to authenticated;
 grant insert, update on productos, clientes, miembros to authenticated;
-grant update on empresas to authenticated;
+-- El dueño solo puede cambiar sus datos de contacto: nunca plan, estado ni NIT.
+grant update (nombre_comercial, direccion, ciudad, telefono, email) on empresas to authenticated;
 grant delete on miembros to authenticated;
 
 -- ───────────────────────── Entradas de inventario ─────────────────────────
@@ -75,10 +76,19 @@ declare
   v_tipo text := p ->> 'tipo';
   v_rol text := rol_en(v_emp);
   ln jsonb; v_lote uuid; v_unid integer; v_ref uuid := gen_random_uuid(); v_n integer := 0;
+  v_gerencia boolean := v_rol in ('dueno', 'admin');
 begin
   if v_rol is null or v_rol not in ('dueno', 'admin', 'bodeguero') then
     raise exception 'No tienes permiso para mover inventario' using errcode = '42501';
   end if;
+  -- Idempotencia: la misma entrada enviada dos veces (corte de red, doble clic) se registra una sola vez.
+  if (p ->> 'idem_key') is not null then
+    perform pg_advisory_xact_lock(hashtext(v_emp::text || ':' || (p ->> 'idem_key')));
+    if exists (select 1 from entradas_idem where empresa_id = v_emp and idem_key = p ->> 'idem_key') then
+      return (select resultado || jsonb_build_object('repetida', true) from entradas_idem where empresa_id = v_emp and idem_key = p ->> 'idem_key');
+    end if;
+  end if;
+  perform pg_advisory_xact_lock(hashtext(x)) from (select distinct e ->> 'producto_id' x from jsonb_array_elements(p -> 'lineas') e order by 1) s;
   if v_tipo not in ('inicial', 'compra', 'ajuste') then raise exception 'Tipo de entrada no válido' using errcode = 'P0001'; end if;
   if v_tipo = 'ajuste' and coalesce(trim(p ->> 'motivo'), '') = '' then
     raise exception 'Todo ajuste de inventario necesita un motivo' using errcode = 'P0001';
@@ -94,12 +104,11 @@ begin
     values (v_emp, v_sede, (ln ->> 'producto_id')::uuid, upper(trim(ln ->> 'lote')), (ln ->> 'vence')::date)
     on conflict (sede_id, producto_id, lote) do update set vence = coalesce(excluded.vence, lotes.vence)
     returning id into v_lote;
-    if (ln ->> 'costo_unidad') is not null then
+    if (ln ->> 'costo_unidad') is not null and v_gerencia then  -- el costo solo lo registra la gerencia
       insert into lote_costos (lote_id, empresa_id, costo_unidad) values (v_lote, v_emp, (ln ->> 'costo_unidad')::numeric)
       on conflict (lote_id) do update set costo_unidad = excluded.costo_unidad;
     end if;
     if v_unid < 0 then
-      perform pg_advisory_xact_lock(hashtext((ln ->> 'producto_id')));
       if (select unidades from v_stock_lotes where lote_id = v_lote) + v_unid < 0 then
         raise exception 'El ajuste dejaría el lote % en negativo', ln ->> 'lote' using errcode = 'P0001';
       end if;
@@ -110,21 +119,35 @@ begin
   end loop;
   insert into auditoria (empresa_id, usuario_id, accion, entidad, entidad_id, datos)
   values (v_emp, auth.uid(), 'entrada_' || v_tipo, 'movimientos', v_ref::text, jsonb_build_object('lineas', v_n, 'motivo', p ->> 'motivo'));
+  if (p ->> 'idem_key') is not null then
+    insert into entradas_idem (empresa_id, idem_key, resultado) values (v_emp, p ->> 'idem_key', jsonb_build_object('ref', v_ref, 'lineas', v_n));
+  end if;
   return jsonb_build_object('ref', v_ref, 'lineas', v_n);
 end $$;
 
--- Anular una venta: devuelve las unidades a sus lotes. (La nota crédito ante la DIAN sale de la cola.)
+-- Anular una venta: devuelve las unidades a sus lotes y corrige ante la DIAN: si el documento aún no salió, no se envía;
+-- si ya fue aceptado, se genera la nota crédito (con la numeración de su resolución) para que la cola la emita.
 create function anular_venta(p_venta uuid, p_motivo text) returns void
 language plpgsql security definer set search_path = public as $$
-declare v ventas; ln venta_lineas;
+declare v ventas; ln venta_lineas; d documentos_dian; v_res resoluciones_dian;
 begin
   select * into v from ventas where id = p_venta for update;
-  if not found or rol_en(v.empresa_id) not in ('dueno', 'admin') then
+  if not found or coalesce(rol_en(v.empresa_id), '') not in ('dueno', 'admin') then
     raise exception 'Solo el dueño o el administrador pueden anular ventas' using errcode = '42501';
   end if;
   if v.estado <> 'cerrada' then raise exception 'La venta ya está anulada' using errcode = 'P0001'; end if;
   if coalesce(trim(p_motivo), '') = '' then raise exception 'Indica el motivo de la anulación' using errcode = 'P0001'; end if;
   update ventas set estado = 'anulada' where id = p_venta;
+  select * into d from documentos_dian where venta_id = p_venta and tipo <> 'nota_credito' for update;
+  if found and d.estado in ('pendiente', 'rechazado') then
+    update documentos_dian set estado = 'anulado', ultimo_error = 'Venta anulada antes de emitirse', actualizado = now() where id = d.id;
+  elsif found and d.estado in ('aceptado', 'enviando') then
+    select * into v_res from resoluciones_dian where empresa_id = v.empresa_id and tipo = 'nota_credito' and activa for update;
+    if not found then raise exception 'Para anular un documento ya emitido necesitas una numeración de notas crédito activa' using errcode = 'P0001'; end if;
+    if v_res.actual + 1 > v_res.hasta then raise exception 'Se agotó la numeración de notas crédito' using errcode = 'P0001'; end if;
+    update resoluciones_dian set actual = actual + 1 where id = v_res.id;
+    insert into documentos_dian (empresa_id, venta_id, tipo, prefijo, numero) values (v.empresa_id, p_venta, 'nota_credito', v_res.prefijo, v_res.actual + 1);
+  end if;
   for ln in select * from venta_lineas where venta_id = p_venta loop
     insert into movimientos (empresa_id, sede_id, producto_id, lote_id, cantidad, tipo, ref_id, motivo, usuario_id)
     values (v.empresa_id, v.sede_id, ln.producto_id, ln.lote_id, ln.unidades, 'anulacion', p_venta, p_motivo, auth.uid());

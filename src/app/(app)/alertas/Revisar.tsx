@@ -8,7 +8,8 @@ export function Revisar({ alerta, producto, nivel }: { alerta: number; producto:
   const [error, setError] = useState("");
   async function marcar(resultado: string) {
     setEstado("enviando"); setError("");
-    const r = await fetch("/api/alertas", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ alerta_id: alerta, producto_id: producto, resultado }) });
+    const r = await fetch("/api/alertas", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ alerta_id: alerta, producto_id: producto, resultado }) }).catch(() => null);
+    if (!r) { setError("Sin conexión: revisa internet e intenta de nuevo."); setEstado(""); return; }
     if (r.ok) { setEstado("ok"); location.reload(); return; }
     setError((await r.json().catch(() => ({}))).error ?? "No se pudo guardar"); setEstado("");
   }

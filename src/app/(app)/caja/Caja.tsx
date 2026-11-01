@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { pesos } from "@/lib/formato";
 
 type Producto = {
   id: string; nombre: string; laboratorio: string | null; ean: string | null; iva: number; unidades_por_caja: number;
@@ -9,7 +10,6 @@ type Linea = { key: string; p: Producto; presentacion: "caja" | "unidad"; cantid
 type Medio = "efectivo" | "transferencia" | "nequi" | "daviplata" | "tarjeta" | "bre_b";
 type Resultado = { venta: { prefijo: string; numero: number; total: number; cambio: number; base: number; iva: number }; documento: { estado: string; cufe: string | null; simulado: boolean; ultimo_error: string | null } };
 
-const pesos = (n: number) => "$" + Math.round(n).toLocaleString("es-CO");
 const MEDIOS: { id: Medio; label: string }[] = [
   { id: "efectivo", label: "Efectivo" }, { id: "nequi", label: "Nequi" }, { id: "daviplata", label: "Daviplata" },
   { id: "bre_b", label: "Bre-B" }, { id: "transferencia", label: "Transferencia" }, { id: "tarjeta", label: "Tarjeta" },

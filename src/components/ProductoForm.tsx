@@ -21,7 +21,7 @@ export function ProductoForm({ id, inicial }: { id?: string; inicial?: Datos }) 
   useEffect(() => {
     if (modo !== "catalogo" || q.trim().length < 2) { setRes([]); return; }
     const ctl = new AbortController();
-    const t = setTimeout(() => fetch(`/api/maestro?q=${encodeURIComponent(q)}`, { signal: ctl.signal }).then((r) => r.json()).then((j) => setRes(j.productos ?? [])).catch(() => {}), 160);
+    const t = setTimeout(() => fetch(`/api/maestro?q=${encodeURIComponent(q)}`, { signal: ctl.signal }).then((r) => { if (r.status === 401) location.href = "/entrar"; return r.json(); }).then((j) => setRes(j.productos ?? [])).catch(() => {}), 160);
     return () => { clearTimeout(t); ctl.abort(); };
   }, [q, modo]);
 
@@ -37,14 +37,16 @@ export function ProductoForm({ id, inicial }: { id?: string; inicial?: Datos }) 
     setEnviando(true); setError("");
     const cuerpo = { maestro_id: d.maestro_id ?? null, nombre: d.nombre, laboratorio: d.laboratorio || null, ean: d.ean || "", iva: d.iva, categoria: d.categoria ?? null,
       unidades_por_caja: d.unidades_por_caja, precio_caja: num(d.precio_caja), precio_unidad: d.unidades_por_caja > 1 && num(d.precio_unidad) ? num(d.precio_unidad) : null, stock_minimo: d.stock_minimo, registro_sanitario: d.registro_sanitario || null };
-    const r = await fetch(id ? `/api/productos/${id}` : "/api/productos", { method: id ? "PATCH" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(cuerpo) });
+    const r = await fetch(id ? `/api/productos/${id}` : "/api/productos", { method: id ? "PATCH" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(cuerpo) }).catch(() => null);
+    if (!r) { setError("Sin conexión: revisa internet e intenta de nuevo."); setEnviando(false); return; }
     if (r.ok) { location.href = id ? "/productos" : "/productos?q=" + encodeURIComponent(d.ean || d.nombre); return; }
     setError((await r.json().catch(() => ({}))).error ?? "No se pudo guardar"); setEnviando(false);
   }
 
   async function retirar() {
     if (!id) return;
-    const r = await fetch(`/api/productos/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ activo: false }) });
+    const r = await fetch(`/api/productos/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ activo: false }) }).catch(() => null);
+    if (!r) { setError("Sin conexión: revisa internet e intenta de nuevo."); return; }
     if (r.ok) location.href = "/productos"; else setError((await r.json().catch(() => ({}))).error ?? "No se pudo retirar");
   }
 

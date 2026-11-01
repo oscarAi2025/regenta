@@ -60,3 +60,22 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [ ] Guías de fraccionamiento y de apertura de droguería: faltan normas verificadas
 - [ ] Datos abiertos CUM (i7cb-raxc): estado del registro sanitario desde producción
 - [ ] Dominio + REGENTA_URL, Supabase + Netlify, emisor MATIAS, aviso de solicitudes de demo
+
+## Iteración 4 (1/11/2026): IA visible, rediseño vendedor, más páginas/guías, revisión total de código (pedido de Oscar)
+- [x] Revisión independiente de código: 30 hallazgos; arreglados los críticos y altos (anulación entre empresas, dueño cambiando su plan/estado, demo pública vulnerable, nota crédito al anular, zona horaria Bogotá) y casi todos los medios y bajos
+- [x] Regenta IA: asistente con API de Claude + 7 herramientas de solo lectura con RLS; probado de punta a punta con API simulada (12 comprobaciones)
+- [x] Prioridades del día en el inicio, buscador Ctrl+K (pantallas, productos y preguntas a la IA), patrón semanal en Predicción
+- [x] Logo nuevo (cápsula + cruz + chispa de IA) y favicon
+- [x] Plan Socio Farmagenéricos (gratis o con descuento según compras) en portada y /precios
+- [x] Portada rediseñada (hero oscuro con conversación de IA, «hecho desde adentro», funciones con capturas, diferencial verificado, calculadora, precios, guías)
+- [x] Páginas nuevas: /precios, /por-que-regenta, /funciones + 5 funciones, /para/regentes, /para/duenos-de-drogueria
+- [x] 9 guías nuevas (15 en total): 3 operativas/comerciales + 6 normativas verificadas (control especial, apertura, temperatura y humedad, precio máximo, vencidos, venta por unidad)
+- [x] Pruebas: base 27/27 · INVIMA 3/3 · caja e2e · IA e2e 12/12 · gestión e2e 76/76
+
+### Pendiente
+- [ ] Oscar: aprobar precios y escalones del Plan Socio (src/lib/planes.ts)
+- [ ] Poner ANTHROPIC_API_KEY en el servidor de producción para activar Regenta IA
+- [ ] Reinicio nocturno de los datos de la demo pública
+- [ ] Varias sedes/cajas (hoy se usa la primera caja activa y su sede)
+- [ ] Accesibilidad del listado de la caja (aria-activedescendant)
+- [ ] Probar /api/invima contra invima.gov.co desde producción; confirmar con MATIAS consumo del POS

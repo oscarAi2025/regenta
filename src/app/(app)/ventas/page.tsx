@@ -4,9 +4,9 @@ import { comoUsuario } from "@/lib/db";
 import { leerSesion, puede } from "@/lib/sesion";
 import { Cabecera, Dato, pesos } from "@/components/ui/Cabecera";
 import { EstadoDian } from "@/components/ui/EstadoDian";
+import { MEDIO } from "@/lib/formato";
 
 export const metadata = { title: "Ventas" };
-const MEDIO: Record<string, string> = { efectivo: "Efectivo", nequi: "Nequi", daviplata: "Daviplata", bre_b: "Bre-B", transferencia: "Transferencia", tarjeta: "Tarjeta" };
 
 export default async function Ventas({ searchParams }: { searchParams: Promise<{ dia?: string; dian?: string }> }) {
   const s = await leerSesion();

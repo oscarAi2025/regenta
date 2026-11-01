@@ -16,7 +16,7 @@ export function Pedido({ lineas }: { lineas: LineaPedido[] }) {
   function csv() {
     const filas = [["producto", "laboratorio", "cajas"], ...elegidas.map((l) => [l.nombre, l.laboratorio ?? "", String(cajas[l.id])])];
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob(["﻿" + filas.map((f) => f.map((x) => `"${x.replace(/"/g, '""')}"`).join(";")).join("\r\n")], { type: "text/csv;charset=utf-8" }));
+    a.href = URL.createObjectURL(new Blob(["﻿" + filas.map((f) => f.map((x) => `"${(/^[=+\-@\t\r]/.test(x) ? "'" + x : x).replace(/"/g, '""')}"`).join(";")).join("\r\n")], { type: "text/csv;charset=utf-8" }));
     a.download = `pedido-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
   }
 

@@ -9,8 +9,8 @@ export const ProductoEntrada = z.object({
   iva: z.union([z.literal(0), z.literal(5), z.literal(19)]),
   categoria: z.string().trim().max(80).nullish(),
   unidades_por_caja: z.number().int().min(1).max(1000),
-  precio_caja: z.number().positive("Pon el precio de venta").max(100_000_000),
-  precio_unidad: z.number().positive().max(100_000_000).nullish(),
+  precio_caja: z.number().int("El precio va en pesos, sin centavos").positive("Pon el precio de venta").max(100_000_000),
+  precio_unidad: z.number().int("El precio va en pesos, sin centavos").positive().max(100_000_000).nullish(),
   stock_minimo: z.number().int().min(0).max(100000).default(0),
   registro_sanitario: z.string().trim().max(60).nullish(),
 });

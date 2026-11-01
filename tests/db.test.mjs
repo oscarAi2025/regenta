@@ -223,3 +223,78 @@ test("alertas INVIMA: cruce por lote, registro y nombre; otra empresa no ve el c
   assert.equal(b, 0);
   await assert.rejects(como(U.cajera, (c) => c.query(`insert into alertas_revision (empresa_id, alerta_id, resultado) select $1, id, 'no_aplica' from alertas_invima limit 1`, [E.A])), /row-level security|permission/);
 });
+
+// ── Correcciones de la revisión de código (1/11/2026)
+test("el dueño de otra empresa NO puede anular ventas ajenas", async () => {
+  const id = (await pool.query(`select id from ventas where empresa_id = $1 and estado = 'cerrada' limit 1`, [E.A])).rows[0].id;
+  await assert.rejects(como(U.duenoB, (c) => c.query(`select anular_venta($1, 'prueba')`, [id])), /Solo el dueño/);
+  await assert.rejects(como(U.nadie, (c) => c.query(`select anular_venta($1, 'prueba')`, [id])), /Solo el dueño/);
+});
+
+test("el dueño no puede cambiarse el plan, el estado ni el NIT", async () => {
+  await assert.rejects(como(U.duenoB, (c) => c.query(`update empresas set estado = 'activa', plan = 'distribuidor' where id = $1`, [E.B])), /permission denied/);
+  await assert.rejects(como(U.duenoB, (c) => c.query(`update empresas set nit = '1' where id = $1`, [E.B])), /permission denied/);
+  const n = await como(U.duenoB, async (c) => (await c.query(`update empresas set telefono = '3000000000' where id = $1`, [E.B])).rowCount);
+  assert.equal(n, 1, "sí puede cambiar su teléfono");
+});
+
+test("en la demo nadie puede tocar usuarios ni datos de la empresa", async () => {
+  await assert.rejects(como(U.carlos, (c) => c.query(`update miembros set activo = false where empresa_id = $1`, [E.A])), /demostración/);
+  await assert.rejects(como(U.carlos, (c) => c.query(`update empresas set telefono = '1' where id = $1`, [E.A])), /demostración/);
+});
+
+test("anular: un documento sin emitir no se envía; uno aceptado genera nota crédito", async () => {
+  const r = await como(U.carlos, async (c) => {
+    const pend = (await c.query(`select registrar_venta($1) r`, [venta([{ producto_id: prod.id, presentacion: "unidad", cantidad: 1 }], { pagos: [{ medio: "efectivo", valor: 100000 }] })])).rows[0].r.venta_id;
+    await c.query(`select anular_venta($1, 'cliente devolvió')`, [pend]);
+    const e1 = (await c.query(`select estado from documentos_dian where venta_id = $1`, [pend])).rows.map((x) => x.estado);
+    const acep = (await c.query(`select d.venta_id from documentos_dian d join ventas v on v.id = d.venta_id where d.empresa_id = $1 and d.estado = 'aceptado' and v.estado = 'cerrada' limit 1`, [E.A])).rows[0].venta_id;
+    await c.query(`select anular_venta($1, 'error de digitación')`, [acep]);
+    const e2 = (await c.query(`select tipo, estado, prefijo from documentos_dian where venta_id = $1 order by creado`, [acep])).rows;
+    return { e1, e2 };
+  });
+  assert.deepEqual(r.e1, ["anulado"]);
+  assert.ok(r.e2.some((d) => d.tipo === "nota_credito" && d.estado === "pendiente" && d.prefijo === "NCSE"), JSON.stringify(r.e2));
+});
+
+test("entrada de inventario idempotente y el costo solo lo registra la gerencia", async () => {
+  const r = await como(U.bodega, async (c) => {
+    const id = (await c.query(`select id from productos where empresa_id = $1 limit 1`, [E.A])).rows[0].id;
+    const e = { empresa_id: E.A, sede_id: S.A, tipo: "compra", idem_key: "prueba-idem-1", lineas: [{ producto_id: id, lote: "IDEM1", vence: "2030-01-01", unidades: 10, costo_unidad: 1 }] };
+    const a = (await c.query(`select registrar_entrada($1) r`, [e])).rows[0].r;
+    const b = (await c.query(`select registrar_entrada($1) r`, [e])).rows[0].r;
+    const stock = (await c.query(`select unidades from v_stock_lotes where producto_id = $1 and lote = 'IDEM1'`, [id])).rows[0].unidades;
+    const costo = (await pool.query(`select count(*)::int n from lote_costos lc join lotes l on l.id = lc.lote_id where l.lote = 'IDEM1'`)).rows[0].n;
+    return { a, b, stock, costo };
+  });
+  assert.equal(r.b.repetida, true);
+  assert.equal(r.stock, 10, "la segunda vez no suma");
+  assert.equal(r.costo, 0, "el costo enviado por bodega se ignora");
+});
+
+test("el registro sanitario se guarda normalizado", async () => {
+  const v = await como(U.carlos, async (c) => {
+    const id = (await c.query(`insert into productos (empresa_id, nombre, iva, unidades_por_caja, precio_caja, registro_sanitario) values ($1, 'Prueba registro', 0, 1, 1000, ' invima2020m- 003171 -r4 ') returning id`, [E.A])).rows[0].id;
+    return (await c.query(`select registro_sanitario from productos where id = $1`, [id])).rows[0].registro_sanitario;
+  });
+  assert.equal(v, "INVIMA 2020M-003171-R4");
+});
+
+test("las ventas anuladas no cuentan en el ritmo de venta", async () => {
+  const r = await como(U.carlos, async (c) => {
+    const id = (await c.query(`insert into productos (empresa_id, nombre, iva, unidades_por_caja, precio_caja) values ($1, 'Prueba anulada', 0, 1, 1000) returning id`, [E.A])).rows[0].id;
+    await c.query(`select registrar_entrada(jsonb_build_object('empresa_id', $1::uuid, 'sede_id', $2::uuid, 'tipo', 'compra', 'lineas', jsonb_build_array(jsonb_build_object('producto_id', $3::uuid, 'lote', 'A', 'vence', '2030-01-01', 'unidades', 50))))`, [E.A, S.A, id]);
+    const v = (await c.query(`select registrar_venta($1) r`, [venta([{ producto_id: id, presentacion: "caja", cantidad: 14 }], { pagos: [{ medio: "efectivo", valor: 14000 }] })])).rows[0].r.venta_id;
+    const antes = (await c.query(`select venta_dia::float from prediccion_productos($1) where producto_id = $2`, [E.A, id])).rows[0].venta_dia;
+    await c.query(`select anular_venta($1, 'prueba')`, [v]);
+    const despues = (await c.query(`select venta_dia::float from prediccion_productos($1) where producto_id = $2`, [E.A, id])).rows[0].venta_dia;
+    return { antes, despues };
+  });
+  assert.equal(r.antes, 0.6);
+  assert.equal(r.despues, 0);
+});
+
+test("una revisión de alerta no puede citar un producto de otra empresa", async () => {
+  const ajeno = (await pool.query(`select id from productos where empresa_id = $1 limit 1`, [E.A])).rows[0].id;
+  await assert.rejects(como(U.duenoB, (c) => c.query(`insert into alertas_revision (empresa_id, alerta_id, producto_id, resultado) select $1, id, $2, 'no_aplica' from alertas_invima limit 1`, [E.B, ajeno])), /row-level security/);
+});

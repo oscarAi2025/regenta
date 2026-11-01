@@ -4,9 +4,9 @@ import { comoUsuario } from "@/lib/db";
 import { leerSesion, puede } from "@/lib/sesion";
 import { pesos } from "@/components/ui/Cabecera";
 import { Anular } from "./Anular";
+import { MEDIO } from "@/lib/formato";
 
 export const metadata = { title: "Venta" };
-const MEDIO: Record<string, string> = { efectivo: "Efectivo", nequi: "Nequi", daviplata: "Daviplata", bre_b: "Bre-B", transferencia: "Transferencia", tarjeta: "Tarjeta" };
 
 export default async function Venta({ params }: { params: Promise<{ id: string }> }) {
   const s = await leerSesion();

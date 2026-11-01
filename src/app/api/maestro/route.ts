@@ -1,10 +1,10 @@
-import { comoUsuario } from "@/lib/db";
+import { comoUsuario, sinComodines } from "@/lib/db";
 import { conSesion, json } from "@/lib/api";
 
 /** Busca en el catálogo maestro de Regenta lo que la droguería todavía no tiene. */
 export const GET = conSesion(async (s, req) => {
   const q = (new URL(req.url).searchParams.get("q") ?? "").trim().toLowerCase().slice(0, 80);
-  const palabras = q.split(/\s+/).filter(Boolean).slice(0, 6);
+  const palabras = q.split(/\s+/).filter(Boolean).slice(0, 6).map(sinComodines);
   if (!palabras.length) return json({ productos: [] });
   const productos = await comoUsuario(s, async (c) => (await c.query(
     `select m.id, m.nombre, m.laboratorio, m.ean, m.iva::float, m.categoria

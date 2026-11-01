@@ -17,6 +17,7 @@ export function Recibir({ verCosto }: { verCosto: boolean }) {
   const [hecho, setHecho] = useState<number | null>(null);
   const buscar = useRef<HTMLInputElement>(null);
   const clave = useRef(0);
+  const idem = useRef(crypto.randomUUID()); // misma clave si se reintenta tras un corte; nueva tras guardar
 
   useEffect(() => {
     if (q.trim().length < 2) { setRes([]); return; }
@@ -43,13 +44,16 @@ export function Recibir({ verCosto }: { verCosto: boolean }) {
     const mal = lineas.find((l) => !l.lote.trim() || unidades(l) <= 0);
     if (mal) { setError(`Falta ${!mal.lote.trim() ? "el lote" : "la cantidad"} de ${mal.p.nombre}.`); document.getElementById(`lote-${mal.key}`)?.focus(); return; }
     setEnviando(true);
-    const r = await fetch("/api/inventario", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
-      tipo: "compra", motivo: proveedor.trim() ? `Proveedor: ${proveedor.trim()}` : null,
+    let r: Response;
+    try {
+    r = await fetch("/api/inventario", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+      tipo: "compra", motivo: proveedor.trim() ? `Proveedor: ${proveedor.trim()}` : null, idem_key: idem.current,
       lineas: lineas.map((l) => ({ producto_id: l.p.id, lote: l.lote.trim(), vence: l.vence || null, unidades: unidades(l),
-        ...(verCosto && n(l.costo) ? { costo_unidad: Math.round(n(l.costo) / (n(l.cajas) && !n(l.sueltas) && l.p.unidades_por_caja > 1 ? l.p.unidades_por_caja : 1)) } : {}) })) }) });
+        ...(verCosto && n(l.costo) ? { costo_unidad: Math.round((n(l.costo) / (n(l.cajas) && !n(l.sueltas) && l.p.unidades_por_caja > 1 ? l.p.unidades_por_caja : 1)) * 10000) / 10000 } : {}) })) }) });
+    } catch { setEnviando(false); setError("Sin conexión: revisa internet y vuelve a guardar (no se duplicará)."); return; }
     setEnviando(false);
     if (!r.ok) { setError((await r.json().catch(() => ({}))).error ?? "No se pudo guardar la entrada"); return; }
-    setHecho(lineas.reduce((a, l) => a + unidades(l), 0)); setLineas([]); setProveedor("");
+    setHecho(lineas.reduce((a, l) => a + unidades(l), 0)); setLineas([]); setProveedor(""); idem.current = crypto.randomUUID();
     buscar.current?.focus();
   }
 

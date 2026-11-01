@@ -57,6 +57,7 @@ await db.query(`insert into empresas (id, nit, dv, razon_social, nombre_comercia
   ($1, '900000001', '1', 'DROGUERÍA DEMO CARLOS S.A.S.', 'Droguería Demo', 'Ibagué', 'Calle 1 # 2-3', '3000000000'),
   ($2, '900000002', '2', 'DROGUERÍA VECINA S.A.S.', 'Droguería Vecina', 'Ibagué', 'Calle 9 # 9-9', '3000000001')`, [E.A, E.B]);
 await db.query(`insert into sedes (id, empresa_id, nombre, ciudad) values ($1, $2, 'Principal', 'Ibagué'), ($3, $4, 'Principal', 'Ibagué')`, [S.A, E.A, S.B, E.B]);
+await db.query(`update empresas set demo = true where id = $1`, [E.A]); // la droguería pública de demostración
 await db.query(`insert into cajas (id, empresa_id, sede_id, nombre) values ($1, $2, $3, 'Caja 1'), ($4, $5, $6, 'Caja 1')`, [C.A, E.A, S.A, C.B, E.B, S.B]);
 await db.query(`insert into miembros (empresa_id, user_id, nombre, rol) values
   ($1, $2, 'Carlos (dueño)', 'dueno'), ($1, $3, 'Laura (cajera)', 'cajero'), ($1, $4, 'Andrés (bodega)', 'bodeguero'),
@@ -64,6 +65,7 @@ await db.query(`insert into miembros (empresa_id, user_id, nombre, rol) values
 await db.query(`insert into resoluciones_dian (empresa_id, tipo, prefijo, desde, hasta, actual, vigente_hasta, pruebas) values
   ($1, 'pos', 'SETP', 990000000, 995000000, 989999999, '2027-12-31', true),
   ($1, 'factura', 'SETT', 1, 5000000, 0, '2027-12-31', true),
+  ($1, 'nota_credito', 'NCSE', 1, 1000000, 0, '2027-12-31', true),
   ($2, 'pos', 'POSB', 1, 1000000, 0, '2027-12-31', true)`, [E.A, E.B]);
 
 // Productos de la droguería demo: 400 del catálogo maestro con EAN, precio al público de ejemplo.
@@ -129,8 +131,8 @@ const minutosHoy = ahora.getUTCHours() * 60 + ahora.getUTCMinutes() - 5 * 60; //
 const lleno = process.env.REGENTA_CAPTURAS === "1"; // llena el día de hoy completo (solo para generar capturas)
 const plan = [];
 for (let dia = 55; dia >= 0; dia--) {
-  const domingo = new Date(ahora.getTime() - dia * 864e5).getUTCDay() === 0;
-  const n = dia === 0 && !lleno ? Math.max(0, Math.min(14, Math.floor((minutosHoy - 7 * 60) / 50))) : Math.round((domingo ? 9 : 15) + azar() * 10 + (55 - dia) / 10);
+  const dow = new Date(ahora.getTime() - dia * 864e5).getUTCDay(), domingo = dow === 0, fuerte = dow === 5 || dow === 6; // viernes y sábado se vende más
+  const n = dia === 0 && !lleno ? Math.max(0, Math.min(14, Math.floor((minutosHoy - 7 * 60) / 50))) : Math.round((domingo ? 9 : fuerte ? 21 : 15) + azar() * 10 + (55 - dia) / 10);
   for (let k = 0; k < n; k++) {
     const ls = [];
     for (let j = 0, m = 1 + Math.floor(azar() * 3); j < m; j++) {

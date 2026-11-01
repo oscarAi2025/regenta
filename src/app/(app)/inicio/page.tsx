@@ -4,9 +4,11 @@ import { comoUsuario } from "@/lib/db";
 import { leerSesion, puede } from "@/lib/sesion";
 import { Cabecera, Dato, pesos } from "@/components/ui/Cabecera";
 import { EstadoDian } from "@/components/ui/EstadoDian";
+import { Isotipo } from "@/components/Marca";
+import { PreguntarIA } from "@/components/app/PreguntarIA";
+import { MEDIO } from "@/lib/formato";
 
 export const metadata = { title: "Inicio" };
-const MEDIO: Record<string, string> = { efectivo: "Efectivo", nequi: "Nequi", daviplata: "Daviplata", bre_b: "Bre-B", transferencia: "Transferencia", tarjeta: "Tarjeta" };
 
 // $1,4 M · $850 mil: legible en barras angostas.
 const corto = (n: number) => (n >= 1e6 ? `$${(n / 1e6).toLocaleString("es-CO", { maximumFractionDigits: 1 })} M` : n >= 1e3 ? `$${Math.round(n / 1e3)} mil` : pesos(n));
@@ -20,8 +22,8 @@ export default async function Inicio() {
       select count(*)::int ventas, coalesce(sum(total), 0)::float total, coalesce(avg(total), 0)::float promedio
       from ventas where empresa_id = $1 and estado = 'cerrada' and creado >= date_trunc('day', now() at time zone 'America/Bogota') at time zone 'America/Bogota'`, [s.empresa])).rows[0];
     const medios = (await c.query(`
-      select p.medio, sum(p.valor - case when p.medio = 'efectivo' then v.cambio else 0 end)::float valor
-      from pagos p join ventas v on v.id = p.venta_id
+      select p.medio, sum(p.valor - case when p.medio = 'efectivo' and p.primero_efectivo then v.cambio else 0 end)::float valor
+      from (select *, row_number() over (partition by venta_id, medio order by id) = 1 primero_efectivo from pagos) p join ventas v on v.id = p.venta_id
       where v.empresa_id = $1 and v.estado = 'cerrada' and v.creado >= date_trunc('day', now() at time zone 'America/Bogota') at time zone 'America/Bogota'
       group by p.medio order by 2 desc`, [s.empresa])).rows;
     const semana = (await c.query(`
@@ -35,24 +37,30 @@ export default async function Inicio() {
       where v.empresa_id = $1 and v.estado = 'cerrada' and v.creado >= date_trunc('day', now() at time zone 'America/Bogota') at time zone 'America/Bogota'`, [s.empresa])).rows[0] : null;
     const alertas = (await c.query(`
       select
-        (select count(distinct producto_id) from v_stock_lotes where empresa_id = $1 and unidades > 0 and vence <= current_date + 30)::int vencen,
-        (select count(*) from productos p where empresa_id = $1 and activo and coalesce((select sum(unidades) from v_stock_lotes where producto_id = p.id), 0) <= 0)::int agotados,
+        (select count(distinct producto_id) from v_stock_lotes where empresa_id = $1 and unidades > 0 and vence between current_date and current_date + 30)::int vencen,
+        (select count(*) from productos p where empresa_id = $1 and activo and coalesce((select sum(unidades) from v_stock_vigente where producto_id = p.id), 0) <= 0)::int agotados,
         (select count(*) from productos p where empresa_id = $1 and activo and stock_minimo > 0
-           and coalesce((select sum(unidades) from v_stock_lotes where producto_id = p.id), 0) between 1 and p.stock_minimo * p.unidades_por_caja)::int bajos,
+           and coalesce((select sum(unidades) from v_stock_vigente where producto_id = p.id), 0) between 1 and p.stock_minimo * p.unidades_por_caja)::int bajos,
         (select count(*) from documentos_dian where empresa_id = $1 and estado in ('pendiente', 'enviando'))::int dian_pend,
         (select count(*) from documentos_dian where empresa_id = $1 and estado = 'rechazado')::int dian_rech`, [s.empresa])).rows[0];
     const ultimas = (await c.query(`
       select v.id, v.prefijo || v.numero numero, v.total::float, v.estado, to_char(v.creado at time zone 'America/Bogota', 'HH24:MI') hora, d.estado dian
       from ventas v left join documentos_dian d on d.venta_id = v.id and d.tipo = v.tipo_doc
       where v.empresa_id = $1 order by v.creado desc limit 6`, [s.empresa])).rows;
+    // Una sola pasada por la predicción (cada función recorre 8 semanas de movimientos).
     const pred = puede.moverInventario(s.rol) ? (await c.query(`
-      select (select count(*) from prediccion_productos($1) where sugerido_unidades > 0 and venta_dia > 0)::int pedir,
-             (select count(*) from prediccion_productos($1) where venta_dia > 0 and dias_cobertura < 7)::int agotan,
-             (select count(*) from riesgo_vencimiento($1))::int lotes,
-             (select coalesce(sum(valor_en_riesgo), 0) from riesgo_vencimiento($1))::float riesgo`, [s.empresa])).rows[0] : null;
+      with p as materialized (select * from prediccion_productos($1)), r as materialized (select * from riesgo_vencimiento($1))
+      select (select count(*) from p where sugerido_unidades > 0 and venta_dia > 0)::int pedir,
+             (select count(*) from p where venta_dia > 0 and dias_cobertura < 7)::int agotan,
+             (select coalesce(json_agg(x), '[]') from (select nombre, floor(dias_cobertura)::int dias from p where venta_dia > 0 and dias_cobertura < 7 order by dias_cobertura, venta_dia desc limit 3) x) agotan_top,
+             (select count(*) from r)::int lotes,
+             (select coalesce(sum(valor_en_riesgo), 0) from r)::float riesgo,
+             (select json_build_object('nombre', nombre, 'lote', lote, 'unidades', unidades_en_riesgo, 'valor', valor_en_riesgo, 'dias', dias) from r order by coalesce(valor_en_riesgo, unidades_en_riesgo) desc limit 1) top_riesgo`, [s.empresa])).rows[0] as
+      { pedir: number; agotan: number; agotan_top: { nombre: string; dias: number }[]; lotes: number; riesgo: number; top_riesgo: { nombre: string; lote: string; unidades: number; valor: number | null; dias: number } | null } : null;
+    const hoyPatron = (await c.query(`select nombre, frente_al_promedio from patron_semanal($1) where dia = extract(isodow from (now() at time zone 'America/Bogota'))::int`, [s.empresa])).rows[0] as { nombre: string; frente_al_promedio: number | null } | undefined;
     const invima = (await c.query(`select count(*) filter (where nivel is not null and revisada is null)::int pendientes,
       count(*) filter (where nivel = 'lote' and revisada is null)::int lote from alertas_empresa($1)`, [s.empresa])).rows[0];
-    return { hoy, medios, semana, margen, alertas, ultimas, pred, invima };
+    return { hoy, medios, semana, margen, alertas, ultimas, pred, invima, hoyPatron };
   });
   const max = Math.max(1, ...d.semana.map((x) => x.total));
   const hora = Number(new Date().toLocaleString("en-US", { timeZone: "America/Bogota", hour: "numeric", hour12: false }));
@@ -83,17 +91,24 @@ export default async function Inicio() {
       )}
 
       {d.pred && (
-        <Link href="/prediccion" className="rounded-2xl bg-ink text-white p-5 grid sm:grid-cols-[1fr_auto] gap-4 items-center hover:brightness-110">
+        <section className="rounded-2xl bg-ink text-white p-5 sm:p-6 grid lg:grid-cols-[1.3fr_1fr] gap-6" aria-label="Prioridades de hoy">
           <div>
-            <p className="titulo text-xl">Lo que viene, según tus ventas</p>
-            <p className="mt-2 text-white/80 flex flex-wrap gap-x-6 gap-y-1">
-              <span><b className="num text-white text-lg">{d.pred.pedir}</b> para pedir</span>
-              <span><b className={`num text-lg ${d.pred.agotan ? "text-[#ffb4ab]" : "text-white"}`}>{d.pred.agotan}</b> se agotan en 7 días</span>
-              <span><b className="num text-white text-lg">{costos ? pesos(d.pred.riesgo) : d.pred.lotes + " lotes"}</b> se vencerían sin venderse</span>
-            </p>
+            <div className="flex items-center gap-2"><Isotipo size={26} claro /><h2 className="titulo text-2xl">Tus prioridades de hoy</h2></div>
+            <ol className="mt-4 grid gap-3 text-white/85">
+              {d.invima.lote > 0 && <li><Link href="/alertas" className="hover:underline"><b className="text-[#ffb4ab]">Separa el lote con alerta del INVIMA</b> que tienes en existencias.</Link></li>}
+              {d.pred.agotan > 0 && <li><Link href="/prediccion" className="hover:underline"><b className="text-white">{d.pred.agotan} productos se agotan esta semana</b>{d.pred.agotan_top.length ? `: ${d.pred.agotan_top.map((x) => x.nombre.split(" ").slice(0, 3).join(" ")).join(", ")}` : ""}. Tu pedido sugerido tiene {d.pred.pedir} productos.</Link></li>}
+              {d.pred.top_riesgo && <li><Link href="/prediccion?ver=vencimiento" className="hover:underline"><b className="text-white">Mueve el lote {d.pred.top_riesgo.lote}</b> de {d.pred.top_riesgo.nombre.split(" ").slice(0, 4).join(" ")}: vence en {d.pred.top_riesgo.dias} días y {d.pred.top_riesgo.unidades} unidades no alcanzarían a venderse{d.pred.top_riesgo.valor ? ` (${pesos(d.pred.top_riesgo.valor)})` : ""}.</Link></li>}
+              {d.hoyPatron?.frente_al_promedio != null && Math.abs(d.hoyPatron.frente_al_promedio) >= 10 && <li>Los {d.hoyPatron.nombre}{d.hoyPatron.nombre.endsWith("s") ? "" : "s"} sueles vender <b className="text-white">{d.hoyPatron.frente_al_promedio > 0 ? "+" : ""}{d.hoyPatron.frente_al_promedio} %</b> frente a tu promedio.</li>}
+            </ol>
           </div>
-          <span className="btn-primario">Ver pedido sugerido</span>
-        </Link>
+          <div className="grid content-start gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Link href="/prediccion" className="rounded-xl bg-white/10 p-3 hover:bg-white/15"><p className="text-sm text-white/70">Para pedir</p><p className="num titulo text-3xl">{d.pred.pedir}</p></Link>
+              <Link href="/prediccion?ver=vencimiento" className="rounded-xl bg-white/10 p-3 hover:bg-white/15"><p className="text-sm text-white/70">Se vencerían</p><p className="num titulo text-3xl">{costos ? pesos(d.pred.riesgo) : `${d.pred.lotes} lotes`}</p></Link>
+            </div>
+            <PreguntarIA pregunta="Explícame mis prioridades de hoy en la droguería y qué hago primero" />
+          </div>
+        </section>
       )}
 
       <div className="grid lg:grid-cols-[1.4fr_1fr] gap-5">

@@ -4,6 +4,10 @@ import { comoUsuario } from "@/lib/db";
 import { leerSesion } from "@/lib/sesion";
 import { Isotipo } from "@/components/Marca";
 import { Navegacion } from "@/components/Navegacion";
+import { Asistente } from "@/components/app/Asistente";
+import { Buscador } from "@/components/app/Buscador";
+import { BotonBuscar } from "@/components/app/BotonBuscar";
+import { iaActiva } from "@/lib/ia/claude";
 
 // La aplicación nunca se indexa: solo la portada comercial es pública.
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -17,16 +21,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[88px_1fr]">
       <aside className="bg-ink text-white lg:min-h-screen flex lg:flex-col items-center gap-2 px-3 py-3 lg:py-5 sticky top-0 z-20">
-        <Isotipo size={40} />
+        <Isotipo size={40} claro />
         <Navegacion rol={s.rol} />
       </aside>
       <div className="min-w-0">
         <header className="flex items-center justify-between gap-4 px-4 sm:px-6 h-14 border-b border-line bg-surface">
           <p className="truncate"><span className="font-semibold">{emp.nombre_comercial ?? emp.razon_social}</span><span className="text-muted text-sm"> · NIT {emp.nit}-{emp.dv}</span></p>
-          <p className="text-sm text-muted shrink-0">{s.nombre.split(" (")[0]} · {rol}</p>
+          <BotonBuscar />
+          <p className="text-sm text-muted shrink-0 hidden sm:block">{s.nombre.split(" (")[0]} · {rol}</p>
         </header>
         {children}
       </div>
+      <Buscador rol={s.rol} />
+      <Asistente activa={iaActiva()} />
     </div>
   );
 }

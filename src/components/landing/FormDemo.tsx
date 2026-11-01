@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 
-const WA = "573212141970";
+import { WHATSAPP as WA } from "@/lib/sitio";
 
 export function FormDemo() {
   const [estado, setEstado] = useState<"" | "enviando" | "ok">("");
@@ -12,7 +12,8 @@ export function FormDemo() {
     e.preventDefault();
     setError(""); setEstado("enviando");
     const d = Object.fromEntries(new FormData(e.currentTarget)) as Record<string, string>;
-    const r = await fetch("/api/demo", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...d, origen: typeof location !== "undefined" ? location.pathname + location.search : null }) });
+    const r = await fetch("/api/demo", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...d, origen: typeof location !== "undefined" ? location.pathname + location.search : null }) }).catch(() => null);
+    if (!r) { setError("Sin conexión. Escríbenos por WhatsApp."); setEstado(""); return; }
     if (r.ok) { setNombre(d.nombre); setEstado("ok"); return; }
     setError((await r.json().catch(() => ({}))).error ?? "No se pudo enviar. Escríbenos por WhatsApp."); setEstado("");
   }

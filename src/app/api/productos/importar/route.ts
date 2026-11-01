@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { comoUsuario } from "@/lib/db";
+import { comoUsuario, puestoDeTrabajo } from "@/lib/db";
 import { conSesion, json } from "@/lib/api";
 
 // Carga masiva de productos (y existencias iniciales) desde una hoja de cálculo exportada a CSV.
@@ -11,8 +11,8 @@ const Fila = z.object({
   laboratorio: z.string().trim().max(120).default(""),
   iva: z.coerce.number().refine((n) => [0, 5, 19].includes(n), "El IVA debe ser 0, 5 o 19"),
   unidades_por_caja: z.coerce.number().int().min(1).max(1000).default(1),
-  precio_caja: z.coerce.number().positive("Falta el precio de venta"),
-  precio_unidad: z.coerce.number().positive().optional(),
+  precio_caja: z.coerce.number().int("El precio va en pesos, sin centavos").positive("Falta el precio de venta"),
+  precio_unidad: z.coerce.number().int("El precio va en pesos, sin centavos").positive().optional(),
   stock_minimo: z.coerce.number().int().min(0).default(0),
   lote: z.string().trim().max(40).default(""),
   vence: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, "La fecha de vencimiento va como AAAA-MM-DD").or(z.literal("")).default(""),
@@ -20,7 +20,7 @@ const Fila = z.object({
   costo_unidad: z.coerce.number().min(0).optional(),
   registro_sanitario: z.string().trim().max(60).default(""),
 });
-const Peticion = z.object({ simular: z.boolean(), filas: z.array(z.record(z.string(), z.unknown())).min(1).max(5000) });
+const Peticion = z.object({ simular: z.boolean(), idem_key: z.string().max(80).nullish(), filas: z.array(z.record(z.string(), z.unknown())).min(1).max(5000) });
 
 const MENSAJES: Record<string, string> = { nombre: "nombre", codigo_barras: "código de barras (8 a 14 dígitos)", precio_caja: "precio de venta", iva: "IVA", unidades_por_caja: "unidades por caja", vence: "vence" };
 
@@ -65,8 +65,8 @@ export const POST = conSesion(async (s, req) => {
       if (f.cantidad_unidades > 0) lineas.push({ producto_id: id!, lote: f.lote, vence: f.vence || null, unidades: f.cantidad_unidades, ...(f.costo_unidad !== undefined ? { costo_unidad: f.costo_unidad } : {}) });
     }
     if (lineas.length) {
-      const sede = (await c.query(`select id from sedes where empresa_id = $1 order by creado limit 1`, [s.empresa])).rows[0];
-      await c.query(`select registrar_entrada($1)`, [{ empresa_id: s.empresa, sede_id: sede.id, tipo: "inicial", lineas }]);
+      const sede = { id: (await puestoDeTrabajo(c, s.empresa)).sede_id };
+      await c.query(`select registrar_entrada($1)`, [{ empresa_id: s.empresa, sede_id: sede.id, tipo: "inicial", lineas, idem_key: p.data.idem_key ?? null }]);
     }
     return { plan, aplicado: true };
   });

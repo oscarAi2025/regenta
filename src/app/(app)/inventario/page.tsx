@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
-import { comoUsuario } from "@/lib/db";
+import { comoUsuario, sinComodines } from "@/lib/db";
 import Link from "next/link";
 import { leerSesion, puede } from "@/lib/sesion";
 import { Cabecera } from "@/components/ui/Cabecera";
+import { pesos } from "@/lib/formato";
 
 export const metadata = { title: "Inventario" };
 
-const pesos = (n: number) => "$" + Math.round(n).toLocaleString("es-CO");
 const fmt = (d: string | null) => (d ? new Date(d + "T00:00:00").toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" }) : "—");
 const dias = (d: string | null) => (d ? Math.round((Date.parse(d + "T00:00:00") - Date.now()) / 864e5) : null);
 
@@ -25,16 +25,16 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
              count(*) filter (where vence between current_date + 31 and current_date + 90 and unidades > 0)::int v90
       from v_stock_lotes where empresa_id = $1`, [s.empresa])).rows[0];
     const agotados = (await c.query(`select count(*)::int n from productos p where empresa_id = $1 and activo
-      and coalesce((select sum(unidades) from v_stock_lotes where producto_id = p.id), 0) <= 0`, [s.empresa])).rows[0].n;
-    const valor = costos ? (await c.query(`select coalesce(sum(s.unidades * lc.costo_unidad), 0)::float v from v_stock_lotes s join lote_costos lc on lc.lote_id = s.lote_id where s.empresa_id = $1 and s.unidades > 0`, [s.empresa])).rows[0].v : null;
+      and coalesce((select sum(unidades) from v_stock_vigente where producto_id = p.id), 0) <= 0`, [s.empresa])).rows[0].n;
+    const valor = costos ? (await c.query(`select coalesce(sum(s.unidades * lc.costo_unidad), 0)::float v from v_stock_vigente s join lote_costos lc on lc.lote_id = s.lote_id where s.empresa_id = $1 and s.unidades > 0`, [s.empresa])).rows[0].v : null;
     const filtro = ver === "agotados" ? "and coalesce(st.unidades, 0) <= 0" : ver === "todos" ? "" : "and st.proximo <= current_date + 90";
-    const palabras = q.trim().toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6);
+    const palabras = q.trim().toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6).map(sinComodines);
     const filas: Fila[] = (await c.query(`
       select p.id, p.nombre, p.laboratorio, p.unidades_por_caja, p.precio_caja::float, p.stock_minimo, coalesce(st.unidades, 0)::int unidades,
         coalesce((select json_agg(json_build_object('lote', l.lote, 'vence', l.vence, 'unidades', l.unidades, 'costo', ${costos ? "(select costo_unidad::float from lote_costos where lote_id = l.lote_id)" : "null"}) order by l.vence nulls last)
                   from v_stock_lotes l where l.producto_id = p.id and l.unidades > 0), '[]') lotes
       from productos p
-      left join lateral (select sum(unidades) unidades, min(vence) filter (where unidades > 0) proximo from v_stock_lotes where producto_id = p.id) st on true
+      left join lateral (select sum(unidades) filter (where vence is null or vence >= current_date) unidades, min(vence) filter (where unidades > 0) proximo from v_stock_lotes where producto_id = p.id) st on true
       where p.empresa_id = $1 and p.activo ${filtro}
         and (cardinality($2::text[]) = 0 or (select bool_and(lower(p.nombre || ' ' || coalesce(p.laboratorio, '')) like '%' || w || '%') from unnest($2::text[]) w))
       order by st.proximo nulls last, p.nombre limit 200`, [s.empresa, palabras])).rows;

@@ -1,3 +1,4 @@
+import { BotonDemo } from "@/components/landing/BotonDemo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -52,7 +53,7 @@ export default async function PaginaGuia({ params }: { params: Promise<{ slug: s
                 <aside className="mt-8 rounded-2xl bg-ink text-white p-6">
                   <p className="font-cond text-2xl" style={{ fontWeight: 700 }}>{g.cta.titulo}</p>
                   <p className="mt-2 text-white/80">{g.cta.texto}</p>
-                  <div className="mt-4 flex flex-wrap gap-2"><a href="/demo" className="btn-primario">Probar la demo ahora</a><a href={wa(`Hola, leí la guía «${g.h1}» y quiero conocer Regenta.`)} className="btn border-2 border-white/30 text-white">Escribir por WhatsApp</a></div>
+                  <div className="mt-4 flex flex-wrap gap-2"><BotonDemo className="btn-primario" /><a href={wa(`Hola, leí la guía «${g.h1}» y quiero conocer Regenta.`)} className="btn border-2 border-white/30 text-white">Escribir por WhatsApp</a></div>
                 </aside>
               )}
             </section>
