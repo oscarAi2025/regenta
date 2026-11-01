@@ -1,8 +1,12 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { comoUsuario } from "@/lib/db";
 import { leerSesion } from "@/lib/sesion";
 import { Isotipo } from "@/components/Marca";
 import { Navegacion } from "@/components/Navegacion";
+
+// La aplicación nunca se indexa: solo la portada comercial es pública.
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const s = await leerSesion();

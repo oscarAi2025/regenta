@@ -13,7 +13,7 @@ export function EntrarDemo() {
   async function entrar(uid: string) {
     setCargando(uid); setError("");
     const r = await fetch("/api/sesion", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ uid }) });
-    if (r.ok) { location.href = (await r.json()).rol === "bodeguero" ? "/inventario" : "/caja"; return; }
+    if (r.ok) { { const rol = (await r.json()).rol; location.href = rol === "cajero" ? "/caja" : "/inicio"; } return; }
     setError((await r.json().catch(() => ({}))).error ?? "No se pudo entrar"); setCargando(null);
   }
   return (

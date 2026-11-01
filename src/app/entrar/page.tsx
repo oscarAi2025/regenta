@@ -3,10 +3,10 @@ import { Marca } from "@/components/Marca";
 import { demoActiva, leerSesion } from "@/lib/sesion";
 import { EntrarDemo } from "./EntrarDemo";
 
-export const metadata = { title: "Entrar" };
+export const metadata = { title: "Entrar", robots: { index: false, follow: true } };
 
 export default async function Entrar() {
-  if (await leerSesion()) redirect("/caja");
+  if (await leerSesion()) redirect("/inicio");
   return (
     <main className="min-h-screen grid lg:grid-cols-[1.1fr_1fr]">
       <section className="bg-ink text-white px-6 py-10 sm:px-12 flex flex-col justify-between gap-10">
@@ -20,7 +20,7 @@ export default async function Entrar() {
           </p>
         </div>
         <dl className="grid grid-cols-3 gap-4 max-w-lg text-sm">
-          {[["Lote", "sale primero el que vence antes"], ["DIAN", "POS y factura electrónica"], ["Nube", "y la caja sigue si se cae internet"]].map(([t, d]) => (
+          {[["Lote", "sale primero el que vence antes"], ["Unidad", "vende por caja o por pastilla"], ["Nube", "desde cualquier equipo, sin instalar nada"]].map(([t, d]) => (
             <div key={t} className="border-t border-white/20 pt-3"><dt className="font-cond text-xl" style={{ fontWeight: 600 }}>{t}</dt><dd className="text-white/65 mt-1">{d}</dd></div>
           ))}
         </dl>

@@ -18,7 +18,7 @@ async function entrar(ctx, quien) {
   p.on("console", (m) => m.type() === "error" && errs.push(m.text()));
   await p.goto(B + "/entrar");
   await p.getByRole("button", { name: new RegExp(quien) }).click();
-  await p.waitForURL(/\/(caja|inventario)/);
+  await p.waitForURL(/\/(caja|inicio)/);
   return { p, errs };
 }
 

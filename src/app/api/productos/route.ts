@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { comoUsuario, mensajeError } from "@/lib/db";
+import { conSesion, json } from "@/lib/api";
+import { ProductoEntrada, primerError } from "@/lib/validar";
 import { leerSesion } from "@/lib/sesion";
 
 /** Búsqueda para la caja: por código de barras exacto o por palabras (todas deben aparecer en nombre o laboratorio). */
@@ -40,3 +42,23 @@ export async function GET(req: Request) {
     return NextResponse.json({ error }, { status });
   }
 }
+
+/** Crea un producto en la droguería (desde el catálogo maestro o propio). Solo dueño o administrador (lo exige la RLS). */
+export const POST = conSesion(async (s, req) => {
+  const p = ProductoEntrada.safeParse(await req.json().catch(() => null));
+  if (!p.success) return json({ error: primerError(p.error) }, 400);
+  const d = p.data;
+  if (d.unidades_por_caja === 1) d.precio_unidad = null;
+  const r = await comoUsuario(s, async (c) => {
+    if (d.ean) {
+      const ya = (await c.query(`select nombre from productos where empresa_id = $1 and ean = $2 and activo`, [s.empresa, d.ean])).rows[0];
+      if (ya) return { error: `Ya tienes un producto con ese código de barras: ${ya.nombre}` };
+    }
+    const { rows } = await c.query(
+      `insert into productos (empresa_id, maestro_id, nombre, laboratorio, ean, iva, categoria, unidades_por_caja, precio_caja, precio_unidad, stock_minimo)
+       values ($1, $2, $3, $4, nullif($5, ''), $6, $7, $8, $9, $10, $11) returning id`,
+      [s.empresa, d.maestro_id ?? null, d.nombre, d.laboratorio || null, d.ean ?? "", d.iva, d.categoria || null, d.unidades_por_caja, d.precio_caja, d.precio_unidad ?? null, d.stock_minimo]);
+    return { id: rows[0].id };
+  });
+  return "error" in r ? json(r, 409) : json(r, 201);
+});

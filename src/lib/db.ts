@@ -51,7 +51,7 @@ export async function sinRLS<T>(fn: (c: Tx) => Promise<T>): Promise<T> {
 export function mensajeError(e: unknown): { status: number; error: string } {
   const err = e as { code?: string; message?: string };
   if (err?.code === "P0001") return { status: 422, error: err.message ?? "Operación no válida" };
-  if (err?.code === "42501") return { status: 403, error: err.message?.includes("permission denied") ? "No tienes permiso para esta acción" : err.message ?? "Sin permiso" };
+  if (err?.code === "42501") return { status: 403, error: /permission denied|row-level security/.test(err.message ?? "") ? "No tienes permiso para esta acción" : err.message ?? "Sin permiso" };
   console.error(e);
   return { status: 500, error: "Error interno. Inténtalo de nuevo." };
 }

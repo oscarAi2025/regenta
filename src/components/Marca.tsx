@@ -15,7 +15,7 @@ export function Marca({ claro = false }: { claro?: boolean }) {
       <Isotipo />
       <span className="leading-none">
         <span className={`block font-cond text-[22px] font-700 tracking-tight ${claro ? "text-white" : "text-ink"}`} style={{ fontWeight: 700 }}>Regenta</span>
-        <span className={`block text-[11px] ${claro ? "text-white/70" : "text-muted"}`}>by Farmagenéricos Colombia</span>
+        <span className={`block text-[11px] whitespace-nowrap ${claro ? "text-white/70" : "text-muted"}`}>by Farmagenéricos Colombia</span>
       </span>
     </span>
   );

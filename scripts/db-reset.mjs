@@ -97,4 +97,51 @@ await db.query("set local role authenticated");
 await db.query(`select registrar_entrada($1::jsonb)`, [JSON.stringify({ empresa_id: E.A, sede_id: S.A, tipo: "inicial", lineas })]);
 await db.query("commit");
 console.log("demo: productos", prods.length, "· lotes", lineas.length);
+
+// Ventas de la última semana para que la demo (y sus capturas) muestren un negocio andando. Se registran por
+// registrar_venta como la cajera; luego se reparten en los 7 días (solo aquí, en la siembra, sin triggers).
+let semilla = 7;
+const azar = () => ((semilla = (semilla * 16807) % 2147483647) - 1) / 2147483646;
+const { rows: vendibles } = await db.query(`select p.id, p.precio_caja::float pc, p.precio_unidad::float pu, p.unidades_por_caja upc from productos p
+  where p.empresa_id = $1 and exists (select 1 from v_stock_lotes s where s.producto_id = p.id and s.unidades >= p.unidades_por_caja * 2) order by p.nombre`, [E.A]);
+const MEDIOS = ["efectivo", "efectivo", "efectivo", "nequi", "nequi", "daviplata", "tarjeta", "bre_b"];
+const ahora = new Date();
+const minutosHoy = ahora.getUTCHours() * 60 + ahora.getUTCMinutes() - 5 * 60; // hora de Bogotá
+const ventasDemo = [];
+for (let dia = 6; dia >= 0; dia--) {
+  // REGENTA_CAPTURAS=1 llena el día de hoy completo (solo para generar las capturas de la portada).
+  const lleno = process.env.REGENTA_CAPTURAS === "1";
+  const n = dia === 0 && !lleno ? Math.max(0, Math.min(14, Math.floor((minutosHoy - 7 * 60) / 50))) : 14 + Math.floor(azar() * 12);
+  for (let k = 0; k < n; k++) {
+    const ls = [];
+    for (let j = 0, m = 1 + Math.floor(azar() * 3); j < m; j++) {
+      const pr = vendibles[Math.floor(azar() * vendibles.length)];
+      if (ls.some((l) => l.producto_id === pr.id)) continue;
+      const suelto = pr.pu && pr.upc > 1 && azar() < 0.5;
+      ls.push({ producto_id: pr.id, presentacion: suelto ? "unidad" : "caja", cantidad: suelto ? 2 + Math.floor(azar() * 8) : 1, precio: suelto ? pr.pu : pr.pc });
+    }
+    const total = ls.reduce((a, l) => a + l.precio * l.cantidad, 0);
+    const medio = MEDIOS[Math.floor(azar() * MEDIOS.length)];
+    const valor = medio === "efectivo" ? Math.ceil(total / 10000) * 10000 : total;
+    await db.query("begin");
+    await db.query(`select set_config('request.jwt.claims', $1, true)`, [JSON.stringify({ sub: U.cajeraA, role: "authenticated" })]);
+    await db.query("set local role authenticated");
+    try {
+      const r = (await db.query(`select registrar_venta($1::jsonb) r`, [JSON.stringify({ empresa_id: E.A, sede_id: S.A, caja_id: C.A, idem_key: crypto.randomUUID(), tipo_doc: "pos",
+        lineas: ls.map(({ precio, ...l }) => l), pagos: [{ medio, valor }] })])).rows[0].r;
+      await db.query("commit");
+      // hora del día entre 7:00 y 21:00 (hoy: antes de la hora actual)
+      const tope = dia === 0 && !lleno ? Math.max(7 * 60 + 1, minutosHoy - 2) : 21 * 60;
+      ventasDemo.push({ id: r.venta_id, dia, minuto: 7 * 60 + Math.floor(azar() * (tope - 7 * 60)) });
+    } catch (e) { await db.query("rollback"); if (!globalThis.__avisado) { globalThis.__avisado = 1; console.error("venta demo:", e.message); } }
+  }
+}
+await db.query("begin");
+await db.query("set local session_replication_role = replica");
+for (const v of ventasDemo) {
+  await db.query(`update ventas set creado = (date_trunc('day', now() at time zone 'America/Bogota') - make_interval(days => $2) + make_interval(mins => $3)) at time zone 'America/Bogota' where id = $1`, [v.id, v.dia, v.minuto]);
+  await db.query(`update documentos_dian set estado = 'aceptado', simulado = true, intentos = 1, cufe = encode(sha384(convert_to('SIMULADO-' || id::text, 'UTF8')), 'hex') where venta_id = $1`, [v.id]);
+}
+await db.query("commit");
+console.log("demo: ventas", ventasDemo.length);
 await db.end();

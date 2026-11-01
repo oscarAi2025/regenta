@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { comoUsuario } from "@/lib/db";
+import Link from "next/link";
 import { leerSesion, puede } from "@/lib/sesion";
+import { Cabecera } from "@/components/ui/Cabecera";
 
 export const metadata = { title: "Inventario" };
 
@@ -41,7 +43,9 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
   const tabs = [["vencen", "Vencen en 90 días"], ["agotados", "Agotados"], ["todos", "Todo"]] as const;
   return (
     <main className="p-4 sm:p-6">
-      <h1 className="font-cond text-3xl" style={{ fontWeight: 700 }}>Inventario</h1>
+      <Cabecera titulo="Inventario" sub="Lotes, vencimientos y lo que se acabó.">
+        {puede.moverInventario(s.rol) && <Link href="/inventario/recibir" className="btn-primario">Recibir mercancía</Link>}
+      </Cabecera>
       <div className="mt-4 grid grid-cols-2 lg:grid-cols-5 gap-3">
         {[["Lotes vencidos", datos.resumen.vencidos, "text-alerta"], ["Vencen en 30 días", datos.resumen.v30, "text-alerta"], ["Vencen en 31–90 días", datos.resumen.v90, "text-aviso"], ["Productos agotados", datos.agotados, "text-ink"]].map(([t, n, c]) => (
           <div key={t as string} className="bg-surface border border-line rounded-xl px-4 py-3">

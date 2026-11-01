@@ -1,0 +1,102 @@
+"use client";
+import { useEffect, useRef, useState } from "react";
+
+type Prod = { id: string; nombre: string; laboratorio: string | null; ean: string | null; unidades_por_caja: number; unidades: number };
+type Linea = { key: number; p: Prod; lote: string; vence: string; cajas: string; sueltas: string; costo: string };
+
+const n = (s: string) => Number(String(s).replace(/\D/g, "")) || 0;
+const fmt = (s: string) => (s.replace(/\D/g, "") ? Number(s.replace(/\D/g, "")).toLocaleString("es-CO") : "");
+
+export function Recibir({ verCosto }: { verCosto: boolean }) {
+  const [q, setQ] = useState("");
+  const [res, setRes] = useState<Prod[]>([]);
+  const [lineas, setLineas] = useState<Linea[]>([]);
+  const [proveedor, setProveedor] = useState("");
+  const [error, setError] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [hecho, setHecho] = useState<number | null>(null);
+  const buscar = useRef<HTMLInputElement>(null);
+  const clave = useRef(0);
+
+  useEffect(() => {
+    if (q.trim().length < 2) { setRes([]); return; }
+    const ctl = new AbortController();
+    const t = setTimeout(() => fetch(`/api/productos?q=${encodeURIComponent(q)}`, { signal: ctl.signal }).then((r) => r.json()).then((j) => {
+      const ps: (Prod & { exacto: boolean })[] = j.productos ?? [];
+      if (ps[0]?.exacto) { agregar(ps[0]); return; } // lector de código de barras: entra directo
+      setRes(ps.slice(0, 8));
+    }).catch(() => {}), 160);
+    return () => { clearTimeout(t); ctl.abort(); };
+  }, [q]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function agregar(p: Prod) {
+    const key = ++clave.current;
+    setLineas((ls) => [...ls, { key, p, lote: "", vence: "", cajas: "", sueltas: "", costo: "" }]);
+    setQ(""); setRes([]); setHecho(null);
+    setTimeout(() => document.getElementById(`lote-${key}`)?.focus(), 0);
+  }
+  const cambiar = (key: number, k: keyof Linea, v: string) => setLineas((ls) => ls.map((l) => (l.key === key ? { ...l, [k]: v } : l)));
+  const unidades = (l: Linea) => n(l.cajas) * l.p.unidades_por_caja + n(l.sueltas);
+
+  async function guardar() {
+    setError("");
+    const mal = lineas.find((l) => !l.lote.trim() || unidades(l) <= 0);
+    if (mal) { setError(`Falta ${!mal.lote.trim() ? "el lote" : "la cantidad"} de ${mal.p.nombre}.`); document.getElementById(`lote-${mal.key}`)?.focus(); return; }
+    setEnviando(true);
+    const r = await fetch("/api/inventario", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+      tipo: "compra", motivo: proveedor.trim() ? `Proveedor: ${proveedor.trim()}` : null,
+      lineas: lineas.map((l) => ({ producto_id: l.p.id, lote: l.lote.trim(), vence: l.vence || null, unidades: unidades(l),
+        ...(verCosto && n(l.costo) ? { costo_unidad: Math.round(n(l.costo) / (n(l.cajas) && !n(l.sueltas) && l.p.unidades_por_caja > 1 ? l.p.unidades_por_caja : 1)) } : {}) })) }) });
+    setEnviando(false);
+    if (!r.ok) { setError((await r.json().catch(() => ({}))).error ?? "No se pudo guardar la entrada"); return; }
+    setHecho(lineas.reduce((a, l) => a + unidades(l), 0)); setLineas([]); setProveedor("");
+    buscar.current?.focus();
+  }
+
+  const total = lineas.reduce((a, l) => a + unidades(l), 0);
+
+  return (
+    <div className="grid gap-4 max-w-5xl">
+      {hecho !== null && <p role="status" className="rounded-xl bg-cruz-soft text-cruz font-semibold px-4 py-3">Entrada guardada: {hecho.toLocaleString("es-CO")} unidades ya están disponibles para vender.</p>}
+      <section className="tarjeta p-4 sm:p-5 grid sm:grid-cols-[1fr_260px] gap-3">
+        <div className="relative">
+          <label htmlFor="buscar-recibir" className="etiqueta">Producto</label>
+          <input id="buscar-recibir" ref={buscar} autoFocus value={q} onChange={(e) => setQ(e.target.value)} className="campo h-12 text-lg" placeholder="Escanea o escribe el nombre" autoComplete="off" />
+          {res.length > 0 && (
+            <ul className="absolute z-10 mt-1 w-full tarjeta shadow-lg divide-y divide-line max-h-80 overflow-auto">
+              {res.map((p) => <li key={p.id}><button onClick={() => agregar(p)} className="w-full text-left px-4 py-2.5 hover:bg-paper"><span className="font-semibold">{p.nombre}</span><span className="block text-sm text-muted">{p.laboratorio ?? "Genérico"} · hay {p.unidades} und</span></button></li>)}
+            </ul>
+          )}
+          {q.trim().length >= 2 && res.length === 0 && <p className="text-sm text-muted mt-2">¿No aparece? Créalo primero en <a href="/productos/nuevo" className="underline">Productos → Agregar</a>.</p>}
+        </div>
+        <div><label htmlFor="proveedor" className="etiqueta">Proveedor o factura <span className="text-muted font-normal">(opcional)</span></label><input id="proveedor" value={proveedor} onChange={(e) => setProveedor(e.target.value)} className="campo h-12" placeholder="Ej.: factura 4521" /></div>
+      </section>
+
+      {lineas.length === 0 ? (
+        <p className="tarjeta p-8 text-center text-muted">Cada producto que escanees aparece aquí para ponerle lote, vencimiento y cantidad.</p>
+      ) : (
+        <section className="grid gap-3">
+          {lineas.map((l) => (
+            <article key={l.key} className="tarjeta p-4 grid gap-3">
+              <div className="flex items-start gap-3"><div className="flex-1"><p className="font-semibold">{l.p.nombre}</p><p className="text-sm text-muted">{l.p.laboratorio ?? "Genérico"}{l.p.unidades_por_caja > 1 ? ` · caja x ${l.p.unidades_por_caja}` : ""}</p></div>
+                <button onClick={() => setLineas((ls) => ls.filter((x) => x.key !== l.key))} className="text-sm text-alerta underline" aria-label={`Quitar ${l.p.nombre}`}>Quitar</button></div>
+              <div className={`grid grid-cols-2 ${verCosto ? "md:grid-cols-5" : "md:grid-cols-4"} gap-3`}>
+                <div><label htmlFor={`lote-${l.key}`} className="etiqueta">Lote</label><input id={`lote-${l.key}`} value={l.lote} onChange={(e) => cambiar(l.key, "lote", e.target.value.toUpperCase())} className="campo" /></div>
+                <div><label htmlFor={`vence-${l.key}`} className="etiqueta">Vence</label><input id={`vence-${l.key}`} type="date" value={l.vence} onChange={(e) => cambiar(l.key, "vence", e.target.value)} className="campo" /></div>
+                {l.p.unidades_por_caja > 1 && <div><label htmlFor={`cajas-${l.key}`} className="etiqueta">Cajas</label><input id={`cajas-${l.key}`} inputMode="numeric" value={l.cajas} onChange={(e) => cambiar(l.key, "cajas", e.target.value.replace(/\D/g, ""))} className="campo num" /></div>}
+                <div><label htmlFor={`sueltas-${l.key}`} className="etiqueta">{l.p.unidades_por_caja > 1 ? "Unidades sueltas" : "Unidades"}</label><input id={`sueltas-${l.key}`} inputMode="numeric" value={l.sueltas} onChange={(e) => cambiar(l.key, "sueltas", e.target.value.replace(/\D/g, ""))} className="campo num" /></div>
+                {verCosto && <div><label htmlFor={`costo-${l.key}`} className="etiqueta">Costo {l.p.unidades_por_caja > 1 && n(l.cajas) && !n(l.sueltas) ? "por caja" : "por unidad"}</label><input id={`costo-${l.key}`} inputMode="numeric" value={fmt(l.costo)} onChange={(e) => cambiar(l.key, "costo", e.target.value)} className="campo num" placeholder="$" /></div>}
+              </div>
+              <p className="text-sm text-muted num">Entran {unidades(l).toLocaleString("es-CO")} unidades{l.vence && Date.parse(l.vence) < Date.now() + 90 * 864e5 ? <span className="text-aviso font-semibold"> · vence en menos de 90 días</span> : null}</p>
+            </article>
+          ))}
+          {error && <p role="alert" className="text-alerta">{error}</p>}
+          <div className="tarjeta p-4 flex flex-wrap items-center gap-3 sticky bottom-3">
+            <p className="flex-1 font-semibold num">{lineas.length} producto{lineas.length === 1 ? "" : "s"} · {total.toLocaleString("es-CO")} unidades</p>
+            <button onClick={guardar} disabled={enviando} className="btn-primario">{enviando ? "Guardando…" : "Guardar entrada"}</button>
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}

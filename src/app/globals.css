@@ -49,3 +49,20 @@ body { font-family: Barlow, system-ui, sans-serif; font-size: 16px; -webkit-font
 kbd { font-family: "Barlow Semi Condensed", sans-serif; font-weight: 600; font-size: 12px; padding: 1px 6px; border-radius: 5px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* Botones y campos: una sola forma por tipo en toda la app. */
+@layer components {
+  .btn { @apply inline-flex items-center justify-center gap-2 h-11 px-5 rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:pointer-events-none; }
+  .btn-primario { @apply btn bg-cruz text-cruz-ink hover:brightness-110; }
+  .btn-oscuro { @apply btn bg-ink text-white hover:brightness-125; }
+  .btn-borde { @apply btn border-2 border-line bg-surface text-ink hover:border-ink; }
+  .btn-peligro { @apply btn border-2 border-alerta text-alerta bg-surface hover:bg-alerta hover:text-white; }
+  .campo { @apply w-full h-11 rounded-xl border-2 border-line bg-surface px-3.5 outline-none focus:border-ink; }
+  .etiqueta { @apply block text-sm font-semibold mb-1.5; }
+  .tarjeta { @apply bg-surface border border-line rounded-2xl; }
+  .titulo { font-family: "Barlow Semi Condensed", Barlow, sans-serif; font-weight: 700; letter-spacing: -0.01em; }
+}
+
+/* Portada: el tiquete se imprime una sola vez al cargar (con movimiento reducido aparece completo). */
+@keyframes imprime { from { opacity: 0; transform: translateY(-6px); clip-path: inset(0 0 100% 0); } to { opacity: 1; transform: none; clip-path: inset(0); } }
+.imprime { animation: imprime .42s cubic-bezier(.2,.7,.2,1) backwards; }

@@ -1,0 +1,28 @@
+import { comoUsuario } from "@/lib/db";
+import { conSesion, json } from "@/lib/api";
+import { ProductoEntrada, primerError } from "@/lib/validar";
+
+/** Edita un producto (precio, fracción, mínimo, datos). El cambio de precio queda en la auditoría (trigger). */
+export const PATCH = conSesion(async (s, req, ctx) => {
+  const { id } = await ctx.params;
+  const body = await req.json().catch(() => null);
+  if (body && body.activo === false) {
+    const n = await comoUsuario(s, async (c) => (await c.query(`update productos set activo = false where id = $1 and empresa_id = $2`, [id, s.empresa])).rowCount);
+    return n ? json({ ok: true }) : json({ error: "No tienes permiso para retirar productos" }, 403);
+  }
+  const p = ProductoEntrada.safeParse(body);
+  if (!p.success) return json({ error: primerError(p.error) }, 400);
+  const d = p.data;
+  if (d.unidades_por_caja === 1) d.precio_unidad = null;
+  const n = await comoUsuario(s, async (c) => {
+    if (d.ean) {
+      const ya = (await c.query(`select nombre from productos where empresa_id = $1 and ean = $2 and activo and id <> $3`, [s.empresa, d.ean, id])).rows[0];
+      if (ya) throw Object.assign(new Error(`Ya tienes otro producto con ese código de barras: ${ya.nombre}`), { code: "P0001" });
+    }
+    return (await c.query(
+      `update productos set nombre = $3, laboratorio = $4, ean = nullif($5, ''), iva = $6, unidades_por_caja = $7, precio_caja = $8, precio_unidad = $9, stock_minimo = $10
+       where id = $1 and empresa_id = $2`,
+      [id, s.empresa, d.nombre, d.laboratorio || null, d.ean ?? "", d.iva, d.unidades_por_caja, d.precio_caja, d.precio_unidad ?? null, d.stock_minimo])).rowCount;
+  });
+  return n ? json({ ok: true }) : json({ error: "No tienes permiso para editar productos" }, 403);
+});
