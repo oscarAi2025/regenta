@@ -7,6 +7,7 @@ import { PAGINAS, type Pagina } from "@/content/paginas";
 import { guia } from "@/content/guias";
 import { SITIO, wa } from "@/lib/sitio";
 import { Sello } from "./Sello";
+import { Cumplimiento } from "./Cumplimiento";
 
 /** Plantilla de las páginas por función y por perfil: promesa, captura, beneficios, cómo funciona, preguntas, guías y CTA. */
 export function PaginaProducto({ p }: { p: Pagina }) {
@@ -41,6 +42,7 @@ export function PaginaProducto({ p }: { p: Pagina }) {
             {p.captura && <img src={p.captura.src} alt={p.captura.alt} width={1440} height={900} className="entra rounded-2xl border-4 border-white/10 w-full h-auto shadow-[0_40px_80px_-30px_rgba(0,0,0,.7)]" style={{ animationDelay: "150ms" }} />}
           </div>
         </section>
+        <Cumplimiento />
         <section className="max-w-6xl mx-auto px-4 sm:px-6 py-14 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {p.beneficios.map(([t, d], i) => <div key={t} className={`tarjeta p-5 border-t-[5px] ${["border-t-teal-500", "border-t-sky-500", "border-t-amber-400", "border-t-violet-500"][i % 4]}`}><h2 className="font-cond text-2xl leading-tight" style={{ fontWeight: 700 }}>{t}</h2><p className="mt-2 text-muted leading-relaxed">{d}</p></div>)}
         </section>

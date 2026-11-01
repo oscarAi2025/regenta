@@ -12,6 +12,7 @@ import { HeroProducto } from "@/components/landing/HeroProducto";
 import { Desfile } from "@/components/landing/Desfile";
 import { Sello } from "@/components/landing/Sello";
 import { IncluyeTodo } from "@/components/landing/IncluyeTodo";
+import { Cumplimiento } from "@/components/landing/Cumplimiento";
 import { GUIAS } from "@/content/guias";
 import { PAGINAS } from "@/content/paginas";
 import { mesAnual, PLANES, SOCIO } from "@/lib/planes";
@@ -88,6 +89,7 @@ export default function Portada() {
           </div>
         </section>
 
+        <Cumplimiento />
         <Desfile />
 
         {/* 2. No es un POS genérico. */}

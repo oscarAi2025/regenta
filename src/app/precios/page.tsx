@@ -7,6 +7,7 @@ import { BarraMovil } from "@/components/landing/BarraMovil";
 import { BotonDemo } from "@/components/landing/BotonDemo";
 import { CalculadoraSocio } from "@/components/landing/CalculadoraSocio";
 import { IncluyeTodo } from "@/components/landing/IncluyeTodo";
+import { Cumplimiento } from "@/components/landing/Cumplimiento";
 import { mesAnual, PLANES, DOC_EXTRA, NOTA_PRECIOS, SOCIO } from "@/lib/planes";
 import { pesos } from "@/lib/formato";
 import { SITIO, wa } from "@/lib/sitio";
@@ -74,7 +75,8 @@ export default function Precios() {
           </div>
         </section>
 
-        <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-6"><IncluyeTodo titulo="Pagues lo que pagues, te llevas todo esto" /></section>
+        <Cumplimiento claro />
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-10"><IncluyeTodo titulo="Pagues lo que pagues, te llevas todo esto" /></section>
 
         <section id="planes" className="max-w-6xl mx-auto px-4 sm:px-6 py-10 scroll-mt-20">
           <h2 className="font-cond text-[36px] sm:text-[46px] leading-none" style={{ fontWeight: 700 }}>Sin asociarte: precio mensual</h2>
