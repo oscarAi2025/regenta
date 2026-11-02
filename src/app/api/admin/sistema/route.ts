@@ -3,11 +3,12 @@ import { NextResponse } from "next/server";
 import { conAdmin, evento } from "@/lib/admin";
 import { procesarCola } from "@/lib/dian";
 import { sincronizarInvima } from "@/lib/invima";
-import { enviarPendientes, programarRecordatorios } from "@/lib/correo";
+import { encolar, enviarAhora, enviarPendientes, programarRecordatorios } from "@/lib/correo";
+import { sinRLS } from "@/lib/db";
 
 /** Acciones de sistema con un clic: procesar la cola DIAN o traer las alertas nuevas del INVIMA. */
 export const POST = conAdmin(async (a, req) => {
-  const p = z.object({ accion: z.enum(["dian", "invima", "correos", "matias"]) }).safeParse(await req.json().catch(() => null));
+  const p = z.object({ accion: z.enum(["dian", "invima", "correos", "matias", "probar_correo"]) }).safeParse(await req.json().catch(() => null));
   if (!p.success) return NextResponse.json({ error: "Acción no válida" }, { status: 400 });
   if (p.data.accion === "dian") {
     const r = await procesarCola(50);
@@ -36,6 +37,22 @@ export const POST = conAdmin(async (a, req) => {
     } catch (e) {
       return NextResponse.json({ error: `MATIAS no respondió: ${(e as Error).message}` }, { status: 502 });
     }
+  }
+  if (p.data.accion === "probar_correo") {
+    // Envía la bienvenida al correo del propio superadministrador y dice cómo salió (enviado, simulado o el error).
+    const clave = `prueba:${a.uid}:${Date.now()}`;
+    const para = await sinRLS(async (c) => {
+      const email = (await c.query(`select email from cuentas where id = $1`, [a.uid])).rows[0]?.email as string | undefined;
+      if (email) await encolar(c, { clave, para: email, plantilla: "bienvenida", datos: { nombre: a.nombre, empresa: "Regenta" } });
+      return email;
+    });
+    if (!para) return NextResponse.json({ error: "Tu cuenta no tiene correo" }, { status: 400 });
+    await enviarAhora(clave);
+    const r = (await sinRLS((c) => c.query(`select estado, error from correos where clave = $1`, [clave]))).rows[0];
+    await evento(a, "probar_correo", null, { estado: r?.estado });
+    if (r?.estado === "enviado") return NextResponse.json({ ok: true, mensaje: `Correo de prueba enviado a ${para}` });
+    if (r?.estado === "simulado") return NextResponse.json({ error: "Correo simulado: falta configurar el envío (RESEND_API_KEY y CORREO_REMITENTE, o SMTP)" }, { status: 400 });
+    return NextResponse.json({ error: `No salió (${r?.estado ?? "sin estado"}): ${r?.error ?? "sin detalle"}` }, { status: 502 });
   }
   if (p.data.accion === "correos") {
     const rec = await programarRecordatorios();

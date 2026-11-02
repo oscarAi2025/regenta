@@ -46,6 +46,10 @@ export default async function Sistema() {
         <p className="text-sm text-muted">Emisor del servidor: <b>{process.env.REGENTA_DIAN ?? "simulado"}</b> · API: {process.env.MATIAS_URL ?? "sandbox"} · token {process.env.MATIAS_TOKEN ? "configurado" : "sin configurar"}. La droguería de demostración emite siempre en simulado.</p>
       </section>
       <section className="tarjeta p-5 grid gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="titulo text-xl">Correos</h2><Accion url="/api/admin/sistema" cuerpo={{ accion: "probar_correo" }} texto="Enviarme un correo de prueba" clase="btn-oscuro h-10 text-sm" /></div>
+        <p className="text-sm text-muted">Envío: {process.env.RESEND_API_KEY ? "Resend" : process.env.SMTP_USER ? "Google Workspace (SMTP)" : "sin configurar (simulado)"} · remitente {process.env.CORREO_REMITENTE ?? "—"}.</p>
+      </section>
+      <section className="tarjeta p-5 grid gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="titulo text-xl">Alertas del INVIMA</h2><Accion url="/api/admin/sistema" cuerpo={{ accion: "invima" }} texto="Sincronizar ahora" clase="btn-oscuro h-10 text-sm" /></div>
         <ul className="divide-y divide-line text-sm">{d.invima.map((a) => <li key={a.numero} className="py-2"><span className="font-semibold">{a.numero}</span> · {a.fecha} · {a.titulo}</li>)}</ul>
       </section>

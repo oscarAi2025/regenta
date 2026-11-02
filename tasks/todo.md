@@ -195,4 +195,4 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] NIT obligatorio al contratar; si el NIT ya es cliente, solo se liga el pago
 - [x] Numeraciones de prueba emiten en simulado aunque el servidor use MATIAS
 - [x] La página del pago aprobado dice a qué correo (enmascarado) llegó el acceso y lleva a Entrar
-- [ ] Correos reales: dominio regenta.pro en Google Workspace (TXT de verificación, MX, SPF, DKIM, DMARC en Netlify DNS) + SMTP_USER/SMTP_PASS
+- [x] Correos reales con Resend (Google Admin no dio acceso): regenta.pro verificado (DKIM, SPF de envío, DMARC en Netlify DNS), CORREO_REMITENTE = Regenta <hola@regenta.pro>, RESEND_API_KEY (la pegó Oscar); botón «Enviarme un correo de prueba» en Consola → Sistema
