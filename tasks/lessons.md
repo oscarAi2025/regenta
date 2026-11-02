@@ -44,3 +44,14 @@
 ## QR de pago (2 nov 2026)
 - Antes de pedirle a Oscar un dato o archivo (QR, llaves, cuentas), buscarlo en los otros repositorios de /home/claude: el QR Bre-B
   y la llave de IA DEV ya estaban en justicia-activa (`src/data/pagos.ts`, `public/img/pagos/qr-iadev.png`). Pedirlo de nuevo lo molesta.
+
+## Despliegue Supabase/Netlify (2 nov 2026)
+- Probar las migraciones como en Supabase, no como superusuario: `tests/supabase-local.sql` crea un dueño sin superusuario,
+  `auth` ajeno, `pgcrypto` en `extensions` y los permisos por defecto de Supabase. Ahí salieron dos cosas que la base
+  local normal escondía: `session_replication_role` necesita superusuario (la demo quedaba toda con fecha de hoy) y
+  Supabase da a `anon` acceso a todas las tablas y funciones nuevas (migración 016 lo deja exacto).
+- Nunca correr `next dev` en la misma carpeta que un `next start`: dev pisa `.next` y el servidor de producción se rompe.
+- Error React 418 intermitente (1-2 %) en pantallas largas del panel: el JS en caché arrancaba la hidratación antes de
+  que llegara todo el HTML. Un `loading.tsx` en el grupo (app) da el límite de Suspense y lo eliminó (0 de 400).
+  Medirlo con muchas visitas: una sola corrida verde no prueba nada en errores intermitentes.
+- Los límites por IP solo deben contar solicitudes válidas; si no, un usuario que corrige un dato queda bloqueado.

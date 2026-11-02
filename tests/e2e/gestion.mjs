@@ -24,7 +24,8 @@ async function entrar(ctx, quien) {
 
 // ── Portada comercial
 {
-  const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
+  // IP propia por corrida (el servidor de pruebas cree x-real-ip): el límite de solicitudes no se acumula entre corridas.
+  const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, extraHTTPHeaders: { "x-real-ip": `10.9.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}` } });
   const p = await ctx.newPage();
   const errs = vigilar(p);
   const r = await p.goto(B + "/");

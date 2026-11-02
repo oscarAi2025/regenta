@@ -19,7 +19,7 @@ const Solicitud = z.object({
 });
 
 /** Solicitud de demostración desde la página comercial. */
-// Límite por IP: 5 solicitudes cada 10 minutos (por instancia del servidor).
+// Límite por IP: 5 solicitudes válidas cada 10 minutos (por instancia del servidor).
 const permitido = limitador(5, 600000);
 
 export async function POST(req: Request) {
@@ -27,9 +27,10 @@ export async function POST(req: Request) {
   const cuerpo = await req.json().catch(() => null);
   // Trampa para bots: si el campo oculto viene lleno, se responde como si todo saliera bien y no se guarda nada.
   if (cuerpo && typeof cuerpo.web === "string" && cuerpo.web.length > 0) return NextResponse.json({ ok: true }, { status: 201 });
-  if (!permitido(ipCliente(req))) return NextResponse.json({ error: "Ya recibimos tus datos. Si quieres, escríbenos por WhatsApp." }, { status: 429 });
   const p = Solicitud.safeParse(cuerpo);
   if (!p.success) return NextResponse.json({ error: p.error.issues[0]?.message ?? "Revisa los datos" }, { status: 400 });
+  // Solo cuentan las solicitudes válidas: corregir un dato mal escrito no gasta el límite.
+  if (!permitido(ipCliente(req))) return NextResponse.json({ error: "Ya recibimos tus datos. Si quieres, escríbenos por WhatsApp." }, { status: 429 });
   const d = p.data;
   const acepta = !!d.email && (d.acepta === true || d.acepta === "on");
   const consentimiento = acepta ? { texto: TEXTO_CORREOS, fecha: new Date().toISOString(), ip: ipCliente(req), navegador: (req.headers.get("user-agent") ?? "").slice(0, 200), origen: d.origen ?? null } : null;

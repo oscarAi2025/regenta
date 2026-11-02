@@ -157,7 +157,7 @@ const populares = [...catalogoA.filter((p) => COMUNES.test(p.nombre)), ...catalo
   .map((p, i) => ({ p, k: (i < 300 ? 0 : 1) + azar() })).sort((a, b) => a.k - b.k).map((x) => x.p).slice(0, 380);
 const MEDIOS = ["efectivo", "efectivo", "efectivo", "nequi", "nequi", "daviplata", "tarjeta", "bre_b"];
 const ahora = new Date();
-const minutosHoy = ahora.getUTCHours() * 60 + ahora.getUTCMinutes() - 5 * 60; // hora de Bogotá
+const minutosHoy = (ahora.getUTCHours() * 60 + ahora.getUTCMinutes() - 5 * 60 + 1440) % 1440; // minuto del día en Bogotá
 const lleno = process.env.REGENTA_CAPTURAS === "1"; // llena el día de hoy completo (solo para generar capturas)
 const plan = [];
 for (let dia = 55; dia >= 0; dia--) {
@@ -235,11 +235,11 @@ for (const [k, [ci, dia, plazo, fr]] of creditos.entries()) {
   creditosDemo.push(r.venta_id);
 }
 // Reparto en el tiempo: ventas, sus movimientos y documentos; la compra hace 57 días y el inventario inicial hace 60.
-// session_replication_role pide superusuario: si la base no lo permite (Supabase), las ventas quedan con la fecha de hoy.
+// Los triggers que protegen ventas, movimientos, abonos y documentos se apagan solo dentro de esta transacción. Se hace
+// con ALTER TABLE (basta ser dueño de la tabla), así funciona igual en Supabase, que no da superusuario.
+const HISTORIA = ["ventas", "movimientos", "abonos", "documentos_dian"];
 await db.query("begin");
-try { await db.query("set local session_replication_role = replica"); } catch (e) {
-  await db.query("rollback"); console.warn("No se pudo repartir la historia en el tiempo:", e.message); await db.end(); process.exit(0);
-}
+for (const t of HISTORIA) await db.query(`alter table ${t} disable trigger user`);
 await db.query(`create temp table _t (id uuid, dia int, minuto int) on commit drop`);
 await db.query(`insert into _t select * from jsonb_to_recordset($1::jsonb) as x(id uuid, dia int, minuto int)`, [JSON.stringify(ventasDemo)]);
 await db.query(`update ventas v set creado = (date_trunc('day', now() at time zone 'America/Bogota') - make_interval(days => t.dia) + make_interval(mins => t.minuto)) at time zone 'America/Bogota' from _t t where v.id = t.id`);
@@ -249,6 +249,7 @@ await db.query(`update abonos a set creado = v.creado + interval '9 days' from v
 await db.query(`update documentos_dian d set estado = 'aceptado', simulado = true, intentos = 1, cufe = encode(sha384(convert_to('SIMULADO-' || d.id::text, 'UTF8')), 'hex') where d.empresa_id = $1`, [E.A]);
 await db.query(`update movimientos set creado = now() - interval '57 days' where empresa_id = $1 and tipo = 'compra'`, [E.A]);
 await db.query(`update movimientos set creado = now() - interval '60 days' where empresa_id = $1 and tipo = 'inicial'`, [E.A]);
+for (const t of HISTORIA) await db.query(`alter table ${t} enable trigger user`);
 await db.query("commit");
 console.log("demo: ventas", ventasDemo.length, fallidas ? `(${fallidas} sin existencias)` : "");
 await db.end();

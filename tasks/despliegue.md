@@ -13,7 +13,10 @@ repositorio: van solo en el panel de cada servicio.
    ```bash
    DATABASE_URL='<pooler modo sesión>' DATABASE_CA=./prod-ca-2021.crt node scripts/db-reset.mjs --produccion --demo
    ```
-   - Aplica las migraciones 001–013 y las registra en `regenta_migraciones`. Nunca borra nada.
+   - Aplica las migraciones 001–016 y las registra en `regenta_migraciones`. Nunca borra nada.
+   - La 016 quita los permisos que Supabase da por defecto a `anon` y `authenticated` (para su API de datos, que Regenta
+     no usa): quedan solo los que Regenta necesita. Regenta no usa la API de datos ni Supabase Auth: si quieres, puedes
+     desactivarlos en el panel; no hace falta.
    - Carga el catálogo maestro (~10.000 productos) y las alertas INVIMA si la base está vacía.
    - `--demo` crea la droguería de demostración. Quítalo si no habrá demo pública.
    - Para actualizaciones futuras se corre el mismo comando sin `--demo`: solo aplica lo pendiente.
@@ -91,9 +94,14 @@ repositorio: van solo en el panel de cada servicio.
 ## Comprobado en local antes de publicar
 `npm test` · `node --test tests/correos.test.mjs` · `npm run e2e` · `npm run pagos` · `npm run admin` · `npm run auditoria`
 
+## Comprobado contra una copia de Supabase en local
+Base creada como en Supabase: dueño sin superusuario, esquema `auth` ajeno con su `auth.uid()`, `pgcrypto` en el
+esquema `extensions` y los permisos por defecto que Supabase da a `anon`/`authenticated`. Ahí: las 16 migraciones y la
+demo se aplican sin errores, `anon` no puede leer ni ejecutar nada y un usuario ajeno no ve datos de ninguna droguería;
+todas las pruebas (base, correos, caja, gestión, IA, facturación, pagos, consola y auditoría de 145 pantallas) pasan.
+Netlify: `netlify build` real (adaptador de Next v5) compila, empaqueta la función del sitio y la tarea `tareas` cada hora.
+
 ## No verificado (comprobarlo en el primer despliegue)
-- Que el usuario del pooler de Supabase pueda hacer `set local role authenticated` (prueba del paso 1.5).
-- Que el pooler en modo transacción acepte las consultas parametrizadas de `pg` sin nombre. Según la documentación,
-  solo prohíbe las sentencias preparadas con nombre, y Regenta no las usa.
-- MATIAS: la URL de producción se recibe al contratar. Falta confirmar en su sandbox el `type_document_id` de la factura
-  de venta (la documentación dice 1 en un lugar y 7 en otro).
+- Que el usuario del pooler de Supabase pueda hacer `set local role authenticated` (prueba del paso 1.5, 10 segundos).
+- MATIAS (factura electrónica real ante la DIAN): la URL de producción se recibe al contratar. Falta confirmar en su
+  sandbox el `type_document_id` de la factura de venta (la documentación dice 1 en un lugar y 7 en otro).
