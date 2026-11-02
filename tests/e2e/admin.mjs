@@ -42,7 +42,7 @@ const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw
 
 const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
 const p = await ctx.newPage();
-const errs = []; p.on("pageerror", (e) => errs.push(e.message)); p.on("console", (m) => m.type() === "error" && !/status of 4\d\d/.test(m.text()) && errs.push(m.text()));
+const errs = []; p.on("pageerror", (e) => errs.push(new URL(p.url()).pathname + ": " + e.message)); p.on("console", (m) => m.type() === "error" && !/status of 4\d\d/.test(m.text()) && errs.push(m.text()));
 
 // ── Entrar a la consola
 await p.goto(B + "/admin/entrar");
@@ -227,7 +227,7 @@ await p.screenshot({ path: "test-results/admin-correos.png", fullPage: true });
 // ── Pago con el QR de la cuenta Bancolombia (sin pasarela): orden, instrucciones, pantalla con el QR y confirmación en la consola
 const pqEmail = `qr${sufijo}@pago.test`;
 const rq = await fetch(B + "/api/pagos", { method: "POST", headers: { origin: B, "content-type": "application/json", "x-real-ip": `10.9.${Math.floor(Math.random() * 250)}.7` },
-  body: JSON.stringify({ plan: "pro", periodo: "mes", proveedor: "qr", nombre: "Pablo QR", empresa: "Droguería QR", nit: "", email: pqEmail, telefono: "3005556677", acepta: true }) });
+  body: JSON.stringify({ plan: "pro", periodo: "mes", proveedor: "qr", nombre: "Pablo QR", empresa: "Droguería QR", nit: `8${sufijo}2-1`, email: pqEmail, telefono: "3005556677", acepta: true }) });
 const jq = await rq.json();
 ok(rq.status === 201 && jq.url?.startsWith("/contratar/resultado?ref="), "QR: crea la orden y lleva a la página del QR", String(rq.status));
 ok((await correo(pqEmail, "pago_qr"))?.estado === "simulado", "QR: correo con las instrucciones de pago");
@@ -246,8 +246,15 @@ ok(respQr.ok() && /Pago confirmado/.test((await respQr.json()).mensaje), "QR: la
 const pagoQr = (await pool.query(`select estado, vence, confirmado_por from pagos_suscripcion where referencia = $1`, [jq.referencia])).rows[0];
 ok(pagoQr.estado === "aprobado" && pagoQr.vence && pagoQr.confirmado_por, "QR: confirmado en la consola, con periodo pagado y quién lo confirmó");
 ok((await correo(pqEmail, "pago_aprobado"))?.estado === "simulado", "QR: correo de pago aprobado");
+// Alta automática: la droguería queda creada con su dueño invitado y numeraciones de prueba, sin pasar por la consola.
+const alta = (await pool.query(`select e.id, e.nit, e.plan, p.atendido, (select count(*) from resoluciones_dian r where r.empresa_id = e.id and r.pruebas)::int pruebas,
+  (select m.rol from miembros m join cuentas cu on cu.id = m.user_id where m.empresa_id = e.id and lower(cu.email) = lower($2)) rol
+  from pagos_suscripcion p join empresas e on e.id = p.empresa_id where p.referencia = $1`, [jq.referencia, pqEmail])).rows[0];
+ok(alta && alta.nit === `8${sufijo}2` && alta.plan === "pro" && alta.atendido && alta.pruebas === 3 && alta.rol === "dueno", "alta automática: droguería, dueño y numeraciones de prueba al aprobarse el pago", JSON.stringify(alta));
+ok((await correo(pqEmail, "invitacion"))?.estado === "simulado", "alta automática: correo para crear la contraseña");
 await pq.reload(); await pq.getByText("¡Pago aprobado!").waitFor({ timeout: 20000 });
 ok(true, "QR: la página del cliente pasa a pago aprobado");
+ok(await pq.getByText(/Tu cuenta ya está creada/).count() === 1 && await pq.getByText(/qr•••@p•••\.test/).count() === 1, "la página del pago dice a qué correo (enmascarado) llegó el acceso");
 const otraVez = await p.request.patch(B + "/api/admin/pagos", { headers: { origin: B }, data: { referencia: jq.referencia, confirmar: "aprobado" } });
 ok(otraVez.status() === 409, "QR: no se confirma dos veces");
 

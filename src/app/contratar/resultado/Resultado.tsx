@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { pesos } from "@/lib/formato";
 import { wa } from "@/lib/sitio";
 
-type Estado = { estado: string; plan: string; periodo: string; monto: number; proveedor?: string; qr?: { llave: string; imagen: string; titular: string } } | { error: string };
+type Estado = { estado: string; plan: string; periodo: string; monto: number; proveedor?: string; cuenta?: boolean; correo?: string; qr?: { llave: string; imagen: string; titular: string } } | { error: string };
 
 /** Consulta el estado del pago cada pocos segundos hasta que la pasarela lo confirme (máximo 2 minutos). */
 export function Resultado({ referencia, transaccion }: { referencia: string; transaccion: string }) {
@@ -29,9 +29,18 @@ export function Resultado({ referencia, transaccion }: { referencia: string; tra
   if (e.estado === "aprobado") return (
     <div className="mt-6 rounded-3xl degradado-marca text-white p-6 sm:p-8">
       <p className="font-cond text-[34px] leading-tight" style={{ fontWeight: 700 }}>¡Pago aprobado! Bienvenido a Regenta.</p>
-      <p className="mt-3 text-white/85 text-lg">Plan {plan}, {e.periodo === "anio" ? "anual" : "mensual"}, {pesos(e.monto)}. Te escribimos por WhatsApp para activar tu cuenta y cargar tus productos.</p>
-      <p className="mt-2 text-white/70 text-sm">Referencia {referencia}</p>
-      <a href={wa(`Hola, acabo de pagar Regenta plan ${plan}. Referencia ${referencia}.`)} className="btn-cta h-12 px-6 mt-6">Escribir ya por WhatsApp</a>
+      <p className="mt-3 text-white/85 text-lg">Plan {plan}, {e.periodo === "anio" ? "anual" : "mensual"}, {pesos(e.monto)}.{" "}
+        {e.cuenta ? <>Tu cuenta ya está creada: te enviamos a <b className="text-white">{e.correo}</b> el enlace para crear tu contraseña y entrar.</> : "Te escribimos por WhatsApp para activar tu cuenta y cargar tus productos."}</p>
+      {e.cuenta && <ol className="mt-4 grid gap-1.5 text-white/85">
+        <li>1. Abre el correo «Activa tu cuenta de Regenta» (revisa también correo no deseado).</li>
+        <li>2. Crea tu contraseña y entra: ya puedes cargar productos y usar la caja.</li>
+        <li>3. Te acompañamos por WhatsApp con la habilitación ante la DIAN para facturar.</li>
+      </ol>}
+      <p className="mt-3 text-white/70 text-sm">Referencia {referencia}</p>
+      <div className="mt-6 flex flex-wrap gap-3">
+        {e.cuenta && <a href="/entrar" className="btn-cta h-12 px-6">Ir a entrar</a>}
+        <a href={wa(`Hola, acabo de pagar Regenta plan ${plan}. Referencia ${referencia}.`)} className={`${e.cuenta ? "btn-vidrio" : "btn-cta"} h-12 px-6`}>Escribir por WhatsApp</a>
+      </div>
     </div>
   );
   if (e.estado === "pendiente" && e.proveedor === "qr" && e.qr) return (

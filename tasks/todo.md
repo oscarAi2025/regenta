@@ -189,3 +189,10 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] MATIAS_TOKEN en Netlify (lo pegó Oscar); prueba desde Consola → Sistema: «Conexión con MATIAS correcta (producción): IA DEV INVESTIMENTS COLOMBIA SAS · 0 clientes»
 - [ ] Por cada droguería: habilitación DIAN (portal Habilitación con su usuario: software, set de pruebas), certificado en MATIAS, resolución POS/factura en MUISCA, crear el cliente en MATIAS → UUID en la consola
 - [x] REGENTA_DIAN=matias en Netlify y desplegado (la demo sigue simulada)
+
+## 2026-11-02 · Acceso automático tras el pago
+- [x] Al aprobarse un pago (Stripe, Wompi o QR confirmado) se crea la droguería con sede, caja y numeraciones de prueba, el dueño queda invitado y recibe el correo para crear su contraseña; el pago queda ligado y atendido (e2e admin)
+- [x] NIT obligatorio al contratar; si el NIT ya es cliente, solo se liga el pago
+- [x] Numeraciones de prueba emiten en simulado aunque el servidor use MATIAS
+- [x] La página del pago aprobado dice a qué correo (enmascarado) llegó el acceso y lleva a Entrar
+- [ ] Correos reales: dominio regenta.pro en Google Workspace (TXT de verificación, MX, SPF, DKIM, DMARC en Netlify DNS) + SMTP_USER/SMTP_PASS

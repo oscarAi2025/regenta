@@ -27,6 +27,6 @@ export async function POST(req: Request) {
       [ref, estado, (o.subscription as string) ?? null, JSON.stringify({ evento: ev.type })]);
     return n.rowCount && antes && antes.estado !== estado ? alCambiarPago(c, ref) : null;
   }) : null;
-  if (clave) await enviarAhora(clave);
+  for (const k of clave ?? []) await enviarAhora(k);
   return NextResponse.json({ ok: true });
 }

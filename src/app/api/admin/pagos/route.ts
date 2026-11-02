@@ -18,11 +18,11 @@ export const PATCH = conAdmin(async (a, req) => {
       const r = await c.query(`update pagos_suscripcion set estado = $2, confirmado_por = $3, metodo = 'QR Bre-B', actualizado = now() where referencia = $1 and proveedor = 'qr' and estado = 'pendiente'`, [d.referencia, d.confirmar, a.uid]);
       if (!r.rowCount) return null;
       await evento(a, d.confirmar === "aprobado" ? "confirmar_pago_qr" : "rechazar_pago_qr", null, { referencia: d.referencia }, c);
-      return (await alCambiarPago(c, d.referencia)) ?? "";
+      return await alCambiarPago(c, d.referencia);
     });
     if (clave === null) return NextResponse.json({ error: "Ese pago ya no está pendiente" }, { status: 409 });
-    if (clave) await enviarAhora(clave);
-    return NextResponse.json({ ok: true, mensaje: d.confirmar === "aprobado" ? "Pago confirmado: le enviamos el correo" : "Marcado como no recibido" });
+    for (const k of clave) await enviarAhora(k);
+    return NextResponse.json({ ok: true, mensaje: d.confirmar === "aprobado" ? (clave.length > 1 ? "Pago confirmado: cuenta creada y correo de acceso enviado" : "Pago confirmado: le enviamos el correo") : "Marcado como no recibido" });
   }
   const n = await sinRLS((c) => c.query(`update pagos_suscripcion set atendido = coalesce($2, atendido), empresa_id = case when $3::boolean then $4::uuid else empresa_id end, actualizado = now() where referencia = $1`,
     [d.referencia, d.atendido ?? null, d.empresa_id !== undefined, d.empresa_id ?? null]));

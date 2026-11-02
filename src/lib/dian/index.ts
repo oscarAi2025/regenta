@@ -80,7 +80,8 @@ export async function procesarCola(max = 20, venta?: string) {
       else await guardar(id, { ok: false, definitivo: true, error: "Documento sin venta asociada" });
       r.rechazados++; continue;
     }
-    const e = emisor(d.demo);
+    // La demo y las numeraciones de prueba (antes de la habilitación ante la DIAN) se emiten en simulado.
+    const e = emisor(d.demo || d.resolucionPruebas === true);
     if (d.resolucionPruebas === false && e.nombre === "simulado") {
       await guardar(id, { ok: false, definitivo: true, error: "Resolución de producción con emisor simulado: configure MATIAS" });
       r.rechazados++; continue;

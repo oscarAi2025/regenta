@@ -30,6 +30,6 @@ export async function POST(req: Request) {
       [t.reference, estado, t.id ?? null, t.payment_method_type ?? null, JSON.stringify(coincide ? { status: t.status } : { status: t.status, error: "monto o moneda no coinciden" })]);
     return o.estado !== estado ? alCambiarPago(c, t.reference!) : null;
   });
-  if (clave) await enviarAhora(clave);
+  for (const k of clave ?? []) await enviarAhora(k);
   return NextResponse.json({ ok: true });
 }

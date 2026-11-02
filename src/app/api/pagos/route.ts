@@ -10,7 +10,7 @@ const Contratar = z.object({
   plan: z.enum(["esencial", "pro"]), periodo: z.enum(["mes", "anio"]), proveedor: z.enum(["qr", "wompi", "stripe"]),
   nombre: z.string().trim().min(3, "Escribe tu nombre").max(120),
   empresa: z.string().trim().min(2, "Escribe el nombre de la droguería o empresa").max(160),
-  nit: z.string().trim().regex(/^[\d.\s-]{6,15}$/, "Escribe el NIT o la cédula sin letras").nullish().or(z.literal("")),
+  nit: z.string().trim().regex(/^[\d.\s-]{6,15}$/, "Escribe el NIT de la droguería (o tu cédula) sin letras"),
   email: z.string().trim().email("Escribe un correo válido: ahí te llega el acceso").max(160),
   telefono: z.string().trim().regex(/^[\d\s+()-]{7,20}$/, "Escribe un celular válido"),
   acepta: z.literal(true, { errorMap: () => ({ message: "Marca la autorización de tratamiento de datos para continuar" }) }),
