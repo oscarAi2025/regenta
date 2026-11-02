@@ -15,7 +15,7 @@ const VARIABLES: [string, string][] = [
   ["ANTHROPIC_API_KEY", "Regenta IA"],
   ["WOMPI_PUBLIC_KEY", "Pagos en Colombia (Wompi)"], ["WOMPI_INTEGRITY_SECRET", "Firma de pagos Wompi"], ["WOMPI_EVENTS_SECRET", "Eventos de Wompi"],
   ["STRIPE_SECRET_KEY", "Pagos con tarjeta internacional (Stripe)"], ["STRIPE_WEBHOOK_SECRET", "Eventos de Stripe"],
-  ["REGENTA_DIAN", "Proveedor de emisión DIAN (hoy: simulado)"],
+  ["REGENTA_DIAN", "Proveedor de emisión DIAN: «matias» en producción (la demo siempre simulada)"], ["MATIAS_URL", "API de MATIAS (producción: https://api-v2.matias-api.com)"], ["MATIAS_TOKEN", "Token de acceso de la cuenta de casa de software en MATIAS"],
   ["SMTP_USER", "Buzón de Google Workspace que envía los correos (p. ej. hola@regenta.pro)"], ["SMTP_PASS", "Contraseña de aplicación de ese buzón"], ["RESEND_API_KEY", "Alternativa: envío con Resend"], ["CORREO_REMITENTE", "Remitente, p. ej. Regenta <hola@regenta.pro> (el buzón o un alias suyo)"], ["CORREO_RESPUESTA", "A dónde llegan las respuestas (opcional)"],
 ];
 
@@ -40,6 +40,10 @@ export default async function Sistema() {
       <section className="tarjeta p-5 grid gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="titulo text-xl">Cola DIAN</h2><Accion url="/api/admin/sistema" cuerpo={{ accion: "dian" }} texto="Procesar cola ahora" clase="btn-oscuro h-10 text-sm" /></div>
         {d.rechazados.length ? <ul className="divide-y divide-line text-sm">{d.rechazados.map((r) => <li key={r.doc} className="py-2"><span className="font-semibold">{r.doc}</span> · {r.cliente} · {fechaHora(r.actualizado)}<p className="text-alerta">{r.ultimo_error}</p></li>)}</ul> : <p className="text-muted">Sin documentos rechazados.</p>}
+      </section>
+      <section className="tarjeta p-5 grid gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="titulo text-xl">Facturación electrónica (MATIAS)</h2><Accion url="/api/admin/sistema" cuerpo={{ accion: "matias" }} texto="Probar conexión" clase="btn-oscuro h-10 text-sm" /></div>
+        <p className="text-sm text-muted">Emisor del servidor: <b>{process.env.REGENTA_DIAN ?? "simulado"}</b> · API: {process.env.MATIAS_URL ?? "sandbox"} · token {process.env.MATIAS_TOKEN ? "configurado" : "sin configurar"}. La droguería de demostración emite siempre en simulado.</p>
       </section>
       <section className="tarjeta p-5 grid gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="titulo text-xl">Alertas del INVIMA</h2><Accion url="/api/admin/sistema" cuerpo={{ accion: "invima" }} texto="Sincronizar ahora" clase="btn-oscuro h-10 text-sm" /></div>
