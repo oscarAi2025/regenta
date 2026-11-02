@@ -5,6 +5,7 @@ import { leerSesion, puede } from "@/lib/sesion";
 import { pesos } from "@/components/ui/Cabecera";
 import { Anular } from "./Anular";
 import { Abonos } from "./Abonos";
+import { Imprimir } from "./Imprimir";
 import { MEDIO } from "@/lib/formato";
 
 export const metadata = { title: "Venta" };
@@ -60,6 +61,7 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
       </article>
       <section className="grid gap-4">
         <Link href="/ventas" className="text-sm font-semibold text-cruz">← Volver a ventas</Link>
+        <Imprimir id={v.id} />
         <div className="tarjeta p-5">
           <h2 className="titulo text-xl">Estado</h2>
           {v.estado === "anulada" ? <p className="mt-2 text-alerta font-semibold">Venta anulada. Las unidades volvieron a sus lotes.</p> : (

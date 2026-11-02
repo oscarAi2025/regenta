@@ -156,3 +156,13 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [ ] Emisor MATIAS real en src/lib/dian (requiere contrato Casa de Software y su URL de producción; hoy «simulado»)
 - [ ] Un mismo correo dueño de dos droguerías: elegir droguería al entrar (hoy entra a la más antigua)
 - [ ] Caja: conservar la venta en curso si se recarga la página
+
+## Paridad con Alegra POS (auditoría 02/11/2026, fuentes en ayuda.alegra.com)
+- [x] Impresión de tirilla 80/58 mm: automática al cobrar (iframe), F8 reimprime, «Imprimir tiquete» en la venta, QR y CUDE, datos de la Res. 165/2023 art. 19-20
+- [ ] Turnos de caja: apertura con base, ingresos y egresos de efectivo, cierre con «dinero real en caja», diferencia, reporte imprimible
+- [ ] Pagos mixtos (efectivo + tarjeta/Nequi en la misma venta)
+- [ ] Descuento por ítem y descuento general (con su informe a la DIAN)
+- [ ] Devolución parcial (nota crédito por ítems/cantidades)
+- [ ] Venta sin internet con tirilla provisional y sincronización
+- [ ] Reportes: ventas por producto, por cajero, por medio de pago y por turno
+- [ ] Venta en espera (varias ventas abiertas) — Alegra no la tiene: ventaja

@@ -85,3 +85,9 @@
   NIT = 3, CC = 1). Consultar los catálogos (/identity-documents, /quantity-units) antes de suponer.
 - `tax_exclusive_amount` es la base GRAVADA (0 si no hay IVA), no el subtotal.
 - Probar el cuerpo en el sandbox antes de desplegar: no gasta documentos ni créditos de Netlify.
+
+## Impresión (02/11/2026)
+- La CSP tenía frame-ancestors 'none' y X-Frame-Options DENY en todo el sitio: un iframe propio (impresión silenciosa
+  de la tirilla) queda bloqueado. Abrir solo la ruta que se enmarca (/tiquete) con frame-ancestors 'self'.
+- El aviso de hidratación «caret-color» en las pruebas con `next dev` no sale con `next build && next start`: las e2e
+  se validan contra el build de producción (REGENTA_DEMO=1 y las claves de prueba).

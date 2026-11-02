@@ -1,4 +1,5 @@
 "use client";
+import { guardarImpresora, imprimirTiquete, leerImpresora, type Impresora } from "@/lib/impresion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pesos } from "@/lib/formato";
 import { ClienteFactura, documento, type Cliente } from "./ClienteFactura";
@@ -9,7 +10,7 @@ type Producto = {
 };
 type Linea = { key: string; p: Producto; presentacion: "caja" | "unidad"; cantidad: number };
 type Medio = "efectivo" | "transferencia" | "nequi" | "daviplata" | "tarjeta" | "bre_b" | "qr";
-type Resultado = { venta: { prefijo: string; numero: number; total: number; cambio: number; base: number; iva: number; credito?: boolean; vence_pago?: string | null; repetida?: boolean }; documento: { tipo: "pos" | "factura"; estado: string; cufe: string | null; simulado: boolean; ultimo_error: string | null } };
+type Resultado = { venta: { venta_id: string; prefijo: string; numero: number; total: number; cambio: number; base: number; iva: number; credito?: boolean; vence_pago?: string | null; repetida?: boolean }; documento: { tipo: "pos" | "factura"; estado: string; cufe: string | null; simulado: boolean; ultimo_error: string | null } };
 const PLAZOS = [15, 30, 45, 60, 90];
 const fechaCorta = (f: string) => new Date(f + "T00:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
 
@@ -53,6 +54,9 @@ export function Caja({ fiar }: { fiar: boolean }) {
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState("");
   const [hecho, setHecho] = useState<Resultado | null>(null);
+  const [impresora, setImpresora] = useState<Impresora>({ auto: true, ancho: "80" });
+  useEffect(() => setImpresora(leerImpresora()), []);
+  const cambiarImpresora = (i: Impresora) => { setImpresora(i); guardarImpresora(i); };
   const [vencen, setVencen] = useState<Producto[]>([]);
   const [tipoDoc, setTipoDoc] = useState<"pos" | "factura">("pos");
   const [cliente, setCliente] = useState<Cliente | null>(null);
@@ -138,6 +142,7 @@ export function Caja({ fiar }: { fiar: boolean }) {
       const j = await r.json();
       if (!r.ok) { setError(j.error ?? "No se pudo registrar la venta"); return; }
       setHecho(j); setCobrando(false);
+      if (impresora.auto && j.venta?.venta_id) imprimirTiquete(j.venta.venta_id, impresora.ancho);
     } catch {
       setError("Sin conexión con el servidor. La venta no se registró: revisa internet y vuelve a confirmar (no se duplicará).");
     } finally { setEnviando(false); }
@@ -150,10 +155,11 @@ export function Caja({ fiar }: { fiar: boolean }) {
       if (e.key === "F9" && puedeCobrar && !hecho) { e.preventDefault(); setCobrando(true); setTimeout(() => recibidoRef.current?.focus(), 0); }
       if (e.key === "Escape" && cobrando) { setCobrando(false); buscador.current?.focus(); }
       if (e.key === "Enter" && hecho) { e.preventDefault(); nueva(); }
+      if (e.key === "F8" && hecho?.venta.venta_id) { e.preventDefault(); imprimirTiquete(hecho.venta.venta_id, impresora.ancho); }
     };
     addEventListener("keydown", h);
     return () => removeEventListener("keydown", h);
-  }, [puedeCobrar, cobrando, hecho, nueva]);
+  }, [puedeCobrar, cobrando, hecho, nueva, impresora.ancho]);
 
   function teclaBuscador(e: React.KeyboardEvent) {
     if (e.key === "ArrowDown") { e.preventDefault(); setSel((s) => Math.min(s + 1, res.length - 1)); }
@@ -227,7 +233,22 @@ export function Caja({ fiar }: { fiar: boolean }) {
               </span>
             </div>
             {hecho.documento?.cufe && <p className="mt-2 text-[11px] text-muted break-all font-cond">CUFE {hecho.documento.cufe}</p>}
-            <button onClick={nueva} className="mt-6 w-full h-14 rounded-xl bg-ink text-white text-lg font-semibold">Nueva venta <kbd className="ml-2 !bg-transparent !text-white/70 !border-white/30">Enter</kbd></button>
+            <div className="mt-6 grid grid-cols-[auto_1fr] gap-2">
+              <button onClick={() => imprimirTiquete(hecho.venta.venta_id, impresora.ancho)} className="h-14 px-4 rounded-xl border border-line font-semibold">Imprimir <kbd className="ml-1">F8</kbd></button>
+              <button onClick={nueva} className="h-14 rounded-xl bg-ink text-white text-lg font-semibold">Nueva venta <kbd className="ml-2 !bg-transparent !text-white/70 !border-white/30">Enter</kbd></button>
+            </div>
+            <details className="mt-3 text-sm text-muted">
+              <summary className="cursor-pointer">Impresora de esta caja</summary>
+              <div className="mt-2 grid gap-2">
+                <label className="flex items-center gap-2"><input type="checkbox" checked={impresora.auto} onChange={(e) => cambiarImpresora({ ...impresora, auto: e.target.checked })} /> Imprimir la tirilla al cobrar</label>
+                <label className="flex items-center gap-2">Papel
+                  <select className="campo !h-9 !w-auto" value={impresora.ancho} onChange={(e) => cambiarImpresora({ ...impresora, ancho: e.target.value as Impresora["ancho"] })}>
+                    <option value="80">80 mm</option><option value="58">58 mm</option>
+                  </select>
+                </label>
+                <p>Para que salga sin el cuadro de impresión, abre la caja con un acceso directo de Chrome que tenga <span className="font-mono">--kiosk-printing</span> y deja la térmica como impresora predeterminada. El cajón monedero se abre con la opción «abrir cajón al imprimir» del controlador de la impresora.</p>
+              </div>
+            </details>
           </div>
         ) : (
           <>
