@@ -167,3 +167,15 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [ ] Reportes: ventas por producto, por cajero, por medio de pago y por turno
 - [ ] Venta en espera (varias ventas abiertas) — Alegra no la tiene: ventaja
 - [x] Términos y condiciones (/terminos), enlazados en el pie y aceptados al contratar; política de datos al día (Google Workspace, encargados)
+
+## 2026-11-02 · Embudo de venta (hecho y en producción, commit 1ee05b2)
+- [x] Demo: barra fija con oferta y «Contratar ahora», recorrido de 3 pasos, aviso tras vender, oferta al completar / al irse / a los 3 min (máx. 2)
+- [x] Salir de la demo → /demo/gracias (oferta, objeciones, formulario), no a «Entrar»
+- [x] Portada: dolor (vencidos, venta perdida, cierre DIAN art. 657 ET), pila de valor, garantía 30 días, precio congelado, barra flotante en escritorio
+- [x] Contratar y Tarifas con garantía y pila de valor; términos actualizados (garantía y precio congelado)
+- [x] Sin nombres de otros programas (guía de precios con rangos)
+- [x] Regenta IA con perfil experto (regencia, normativa, farmacología, mostrador, venta)
+- [x] Migración 020 (devoluciones) aplicada en Supabase
+- [ ] ANTHROPIC_API_KEY en Netlify (la pega Oscar) y redeploy
+- [ ] Devolución parcial: pantalla en el detalle de la venta + comprobante + e2e
+- [ ] Reportes por producto, cajero y medio · venta sin internet
