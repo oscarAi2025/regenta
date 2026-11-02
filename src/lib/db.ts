@@ -1,6 +1,7 @@
 import "server-only";
 import pg from "pg";
 import type { Sesion } from "./sesion";
+import { SUPABASE_ROOT_2021 } from "./supabase-ca";
 
 // Una sola conexión al Postgres (local o Supabase). Las consultas de usuario corren SIEMPRE como «authenticated»
 // con sus claims, igual que en Supabase: la seguridad por fila decide qué ve. La conexión privilegiada (sinRLS)
@@ -11,12 +12,25 @@ const g = globalThis as unknown as { __regentaPool?: pg.Pool };
 // firma su propia CA: se pega en DATABASE_CA (PEM, se descarga del panel) y la conexión se verifica siempre.
 const url = process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp";
 const remota = !/localhost|127\.0\.0\.1|host=\/tmp/.test(url);
+
+/** Rearma un PEM que llega de un panel de variables: con «\n» literales, espacios en vez de saltos o sin saltos. */
+export function normalizarPem(v: string | undefined): string[] {
+  if (!v) return [];
+  return [...v.replace(/\\r|\\n/g, "\n").matchAll(/-----BEGIN CERTIFICATE-----([\s\S]*?)-----END CERTIFICATE-----/g)].map((m) => {
+    const cuerpo = m[1].replace(/[^A-Za-z0-9+/=]/g, "");
+    return `-----BEGIN CERTIFICATE-----\n${cuerpo.match(/.{1,64}/g)?.join("\n")}\n-----END CERTIFICATE-----\n`;
+  });
+}
+// Con Supabase se confía además en su CA raíz pública (incluida en el código): si DATABASE_CA llega mal pegada, la
+// conexión sigue verificándose contra la CA correcta en vez de caer.
+const cas = [...normalizarPem(process.env.DATABASE_CA), ...(/supabase\.(com|co)/.test(url) ? [SUPABASE_ROOT_2021] : [])];
+if (process.env.DATABASE_CA && !normalizarPem(process.env.DATABASE_CA).length) console.error("DATABASE_CA no contiene un certificado PEM legible");
 export const pool = (g.__regentaPool ??= new pg.Pool({
   connectionString: url.replace(/[?&]sslmode=[^&]*/g, ""),
   max: remota ? 3 : 10, // en funciones serverless cada instancia abre pocas conexiones: el pooler reparte
   idleTimeoutMillis: remota ? 10000 : 30000,
   ...(remota
-    ? { ssl: process.env.DATABASE_CA ? { ca: process.env.DATABASE_CA.replace(/\\n/g, "\n"), rejectUnauthorized: true } : { rejectUnauthorized: true } }
+    ? { ssl: cas.length ? { ca: cas, rejectUnauthorized: true } : { rejectUnauthorized: true } }
     : { options: "-c timezone=America/Bogota" }), // «hoy» es el día de Bogotá en todas las consultas
 }));
 
