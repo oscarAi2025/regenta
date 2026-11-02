@@ -41,8 +41,9 @@ const simulado: Emisor = {
   },
 };
 
-function emisor(): Emisor {
-  const p = process.env.REGENTA_DIAN ?? "simulado";
+/** La droguería de demostración emite siempre en simulado; las reales con el proveedor del servidor (REGENTA_DIAN). */
+function emisor(demo = false): Emisor {
+  const p = demo ? "simulado" : process.env.REGENTA_DIAN ?? "simulado";
   if (p === "simulado") return simulado;
   if (p === "matias") return emisorMatias();
   throw new Error(`Proveedor DIAN no disponible: ${p}`);
@@ -55,7 +56,6 @@ const MAX_INTENTOS = 8; // después, rechazo definitivo para revisión manual
  *  Un envío que quedó «enviando» más de 5 minutos se reintenta: el proveedor rechaza el mismo prefijo+número dos veces,
  *  así que el reintento no duplica la emisión. */
 export async function procesarCola(max = 20, venta?: string) {
-  const e = emisor();
   const r = { enviados: 0, aceptados: 0, rechazados: 0, reintentos: 0 };
   for (let i = 0; i < max; i++) {
     // Toma un documento y lo marca «enviando» (skip locked: varias instancias no toman el mismo).
@@ -80,6 +80,7 @@ export async function procesarCola(max = 20, venta?: string) {
       else await guardar(id, { ok: false, definitivo: true, error: "Documento sin venta asociada" });
       r.rechazados++; continue;
     }
+    const e = emisor(d.demo);
     if (d.resolucionPruebas === false && e.nombre === "simulado") {
       await guardar(id, { ok: false, definitivo: true, error: "Resolución de producción con emisor simulado: configure MATIAS" });
       r.rechazados++; continue;
@@ -92,11 +93,11 @@ export async function procesarCola(max = 20, venta?: string) {
   return r;
 }
 
-async function armar(id: string): Promise<{ documento: DocumentoParaEmitir; resolucionPruebas: boolean | null; cerrado?: false } | { cerrado: true; anulado?: boolean }> {
+async function armar(id: string): Promise<{ documento: DocumentoParaEmitir; resolucionPruebas: boolean | null; demo: boolean; cerrado?: false } | { cerrado: true; anulado?: boolean }> {
   return sinRLS(async (c) => {
     const { rows: [d] } = await c.query(
       `select d.*, v.base, v.iva as iva_total, v.total, v.creado as fecha, v.cliente_id, v.estado as venta_estado, v.condicion, v.vence_pago::text, v.plazo_dias,
-              e.nit, e.dv, e.razon_social, e.responsable_iva,
+              e.nit, e.dv, e.razon_social, e.responsable_iva, e.demo,
               e.matias_cliente, s.direccion as sede_direccion, cj.nombre as caja_nombre,
               (select m.nombre from miembros m where m.empresa_id = v.empresa_id and m.user_id = v.usuario_id) as cajero,
               (select pruebas from resoluciones_dian r where r.empresa_id = d.empresa_id and r.tipo = d.tipo and r.prefijo = d.prefijo order by activa desc limit 1) as pruebas,
@@ -120,7 +121,7 @@ async function armar(id: string): Promise<{ documento: DocumentoParaEmitir; reso
        where o.venta_id = $1 and o.tipo <> 'nota_credito'`, [d.venta_id])).rows[0] : null;
     const cli = d.cliente_id ? (await c.query(`select tipo_doc, numero_doc, dv, nombre, email from clientes where id = $1`, [d.cliente_id])).rows[0] : null;
     return {
-      resolucionPruebas: d.pruebas,
+      resolucionPruebas: d.pruebas, demo: !!d.demo,
       documento: {
         id, tipo: d.tipo, prefijo: d.prefijo, numero: Number(d.numero), fecha: new Date(d.tipo === "nota_credito" ? d.creado : d.fecha).toISOString(), // la nota lleva su propia fecha
         emisor: { nit: d.nit, dv: d.dv, razon_social: d.razon_social, responsable_iva: d.responsable_iva },

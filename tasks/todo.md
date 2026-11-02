@@ -179,3 +179,11 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [ ] ANTHROPIC_API_KEY en Netlify (la pega Oscar) y redeploy
 - [ ] Devolución parcial: pantalla en el detalle de la venta + comprobante + e2e
 - [ ] Reportes por producto, cajero y medio · venta sin internet
+
+## 2026-11-02 · MATIAS producción (paquete Casa de Software 30.000 pagado y aprobado)
+- [x] URL de producción del API: https://api-v2.matias-api.com (MATIAS_URL)
+- [x] La demo emite siempre en simulado aunque el servidor use MATIAS
+- [x] Consola → cliente → «Facturación electrónica (MATIAS)»: UUID del cliente en MATIAS + número de resolución DIAN y paso a producción por numeración (e2e admin)
+- [ ] Oscar: MATIAS → Ajustes → Tokens de Acceso → crear token y pegarlo en Netlify como MATIAS_TOKEN (secreto)
+- [ ] Por cada droguería: habilitación DIAN (portal Habilitación con su usuario: software, set de pruebas), certificado en MATIAS, resolución POS/factura en MUISCA, crear el cliente en MATIAS → UUID en la consola
+- [ ] Cuando haya token y el primer cliente: REGENTA_DIAN=matias en Netlify y redeploy

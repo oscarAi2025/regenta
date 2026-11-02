@@ -125,6 +125,25 @@ const intento2 = await d.request.post(B + "/api/acceso", { headers: { origin: B 
 ok(intento2.status() === 200, "activado vuelve a entrar");
 ok((await q.request.get(B + "/inicio", { maxRedirects: 0 })).status() === 200, "al reactivar, la sesión del dueño vuelve a servir");
 
+// ── Facturación electrónica: conectar con MATIAS (UUID del cliente y número de resolución de producción)
+{
+  const seccion = p.getByRole("region", { name: "Facturación electrónica" });
+  await seccion.getByLabel("UUID del cliente en MATIAS").fill("no-es-uuid");
+  await seccion.getByRole("button", { name: "Guardar facturación electrónica" }).click();
+  await seccion.getByText(/UUID de MATIAS no es válido/).waitFor();
+  ok(true, "rechaza un UUID de MATIAS mal escrito");
+  await seccion.getByLabel("UUID del cliente en MATIAS").fill("47a1257b-d8d6-428e-b28e-abddce5b8531");
+  await seccion.getByLabel(/Número de resolución DIAN de POS/).fill("18764000001234");
+  await seccion.getByRole("button", { name: "Guardar facturación electrónica" }).click();
+  await seccion.getByText("Facturación electrónica guardada").waitFor();
+  const e = (await pool.query(`select matias_cliente::text from empresas where id = $1`, [emp.id])).rows[0];
+  const r = (await pool.query(`select numero_resolucion from resoluciones_dian where empresa_id = $1 and tipo = 'pos'`, [emp.id])).rows[0];
+  ok(e.matias_cliente === "47a1257b-d8d6-428e-b28e-abddce5b8531" && r.numero_resolucion === "18764000001234", "guarda el UUID de MATIAS y el número de resolución");
+  const idDemo = (await pool.query(`select id from empresas where demo limit 1`)).rows[0].id;
+  const demo = await p.request.patch(B + `/api/admin/clientes/${idDemo}`, { headers: { origin: B }, data: { matias: { cliente: "", resoluciones: [] } } });
+  ok(demo.status() === 404, "la demo no se conecta a MATIAS", String(demo.status()));
+}
+
 // ── Cambiar plan y agregar una cajera
 await p.getByRole("button", { name: "Cambiar a Esencial" }).click();
 await p.getByText("Plan: Esencial").waitFor();
@@ -220,8 +239,10 @@ await pq.screenshot({ path: "test-results/pago-qr.png", fullPage: true });
 await p.goto(B + "/admin/pagos?ver=qr");
 const filaQr = p.locator("tr", { hasText: jq.referencia });
 await filaQr.getByRole("button", { name: "Confirmar: el dinero llegó" }).click();
-await filaQr.getByRole("button", { name: /¿Llegaron \$139\.900\? Sí/ }).click();
-await p.getByText("Pago confirmado").waitFor();
+// Al confirmar, la fila sale de «QR por confirmar» (la pantalla se refresca): se comprueba la respuesta de la API.
+const [respQr] = await Promise.all([p.waitForResponse((r) => r.url().includes("/api/admin/pagos") && r.request().method() === "PATCH"),
+  filaQr.getByRole("button", { name: /¿Llegaron \$139\.900\? Sí/ }).click()]);
+ok(respQr.ok() && /Pago confirmado/.test((await respQr.json()).mensaje), "QR: la consola confirma el pago");
 const pagoQr = (await pool.query(`select estado, vence, confirmado_por from pagos_suscripcion where referencia = $1`, [jq.referencia])).rows[0];
 ok(pagoQr.estado === "aprobado" && pagoQr.vence && pagoQr.confirmado_por, "QR: confirmado en la consola, con periodo pagado y quién lo confirmó");
 ok((await correo(pqEmail, "pago_aprobado"))?.estado === "simulado", "QR: correo de pago aprobado");

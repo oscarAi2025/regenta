@@ -7,6 +7,7 @@ import { exigirAdmin, fechaHora, NOMBRE_PLAN } from "@/lib/admin-pagina";
 import { ROLES } from "@/lib/admin-datos";
 import { Usuarios } from "./Usuarios";
 import { Nota } from "./Nota";
+import { Facturacion } from "./Facturacion";
 
 export const metadata = { title: "Cliente" };
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ export default async function Cliente({ params }: { params: Promise<{ id: string
         (select count(*) from ventas where empresa_id = $1 and estado = 'cerrada' and creado > now() - interval '30 days')::int n30,
         (select count(*) from productos where empresa_id = $1 and activo)::int productos,
         (select count(*) from documentos_dian where empresa_id = $1 and estado = 'rechazado')::int rechazados`, [id])).rows[0];
-    const resoluciones = (await c.query(`select tipo, prefijo, desde, hasta, actual, vigente_hasta::text, pruebas, activa from resoluciones_dian where empresa_id = $1 order by tipo`, [id])).rows;
+    const resoluciones = (await c.query(`select tipo, prefijo, desde, hasta, actual, vigente_hasta::text, pruebas, activa, coalesce(numero_resolucion, '') numero_resolucion from resoluciones_dian where empresa_id = $1 order by tipo`, [id])).rows;
     const pagos = (await c.query(`select referencia, plan, periodo, monto, estado, creado from pagos_suscripcion where empresa_id = $1 order by creado desc limit 20`, [id])).rows;
     const eventos = (await c.query(`select ev.accion, ev.creado, cu.nombre from admin_eventos ev left join cuentas cu on cu.id = ev.cuenta_id where ev.empresa_id = $1 order by ev.creado desc limit 20`, [id])).rows;
     return { e, usuarios, cifras, resoluciones, pagos, eventos };
@@ -64,6 +65,8 @@ export default async function Cliente({ params }: { params: Promise<{ id: string
         </section>
         <Nota empresa={id} inicial={e.nota_admin ?? ""} />
       </div>
+      {!e.demo && <Facturacion empresa={id} cliente={e.matias_cliente ?? ""} emisor={process.env.REGENTA_DIAN ?? "simulado"}
+        resoluciones={d.resoluciones.map((r) => ({ tipo: r.tipo, prefijo: r.prefijo, numero: r.numero_resolucion, pruebas: r.pruebas }))} />}
       <div className="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-2 gap-5">
         <section className="tarjeta p-5">
           <h2 className="titulo text-xl">Pagos</h2>
