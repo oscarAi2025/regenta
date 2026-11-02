@@ -10,7 +10,14 @@ const g = globalThis as unknown as { __regentaPool?: pg.Pool };
 // Producción (Supabase): DATABASE_URL = pooler en modo transacción (puerto 6543). Ese modo no acepta parámetros de
 // arranque, así que la zona horaria va en la base (migración 013) y en cada transacción. El certificado de Supabase lo
 // firma su propia CA: se pega en DATABASE_CA (PEM, se descarga del panel) y la conexión se verifica siempre.
-const url = process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp";
+// La contraseña puede ir aparte en DATABASE_PASSWORD (se pega tal cual la genera Supabase, sin armar la URL a mano).
+function conClave(u: string, clave?: string) {
+  if (!clave) return u;
+  const x = new URL(u);
+  x.password = encodeURIComponent(clave.trim());
+  return x.toString();
+}
+const url = conClave(process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp", process.env.DATABASE_PASSWORD);
 const remota = !/localhost|127\.0\.0\.1|host=\/tmp/.test(url);
 
 /** Rearma un PEM que llega de un panel de variables: con «\n» literales, espacios en vez de saltos o sin saltos. */
