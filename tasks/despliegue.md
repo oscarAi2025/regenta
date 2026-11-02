@@ -9,8 +9,8 @@ Supabase desactivada). Se instaló desde el editor SQL, sin terminal: `node scri
 `db/supabase/1_migraciones.sql` y `2_datos_NN.sql` a partir de una base preparada con db-reset contra la copia local de
 Supabase. Comprobado en el Supabase real: las 16 migraciones, 25.474 filas idénticas a la copia local (huella md5 por
 tabla), triggers activos, `anon` sin permisos en tablas ni funciones, todas las tablas con RLS, el cambio de rol
-`authenticated` funciona (el dueño demo ve sus 1.288 ventas y un usuario ajeno ve 0). Falta el superadministrador, que
-se crea cuando el sitio esté en Netlify. Los pasos de abajo quedan para una instalación nueva desde terminal.
+`authenticated` funciona (el dueño demo ve sus 1.288 ventas y un usuario ajeno ve 0). Superadministrador creado el mismo día
+(gerencia@farmagenericoscolombia.com, invitación + inserción en `superadmins` tras activar). Los pasos de abajo quedan para una instalación nueva desde terminal.
 
 1. Crear el proyecto en la región más cercana (São Paulo, `sa-east-1`).
 2. Panel → Project Settings → Database:
@@ -48,6 +48,10 @@ se crea cuando el sitio esté en Netlify. Los pasos de abajo quedan para una ins
 4. Sin `RESEND_API_KEY` y `CORREO_REMITENTE`, los correos quedan como «simulados» en /admin/correos y no llegan a nadie.
 
 ## 3. Netlify (sitio)
+**Hecho el 02/11/2026.** Proyecto `regenta-droguerias` (equipo FARMAGENERICOS COLOMBIA), https://regenta-droguerias.netlify.app.
+`DATABASE_URL` sin contraseña (pooler transacción 6543) + `DATABASE_PASSWORD` aparte (secreta). La CA de Supabase va también
+en el código (`src/lib/supabase-ca.ts`). Cada build gasta créditos del equipo: un solo despliegue por cambio y `[skip netlify]`
+en commits sin efecto. Pendiente: dominio propio, Resend, Stripe, Anthropic.
 1. Importar el repositorio de GitHub. Netlify detecta Next.js 15 solo; no hay que instalar plugins.
 2. Site configuration → Environment variables, con alcance **Builds y Functions**:
 
