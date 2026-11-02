@@ -70,3 +70,10 @@
   (tsbuildinfo) mientras Netlify construye desde main. Probar todo lo posible antes del despliegue para hacer uno solo.
 - Probar la conexión (contraseña, CA) antes de gastar un build: un error de DATABASE_URL se ve en el registro de la
   función sin volver a construir.
+
+## Redirecciones en Netlify (02/11/2026)
+- En las funciones de Netlify `req.url` trae el host interno del despliegue (`main--sitio.netlify.app`). Un
+  `NextResponse.redirect(new URL(ruta, req.url))` manda al visitante a ese otro host, sin la cookie recién creada:
+  el botón «Probar la demo» no entraba. Usar redirecciones relativas (`Location: /ruta`) o `REGENTA_URL`, nunca req.url.
+- Una auditoría con fetch ve los `redirect()` de Next como 200 + `<meta http-equiv="refresh">`: no es fallo si la
+  página solo trae el marco sin datos.

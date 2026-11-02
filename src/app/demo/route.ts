@@ -8,20 +8,23 @@ import { crearSesion, demoActiva, leerSesion, USUARIOS_DEMO, type Rol } from "@/
 // la sesión de una droguería real.
 const DEMO: Record<string, string> = USUARIOS_DEMO;
 
+// Redirección relativa: en Netlify req.url trae el host interno del despliegue (main--sitio.netlify.app), y una
+// redirección absoluta con él mandaba al visitante a otro dominio, sin la cookie de sesión recién creada.
+const ir = (ruta: string) => new NextResponse(null, { status: 303, headers: { Location: ruta } });
+
 export async function POST(req: Request) {
-  const url = new URL(req.url);
-  if (!demoActiva() || !mismoOrigen(req)) return NextResponse.redirect(new URL("/#demo", url), 303);
+  if (!demoActiva() || !mismoOrigen(req)) return ir("/#demo");
   const form = await req.formData().catch(() => null);
   const actual = await leerSesion();
   if (actual) {
     const esDemo = await sinRLS(async (c) => (await c.query(`select demo from empresas where id = $1`, [actual.empresa])).rows[0]?.demo);
-    if (!esDemo) return NextResponse.redirect(new URL("/inicio", url), 303);
+    if (!esDemo) return ir("/inicio");
   }
   const uid = DEMO[String(form?.get("rol") ?? "dueno")] ?? DEMO.dueno;
   const m = await sinRLS(async (c) => (await c.query(`select m.empresa_id, m.nombre, m.rol from miembros m join empresas e on e.id = m.empresa_id where m.user_id = $1 and m.activo and e.demo limit 1`, [uid])).rows[0]);
-  if (!m) return NextResponse.redirect(new URL("/entrar", url), 303);
+  if (!m) return ir("/entrar");
   await crearSesion({ uid, empresa: m.empresa_id, nombre: m.nombre, rol: m.rol as Rol });
-  return NextResponse.redirect(new URL(m.rol === "cajero" ? "/caja" : "/inicio", url), 303);
+  return ir(m.rol === "cajero" ? "/caja" : "/inicio");
 }
 
 /** Enlaces antiguos a /demo: página mínima con el botón (un GET nunca crea sesión). */
