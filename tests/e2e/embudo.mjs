@@ -37,7 +37,7 @@ for (const [nombre, vp] of [["escritorio", { width: 1440, height: 900 }], ["celu
   // Paso 1: vender
   await p.goto(B + "/caja"); await p.waitForLoadState("networkidle");
   if (nombre === "escritorio") {
-    await p.keyboard.type("acetaminofen forte mk"); await p.waitForSelector('[role="option"]'); await p.keyboard.press("Enter");
+    await p.keyboard.type("acetaminofen forte mk"); await p.waitForSelector('[aria-label="Resultados"] [role="option"]'); await p.keyboard.press("Enter");
     await p.keyboard.press("F9"); await p.waitForSelector("#recibido"); await p.fill("#recibido", "100000");
     await p.getByRole("button", { name: /Confirmar/ }).click();
     const aviso = p.getByRole("status").filter({ hasText: "tiquete POS electrónico" });

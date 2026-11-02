@@ -29,7 +29,7 @@ async function entrar(ctx, quien) {
 }
 async function agregar(p, texto) {
   await p.locator("#buscar").fill(texto);
-  await p.waitForSelector('[role="option"]');
+  await p.waitForSelector('[aria-label="Resultados"] [role="option"]');
   // Un producto con existencias de sobra (las pruebas repetidas van agotando los primeros de la lista).
   await p.locator('[role="option"]', { hasText: /\b([2-9]|\d{2,}) cajas/ }).first().getByRole("button").first().click();
 }
@@ -38,7 +38,7 @@ async function agregar(p, texto) {
 {
   const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
   const { p, errs } = await entrar(ctx, "Carlos");
-  await p.goto(B + "/caja");
+  await p.goto(B + "/caja"); await p.waitForLoadState("networkidle");
   await p.getByRole("button", { name: "Factura electrónica", exact: true }).click();
   await agregar(p, "acetaminofen");
   ok(await p.getByRole("button", { name: /^Cobrar/ }).isDisabled(), "sin cliente no se puede cobrar una factura");
@@ -76,7 +76,7 @@ async function agregar(p, texto) {
   ok(await p.getByText(/A crédito/).count() === 0, "factura de contado sin crédito");
 
   // Cartera
-  await p.goto(B + "/cartera");
+  await p.goto(B + "/cartera"); await p.waitForLoadState("networkidle");
   const fila = p.locator("tr", { hasText: numero });
   ok(await fila.count() === 1, "la factura a crédito aparece en Cartera", numero);
   const saldo = pesos(await fila.locator("td").nth(5).textContent());
@@ -140,7 +140,7 @@ async function agregar(p, texto) {
   await agregar(p, "acetaminofen");
   await p.keyboard.press("F9");
   ok(await p.getByRole("button", { name: "Crédito", exact: true }).count() === 0, "la cajera no ve la opción de crédito");
-  await p.goto(B + "/cartera");
+  await p.goto(B + "/cartera"); await p.waitForLoadState("networkidle");
   await p.waitForURL(/\/inicio/);
   ok(true, "la cajera no entra a Cartera");
   const r = await p.evaluate(async () => (await fetch("/api/cartera", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ venta_id: crypto.randomUUID(), medio: "efectivo", valor: 1000 }) })).status);
@@ -153,11 +153,11 @@ async function agregar(p, texto) {
 {
   const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const { p } = await entrar(ctx, "Carlos");
-  await p.goto(B + "/caja");
+  await p.goto(B + "/caja"); await p.waitForLoadState("networkidle");
   await p.getByRole("button", { name: "Factura electrónica", exact: true }).click();
   const ancho = await p.evaluate(() => document.documentElement.scrollWidth);
   ok(ancho <= 390, "sin desborde horizontal en celular", String(ancho));
-  await p.goto(B + "/cartera");
+  await p.goto(B + "/cartera"); await p.waitForLoadState("networkidle");
   await p.getByRole("heading", { name: "Cartera" }).waitFor({ timeout: 10000 }).catch(() => {});
   ok(await p.getByRole("heading", { name: "Cartera" }).count() === 1, "Cartera abre en celular");
   await ctx.close();

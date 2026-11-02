@@ -163,7 +163,7 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] Pagos mixtos (una parte con otro medio y el resto en efectivo, cambio solo sobre el efectivo)
 - [x] Descuento por ítem y descuento general (%), tope de la cajera 10 %, informado a la DIAN como descuento de línea (aceptado en el sandbox de MATIAS) — migración 019, tests/e2e/descuentos.mjs
 - [ ] Devolución parcial (nota crédito por ítems/cantidades)
-- [ ] Venta sin internet con tirilla provisional y sincronización
+- [x] Venta sin internet: catálogo local, cola con idempotencia, comprobante provisional, envío solo al volver (tests/e2e/sin-conexion.mjs) con tirilla provisional y sincronización
 - [ ] Reportes: ventas por producto, por cajero, por medio de pago y por turno
 - [ ] Venta en espera (varias ventas abiertas) — Alegra no la tiene: ventaja
 - [x] Términos y condiciones (/terminos), enlazados en el pie y aceptados al contratar; política de datos al día (Google Workspace, encargados)
@@ -180,7 +180,7 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] Devolución parcial: pantalla en el detalle de la venta + comprobante + e2e (tests/e2e/devoluciones.mjs, 0 fallos)
 - [ ] Aplicar migración 021_venta_devuelto.sql en Supabase y desplegar (el commit va con [skip netlify] hasta aplicarla)
 - [x] Reportes (dueño/admin): netas, ganancia, IVA, por día, por medio, horas fuertes, por cajero, por producto; exportar CSV para Excel (tests/e2e/reportes.mjs)
-- [ ] Venta sin internet
+- [x] Venta sin internet: catálogo local, cola con idempotencia, comprobante provisional, envío solo al volver (tests/e2e/sin-conexion.mjs)
 
 ## 2026-11-02 · MATIAS producción (paquete Casa de Software 30.000 pagado y aprobado)
 - [x] URL de producción del API: https://api-v2.matias-api.com (MATIAS_URL)

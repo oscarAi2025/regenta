@@ -3,6 +3,7 @@ import { guardarImpresora, imprimirTiquete, leerImpresora, type Impresora } from
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pesos } from "@/lib/formato";
 import { ClienteFactura, documento, type Cliente } from "./ClienteFactura";
+import { actualizarCatalogo, buscarLocal, catalogo, cola, descartar, encolar, esFallaDeRed, imprimirProvisional, sincronizar, type VentaEnCola } from "@/lib/sin-conexion";
 
 type Producto = {
   id: string; nombre: string; laboratorio: string | null; ean: string | null; iva: number; unidades_por_caja: number;
@@ -10,7 +11,7 @@ type Producto = {
 };
 type Linea = { key: string; p: Producto; presentacion: "caja" | "unidad"; cantidad: number; descuento: number /* % */ };
 type Medio = "efectivo" | "transferencia" | "nequi" | "daviplata" | "tarjeta" | "bre_b" | "qr";
-type Resultado = { venta: { venta_id: string; prefijo: string; numero: number; total: number; cambio: number; base: number; iva: number; credito?: boolean; vence_pago?: string | null; repetida?: boolean }; documento: { tipo: "pos" | "factura"; estado: string; cufe: string | null; simulado: boolean; ultimo_error: string | null } };
+type Resultado = { provisional?: VentaEnCola; venta: { venta_id: string; prefijo: string; numero: number; total: number; cambio: number; base: number; iva: number; credito?: boolean; vence_pago?: string | null; repetida?: boolean }; documento: { tipo: "pos" | "factura"; estado: string; cufe: string | null; simulado: boolean; ultimo_error: string | null } };
 const PLAZOS = [15, 30, 45, 60, 90];
 const fechaCorta = (f: string) => new Date(f + "T00:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
 
@@ -42,7 +43,7 @@ function existencias(p: Producto) {
   return `${c} caja${c === 1 ? "" : "s"}${u ? ` + ${u} und` : ""}`;
 }
 
-export function Caja({ fiar }: { fiar: boolean }) {
+export function Caja({ fiar, empresa, nombreEmpresa }: { fiar: boolean; empresa: string; nombreEmpresa: string }) {
   const [q, setQ] = useState("");
   const [res, setRes] = useState<Producto[]>([]);
   const [sel, setSel] = useState(0);
@@ -65,6 +66,29 @@ export function Caja({ fiar }: { fiar: boolean }) {
   const [credito, setCredito] = useState(false);
   const [plazo, setPlazo] = useState(30);
   const idem = useRef<string>(crypto.randomUUID());
+  // Sin internet: catálogo local, cola de ventas y aviso del estado.
+  const [enLinea, setEnLinea] = useState(true);
+  const [pendientes, setPendientes] = useState(0);
+  const [fallidas, setFallidas] = useState<VentaEnCola[]>([]);
+  const [avisoCola, setAvisoCola] = useState("");
+  const contar = useCallback(() => { const c = cola().filter((v) => v.empresa === empresa); setPendientes(c.filter((v) => !v.error).length); setFallidas(c.filter((v) => v.error)); }, [empresa]);
+  const enviarCola = useCallback(async () => {
+    if (!cola().some((v) => v.empresa === empresa && !v.error)) return;
+    const r = await sincronizar(empresa);
+    if (r.enviadas) setAvisoCola(`${r.enviadas} venta${r.enviadas === 1 ? "" : "s"} hecha${r.enviadas === 1 ? "" : "s"} sin internet ya ${r.enviadas === 1 ? "quedó registrada" : "quedaron registradas"} y en camino a la DIAN.`);
+    if (r.sesion) setAvisoCola("Tu sesión venció: entra de nuevo para enviar las ventas hechas sin internet. Siguen guardadas en esta caja.");
+    contar();
+  }, [empresa, contar]);
+  useEffect(() => {
+    setEnLinea(navigator.onLine); contar();
+    void actualizarCatalogo(); void enviarCola();
+    const on = () => { setEnLinea(true); void enviarCola(); void actualizarCatalogo(); };
+    const off = () => setEnLinea(false);
+    addEventListener("online", on); addEventListener("offline", off); addEventListener("regenta:cola", contar);
+    const t1 = setInterval(() => void enviarCola(), 20000);
+    const t2 = setInterval(() => { if (navigator.onLine) void actualizarCatalogo(); }, 600000);
+    return () => { removeEventListener("online", on); removeEventListener("offline", off); removeEventListener("regenta:cola", contar); clearInterval(t1); clearInterval(t2); };
+  }, [contar, enviarCola]);
   const buscador = useRef<HTMLInputElement>(null);
   const recibidoRef = useRef<HTMLInputElement>(null);
 
@@ -75,12 +99,14 @@ export function Caja({ fiar }: { fiar: boolean }) {
     const ctl = new AbortController();
     const h = setTimeout(async () => {
       setBuscando(true);
+      const local = () => { const c = catalogo(); if (c?.empresa === empresa) { setRes(buscarLocal(t)); setSel(0); } };
       try {
+        if (!navigator.onLine) { local(); return; }
         const r = await fetch(`/api/productos?q=${encodeURIComponent(t)}`, { signal: ctl.signal });
         if (r.status === 401) { location.href = "/entrar"; return; }
         const j = await r.json();
         setRes(j.productos ?? []); setSel(0);
-      } catch { /* búsqueda cancelada */ } finally { setBuscando(false); }
+      } catch (e) { if (!ctl.signal.aborted && esFallaDeRed(e)) { setEnLinea(false); local(); } } finally { setBuscando(false); }
     }, 140);
     return () => { clearTimeout(h); ctl.abort(); };
   }, [q]);
@@ -141,10 +167,7 @@ export function Caja({ fiar }: { fiar: boolean }) {
     if (!aCredito && medio === "efectivo" && otro && (otroNum <= 0 || otroNum >= Math.round(totales.total))) { setError("En el pago mixto, la parte con el otro medio debe ser menor que el total"); return; }
     if (!aCredito && medio === "efectivo" && recibidoNum < restante) { setError(otroNum ? `El efectivo no cubre el resto (${pesos(restante)})` : "El efectivo recibido no cubre el total"); return; }
     setEnviando(true); setError("");
-    try {
-      const r = await fetch("/api/ventas", {
-        method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({
+    const cuerpo = {
           idem_key: idem.current, tipo_doc: tipoDoc, cliente_id: tipoDoc === "factura" ? cliente?.id : null,
           condicion: aCredito ? "credito" : "contado", plazo_dias: aCredito ? plazo : null,
           lineas: lineas.map((l) => ({ producto_id: l.p.id, presentacion: l.presentacion, cantidad: l.cantidad, descuento_pct: l.descuento })),
@@ -152,15 +175,27 @@ export function Caja({ fiar }: { fiar: boolean }) {
           pagos: aCredito ? [] : medio === "efectivo" && otroNum > 0
             ? [{ medio: otro!.medio, valor: otroNum }, { medio: "efectivo", valor: recibidoNum }]
             : [{ medio, valor: medio === "efectivo" ? recibidoNum : Math.round(totales.total) }],
-        }),
-      });
+    };
+    try {
+      const r = await fetch("/api/ventas", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(cuerpo) });
       const j = await r.json();
       if (!r.ok) { setError(j.error ?? "No se pudo registrar la venta"); return; }
       setHecho(j); setCobrando(false);
       window.dispatchEvent(new CustomEvent("regenta:venta", { detail: { total: Number(j.venta?.total ?? 0), documento: j.documento?.estado ?? null } }));
       if (impresora.auto && j.venta?.venta_id) imprimirTiquete(j.venta.venta_id, impresora.ancho);
-    } catch {
-      setError("Sin conexión con el servidor. La venta no se registró: revisa internet y vuelve a confirmar (no se duplicará).");
+    } catch (e) {
+      if (!esFallaDeRed(e)) { setError("No se pudo registrar la venta. Vuelve a confirmar (no se duplicará)."); return; }
+      setEnLinea(false);
+      if (tipoDoc !== "pos" || aCredito) { setError("Sin internet: la factura electrónica necesita conexión. Cobra con tiquete POS y se envía solo al volver internet."); return; }
+      // Sin internet: la venta se guarda en esta caja y se envía sola al volver la conexión (misma clave: no se duplica).
+      const v: VentaEnCola = {
+        idem_key: idem.current, empresa, creado: new Date().toISOString(), cuerpo, total: Math.round(totales.total), cambio: medio === "efectivo" ? cambio : 0,
+        lineas: lineas.map((l) => ({ nombre: l.p.nombre, cantidad: l.cantidad, presentacion: l.presentacion, total: netoLinea(l).neto, producto_id: l.p.id, unidades: l.cantidad * (l.presentacion === "caja" ? l.p.unidades_por_caja : 1) })),
+      };
+      if (!encolar(v)) { setError("Sin internet y este navegador no deja guardar la venta. Anótala y regístrala al volver la conexión."); return; }
+      setHecho({ provisional: v, venta: { venta_id: "", prefijo: "", numero: 0, total: v.total, cambio: v.cambio, base: 0, iva: 0 }, documento: { tipo: "pos", estado: "pendiente", cufe: null, simulado: false, ultimo_error: null } });
+      setCobrando(false); contar();
+      if (impresora.auto) imprimirProvisional(v, nombreEmpresa, impresora.ancho);
     } finally { setEnviando(false); }
   }
 
@@ -171,11 +206,12 @@ export function Caja({ fiar }: { fiar: boolean }) {
       if (e.key === "F9" && puedeCobrar && !hecho) { e.preventDefault(); setCobrando(true); setTimeout(() => recibidoRef.current?.focus(), 0); }
       if (e.key === "Escape" && cobrando) { setCobrando(false); buscador.current?.focus(); }
       if (e.key === "Enter" && hecho) { e.preventDefault(); nueva(); }
-      if (e.key === "F8" && hecho?.venta.venta_id) { e.preventDefault(); imprimirTiquete(hecho.venta.venta_id, impresora.ancho); }
+      if (e.key === "F8" && hecho?.provisional) { e.preventDefault(); imprimirProvisional(hecho.provisional, nombreEmpresa, impresora.ancho); }
+      else if (e.key === "F8" && hecho?.venta.venta_id) { e.preventDefault(); imprimirTiquete(hecho.venta.venta_id, impresora.ancho); }
     };
     addEventListener("keydown", h);
     return () => removeEventListener("keydown", h);
-  }, [puedeCobrar, cobrando, hecho, nueva, impresora.ancho]);
+  }, [puedeCobrar, cobrando, hecho, nueva, impresora.ancho, nombreEmpresa]);
 
   function teclaBuscador(e: React.KeyboardEvent) {
     if (e.key === "ArrowDown") { e.preventDefault(); setSel((s) => Math.min(s + 1, res.length - 1)); }
@@ -187,6 +223,19 @@ export function Caja({ fiar }: { fiar: boolean }) {
     <div className="grid xl:grid-cols-[1fr_440px] gap-5 p-4 sm:p-6 pb-28 xl:pb-6 items-start">
       {/* Buscar y agregar */}
       <section aria-label="Productos" className="min-w-0">
+        {(!enLinea || pendientes > 0) && (
+          <p role="status" className={`mb-3 rounded-xl px-4 py-3 font-semibold ${enLinea ? "bg-aviso-soft text-aviso" : "bg-ink text-white"}`}>
+            {!enLinea ? "Sin internet: sigues vendiendo con tiquete POS. " : "Enviando las ventas hechas sin internet… "}
+            {pendientes > 0 && `${pendientes} venta${pendientes === 1 ? "" : "s"} guardada${pendientes === 1 ? "" : "s"} en esta caja, se envía${pendientes === 1 ? "" : "n"} sola${pendientes === 1 ? "" : "s"} al volver la conexión.`}
+          </p>
+        )}
+        {avisoCola && <p role="status" className="mb-3 rounded-xl bg-cruz-soft text-cruz px-4 py-3 font-semibold flex justify-between gap-3">{avisoCola}<button onClick={() => setAvisoCola("")} className="text-sm underline shrink-0">Cerrar</button></p>}
+        {fallidas.length > 0 && (
+          <div role="alert" className="mb-3 rounded-xl bg-alerta-soft text-alerta px-4 py-3">
+            <p className="font-semibold">{fallidas.length} venta{fallidas.length === 1 ? "" : "s"} hecha{fallidas.length === 1 ? "" : "s"} sin internet no se pudo registrar:</p>
+            <ul className="mt-1 text-sm grid gap-1">{fallidas.map((v) => <li key={v.idem_key} className="flex flex-wrap justify-between gap-2"><span>{new Date(v.creado).toLocaleString("es-CO")} · {pesos(v.total)} · {v.error}</span><button onClick={() => descartar(v.idem_key)} className="underline">Ya la registré a mano</button></li>)}</ul>
+          </div>
+        )}
         <div className="relative">
           <label htmlFor="buscar" className="sr-only">Buscar producto o escanear código de barras</label>
           <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
@@ -226,8 +275,14 @@ export function Caja({ fiar }: { fiar: boolean }) {
       <aside id="venta" aria-label="Venta actual" className="tirilla rounded-t-2xl xl:sticky xl:top-6 pb-8 scroll-mt-4">
         {hecho ? (
           <div className="px-6 pt-6">
+            {hecho.provisional ? <>
+              <p className="text-sm text-aviso font-semibold">Venta guardada sin internet</p>
+              <p className="font-cond text-2xl num" style={{ fontWeight: 700 }}>Comprobante provisional</p>
+              <p className="mt-2 text-sm text-muted">Se registra y se envía a la DIAN sola en cuanto vuelva internet. No la cobres de nuevo.</p>
+            </> : <>
             <p className="text-sm text-muted">{hecho.documento?.tipo === "factura" ? "Factura electrónica registrada" : "Venta registrada"}</p>
             <p className="font-cond text-2xl num" style={{ fontWeight: 700 }}>{hecho.venta.prefijo}{hecho.venta.numero}</p>
+            </>}
             <div className="corte my-5" />
             <div className="flex items-baseline justify-between"><span>Total</span><span className="num font-cond text-2xl" style={{ fontWeight: 700 }}>{pesos(hecho.venta.total)}</span></div>
             {hecho.venta.repetida && (
@@ -241,16 +296,16 @@ export function Caja({ fiar }: { fiar: boolean }) {
                 <span className="text-lg">Cambio</span><span className="num font-cond text-[44px] leading-none" style={{ fontWeight: 700 }}>{pesos(hecho.venta.cambio)}</span>
               </div>
             )}
-            <div className="mt-5 flex items-center gap-2 text-sm">
+            {!hecho.provisional && <div className="mt-5 flex items-center gap-2 text-sm">
               <span className={`size-2.5 rounded-full ${hecho.documento?.estado === "aceptado" ? "bg-cruz" : hecho.documento?.estado === "rechazado" ? "bg-alerta" : "bg-aviso"}`} />
               <span>
                 {hecho.documento?.estado === "aceptado" ? (hecho.documento.tipo === "factura" ? "Factura electrónica aceptada" : "Tiquete POS electrónico aceptado") : hecho.documento?.estado === "rechazado" ? `DIAN rechazó el documento: ${hecho.documento.ultimo_error}` : "Enviando a la DIAN: la cola lo reintenta sola"}
                 {hecho.documento?.simulado && <span className="text-muted"> · emisión simulada (pruebas)</span>}
               </span>
-            </div>
+            </div>}
             {hecho.documento?.cufe && <p className="mt-2 text-[11px] text-muted break-all font-cond">CUFE {hecho.documento.cufe}</p>}
             <div className="mt-6 grid grid-cols-[auto_1fr] gap-2">
-              <button onClick={() => imprimirTiquete(hecho.venta.venta_id, impresora.ancho)} className="h-14 px-4 rounded-xl border border-line font-semibold">Imprimir <kbd className="ml-1">F8</kbd></button>
+              <button onClick={() => hecho.provisional ? imprimirProvisional(hecho.provisional, nombreEmpresa, impresora.ancho) : imprimirTiquete(hecho.venta.venta_id, impresora.ancho)} className="h-14 px-4 rounded-xl border border-line font-semibold">Imprimir <kbd className="ml-1">F8</kbd></button>
               <button onClick={nueva} className="h-14 rounded-xl bg-ink text-white text-lg font-semibold">Nueva venta <kbd className="ml-2 !bg-transparent !text-white/70 !border-white/30">Enter</kbd></button>
             </div>
             <details className="mt-3 text-sm text-muted">

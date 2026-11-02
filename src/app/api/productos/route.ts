@@ -23,6 +23,18 @@ export async function GET(req: Request) {
       return NextResponse.json({ productos });
     } catch (e) { const { status, error } = mensajeError(e); return NextResponse.json({ error }, { status }); }
   }
+  if (sp.get("catalogo") === "1") {
+    // Catálogo completo para buscar en la caja sin internet (se guarda en el navegador de la caja).
+    try {
+      const productos = await comoUsuario(s, async (c) => (await c.query(
+        `select p.id, p.nombre, p.laboratorio, p.ean, p.iva::float, p.unidades_por_caja, p.precio_caja::float, p.precio_unidad::float,
+                p.stock_minimo, coalesce(st.unidades, 0)::int unidades, st.proximo_vence::text, false as exacto
+         from productos p
+         left join lateral (select sum(unidades) unidades, min(vence) filter (where unidades > 0) proximo_vence from v_stock_vigente where producto_id = p.id) st on true
+         where p.empresa_id = $1 and p.activo order by p.nombre limit 20000`, [s.empresa])).rows);
+      return NextResponse.json({ empresa: s.empresa, productos }, { headers: { "cache-control": "no-store" } });
+    } catch (e) { const { status, error } = mensajeError(e); return NextResponse.json({ error }, { status }); }
+  }
   if (!q) return NextResponse.json({ productos: [] });
   const palabras = q.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6).map(sinComodines);
   try {

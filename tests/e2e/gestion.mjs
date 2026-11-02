@@ -251,8 +251,8 @@ async function entrar(ctx, quien) {
   ok(new URL(p.url()).pathname === "/caja", "la cajera no recibe mercancía");
   if (CAP) {
     await p.setViewportSize({ width: 1440, height: 900 });
-    for (const q of ["acetaminofen", "amoxicilina", "suero pedialyte"]) { await p.locator("#buscar").fill(q); await p.waitForSelector('[role="option"]'); await p.locator("#buscar").press("Enter"); }
-    await p.locator("#buscar").fill("dolex"); await p.waitForSelector('[role="option"]'); await p.waitForTimeout(300);
+    for (const q of ["acetaminofen", "amoxicilina", "suero pedialyte"]) { await p.locator("#buscar").fill(q); await p.waitForSelector('[aria-label="Resultados"] [role="option"]'); await p.locator("#buscar").press("Enter"); }
+    await p.locator("#buscar").fill("dolex"); await p.waitForSelector('[aria-label="Resultados"] [role="option"]'); await p.waitForTimeout(300);
     await p.screenshot({ path: `${CAP}/caja.png` });
   }
   await ctx.close();

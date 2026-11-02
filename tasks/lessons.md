@@ -103,3 +103,7 @@
 ## 2026-11-02 · Candado de inmutabilidad olvidado
 - Error: la migración 020 añadió ventas.devuelto pero el trigger venta_solo_anular solo permite cambiar «estado»: toda devolución habría fallado en producción. Lo destapó el e2e de la pantalla, no la migración.
 - Regla: al añadir una columna mutable a una tabla con trigger de inmutabilidad, actualizar el trigger en la misma migración y probar la escritura de punta a punta antes de aplicar en producción.
+
+## 2026-11-02 · Pruebas e2e con carreras de hidratación
+- Error: escribir en la caja justo después de goto (antes de hidratar React) perdía teclas; y esperar '[role="option"]' encontraba la lista «Ofrécelos primero», no los resultados. Fallaban de vez en cuando.
+- Regla: tras goto a una pantalla interactiva, esperar networkidle; y esperar el elemento exacto (aria-label="Resultados"), nunca un selector genérico que otra lista también cumple.

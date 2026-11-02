@@ -32,7 +32,7 @@ async function entrar(ctx, quien) {
   ok(p.url().endsWith("/caja"), "la cajera entra directo a la caja");
   await p.screenshot({ path: `${OUT}/caja-vacia.png` });
   await p.keyboard.type("acetaminofen forte mk"); // uno con cajas de sobra (la prueba vende una caja)
-  await p.waitForSelector('[role="option"]');
+  await p.waitForSelector('[aria-label="Resultados"] [role="option"]');
   const n = await p.locator('[role="option"]').count();
   ok(n > 0, "la búsqueda devuelve productos", `${n}`);
   await p.screenshot({ path: `${OUT}/caja-busqueda.png` });
@@ -40,7 +40,7 @@ async function entrar(ctx, quien) {
   ok(await p.locator('aside[aria-label="Venta actual"] li').count() === 1, "Enter agrega el producto a la tirilla");
   // segundo producto: por unidad si se puede
   await p.keyboard.type("x 100");
-  await p.waitForSelector('[role="option"]');
+  await p.waitForSelector('[aria-label="Resultados"] [role="option"]');
   const unidad = p.getByRole("option").first().getByRole("button", { name: /Unidad/ });
   if (await unidad.count()) { await unidad.click(); ok(true, "agrega por unidad"); } else { await p.keyboard.press("Enter"); }
   const totalTexto = await p.locator('aside[aria-label="Venta actual"]').getByText(/^\$[\d.]+$/).last().textContent();
@@ -86,7 +86,7 @@ async function entrar(ctx, quien) {
 {
   const ctx = await b.newContext();
   const { p } = await entrar(ctx, "Andrés");
-  await p.goto(B + "/caja");
+  await p.goto(B + "/caja"); await p.waitForLoadState("networkidle");
   await p.waitForURL(/\/inventario/, { timeout: 10000 }).catch(() => {});
   ok(new URL(p.url()).pathname === "/inventario", "bodega no entra a la caja");
   const r = await p.request.post(B + "/api/ventas", { data: { idem_key: crypto.randomUUID(), tipo_doc: "pos", lineas: [{ producto_id: crypto.randomUUID(), presentacion: "caja", cantidad: 1 }], pagos: [{ medio: "efectivo", valor: 1000 }] } });
@@ -100,7 +100,7 @@ async function entrar(ctx, quien) {
   const p = await ctx.newPage();
   const r = await p.request.get(B + "/api/productos?q=a");
   ok(r.status() === 401, "la búsqueda exige sesión");
-  await p.goto(B + "/caja");
+  await p.goto(B + "/caja"); await p.waitForLoadState("networkidle");
   ok(p.url().endsWith("/entrar"), "sin sesión, la caja manda a entrar");
   await ctx.close();
 }
@@ -110,7 +110,7 @@ async function entrar(ctx, quien) {
   const ctx = await b.newContext({ ...devices["iPhone 13"] });
   const { p, errs } = await entrar(ctx, "Laura");
   await p.locator("#buscar").fill("ibuprofeno");
-  await p.waitForSelector('[role="option"]');
+  await p.waitForSelector('[aria-label="Resultados"] [role="option"]');
   await p.screenshot({ path: `${OUT}/movil-busqueda.png` });
   const ancho = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   ok(ancho <= 0, "sin desborde horizontal en móvil", `${ancho}px`);

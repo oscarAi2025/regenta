@@ -16,7 +16,7 @@ async function entrar(quien) {
   const p = await ctx.newPage();
   const errs = []; p.on("pageerror", (e) => errs.push(e.message));
   await p.goto(B + "/entrar"); await p.getByRole("button", { name: new RegExp(quien) }).click(); await p.waitForURL(/\/(caja|inicio)/);
-  if (!p.url().endsWith("/caja")) await p.goto(B + "/caja");
+  if (!p.url().endsWith("/caja")) await p.goto(B + "/caja"); await p.waitForLoadState("networkidle");
   await p.waitForLoadState("networkidle");
   return { ctx, p, errs };
 }
@@ -31,7 +31,7 @@ const venta = (p, desc, general) => p.evaluate(async ([d, g]) => {
 // ── Cajera: descuento de línea + general desde la caja
 {
   const { ctx, p, errs } = await entrar("Laura");
-  await p.keyboard.type("acetaminofen forte mk"); await p.waitForSelector('[role="option"]'); await p.keyboard.press("Enter");
+  await p.keyboard.type("acetaminofen forte mk"); await p.waitForSelector('[aria-label="Resultados"] [role="option"]'); await p.keyboard.press("Enter");
   const aside = p.locator('aside[aria-label="Venta actual"]');
   const bruto = num(await aside.getByText(/^\$[\d.]+$/).last().textContent());
   await aside.getByLabel(/Descuento de .* en porcentaje/).fill("5");
