@@ -17,6 +17,7 @@ export function Pie() {
             <li><Link href="/por-que-regenta" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">Por qué Regenta</Link></li>
             <li><Link href="/contratar" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">Contratar en línea</Link></li>
             <li><Link href="/privacidad" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">Política de datos</Link></li>
+            <li><Link href="/terminos" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">Términos y condiciones</Link></li>
             <li><Link href="/funciones/facturacion-electronica" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">Facturación electrónica</Link></li>
             <li><Link href="/software" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">Software para el sector farmacéutico</Link></li>
             <li><Link href="/software/facturacion-electronica-droguerias" className="inline-block py-1.5 sm:py-0.5 hover:text-white hover:underline">Facturación electrónica para droguerías</Link></li>

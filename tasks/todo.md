@@ -161,8 +161,9 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] Impresión de tirilla 80/58 mm: automática al cobrar (iframe), F8 reimprime, «Imprimir tiquete» en la venta, QR y CUDE, datos de la Res. 165/2023 art. 19-20
 - [x] Turnos de caja: apertura con base, ingresos y egresos de efectivo, cierre con «dinero real en caja», diferencia, reporte imprimible, «exigir turno» (migración 018, tests/e2e/turnos.mjs)
 - [x] Pagos mixtos (una parte con otro medio y el resto en efectivo, cambio solo sobre el efectivo)
-- [ ] Descuento por ítem y descuento general (con su informe a la DIAN)
+- [x] Descuento por ítem y descuento general (%), tope de la cajera 10 %, informado a la DIAN como descuento de línea (aceptado en el sandbox de MATIAS) — migración 019, tests/e2e/descuentos.mjs
 - [ ] Devolución parcial (nota crédito por ítems/cantidades)
 - [ ] Venta sin internet con tirilla provisional y sincronización
 - [ ] Reportes: ventas por producto, por cajero, por medio de pago y por turno
 - [ ] Venta en espera (varias ventas abiertas) — Alegra no la tiene: ventaja
+- [x] Términos y condiciones (/terminos), enlazados en el pie y aceptados al contratar; política de datos al día (Google Workspace, encargados)

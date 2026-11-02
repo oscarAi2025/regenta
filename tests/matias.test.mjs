@@ -70,3 +70,13 @@ test("Respuestas: aceptado, recuperado, 98, rechazo, 422, 402, 5xx", () => {
   assert.equal(interpretar(402, { message: "sin saldo" }).definitivo, false);
   assert.equal(interpretar(500, { code: "DOCUMENT_POSSIBLY_SENT", message: "x" }).definitivo, false);
 });
+
+test("Descuento de línea: precio bruto, descuento no condicionado y base neta cuadran", () => {
+  const p = payloadMatias({ ...base, tipo: "pos", cliente: null, pagos: [{ medio: "efectivo", valor: 60000 }], forma_pago: { tipo: "contado" },
+    lineas: [{ descripcion: "BENET COMPLEJO B X 60", codigo: "1", cantidad: 1, precio: 52000, iva_pct: 19, base: 39436.97, iva: 7493.03, total: 46930, descuento: 5070 }],
+    totales: { base: 39436.97, iva: 7493.03, total: 46930 } });
+  const l = p.lines[0];
+  assert.deepEqual(l.allowance_charges, [{ charge_indicator: false, discount_id: 1, allowance_charge_reason: "Descuento", amount: "4260.50", base_amount: "43697.47" }]);
+  assert.equal(l.price_amount, "43697.47");
+  assert.equal((Number(l.price_amount) * 1 - Number(l.allowance_charges[0].amount)).toFixed(2), l.line_extension_amount);
+});

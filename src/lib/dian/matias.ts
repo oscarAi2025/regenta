@@ -26,9 +26,13 @@ export function payloadMatias(d: DocumentoParaEmitir) {
   const lines = d.lineas.map((l, i) => {
     const gravada = l.iva_pct > 0;
     if (gravada) { const g = grupos.get(l.iva_pct) ?? { base: 0, iva: 0 }; g.base += l.base; g.iva += l.iva; grupos.set(l.iva_pct, g); }
+    // Descuento de la línea: se informa como descuento no condicionado (discount_id 1) sobre la base bruta.
+    const desc = Math.round(((l.descuento ?? 0) / (1 + l.iva_pct / 100)) * 100) / 100;
+    const bruto = l.base + desc;
     return {
       invoiced_quantity: String(l.cantidad), base_quantity: String(l.cantidad), quantity_units_id: UNIDAD,
-      line_extension_amount: p2(l.base), price_amount: p2(l.base / l.cantidad), free_of_charge_indicator: false,
+      line_extension_amount: p2(l.base), price_amount: p2(bruto / l.cantidad), free_of_charge_indicator: false,
+      ...(desc > 0 ? { allowance_charges: [{ charge_indicator: false, discount_id: 1, allowance_charge_reason: "Descuento", amount: p2(desc), base_amount: p2(bruto) }] } : {}),
       description: l.descripcion.slice(0, 300), code: l.codigo ?? `L${i + 1}`, type_item_identifications_id: 4, reference_price_id: 1,
       ...(gravada ? { tax_totals: [{ tax_id: 1, percent: l.iva_pct, taxable_amount: p2(l.base), tax_amount: p2(l.iva) }] } : {}),
     };

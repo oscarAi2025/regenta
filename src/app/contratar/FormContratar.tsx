@@ -83,7 +83,7 @@ export function FormContratar({ plan: inicial, planes, activos }: { plan: "esenc
         <div><label htmlFor="c-tel" className="etiqueta">Celular (WhatsApp)</label><input id="c-tel" className="campo num" required inputMode="tel" autoComplete="tel" value={f.telefono} onChange={(e) => setF({ ...f, telefono: e.target.value })} /></div>
         <div className="sm:col-span-2"><label htmlFor="c-email" className="etiqueta">Correo</label><input id="c-email" type="email" className="campo" required autoComplete="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></div>
         <label className="sm:col-span-2 flex items-start gap-3 text-[15px] py-2 cursor-pointer"><input type="checkbox" required className="mt-0.5 size-6 shrink-0 accent-teal-600" checked={f.acepta} onChange={(e) => setF({ ...f, acepta: e.target.checked })} />
-          <span>Autorizo el tratamiento de mis datos según la <Link href="/privacidad" className="underline">política de datos</Link> para activar y facturar mi plan.</span></label>
+          <span>Acepto los <Link href="/terminos" className="underline">términos y condiciones</Link> y autorizo el tratamiento de mis datos según la <Link href="/privacidad" className="underline">política de datos</Link> para activar y facturar mi plan.</span></label>
       </fieldset>
 
       <div className="sticky bottom-2 z-20 rounded-2xl degradado-marca text-white p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 shadow-[0_20px_40px_-20px_rgba(14,116,144,.8)]">

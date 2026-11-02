@@ -11,7 +11,7 @@ export type DocumentoParaEmitir = {
   id: string; tipo: "pos" | "factura" | "nota_credito"; prefijo: string; numero: number; fecha: string;
   emisor: { nit: string; dv: string | null; razon_social: string; responsable_iva: boolean };
   cliente: { tipo_doc: string; numero_doc: string; dv: string | null; nombre: string; email: string | null } | null;
-  lineas: { descripcion: string; codigo?: string | null; cantidad: number; precio: number; iva_pct: number; base: number; iva: number; total: number }[];
+  lineas: { descripcion: string; codigo?: string | null; cantidad: number; precio: number; iva_pct: number; base: number; iva: number; total: number; descuento?: number /* pesos, IVA incluido */ }[];
   totales: { base: number; iva: number; total: number };
   pagos: { medio: string; valor: number }[];
   /** Forma de pago DIAN: contado (1) o crédito (2, con fecha de vencimiento). */
@@ -105,7 +105,7 @@ async function armar(id: string): Promise<{ documento: DocumentoParaEmitir; reso
     // Una venta anulada antes de emitirse no se envía (su nota crédito sí: tipo nota_credito).
     if (d.venta_estado === 'anulada' && d.tipo !== 'nota_credito') return { cerrado: true as const, anulado: true };
     const lineas = (await c.query(
-      `select descripcion, (select coalesce(p.ean, left(p.id::text, 8)) from productos p where p.id = producto_id) codigo, sum(cantidad)::float cantidad, precio::float, iva_pct::float, sum(base)::float base, sum(iva)::float iva, sum(total)::float total
+      `select descripcion, (select coalesce(p.ean, left(p.id::text, 8)) from productos p where p.id = producto_id) codigo, sum(cantidad)::float cantidad, precio::float, iva_pct::float, sum(base)::float base, sum(iva)::float iva, sum(total)::float total, sum(descuento)::float descuento
        from venta_lineas where venta_id = $1 group by descripcion, precio, iva_pct, producto_id, presentacion order by min(id)`, [d.venta_id])).rows;
     const pagos = (await c.query(`select medio, valor::float from pagos where venta_id = $1`, [d.venta_id])).rows;
     // Nota crédito: el documento original de la misma venta (su CUFE/CUDE va en la referencia).

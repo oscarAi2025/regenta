@@ -9,7 +9,12 @@ import { qrActivo, stripeActivo, wompiActivo } from "@/lib/pagos";
 import { wa } from "@/lib/sitio";
 import { FormContratar } from "./FormContratar";
 
-export const metadata: Metadata = metaPublica("/contratar", "Contratar Regenta: paga con QR Bancolombia o tarjeta", "Contrata Regenta en línea: paga con el QR Bancolombia desde cualquier banco, Nequi o Daviplata, o con tarjeta. Plan mensual o anual con 2 meses gratis.");
+// La descripción solo nombra la tarjeta cuando Stripe está activo (no prometer un medio de pago que no está).
+export function generateMetadata(): Metadata {
+  return stripeActivo()
+    ? metaPublica("/contratar", "Contratar Regenta: paga con QR Bancolombia o tarjeta", "Contrata Regenta en línea: paga con el QR Bancolombia desde cualquier banco, Nequi o Daviplata, o con tarjeta. Plan mensual o anual con 2 meses gratis.")
+    : metaPublica("/contratar", "Contratar Regenta en línea: paga con QR Bancolombia", "Contrata Regenta en línea: paga con el QR Bancolombia desde cualquier banco, Nequi o Daviplata. Plan mensual o anual con 2 meses gratis.");
+}
 export const dynamic = "force-dynamic";
 
 export default async function Contratar({ searchParams }: { searchParams: Promise<{ plan?: string; cancelado?: string }> }) {

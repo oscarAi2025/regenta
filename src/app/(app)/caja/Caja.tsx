@@ -8,7 +8,7 @@ type Producto = {
   id: string; nombre: string; laboratorio: string | null; ean: string | null; iva: number; unidades_por_caja: number;
   precio_caja: number; precio_unidad: number | null; stock_minimo: number; unidades: number; proximo_vence: string | null; exacto: boolean;
 };
-type Linea = { key: string; p: Producto; presentacion: "caja" | "unidad"; cantidad: number };
+type Linea = { key: string; p: Producto; presentacion: "caja" | "unidad"; cantidad: number; descuento: number /* % */ };
 type Medio = "efectivo" | "transferencia" | "nequi" | "daviplata" | "tarjeta" | "bre_b" | "qr";
 type Resultado = { venta: { venta_id: string; prefijo: string; numero: number; total: number; cambio: number; base: number; iva: number; credito?: boolean; vence_pago?: string | null; repetida?: boolean }; documento: { tipo: "pos" | "factura"; estado: string; cufe: string | null; simulado: boolean; ultimo_error: string | null } };
 const PLAZOS = [15, 30, 45, 60, 90];
@@ -96,27 +96,34 @@ export function Caja({ fiar }: { fiar: boolean }) {
     setLineas((ls) => {
       const i = ls.findIndex((l) => l.p.id === p.id && l.presentacion === presentacion);
       if (i >= 0) return ls.map((l, j) => (j === i ? { ...l, cantidad: l.cantidad + 1 } : l));
-      return [...ls, { key: crypto.randomUUID(), p, presentacion, cantidad: 1 }];
+      return [...ls, { key: crypto.randomUUID(), p, presentacion, cantidad: 1, descuento: 0 }];
     });
     setQ(""); setRes([]); setError("");
     buscador.current?.focus();
   }, []);
 
+  // Descuento general sobre toda la venta (%). Se combina con el de cada línea igual que en la base de datos.
+  const [descGeneral, setDescGeneral] = useState(0);
+  const netoLinea = useCallback((l: Linea) => {
+    const bruto = (l.presentacion === "caja" ? l.p.precio_caja : l.p.precio_unidad ?? 0) * l.cantidad;
+    const pct = 100 - (100 - l.descuento) * (100 - descGeneral) / 100;
+    return { bruto, neto: pct > 0 ? Math.round(bruto * (100 - pct) / 100) : bruto };
+  }, [descGeneral]);
   const totales = useMemo(() => {
-    let total = 0, iva = 0;
+    let total = 0, iva = 0, descuento = 0;
     for (const l of lineas) {
-      const t = (l.presentacion === "caja" ? l.p.precio_caja : l.p.precio_unidad ?? 0) * l.cantidad;
-      total += t; iva += t - t / (1 + l.p.iva / 100);
+      const { bruto, neto } = netoLinea(l);
+      total += neto; descuento += bruto - neto; iva += neto - neto / (1 + l.p.iva / 100);
     }
-    return { total, iva, base: total - iva, items: lineas.reduce((a, l) => a + l.cantidad, 0) };
-  }, [lineas]);
+    return { total, iva, base: total - iva, descuento, items: lineas.reduce((a, l) => a + l.cantidad, 0) };
+  }, [lineas, netoLinea]);
 
   // Unidades pedidas de un producto (sumando caja y unidad) frente a sus existencias.
   const excede = useCallback((ls: Linea[], p: Producto) =>
     ls.filter((l) => l.p.id === p.id).reduce((a, l) => a + l.cantidad * (l.presentacion === "caja" ? p.unidades_por_caja : 1), 0) > p.unidades, []);
 
   const nueva = useCallback(() => {
-    setLineas([]); setHecho(null); setCobrando(false); setRecibido(""); setMedio("efectivo"); setOtro(null); setError(""); setCliente(null); setCredito(false);
+    setLineas([]); setHecho(null); setCobrando(false); setRecibido(""); setMedio("efectivo"); setOtro(null); setDescGeneral(0); setError(""); setCliente(null); setCredito(false);
     idem.current = crypto.randomUUID();
     setTimeout(() => buscador.current?.focus(), 0);
   }, []);
@@ -140,7 +147,8 @@ export function Caja({ fiar }: { fiar: boolean }) {
         body: JSON.stringify({
           idem_key: idem.current, tipo_doc: tipoDoc, cliente_id: tipoDoc === "factura" ? cliente?.id : null,
           condicion: aCredito ? "credito" : "contado", plazo_dias: aCredito ? plazo : null,
-          lineas: lineas.map((l) => ({ producto_id: l.p.id, presentacion: l.presentacion, cantidad: l.cantidad })),
+          lineas: lineas.map((l) => ({ producto_id: l.p.id, presentacion: l.presentacion, cantidad: l.cantidad, descuento_pct: l.descuento })),
+          descuento_pct: descGeneral,
           pagos: aCredito ? [] : medio === "efectivo" && otroNum > 0
             ? [{ medio: otro!.medio, valor: otroNum }, { medio: "efectivo", valor: recibidoNum }]
             : [{ medio, valor: medio === "efectivo" ? recibidoNum : Math.round(totales.total) }],
@@ -318,8 +326,15 @@ export function Caja({ fiar }: { fiar: boolean }) {
                           <button aria-label="Uno más" onClick={() => setLineas((ls) => ls.map((x) => x.key === l.key ? { ...x, cantidad: x.cantidad + 1 } : x))} className="size-10 sm:size-8 rounded-lg border border-line text-lg leading-none">+</button>
                           <span className="ml-2 text-sm text-muted">{l.presentacion === "caja" ? (l.p.unidades_por_caja > 1 ? `caja x${l.p.unidades_por_caja}` : "und") : "unidad"} · {pesos(precio)}</span>
                         </div>
-                        <span className="num font-semibold">{pesos(precio * l.cantidad)}</span>
+                        <span className="num font-semibold text-right">
+                          {l.descuento > 0 && <span className="block text-xs text-muted line-through">{pesos(precio * l.cantidad)}</span>}
+                          {pesos(l.descuento > 0 ? Math.round(precio * l.cantidad * (100 - l.descuento) / 100) : precio * l.cantidad)}
+                        </span>
                       </div>
+                      <label className="mt-1 inline-flex items-center gap-1.5 text-sm text-muted">Desc.
+                        <input aria-label={`Descuento de ${l.p.nombre} en porcentaje`} inputMode="decimal" className="num w-14 h-8 rounded-lg border border-line px-2 text-right"
+                          value={l.descuento || ""} placeholder="0" onChange={(e) => { const v = Math.min(99, Math.max(0, Number(e.target.value.replace(",", ".").replace(/[^\d.]/g, "")) || 0)); setLineas((ls) => ls.map((x) => x.key === l.key ? { ...x, descuento: v } : x)); }} />%
+                      </label>
                       {sobra && <p className="mt-1 text-sm text-alerta">Solo hay {existencias(l.p).toLowerCase()} en existencia</p>}
                     </li>
                   );
@@ -330,7 +345,14 @@ export function Caja({ fiar }: { fiar: boolean }) {
             <dl className="px-6 pt-3 text-sm text-muted num grid grid-cols-2 gap-y-1">
               <dt>Base</dt><dd className="text-right">{pesos(totales.base)}</dd>
               <dt>IVA</dt><dd className="text-right">{pesos(totales.iva)}</dd>
+              {totales.descuento > 0 && <><dt>Descuento</dt><dd className="text-right">−{pesos(totales.descuento)}</dd></>}
             </dl>
+            {lineas.length > 0 && (
+              <label className="px-6 pt-1 flex items-center justify-end gap-1.5 text-sm text-muted">Descuento general
+                <input id="desc-general" inputMode="decimal" className="num w-14 h-8 rounded-lg border border-line px-2 text-right" value={descGeneral || ""} placeholder="0"
+                  onChange={(e) => setDescGeneral(Math.min(99, Math.max(0, Number(e.target.value.replace(",", ".").replace(/[^\d.]/g, "")) || 0)))} />%
+              </label>
+            )}
             <div className="px-6 pt-2 flex items-baseline justify-between">
               <span className="text-lg">Total</span>
               <span className="num font-cond text-[52px] leading-none tracking-tight" style={{ fontWeight: 700 }}>{pesos(totales.total)}</span>

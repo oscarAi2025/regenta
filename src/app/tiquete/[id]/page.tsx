@@ -38,7 +38,7 @@ export default async function Tiquete({ params, searchParams }: { params: Promis
        from resoluciones_dian where empresa_id = $1 and tipo = $2 and prefijo = $3 order by activa desc limit 1`, [s.empresa, v.tipo_doc, v.prefijo])).rows[0];
     const lineas = (await c.query(
       `select vl.descripcion, vl.presentacion, coalesce(p.ean, left(p.id::text, 8)) codigo, sum(vl.cantidad)::float cantidad, vl.precio::float precio,
-              sum(vl.total)::float total, vl.iva_pct::float iva_pct, sum(vl.base)::float base, sum(vl.iva)::float iva
+              sum(vl.total)::float total, vl.iva_pct::float iva_pct, sum(vl.base)::float base, sum(vl.iva)::float iva, sum(vl.descuento)::float descuento, max(vl.descuento_pct)::float descuento_pct
        from venta_lineas vl join productos p on p.id = vl.producto_id where vl.venta_id = $1
        group by vl.descripcion, vl.presentacion, vl.precio, vl.iva_pct, vl.producto_id, p.ean, p.id order by min(vl.id)`, [id])).rows;
     const pagos = (await c.query(`select medio, valor::float from pagos where venta_id = $1 order by id`, [id])).rows;
@@ -96,7 +96,8 @@ export default async function Tiquete({ params, searchParams }: { params: Promis
       {lineas.map((l, i) => (
         <div key={i} style={{ marginBottom: 4 }}>
           <p>{l.descripcion}</p>
-          {doble(`${l.cantidad} ${l.presentacion === "caja" ? "caja" : "und"} x ${pesos(l.precio)}${l.iva_pct ? ` IVA${l.iva_pct}%` : " Excl."}`, pesos(l.total))}
+          {doble(`${l.cantidad} ${l.presentacion === "caja" ? "caja" : "und"} x ${pesos(l.precio)}${l.iva_pct ? ` IVA${l.iva_pct}%` : " Excl."}`, pesos(l.total + l.descuento))}
+          {l.descuento > 0 && doble(`  Descuento ${l.descuento_pct}%`, `−${pesos(l.descuento)}`)}
           <p className="peq">Cód. {l.codigo}</p>
         </div>
       ))}
@@ -106,6 +107,7 @@ export default async function Tiquete({ params, searchParams }: { params: Promis
           {pct > 0 ? <>{doble(`Base gravada ${pct}%`, pesos(t.base))}{doble(`IVA ${pct}%`, pesos(t.iva))}</> : doble("Excluido / exento", pesos(t.base))}
         </div>
       ))}
+      {lineas.some((l) => l.descuento > 0) && doble("Ahorro total", pesos(lineas.reduce((a, l) => a + l.descuento, 0)))}
       {doble("TOTAL", pesos(v.total), true)}
       <hr />
       {pagos.map((p, i) => <div key={i}>{doble(MEDIO[p.medio] ?? p.medio, pesos(p.valor))}</div>)}

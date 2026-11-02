@@ -10,7 +10,8 @@ const Venta = z.object({
   cliente_id: z.string().uuid().nullish(),
   condicion: z.enum(["contado", "credito"]).default("contado"),
   plazo_dias: z.number().int().min(1).max(180).nullish(),
-  lineas: z.array(z.object({ producto_id: z.string().uuid(), presentacion: z.enum(["caja", "unidad"]), cantidad: z.number().int().positive().max(10000) })).min(1).max(200),
+  lineas: z.array(z.object({ producto_id: z.string().uuid(), presentacion: z.enum(["caja", "unidad"]), cantidad: z.number().int().positive().max(10000), descuento_pct: z.number().min(0).max(99).optional() })).min(1).max(200),
+  descuento_pct: z.number().min(0).max(99).optional(),
   pagos: z.array(Pago).max(6),
 }).refine((v) => v.condicion === "credito" ? v.pagos.length === 0 : v.pagos.length > 0, { message: "Datos de pago incompletos" })
   .refine((v) => v.tipo_doc === "pos" || v.cliente_id, { message: "La factura electrónica necesita el cliente" });
