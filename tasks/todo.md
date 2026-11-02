@@ -186,6 +186,6 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] URL de producción del API: https://api-v2.matias-api.com (MATIAS_URL, ya en Netlify)
 - [x] La demo emite siempre en simulado aunque el servidor use MATIAS
 - [x] Consola → cliente → «Facturación electrónica (MATIAS)»: UUID del cliente en MATIAS + número de resolución DIAN y paso a producción por numeración (e2e admin)
-- [ ] Oscar: MATIAS → Ajustes → Tokens de Acceso → crear token y pegarlo en Netlify como MATIAS_TOKEN (secreto)
+- [x] MATIAS_TOKEN en Netlify (lo pegó Oscar); prueba desde Consola → Sistema: «Conexión con MATIAS correcta (producción): IA DEV INVESTIMENTS COLOMBIA SAS · 0 clientes»
 - [ ] Por cada droguería: habilitación DIAN (portal Habilitación con su usuario: software, set de pruebas), certificado en MATIAS, resolución POS/factura en MUISCA, crear el cliente en MATIAS → UUID en la consola
-- [ ] Cuando haya token y el primer cliente: REGENTA_DIAN=matias en Netlify y redeploy
+- [x] REGENTA_DIAN=matias en Netlify y desplegado (la demo sigue simulada)
