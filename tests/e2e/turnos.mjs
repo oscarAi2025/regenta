@@ -48,10 +48,24 @@ const estado = (p) => p.evaluate(async () => (await fetch("/api/turnos")).json()
   await p.keyboard.press("F9"); await p.waitForSelector("#recibido"); await p.fill("#recibido", "100000");
   await p.getByRole("button", { name: /Confirmar/ }).click();
   await p.getByText(/Nueva venta/).waitFor();
+  // Pago mixto: 10.000 con tarjeta y el resto en efectivo (con cambio)
+  await p.getByRole("button", { name: /Nueva venta/ }).click();
+  await p.keyboard.type("acetaminofen forte mk"); await p.waitForSelector('[role="option"]'); await p.keyboard.press("Enter");
+  const total2 = num(await p.locator('aside[aria-label="Venta actual"]').getByText(/^\$[\d.]+$/).last().textContent());
+  await p.keyboard.press("F9"); await p.waitForSelector("#recibido");
+  await p.getByRole("button", { name: /Pago mixto/ }).click();
+  await p.selectOption("#otro-medio", "tarjeta"); await p.fill("#otro-valor", "10000");
+  await p.fill("#recibido", "50000");
+  await p.getByRole("button", { name: /Confirmar/ }).click();
+  await p.getByText(/Nueva venta/).waitFor();
+  const cambioTexto = await p.getByText("Cambio").locator("..").textContent();
+  ok(num(cambioTexto) === 50000 - (total2 - 10000), "pago mixto: el cambio sale solo sobre el efectivo", cambioTexto);
+
   const e1 = await estado(p);
   const r = e1.turno.resumen;
-  ok(Number(r.efectivo_ventas) === total, "el efectivo del turno es lo cobrado sin el cambio", `${r.efectivo_ventas} = ${total}`);
-  ok(Number(r.efectivo_esperado) === 100000 + total - 15000, "esperado = base + ventas en efectivo − salidas", `${r.efectivo_esperado}`);
+  ok(Number(r.medios.tarjeta) === 10000, "el turno separa lo pagado con tarjeta", `${r.medios.tarjeta}`);
+  ok(Number(r.efectivo_ventas) === total + total2 - 10000, "el efectivo del turno es lo cobrado sin el cambio", `${r.efectivo_ventas} = ${total + total2 - 10000}`);
+  ok(Number(r.efectivo_esperado) === 100000 + total + total2 - 10000 - 15000, "esperado = base + ventas en efectivo − salidas", `${r.efectivo_esperado}`);
 
   // Cierre con faltante de 1.000
   await p.goto(B + "/turno");

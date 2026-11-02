@@ -51,6 +51,8 @@ export function Caja({ fiar }: { fiar: boolean }) {
   const [cobrando, setCobrando] = useState(false);
   const [medio, setMedio] = useState<Medio>("efectivo");
   const [recibido, setRecibido] = useState("");
+  // Pago mixto: una parte con otro medio (tarjeta, Nequi…) y el resto en efectivo.
+  const [otro, setOtro] = useState<{ medio: Medio; valor: string } | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState("");
   const [hecho, setHecho] = useState<Resultado | null>(null);
@@ -114,20 +116,23 @@ export function Caja({ fiar }: { fiar: boolean }) {
     ls.filter((l) => l.p.id === p.id).reduce((a, l) => a + l.cantidad * (l.presentacion === "caja" ? p.unidades_por_caja : 1), 0) > p.unidades, []);
 
   const nueva = useCallback(() => {
-    setLineas([]); setHecho(null); setCobrando(false); setRecibido(""); setMedio("efectivo"); setError(""); setCliente(null); setCredito(false);
+    setLineas([]); setHecho(null); setCobrando(false); setRecibido(""); setMedio("efectivo"); setOtro(null); setError(""); setCliente(null); setCredito(false);
     idem.current = crypto.randomUUID();
     setTimeout(() => buscador.current?.focus(), 0);
   }, []);
 
   const aCredito = credito && tipoDoc === "factura" && fiar;
+  const otroNum = medio === "efectivo" && otro ? Math.min(Number(otro.valor.replace(/\D/g, "")) || 0, Math.round(totales.total)) : 0;
+  const restante = Math.round(totales.total) - otroNum; // lo que falta cubrir en efectivo
   const recibidoNum = medio === "efectivo" && !aCredito ? Number(recibido.replace(/\D/g, "")) || 0 : totales.total;
-  const cambio = Math.max(0, recibidoNum - totales.total);
+  const cambio = Math.max(0, recibidoNum - restante);
   const faltaCliente = tipoDoc === "factura" && !cliente;
   const puedeCobrar = lineas.length > 0 && !lineas.some((l) => excede(lineas, l.p)) && !faltaCliente;
 
   async function confirmar() {
     if (enviando || !puedeCobrar) return;
-    if (!aCredito && medio === "efectivo" && recibidoNum < Math.round(totales.total)) { setError("El efectivo recibido no cubre el total"); return; }
+    if (!aCredito && medio === "efectivo" && otro && (otroNum <= 0 || otroNum >= Math.round(totales.total))) { setError("En el pago mixto, la parte con el otro medio debe ser menor que el total"); return; }
+    if (!aCredito && medio === "efectivo" && recibidoNum < restante) { setError(otroNum ? `El efectivo no cubre el resto (${pesos(restante)})` : "El efectivo recibido no cubre el total"); return; }
     setEnviando(true); setError("");
     try {
       const r = await fetch("/api/ventas", {
@@ -136,7 +141,9 @@ export function Caja({ fiar }: { fiar: boolean }) {
           idem_key: idem.current, tipo_doc: tipoDoc, cliente_id: tipoDoc === "factura" ? cliente?.id : null,
           condicion: aCredito ? "credito" : "contado", plazo_dias: aCredito ? plazo : null,
           lineas: lineas.map((l) => ({ producto_id: l.p.id, presentacion: l.presentacion, cantidad: l.cantidad })),
-          pagos: aCredito ? [] : [{ medio, valor: medio === "efectivo" ? recibidoNum : Math.round(totales.total) }],
+          pagos: aCredito ? [] : medio === "efectivo" && otroNum > 0
+            ? [{ medio: otro!.medio, valor: otroNum }, { medio: "efectivo", valor: recibidoNum }]
+            : [{ medio, valor: medio === "efectivo" ? recibidoNum : Math.round(totales.total) }],
         }),
       });
       const j = await r.json();
@@ -341,16 +348,30 @@ export function Caja({ fiar }: { fiar: boolean }) {
                 </div>
                 {medio === "efectivo" && (
                   <div className="mt-4">
-                    <label htmlFor="recibido" className="text-sm font-semibold">Recibido</label>
+                    {otro ? (
+                      <div className="mb-3 rounded-xl bg-paper p-3 grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                        <div><label htmlFor="otro-medio" className="text-sm font-semibold">Parte con</label>
+                          <select id="otro-medio" className="campo !h-11" value={otro.medio} onChange={(e) => setOtro({ ...otro, medio: e.target.value as Medio })}>
+                            {MEDIOS.filter((m) => m.id !== "efectivo").map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+                          </select></div>
+                        <div><label htmlFor="otro-valor" className="text-sm font-semibold">Valor</label>
+                          <input id="otro-valor" inputMode="numeric" className="campo !h-11 num" value={otro.valor} onChange={(e) => setOtro({ ...otro, valor: e.target.value.replace(/[^\d]/g, "") ? Number(e.target.value.replace(/[^\d]/g, "")).toLocaleString("es-CO") : "" })} /></div>
+                        <button type="button" aria-label="Quitar pago mixto" onClick={() => setOtro(null)} className="h-11 px-3 text-muted text-sm">Quitar</button>
+                        {otroNum > 0 && <p className="col-span-3 text-sm">Resto en efectivo: <span className="num font-semibold">{pesos(restante)}</span></p>}
+                      </div>
+                    ) : (
+                      <button type="button" onClick={() => setOtro({ medio: "tarjeta", valor: "" })} className="mb-3 text-sm font-semibold text-cruz">+ Pago mixto (parte con otro medio)</button>
+                    )}
+                    <label htmlFor="recibido" className="text-sm font-semibold">{otroNum > 0 ? "Efectivo recibido" : "Recibido"}</label>
                     <input id="recibido" ref={recibidoRef} inputMode="numeric" value={recibido} onChange={(e) => setRecibido(e.target.value.replace(/[^\d]/g, "") ? Number(e.target.value.replace(/[^\d]/g, "")).toLocaleString("es-CO") : "")}
                       onKeyDown={(e) => { if (e.key === "Enter") confirmar(); }}
-                      placeholder={Math.round(totales.total).toLocaleString("es-CO")} className="num mt-1 w-full h-14 rounded-xl border-2 border-line focus:border-ink outline-none px-4 text-2xl font-cond" style={{ fontWeight: 700 }} />
+                      placeholder={restante.toLocaleString("es-CO")} className="num mt-1 w-full h-14 rounded-xl border-2 border-line focus:border-ink outline-none px-4 text-2xl font-cond" style={{ fontWeight: 700 }} />
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {[Math.round(totales.total), 20000, 50000, 100000].filter((v, i, a) => v >= totales.total && a.indexOf(v) === i).map((v) => (
-                        <button key={v} onClick={() => setRecibido(v.toLocaleString("es-CO"))} className="num px-3 h-9 rounded-lg border border-line text-sm font-semibold">{v === Math.round(totales.total) ? "Exacto" : pesos(v)}</button>
+                      {[restante, 20000, 50000, 100000].filter((v, i, a) => v >= restante && a.indexOf(v) === i).map((v) => (
+                        <button key={v} onClick={() => setRecibido(v.toLocaleString("es-CO"))} className="num px-3 h-9 rounded-lg border border-line text-sm font-semibold">{v === restante ? "Exacto" : pesos(v)}</button>
                       ))}
                     </div>
-                    {recibidoNum >= totales.total && <p className="mt-3 flex justify-between text-lg"><span>Cambio</span><span className="num font-cond text-2xl" style={{ fontWeight: 700 }}>{pesos(cambio)}</span></p>}
+                    {recibidoNum >= restante && <p className="mt-3 flex justify-between text-lg"><span>Cambio</span><span className="num font-cond text-2xl" style={{ fontWeight: 700 }}>{pesos(cambio)}</span></p>}
                   </div>
                 )}
                 </>}

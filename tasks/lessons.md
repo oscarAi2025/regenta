@@ -91,3 +91,5 @@
   de la tirilla) queda bloqueado. Abrir solo la ruta que se enmarca (/tiquete) con frame-ancestors 'self'.
 - El aviso de hidratación «caret-color» en las pruebas con `next dev` no sale con `next build && next start`: las e2e
   se validan contra el build de producción (REGENTA_DEMO=1 y las claves de prueba).
+- Un texto de botón que contiene la palabra de otro botón («…tarjeta, Nequi…») rompe los selectores por nombre accesible
+  (getByRole name hace coincidencia parcial). Nombres de botón cortos y únicos.
