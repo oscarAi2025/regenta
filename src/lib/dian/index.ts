@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { sinRLS } from "../db";
+import { emisorMatias } from "./matias";
 
 // Cola de emisión DIAN. La venta nunca espera a la DIAN: queda «pendiente» y este proceso la envía con reintentos.
 // El proveedor va detrás de una interfaz: hoy «simulado» (desarrollo y demo), mañana MATIAS (al tener cuenta y su
@@ -10,11 +11,19 @@ export type DocumentoParaEmitir = {
   id: string; tipo: "pos" | "factura" | "nota_credito"; prefijo: string; numero: number; fecha: string;
   emisor: { nit: string; dv: string | null; razon_social: string; responsable_iva: boolean };
   cliente: { tipo_doc: string; numero_doc: string; dv: string | null; nombre: string; email: string | null } | null;
-  lineas: { descripcion: string; cantidad: number; precio: number; iva_pct: number; base: number; iva: number; total: number }[];
+  lineas: { descripcion: string; codigo?: string | null; cantidad: number; precio: number; iva_pct: number; base: number; iva: number; total: number }[];
   totales: { base: number; iva: number; total: number };
   pagos: { medio: string; valor: number }[];
   /** Forma de pago DIAN: contado (1) o crédito (2, con fecha de vencimiento). */
   forma_pago: { tipo: "contado" } | { tipo: "credito"; vence: string; plazo_dias: number };
+  /** Número de la resolución DIAN de la numeración usada. */
+  resolucion?: string | null;
+  /** Documento original de una nota crédito (prefijo, número, fecha, CUFE/CUDE). */
+  referencia?: { tipo: "pos" | "factura"; prefijo: string; numero: number; fecha: string; cufe: string | null } | null;
+  /** Punto de venta (POS electrónico): cajero, caja y dirección de la sede. */
+  punto?: { cajero: string; caja: string; direccion: string | null } | null;
+  /** UUID del cliente en la cuenta de casa de software de MATIAS (null = la propia cuenta). */
+  matias_cliente?: string | null;
 };
 export type ResultadoEmision =
   | { ok: true; cufe: string; qr: string; simulado: boolean; respuesta: unknown }
@@ -33,7 +42,7 @@ const simulado: Emisor = {
 function emisor(): Emisor {
   const p = process.env.REGENTA_DIAN ?? "simulado";
   if (p === "simulado") return simulado;
-  // MATIAS: pendiente de su documentación técnica (docs.matias-api.com) y de la cuenta de casa de software.
+  if (p === "matias") return emisorMatias();
   throw new Error(`Proveedor DIAN no disponible: ${p}`);
 }
 
@@ -86,24 +95,35 @@ async function armar(id: string): Promise<{ documento: DocumentoParaEmitir; reso
     const { rows: [d] } = await c.query(
       `select d.*, v.base, v.iva as iva_total, v.total, v.creado as fecha, v.cliente_id, v.estado as venta_estado, v.condicion, v.vence_pago::text, v.plazo_dias,
               e.nit, e.dv, e.razon_social, e.responsable_iva,
-              (select pruebas from resoluciones_dian r where r.empresa_id = d.empresa_id and r.tipo = d.tipo and r.prefijo = d.prefijo order by activa desc limit 1) as pruebas
-       from documentos_dian d join ventas v on v.id = d.venta_id join empresas e on e.id = d.empresa_id where d.id = $1`, [id]);
+              e.matias_cliente, s.direccion as sede_direccion, cj.nombre as caja_nombre,
+              (select m.nombre from miembros m where m.empresa_id = v.empresa_id and m.user_id = v.usuario_id) as cajero,
+              (select pruebas from resoluciones_dian r where r.empresa_id = d.empresa_id and r.tipo = d.tipo and r.prefijo = d.prefijo order by activa desc limit 1) as pruebas,
+              (select numero_resolucion from resoluciones_dian r where r.empresa_id = d.empresa_id and r.tipo = d.tipo and r.prefijo = d.prefijo order by activa desc limit 1) as resolucion
+       from documentos_dian d join ventas v on v.id = d.venta_id join empresas e on e.id = d.empresa_id
+       join sedes s on s.id = v.sede_id join cajas cj on cj.id = v.caja_id where d.id = $1`, [id]);
     if (!d) return { cerrado: true as const };
     // Una venta anulada antes de emitirse no se envía (su nota crédito sí: tipo nota_credito).
     if (d.venta_estado === 'anulada' && d.tipo !== 'nota_credito') return { cerrado: true as const, anulado: true };
     const lineas = (await c.query(
-      `select descripcion, sum(cantidad)::float cantidad, precio::float, iva_pct::float, sum(base)::float base, sum(iva)::float iva, sum(total)::float total
+      `select descripcion, (select coalesce(p.ean, left(p.id::text, 8)) from productos p where p.id = producto_id) codigo, sum(cantidad)::float cantidad, precio::float, iva_pct::float, sum(base)::float base, sum(iva)::float iva, sum(total)::float total
        from venta_lineas where venta_id = $1 group by descripcion, precio, iva_pct, producto_id, presentacion order by min(id)`, [d.venta_id])).rows;
     const pagos = (await c.query(`select medio, valor::float from pagos where venta_id = $1`, [d.venta_id])).rows;
+    // Nota crédito: el documento original de la misma venta (su CUFE/CUDE va en la referencia).
+    const ref = d.tipo === "nota_credito" ? (await c.query(
+      `select o.tipo, o.prefijo, o.numero, o.cufe, v.creado as fecha from documentos_dian o join ventas v on v.id = o.venta_id
+       where o.venta_id = $1 and o.tipo <> 'nota_credito'`, [d.venta_id])).rows[0] : null;
     const cli = d.cliente_id ? (await c.query(`select tipo_doc, numero_doc, dv, nombre, email from clientes where id = $1`, [d.cliente_id])).rows[0] : null;
     return {
       resolucionPruebas: d.pruebas,
       documento: {
-        id, tipo: d.tipo, prefijo: d.prefijo, numero: Number(d.numero), fecha: new Date(d.fecha).toISOString(),
+        id, tipo: d.tipo, prefijo: d.prefijo, numero: Number(d.numero), fecha: new Date(d.tipo === "nota_credito" ? d.creado : d.fecha).toISOString(), // la nota lleva su propia fecha
         emisor: { nit: d.nit, dv: d.dv, razon_social: d.razon_social, responsable_iva: d.responsable_iva },
         cliente: cli, lineas, pagos,
         forma_pago: d.condicion === "credito" ? { tipo: "credito", vence: d.vence_pago, plazo_dias: d.plazo_dias } : { tipo: "contado" },
         totales: { base: Number(d.base), iva: Number(d.iva_total), total: Number(d.total) },
+        resolucion: d.resolucion, matias_cliente: d.matias_cliente,
+        punto: { cajero: d.cajero ?? "Caja", caja: d.caja_nombre, direccion: d.sede_direccion },
+        referencia: ref ? { tipo: ref.tipo, prefijo: ref.prefijo, numero: Number(ref.numero), fecha: new Date(ref.fecha).toISOString(), cufe: ref.cufe } : null,
       },
     };
   });

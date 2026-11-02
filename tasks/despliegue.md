@@ -77,6 +77,20 @@ en commits sin efecto. Pendiente: dominio propio, Resend, Stripe, Anthropic.
 4. Tarea programada: `netlify/functions/tareas.mjs` corre cada hora, en hora UTC, solo en el sitio publicado. En
    Netlify → Functions → `tareas` → «Run now», el registro debe mostrar `tareas 200` con el resumen.
 
+## 3b. MATIAS (factura electrónica real)
+**Integrado y probado en el sandbox el 02/11/2026** (`src/lib/dian/matias.ts`, pruebas en `tests/matias.test.mjs`).
+El sandbox de MATIAS aceptó: POS (tipo 20) con producto excluido y gravado, factura a crédito a un NIT (tipo 7), nota
+crédito de POS (tipo 94, operación 11), redondeo 3 × 3.333,33, documento sin IVA; el reintento del mismo número
+responde 400 «ya validado» y Regenta lo toma como aceptado. Migración 017 (`empresas.matias_cliente`) ya aplicada en Supabase.
+Para activarlo (cuando haya cuenta de producción):
+1. Netlify: `REGENTA_DIAN=matias`, `MATIAS_URL` (la de producción que entrega MATIAS) y `MATIAS_TOKEN` (token personal
+   de la cuenta de casa de software; secreto, lo pega Oscar).
+2. Cada resolución de Regenta debe tener `numero_resolucion` y el mismo prefijo que en MATIAS. Las notas crédito de
+   POS (tipo 94) y de factura (tipo 5) usan la resolución `nota_credito` de Regenta: registrar ese prefijo en MATIAS para ambos tipos.
+3. Cada droguería cliente: `empresas.matias_cliente` = su client_uuid en la cuenta de casa de software.
+Pendiente de confirmar en habilitación real: redondeo del precio unitario (2 decimales) ante la DIAN, medios de pago
+(tarjeta = 48 crédito) y que excluidos sin tributo pasen las reglas de la DIAN.
+
 ## 4. Cobros: QR Bancolombia y Stripe
 **QR de la cuenta empresarial Bancolombia (llave Bre-B), sin pasarela**
 1. Ya configurado: llave `@iadevinvestiment` y QR de la cuenta empresarial Bancolombia (`public/qr-pago.png`, el mismo de

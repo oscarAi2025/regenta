@@ -77,3 +77,11 @@
   el botón «Probar la demo» no entraba. Usar redirecciones relativas (`Location: /ruta`) o `REGENTA_URL`, nunca req.url.
 - Una auditoría con fetch ve los `redirect()` de Next como 200 + `<meta http-equiv="refresh">`: no es fallo si la
   página solo trae el marco sin datos.
+
+## MATIAS (02/11/2026)
+- La documentación de MATIAS se lee mejor desde el navegador: /openapi.json y las páginas .md (docs.matias-api.com).
+  `get_page_text` devuelve textos largos; `javascript_tool` corta la salida (~1 KB).
+- En el API se usan los IDs de su base, no los códigos DIAN (type_document_id 20 = POS, 94 = NC POS; unidad = 70;
+  NIT = 3, CC = 1). Consultar los catálogos (/identity-documents, /quantity-units) antes de suponer.
+- `tax_exclusive_amount` es la base GRAVADA (0 si no hay IVA), no el subtotal.
+- Probar el cuerpo en el sandbox antes de desplegar: no gasta documentos ni créditos de Netlify.
