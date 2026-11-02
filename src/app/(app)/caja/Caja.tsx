@@ -157,6 +157,7 @@ export function Caja({ fiar }: { fiar: boolean }) {
       const j = await r.json();
       if (!r.ok) { setError(j.error ?? "No se pudo registrar la venta"); return; }
       setHecho(j); setCobrando(false);
+      window.dispatchEvent(new CustomEvent("regenta:venta", { detail: { total: Number(j.venta?.total ?? 0), documento: j.documento?.estado ?? null } }));
       if (impresora.auto && j.venta?.venta_id) imprimirTiquete(j.venta.venta_id, impresora.ancho);
     } catch {
       setError("Sin conexión con el servidor. La venta no se registró: revisa internet y vuelve a confirmar (no se duplicará).");

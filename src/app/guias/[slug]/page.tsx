@@ -63,8 +63,8 @@ export default async function PaginaGuia({ params }: { params: Promise<{ slug: s
             <dl className="mt-3 grid gap-4">{g.preguntas.map(([q, a]) => <div key={q}><dt className="font-semibold">{q}</dt><dd className="mt-1">{a}</dd></div>)}</dl>
           </section>
           <section className="border-t border-line pt-6">
-            <h2 className="font-semibold text-lg">Fuentes</h2>
-            <ul className="mt-2 grid gap-1.5 text-[15px]">{g.fuentes.map(([t, u]) => <li key={u}><a href={u} target="_blank" rel="noopener" className="text-cruz underline">{t}</a></li>)}</ul>
+            {g.fuentes.length > 0 && <><h2 className="font-semibold text-lg">Fuentes</h2>
+            <ul className="mt-2 grid gap-1.5 text-[15px]">{g.fuentes.map(([t, u]) => <li key={u}><a href={u} target="_blank" rel="noopener" className="text-cruz underline">{t}</a></li>)}</ul></>}
             <p className="mt-3 text-sm text-muted">Esta guía es informativa y no reemplaza la asesoría de tu contador o de tu secretaría de salud.</p>
           </section>
         </article>

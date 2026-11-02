@@ -14,9 +14,9 @@ const ITEMS = [
   { href: "/inventario", label: "Inventario", roles: ["dueno", "admin", "cajero", "bodeguero"], d: "M4 8l8-4 8 4-8 4zM4 8v8l8 4 8-4V8M12 12v8" },
 ];
 
-export function Navegacion({ rol }: { rol: string }) {
+export function Navegacion({ rol, demo = false }: { rol: string; demo?: boolean }) {
   const p = usePathname();
-  async function salir() { await fetch("/api/sesion", { method: "DELETE" }); location.href = "/entrar"; }
+  async function salir() { await fetch("/api/sesion", { method: "DELETE" }); location.href = demo ? "/demo/gracias" : "/entrar"; } // la demo termina en la oferta, no en la pantalla de entrar
   return (
     <nav className="flex lg:flex-col items-center gap-1 lg:mt-6 flex-1 w-full overflow-x-auto [mask-image:linear-gradient(90deg,#000_85%,transparent)] lg:[mask-image:none]" aria-label="Principal">
       {ITEMS.filter((i) => i.roles.includes(rol)).map((i) => {

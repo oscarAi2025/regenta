@@ -397,19 +397,17 @@ export const GUIAS: Guia[] = [
   {
     slug: "cuanto-cuesta-software-drogueria",
     titulo: "Cuánto cuesta un software para droguería en Colombia",
-    descripcion: "Precios publicados de programas POS y de facturación usados por droguerías en Colombia (noviembre 2026) y qué revisar antes de elegir.",
+    descripcion: "Rangos de precio de los programas POS y de facturación para droguerías en Colombia (noviembre 2026) y qué revisar antes de elegir.",
     h1: "¿Cuánto cuesta un software para droguería en Colombia? (2026)",
-    entradilla: "Revisamos los precios que publican los programas de caja y facturación que usan las droguerías en Colombia. Estos son los datos, con su fuente, y lo que conviene revisar antes de elegir.",
+    entradilla: "Revisamos los precios que publican los programas de caja y facturación que usan las droguerías en Colombia. Estos son los rangos y lo que conviene revisar antes de elegir.",
     actualizada: "2026-11-01",
     bloques: [
-      { h2: "Precios publicados (1 de noviembre de 2026)", lista: [
-        "Alegra POS: Emprendedor $25.900/mes, Pyme $79.900, Pro $139.900 y Plus $199.900.",
-        "Loggro: POS Tienda $54.990/mes, POS Avanzado $96.990 y POS Plus $292.990.",
-        "Vendty: planes publicados entre $85.000 y $155.000 al mes según plan y forma de pago.",
-        "POS Colombia: desde $0 hasta $649.900 al mes; los documentos electrónicos se compran aparte en paquetes anuales.",
-        "Más Control (droguería): licencias anuales de $600.000 a $1.530.000.",
-        "Otros programas para droguerías no publican precio y se cotizan por WhatsApp." ],
-        nota: "Los precios cambian: revisa siempre la página del proveedor. Los enlaces están en las fuentes." },
+      { h2: "Rangos de precio publicados (1 de noviembre de 2026)", lista: [
+        "Software POS genérico en la nube: planes mensuales de unos $25.000 a $300.000 según cajas, usuarios y documentos.",
+        "Software POS genérico con documentos electrónicos aparte: desde $0 de entrada, pero los documentos se compran en paquetes anuales.",
+        "Software especializado con licencia anual: de unos $600.000 a $1.500.000 al año.",
+        "Muchos programas no publican el precio y se cotizan por WhatsApp." ],
+        nota: "Los precios cambian y casi nunca incluyen lo mismo: compara siempre qué trae cada plan." },
       { h2: "Qué incluye y qué se cobra aparte", lista: [
         "Documentos electrónicos: ¿ilimitados, un cupo mensual o paquetes aparte?",
         "Certificado de firma digital: ¿incluido o lo pagas tú?",
@@ -422,13 +420,7 @@ export const GUIAS: Guia[] = [
         "Pedido sugerido con tus ventas." ] },
     ],
     preguntas: [["¿Cuánto cuesta Regenta?", "Esencial $89.900 al mes y Pro $139.900 sin asociarte; como socio de Farmagenéricos Colombia, a mitad de precio o gratis según tus compras. Detalle en la página de tarifas."]],
-    fuentes: [
-      ["Alegra POS, precios", "https://www.alegra.com/colombia/pos/precios/"],
-      ["Loggro, planes", "https://loggro.com/pymes/planes/"],
-      ["Vendty, precios", "https://vendty.com/precios"],
-      ["POS Colombia, precios", "https://poscolombia.com/por-que-pos-colombia"],
-      ["Más Control, droguería", "https://mascontrol.com.co/drogueria"],
-    ],
+    fuentes: [],
     relacionadas: ["pos-electronico-drogueria-dian", "inventario-por-lotes-drogueria"],
     cta: { titulo: "Pruébala antes de pagar", texto: "Entra a la demo de Regenta en un clic, sin registro, y mira con datos de 8 semanas qué te dice de pedido, vencimientos y alertas." },
   },

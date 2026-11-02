@@ -8,6 +8,8 @@ import { BotonDemo } from "@/components/landing/BotonDemo";
 import { CalculadoraSocio } from "@/components/landing/CalculadoraSocio";
 import { IncluyeTodo } from "@/components/landing/IncluyeTodo";
 import { Cumplimiento } from "@/components/landing/Cumplimiento";
+import { Oferta } from "@/components/landing/Oferta";
+import { BarraOferta } from "@/components/landing/BarraOferta";
 import { mesAnual, PLANES, DOC_EXTRA, NOTA_PRECIOS, SOCIO } from "@/lib/planes";
 import { pesos } from "@/lib/formato";
 import { SITIO, wa } from "@/lib/sitio";
@@ -98,6 +100,8 @@ export default function Precios() {
           <p className="mt-5 text-sm text-muted max-w-3xl">{NOTA_PRECIOS} Documento adicional: {pesos(DOC_EXTRA)}.</p>
         </section>
 
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-14"><Oferta origen="precios" /></section>
+
         <section id="socio" className="fondo-hero text-white scroll-mt-20">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14">
             <h2 className="font-cond text-[40px] sm:text-[56px] leading-[0.95]" style={{ fontWeight: 700 }}>Como socio de Farmagenéricos: a mitad de precio o gratis</h2>
@@ -152,6 +156,7 @@ export default function Precios() {
       </main>
       <Pie />
       <BarraMovil />
+      <BarraOferta />
     </div>
   );
 }

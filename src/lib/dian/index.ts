@@ -24,6 +24,8 @@ export type DocumentoParaEmitir = {
   punto?: { cajero: string; caja: string; direccion: string | null } | null;
   /** UUID del cliente en la cuenta de casa de software de MATIAS (null = la propia cuenta). */
   matias_cliente?: string | null;
+  /** Nota crédito por una devolución parcial (concepto DIAN 1) en vez de anulación total (concepto 2). */
+  parcial?: boolean;
 };
 export type ResultadoEmision =
   | { ok: true; cufe: string; qr: string; simulado: boolean; respuesta: unknown }
@@ -104,10 +106,14 @@ async function armar(id: string): Promise<{ documento: DocumentoParaEmitir; reso
     if (!d) return { cerrado: true as const };
     // Una venta anulada antes de emitirse no se envía (su nota crédito sí: tipo nota_credito).
     if (d.venta_estado === 'anulada' && d.tipo !== 'nota_credito') return { cerrado: true as const, anulado: true };
-    const lineas = (await c.query(
-      `select descripcion, (select coalesce(p.ean, left(p.id::text, 8)) from productos p where p.id = producto_id) codigo, sum(cantidad)::float cantidad, precio::float, iva_pct::float, sum(base)::float base, sum(iva)::float iva, sum(total)::float total, sum(descuento)::float descuento
-       from venta_lineas where venta_id = $1 group by descripcion, precio, iva_pct, producto_id, presentacion order by min(id)`, [d.venta_id])).rows;
-    const pagos = (await c.query(`select medio, valor::float from pagos where venta_id = $1`, [d.venta_id])).rows;
+    // Nota crédito de una devolución parcial: solo lo devuelto (líneas, totales y reembolso de esa devolución).
+    const dev = d.devolucion_id ? (await c.query(`select base::float, iva::float, total::float, medio from devoluciones where id = $1`, [d.devolucion_id])).rows[0] : null;
+    const lineas = (await c.query(dev
+      ? `select vl.descripcion, (select coalesce(p.ean, left(p.id::text, 8)) from productos p where p.id = vl.producto_id) codigo, sum(dl.cantidad)::float cantidad, vl.precio::float, vl.iva_pct::float, sum(dl.base)::float base, sum(dl.iva)::float iva, sum(dl.total)::float total, sum(dl.descuento)::float descuento
+         from devolucion_lineas dl join venta_lineas vl on vl.id = dl.venta_linea_id where dl.devolucion_id = $1 group by vl.descripcion, vl.precio, vl.iva_pct, vl.producto_id, vl.presentacion order by min(dl.id)`
+      : `select descripcion, (select coalesce(p.ean, left(p.id::text, 8)) from productos p where p.id = producto_id) codigo, sum(cantidad)::float cantidad, precio::float, iva_pct::float, sum(base)::float base, sum(iva)::float iva, sum(total)::float total, sum(descuento)::float descuento
+         from venta_lineas where venta_id = $1 group by descripcion, precio, iva_pct, producto_id, presentacion order by min(id)`, [dev ? d.devolucion_id : d.venta_id])).rows;
+    const pagos = dev ? [{ medio: dev.medio, valor: dev.total }] : (await c.query(`select medio, valor::float from pagos where venta_id = $1`, [d.venta_id])).rows;
     // Nota crédito: el documento original de la misma venta (su CUFE/CUDE va en la referencia).
     const ref = d.tipo === "nota_credito" ? (await c.query(
       `select o.tipo, o.prefijo, o.numero, o.cufe, v.creado as fecha from documentos_dian o join ventas v on v.id = o.venta_id
@@ -120,7 +126,8 @@ async function armar(id: string): Promise<{ documento: DocumentoParaEmitir; reso
         emisor: { nit: d.nit, dv: d.dv, razon_social: d.razon_social, responsable_iva: d.responsable_iva },
         cliente: cli, lineas, pagos,
         forma_pago: d.condicion === "credito" ? { tipo: "credito", vence: d.vence_pago, plazo_dias: d.plazo_dias } : { tipo: "contado" },
-        totales: { base: Number(d.base), iva: Number(d.iva_total), total: Number(d.total) },
+        totales: dev ? { base: dev.base, iva: dev.iva, total: dev.total } : { base: Number(d.base), iva: Number(d.iva_total), total: Number(d.total) },
+        parcial: !!dev,
         resolucion: d.resolucion, matias_cliente: d.matias_cliente,
         punto: { cajero: d.cajero ?? "Caja", caja: d.caja_nombre, direccion: d.sede_direccion },
         referencia: ref ? { tipo: ref.tipo, prefijo: ref.prefijo, numero: Number(ref.numero), fecha: new Date(ref.fecha).toISOString(), cufe: ref.cufe } : null,

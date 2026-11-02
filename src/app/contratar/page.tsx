@@ -8,6 +8,7 @@ import { PLANES, SOCIO } from "@/lib/planes";
 import { qrActivo, stripeActivo, wompiActivo } from "@/lib/pagos";
 import { wa } from "@/lib/sitio";
 import { FormContratar } from "./FormContratar";
+import { GARANTIA, GARANTIA_DIAS, PILA_VALOR, PRECIO_CONGELADO } from "@/lib/oferta";
 
 // La descripción solo nombra la tarjeta cuando Stripe está activo (no prometer un medio de pago que no está).
 export function generateMetadata(): Metadata {
@@ -31,6 +32,9 @@ export default async function Contratar({ searchParams }: { searchParams: Promis
             <nav aria-label="Ruta" className="text-sm text-white/60"><Link href="/" className="hover:underline">Regenta</Link> / <Link href="/precios" className="hover:underline">Tarifas</Link> / Contratar</nav>
             <h1 className="mt-3 font-cond text-[42px] sm:text-[60px] leading-[0.95]" style={{ fontWeight: 700 }}>Contrata Regenta en dos minutos</h1>
             <p className="mt-4 text-lg text-white/75 max-w-2xl">Eliges el plan, pagas en línea y te escribimos para activar tu cuenta y cargar tus productos. Sin permanencia: cancelas cuando quieras.</p>
+            <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-white/85">
+              {[`${GARANTIA_DIAS} días de garantía`, "Certificado y habilitación DIAN incluidos", "Capacitación incluida", "Sin permanencia"].map((t) => <li key={t} className="flex gap-2"><span className="text-amber-300 font-bold" aria-hidden="true">✓</span>{t}</li>)}
+            </ul>
           </div>
         </section>
         <section className="max-w-6xl mx-auto px-4 sm:px-6 py-10 grid lg:grid-cols-[1.15fr_.85fr] gap-8 items-start">
@@ -43,6 +47,16 @@ export default async function Contratar({ searchParams }: { searchParams: Promis
             </div>
           )}
           <aside className="grid gap-4">
+            <div className="rounded-3xl border-2 border-amber-300 bg-amber-50 p-6 flex gap-4 items-start">
+              <span className="shrink-0 size-14 rounded-full bg-amber-400 text-[#0b1f33] grid place-items-center font-cond text-2xl" style={{ fontWeight: 700 }} aria-hidden="true">{GARANTIA_DIAS}</span>
+              <div><p className="font-cond text-2xl leading-tight" style={{ fontWeight: 700 }}>Riesgo cero</p><p className="mt-1 text-[15px]">{GARANTIA}</p><p className="mt-2 text-sm text-muted">{PRECIO_CONGELADO}</p></div>
+            </div>
+            <div className="tarjeta p-6">
+              <h2 className="font-cond text-2xl" style={{ fontWeight: 700 }}>Lo que recibes</h2>
+              <ul className="mt-3 grid gap-2 text-[15px]">
+                {PILA_VALOR.map((v) => <li key={v.que} className="flex gap-2"><span className="text-teal-600 font-bold" aria-hidden="true">✓</span><span>{v.que}{v.aparte && <span className="text-muted"> (aparte cuesta {v.aparte})</span>}</span></li>)}
+              </ul>
+            </div>
             <div className="tarjeta p-6">
               <h2 className="font-cond text-2xl" style={{ fontWeight: 700 }}>Así de simple</h2>
               <ol className="mt-4 grid gap-3">
@@ -52,6 +66,7 @@ export default async function Contratar({ searchParams }: { searchParams: Promis
               </ol>
             </div>
             <Sello apilado />
+            <p className="text-[15px]">¿Dudas antes de pagar? <a href={wa("Hola, tengo una pregunta antes de contratar Regenta.")} className="font-semibold text-teal-700 underline">Escríbenos por WhatsApp</a> y te respondemos en minutos en horario hábil.</p>
             <p className="text-sm text-muted">¿Le compras a Farmagenéricos? Con el {SOCIO.nombre} Regenta te puede salir a mitad de precio o gratis: <Link href="/precios#socio" className="underline">ver Plan Socio</Link>.</p>
           </aside>
         </section>

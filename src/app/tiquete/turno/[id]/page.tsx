@@ -8,7 +8,7 @@ import { AutoImprimir } from "../../[id]/AutoImprimir";
 // Reporte de turno para la impresora térmica: corte parcial (turno abierto, cifras en vivo) o cierre (cifras guardadas).
 export const metadata: Metadata = { title: "Cierre de turno", robots: { index: false, follow: false } };
 
-type Resumen = { ventas: number; n_ventas: number; anuladas: number; iva: number; credito: number; medios: Record<string, number>; efectivo_ventas: number; abonos_efectivo: number; ingresos: number; egresos: number; base: number; efectivo_esperado: number };
+type Resumen = { ventas: number; n_ventas: number; anuladas: number; iva: number; credito: number; medios: Record<string, number>; efectivo_ventas: number; abonos_efectivo: number; ingresos: number; egresos: number; base: number; efectivo_esperado: number; devoluciones?: number; n_devoluciones?: number; devoluciones_efectivo?: number; ventas_netas?: number };
 
 export default async function CierreTurno({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ancho?: string; auto?: string }> }) {
   const s = await leerSesion();
@@ -69,6 +69,7 @@ export default async function CierreTurno({ params, searchParams }: { params: Pr
       {fila("Total vendido", pesos(n(r.ventas)), true)}
       {fila("IVA incluido", pesos(n(r.iva)))}
       {r.anuladas > 0 && fila("Ventas anuladas", `${r.anuladas}`)}
+      {n(r.devoluciones) > 0 && <>{fila(`Devoluciones (${r.n_devoluciones})`, "−" + pesos(n(r.devoluciones)))}{fila("Ventas netas", pesos(n(r.ventas_netas)), true)}</>}
       <hr />
       <p className="b">Por medio de pago</p>
       {Object.entries(r.medios ?? {}).map(([m, v]) => <div key={m}>{fila(MEDIO[m] ?? m, pesos(n(v)))}</div>)}
@@ -80,6 +81,7 @@ export default async function CierreTurno({ params, searchParams }: { params: Pr
       {n(r.abonos_efectivo) > 0 && fila("+ Abonos de cartera", pesos(n(r.abonos_efectivo)))}
       {fila("+ Entradas", pesos(n(r.ingresos)))}
       {fila("− Salidas", pesos(n(r.egresos)))}
+      {n(r.devoluciones_efectivo) > 0 && fila("− Devoluciones en efectivo", pesos(n(r.devoluciones_efectivo)))}
       {fila("= Esperado en caja", pesos(n(r.efectivo_esperado)), true)}
       {cerrado && <>
         {fila("Dinero contado", pesos(n(t.efectivo_contado)), true)}

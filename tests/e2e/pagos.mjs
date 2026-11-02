@@ -89,6 +89,9 @@ await pool.end();
 
 // ── Pantallas
 const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw-browsers/chromium" });
+
+// Las pruebas funcionales entran a la demo sin las ofertas del embudo (las prueba embudo.mjs).
+{ const nc = b.newContext.bind(b); b.newContext = async (o) => { const c = await nc(o); await c.addInitScript(() => { try { sessionStorage.setItem("regenta_demo_v1", JSON.stringify({ hechos: [], ofertas: ["prueba", "prueba"], cerrada: true, inicio: Date.now() })); } catch {} }); return c; }; }
 const p = await (await b.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
 const errs = []; p.on("pageerror", (e) => errs.push(e.message));
 await p.goto(B + "/contratar?plan=esencial");

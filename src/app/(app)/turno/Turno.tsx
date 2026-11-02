@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { pesos, MEDIO } from "@/lib/formato";
 import { imprimirRuta } from "@/lib/impresion";
 
-type Resumen = { ventas: number; n_ventas: number; anuladas: number; iva: number; credito: number; medios: Record<string, number>; efectivo_ventas: number; abonos_efectivo: number; ingresos: number; egresos: number; base: number; efectivo_esperado: number };
+type Resumen = { ventas: number; n_ventas: number; anuladas: number; iva: number; credito: number; medios: Record<string, number>; efectivo_ventas: number; abonos_efectivo: number; ingresos: number; egresos: number; base: number; efectivo_esperado: number; devoluciones?: number; n_devoluciones?: number; devoluciones_efectivo?: number; ventas_netas?: number };
 type Estado = {
   caja: { id: string; nombre: string } | null; exige: boolean;
   turno: null | { id: string; base: number; abierto: string; abre: string | null; resumen: Resumen; movimientos: { tipo: string; valor: number; concepto: string; creado: string; usuario: string | null }[] };
@@ -90,6 +90,7 @@ export function Turno({ estado, dueno }: { estado: Estado; dueno: boolean }) {
             {Object.entries(r.medios).map(([m, v]) => <li key={m} className="rounded-xl bg-paper px-3 py-2 flex justify-between"><span>{MEDIO[m] ?? m}</span><span className="font-semibold">{pesos(v)}</span></li>)}
             {r.credito > 0 && <li className="rounded-xl bg-paper px-3 py-2 flex justify-between"><span>A crédito</span><span className="font-semibold">{pesos(r.credito)}</span></li>}
             {r.abonos_efectivo > 0 && <li className="rounded-xl bg-paper px-3 py-2 flex justify-between"><span>Abonos en efectivo</span><span className="font-semibold">{pesos(r.abonos_efectivo)}</span></li>}
+            {(r.devoluciones ?? 0) > 0 && <li className="rounded-xl bg-paper px-3 py-2 flex justify-between"><span>Devoluciones ({r.n_devoluciones})</span><span className="font-semibold text-alerta">−{pesos(r.devoluciones ?? 0)}</span></li>}
           </ul>
           <button className="mt-4 btn-borde h-10 text-sm" onClick={() => imprimirRuta(`/tiquete/turno/${t.id}`)}>Imprimir corte parcial</button>
         </div>

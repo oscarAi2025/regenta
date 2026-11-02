@@ -29,6 +29,9 @@ const mock = http.createServer((req, res) => {
 }).listen(4601);
 
 const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw-browsers/chromium" });
+
+// Las pruebas funcionales entran a la demo sin las ofertas del embudo (las prueba embudo.mjs).
+{ const nc = b.newContext.bind(b); b.newContext = async (o) => { const c = await nc(o); await c.addInitScript(() => { try { sessionStorage.setItem("regenta_demo_v1", JSON.stringify({ hechos: [], ofertas: ["prueba", "prueba"], cerrada: true, inicio: Date.now() })); } catch {} }); return c; }; }
 // Dueño: pregunta por el pedido desde el panel
 {
   const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
@@ -44,7 +47,7 @@ const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw
   const r = vistos[0];
   ok(r.headers["x-api-key"] === "prueba-local" && r.headers["anthropic-version"] === "2023-06-01", "encabezados de la API de Anthropic");
   ok(r.body.tools.length >= 7 && r.body.tools.every((t) => t.input_schema?.type === "object"), "envía las herramientas con su esquema", `${r.body.tools.length}`);
-  ok(/Regenta IA/.test(r.body.system) && /No das indicaciones de dosis/.test(r.body.system), "instrucciones del sistema");
+  ok(/Regenta IA/.test(r.body.system) && /No diagnosticas/.test(r.body.system) && /Resolución 1403 de 2007/.test(r.body.system) && /urgencias/.test(r.body.system), "instrucciones del sistema");
   const resultado = JSON.parse(vistos[1].body.messages.at(-1).content[0].content);
   ok(Array.isArray(resultado) && resultado.length > 0 && "sugerido_cajas" in resultado[0], "la herramienta devolvió el pedido sugerido real", resultado[0]?.nombre);
   ok(await p.getByText(`Lo primero: ${resultado[0].nombre}.`).count() === 1, "la respuesta aparece en pantalla");

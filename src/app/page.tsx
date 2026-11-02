@@ -13,6 +13,9 @@ import { Desfile } from "@/components/landing/Desfile";
 import { Sello } from "@/components/landing/Sello";
 import { IncluyeTodo } from "@/components/landing/IncluyeTodo";
 import { Cumplimiento } from "@/components/landing/Cumplimiento";
+import { Oferta } from "@/components/landing/Oferta";
+import { BarraOferta } from "@/components/landing/BarraOferta";
+import { GARANTIA_DIAS } from "@/lib/oferta";
 import { GUIAS } from "@/content/guias";
 import { PAGINAS } from "@/content/paginas";
 import { mesAnual, PLANES, SOCIO } from "@/lib/planes";
@@ -32,7 +35,7 @@ export const metadata: Metadata = {
 };
 
 const PREGUNTAS: [string, string][] = [
-  ["¿Puedo probarla antes de pagar?", "Sí, ahora mismo: «Probar la demo» te deja entrar a una droguería de ejemplo con 8 semanas de ventas, sin registrarte y sin tarjeta."],
+  ["¿Puedo probarla antes de pagar?", `Sí, ahora mismo: «Probar la demo» te deja entrar a una droguería de ejemplo con 8 semanas de ventas, sin registrarte y sin tarjeta. Y al contratar tienes ${GARANTIA_DIAS} días de garantía: si no te sirve, te devolvemos lo que pagaste.`],
   ["¿Qué hace la inteligencia artificial?", "Regenta IA responde en lenguaje normal con los datos de tu droguería (ventas, lotes, pedido sugerido, vencimientos, alertas) y te dice de dónde sale cada cifra. Además, Regenta calcula con tus ventas qué pedir y qué se te va a vencer, y te muestra tus prioridades del día."],
   ["¿Cómo funcionan las alertas del INVIMA?", "Regenta lee las alertas sanitarias de medicamentos del INVIMA y las cruza con tu inventario por lote, registro sanitario y nombre. Solo te avisa cuando algo te toca y guarda la constancia de la revisión."],
   ["¿Por qué Regenta y no otro programa?", "Porque lo hace un distribuidor farmacéutico que surte droguerías: conocemos los agotados, los vencidos y las visitas de la secretaría de salud desde adentro. Y porque, de 15 programas para droguerías que revisamos, ninguno ofrece cruzar las alertas del INVIMA con tu inventario."],
@@ -80,9 +83,11 @@ export default function Portada() {
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <BotonDemo texto="Probar gratis ahora" className="btn-cta h-14 px-8 text-lg" />
-                <a href={WA} className="btn-vidrio h-14 px-6 text-lg">Hablar por WhatsApp</a>
+                <Link href="/contratar?plan=pro&origen=hero" className="btn-vidrio h-14 px-6 text-lg">Contratar desde {pesos(PLANES[0].precio!)}</Link>
               </div>
-              <p className="mt-4 text-[15px] text-white/60">Un clic, sin registro y sin tarjeta. Entras a una droguería de ejemplo con 8 semanas de ventas. <Link href="/precios" className="underline underline-offset-4 text-white/80 hover:text-white">Planes desde {pesos(PLANES[0].precio!)}</Link></p>
+              <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-[15px] text-white/80">
+                {["Demo en 1 clic, sin registro", "Certificado y habilitación DIAN incluidos", `${GARANTIA_DIAS} días de garantía`].map((t) => <li key={t} className="flex gap-2"><span className="text-amber-300 font-bold" aria-hidden="true">✓</span>{t}</li>)}
+              </ul>
               <div className="mt-8"><Sello oscuro /></div>
             </div>
             <HeroProducto />
@@ -91,6 +96,30 @@ export default function Portada() {
 
         <Cumplimiento />
         <Desfile />
+
+        {/* Lo que cuesta seguir igual (aversión a la pérdida, con cifras verificables). */}
+        <section className="bg-[#0b1f33] text-white">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 lg:py-20">
+            <h2 className="font-cond text-[38px] sm:text-[56px] leading-[0.98] max-w-[16em]" style={{ fontWeight: 700 }}>Cada semana sin control, tu droguería pierde plata por tres huecos.</h2>
+            <ul className="mt-10 grid md:grid-cols-3 gap-4">
+              {[
+                ["Lo que se vence", "La caja que nadie vio al fondo del cajón ya la pagaste. Cuando la encuentras, es pérdida completa.", "Regenta te avisa con meses de anticipación y la caja ofrece primero lo que vence antes."],
+                ["La venta que se va", "«No hay» es un cliente que compra al frente. Y el agotado del sábado casi siempre se veía venir.", "Te dice qué pedir con tus ventas reales y qué ofrecer si algo está agotado."],
+                ["El cierre por la DIAN", "No expedir factura estando obligado se sanciona con el cierre del establecimiento por 3 días (art. 657 del Estatuto Tributario).", "Tiquete POS y factura electrónica desde la caja, con certificado y habilitación incluidos."],
+              ].map(([t, d, r]) => (
+                <li key={t} className="rounded-3xl bg-white/[.05] border border-white/10 p-6 flex flex-col">
+                  <p className="font-cond text-[28px] text-rose-300 leading-tight" style={{ fontWeight: 700 }}>{t}</p>
+                  <p className="mt-2 text-white/75 leading-relaxed">{d}</p>
+                  <p className="mt-auto pt-4 border-t border-white/10 text-white leading-relaxed"><span className="text-emerald-300 font-bold" aria-hidden="true">✓ </span>{r}</p>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-10 flex flex-wrap items-center gap-3">
+              <BotonDemo texto="Verlo en mi pantalla ahora" className="btn-cta h-14 px-8 text-lg" />
+              <Link href="/contratar?plan=pro&origen=dolor" className="btn-vidrio h-14 px-6 text-lg">Contratar ya</Link>
+            </div>
+          </div>
+        </section>
 
         {/* 2. No es un POS genérico. */}
         <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16 lg:py-24">
@@ -238,6 +267,12 @@ export default function Portada() {
           </div>
         </section>
 
+        {/* Oferta: todo lo que recibes, precio frente a valor y garantía. */}
+        <section id="oferta" className="max-w-6xl mx-auto px-4 sm:px-6 py-16 lg:py-20 scroll-mt-20">
+          <h2 className="font-cond text-[40px] sm:text-[56px] leading-[0.98] max-w-[15em] mb-8" style={{ fontWeight: 700 }}>Todo lo que necesita tu droguería, en un solo pago al mes.</h2>
+          <Oferta origen="oferta" />
+        </section>
+
         {/* 9. Planes. */}
         <section className="bg-surface border-y border-line">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 lg:py-20">
@@ -306,6 +341,7 @@ export default function Portada() {
 
       <Pie />
       <BarraMovil />
+      <BarraOferta />
     </div>
   );
 }

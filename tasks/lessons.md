@@ -93,3 +93,9 @@
   se validan contra el build de producción (REGENTA_DEMO=1 y las claves de prueba).
 - Un texto de botón que contiene la palabra de otro botón («…tarjeta, Nequi…») rompe los selectores por nombre accesible
   (getByRole name hace coincidencia parcial). Nombres de botón cortos y únicos.
+
+## 2026-11-02 · Demo sin embudo de venta
+- Error: la demo era una app abierta sin ninguna estructura de venta; al salir mandaba a «Entrar». Oscar: «una demo abierta no vende».
+- Regla: toda demo de un SaaS es un embudo. Barra fija con la oferta y «Contratar», recorrido guiado a los momentos «ajá», aviso tras cada acción clave, oferta (máx. 2 por visita) al completar / intención de salida / tiempo, y salida hacia una página de oferta, nunca al login.
+- Regla: en marketing no se nombran otros programas: se dice «software POS genérico».
+- Regla: avisos flotantes de la demo nunca encima de la zona de trabajo de la caja (taparon la venta y rompieron el flujo).

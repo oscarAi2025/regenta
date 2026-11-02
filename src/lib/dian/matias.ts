@@ -74,7 +74,7 @@ export function payloadMatias(d: DocumentoParaEmitir) {
       software_manufacturer: { owner_name: "IA DEV INVESTIMENTS COLOMBIA S.A.S.", company_name: "IA DEV INVESTIMENTS COLOMBIA S.A.S.", software_name: "Regenta" },
     } : {}),
     ...(nota && d.referencia ? {
-      discrepancy_response: { reference_id: `${d.referencia.prefijo}${d.referencia.numero}`, response_id: "2" }, // 2 = anulación
+      discrepancy_response: { reference_id: `${d.referencia.prefijo}${d.referencia.numero}`, response_id: d.parcial ? "1" : "2" }, // 1 = devolución parcial · 2 = anulación
       billing_reference: { number: `${d.referencia.prefijo}${d.referencia.numero}`, date: bogota(d.referencia.fecha)[0], uuid: d.referencia.cufe, ...(origenPos ? { scheme_name: "CUDE-SHA384" } : {}) },
     } : {}),
   };

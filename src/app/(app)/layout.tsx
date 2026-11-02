@@ -10,6 +10,8 @@ import { BotonBuscar } from "@/components/app/BotonBuscar";
 import { iaActiva } from "@/lib/ia/claude";
 import { AvisoPermiso } from "@/components/app/AvisoPermiso";
 import Link from "next/link";
+import { ModoDemo } from "@/components/app/ModoDemo";
+import { GARANTIA, PRECIO_DESDE } from "@/lib/oferta";
 
 // La aplicación nunca se indexa: solo la portada comercial es pública.
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -17,16 +19,17 @@ export const metadata: Metadata = { robots: { index: false, follow: false } };
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const s = await leerSesion();
   if (!s) redirect("/entrar");
-  const emp = await comoUsuario(s, async (c) => (await c.query(`select nombre_comercial, razon_social, nit, dv from empresas where id = $1`, [s.empresa])).rows[0]);
+  const emp = await comoUsuario(s, async (c) => (await c.query(`select nombre_comercial, razon_social, nit, dv, demo from empresas where id = $1`, [s.empresa])).rows[0]);
   if (!emp) redirect("/entrar");
   const rol = { dueno: "Dueño", admin: "Administrador", cajero: "Cajera", bodeguero: "Bodega", vendedor: "Vendedor" }[s.rol];
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[88px_1fr]">
       <aside className="bg-ink text-white lg:min-h-screen flex lg:flex-col items-center gap-2 px-3 py-3 lg:py-5 sticky top-0 z-20">
         <Isotipo size={40} claro />
-        <Navegacion rol={s.rol} />
+        <Navegacion rol={s.rol} demo={!!emp.demo} />
       </aside>
       <div className="min-w-0">
+        {emp.demo && <ModoDemo rol={s.rol} precio={PRECIO_DESDE} garantia={GARANTIA} />}
         <header className="flex items-center justify-between gap-4 px-4 sm:px-6 h-14 border-b border-line bg-surface">
           <p className="truncate"><span className="font-semibold">{emp.nombre_comercial ?? emp.razon_social}</span><span className="text-muted text-sm"> · NIT {emp.nit}-{emp.dv}</span><span className="hidden 2xl:inline text-muted text-sm"> · Regenta, facturación y gestión farmacéutica</span></p>
           <BotonBuscar />

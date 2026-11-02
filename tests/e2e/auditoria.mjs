@@ -12,6 +12,9 @@ let fallos = 0, revisadas = 0;
 const ok = (c, m, x = "") => { if (!c) { console.log(`FAIL ${m}${x ? " — " + x : ""}`); fallos++; } };
 const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw-browsers/chromium" });
 
+// Las pruebas funcionales entran a la demo sin las ofertas del embudo (las prueba embudo.mjs).
+{ const nc = b.newContext.bind(b); b.newContext = async (o) => { const c = await nc(o); await c.addInitScript(() => { try { sessionStorage.setItem("regenta_demo_v1", JSON.stringify({ hechos: [], ofertas: ["prueba", "prueba"], cerrada: true, inicio: Date.now() })); } catch {} }); return c; }; }
+
 // ── Web pública
 const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
 const movil = await b.newContext({ ...devices["iPhone 13"] });

@@ -9,6 +9,9 @@ const ok = (c, m, x = "") => { console.log(`${c ? "PASS" : "FAIL"} ${m}${x ? " â
 const num = (t) => Number(String(t).replace(/[^\d-]/g, ""));
 const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw-browsers/chromium" });
 
+// Las pruebas funcionales entran a la demo sin las ofertas del embudo (las prueba embudo.mjs).
+{ const nc = b.newContext.bind(b); b.newContext = async (o) => { const c = await nc(o); await c.addInitScript(() => { try { sessionStorage.setItem("regenta_demo_v1", JSON.stringify({ hechos: [], ofertas: ["prueba", "prueba"], cerrada: true, inicio: Date.now() })); } catch {} }); return c; }; }
+
 async function entrar(quien) {
   const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
   const p = await ctx.newPage();
@@ -52,7 +55,7 @@ const estado = (p) => p.evaluate(async () => (await fetch("/api/turnos")).json()
   await p.getByRole("button", { name: /Nueva venta/ }).click();
   await p.keyboard.type("acetaminofen forte mk"); await p.waitForSelector('[role="option"]'); await p.keyboard.press("Enter");
   const total2 = num(await p.locator('aside[aria-label="Venta actual"]').getByText(/^\$[\d.]+$/).last().textContent());
-  await p.keyboard.press("F9"); await p.waitForSelector("#recibido");
+  await p.keyboard.press("F9"); await p.waitForSelector("#recibido", { timeout: 8000 }).catch(async (e) => { await p.screenshot({ path: "/tmp/claude-0/capturas/turno-fallo.png" }); throw e; });
   await p.getByRole("button", { name: /Pago mixto/ }).click();
   await p.selectOption("#otro-medio", "tarjeta"); await p.fill("#otro-valor", "10000");
   await p.fill("#recibido", "50000");

@@ -80,3 +80,12 @@ test("Descuento de línea: precio bruto, descuento no condicionado y base neta c
   assert.equal(l.price_amount, "43697.47");
   assert.equal((Number(l.price_amount) * 1 - Number(l.allowance_charges[0].amount)).toFixed(2), l.line_extension_amount);
 });
+
+test("Nota crédito de una devolución parcial: concepto 1 (devolución parcial)", () => {
+  const p = payloadMatias({ ...base, tipo: "nota_credito", prefijo: "NCPE", cliente: null, pagos: [{ medio: "efectivo", valor: 9000 }], forma_pago: { tipo: "contado" }, parcial: true,
+    lineas: [lineas[0]], totales: { base: 9000, iva: 0, total: 9000 },
+    referencia: { tipo: "pos", prefijo: "DPOS", numero: 1, fecha: "2026-11-02T13:56:01.000Z", cufe: "abc" } });
+  assert.equal(p.discrepancy_response.response_id, "1");
+  assert.equal(p.legal_monetary_totals.payable_amount, "9000.00");
+  assert.equal(p.tax_totals.length, 0);
+});
