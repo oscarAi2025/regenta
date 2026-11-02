@@ -22,7 +22,7 @@ export const PATCH = conSesion(async (s, req) => {
     if ((await c.query(`select demo from empresas where id = $1`, [s.empresa])).rows[0]?.demo) return false;
     await c.query(`update empresas set nombre_comercial = $2, direccion = $3, ciudad = $4, telefono = $5, email = $6, descuento_max_cajero = $7, egreso_max_cajero = $8 where id = $1`,
       [s.empresa, d.nombre_comercial, d.direccion ?? null, d.ciudad ?? null, d.telefono ?? null, d.email ?? null, d.descuento_max_cajero, d.egreso_max_cajero]);
-    await c.query(`insert into auditoria (empresa_id, usuario_id, accion, entidad, entidad_id, datos) values ($1, $2, 'configurar_empresa', 'empresas', $1, $3)`, [s.empresa, s.uid, JSON.stringify(d)]);
+    await c.query(`insert into auditoria (empresa_id, usuario_id, accion, entidad, entidad_id, datos) values ($1, $2, 'configurar_empresa', 'empresas', $4, $3)`, [s.empresa, s.uid, JSON.stringify(d), s.empresa]);
     return true;
   });
   if (!ok) return json({ error: "En la demostración no se cambian los datos de la droguería" }, 409);

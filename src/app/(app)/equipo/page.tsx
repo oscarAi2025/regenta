@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { comoUsuario } from "@/lib/db";
+import { sinRLS } from "@/lib/db";
 import { leerSesion } from "@/lib/sesion";
 import { Cabecera } from "@/components/ui/Cabecera";
 import { Equipo, Configuracion } from "./Equipo";
@@ -11,7 +11,8 @@ export default async function PaginaEquipo() {
   const s = await leerSesion();
   if (!s) redirect("/entrar");
   if (s.rol !== "dueno") redirect("/inicio");
-  const d = await comoUsuario(s, async (c) => {
+  // Lee cuentas (correo y si ya creó contraseña): sin RLS, siempre filtrado por la empresa de la sesión del dueño.
+  const d = await sinRLS(async (c) => {
     const e = (await c.query(`select nit, dv, razon_social, nombre_comercial, direccion, ciudad, telefono, email, plan, estado, demo,
         descuento_max_cajero::float, egreso_max_cajero::float, responsable_iva from empresas where id = $1`, [s.empresa])).rows[0];
     const miembros = (await c.query(`select m.user_id, m.nombre, m.rol, m.activo, cu.email, cu.clave_hash is not null activo_cuenta

@@ -2,6 +2,8 @@
 // reporte imprimible y «exigir turno» (sin turno la caja no cobra).
 // Uso: servidor en :4500 (REGENTA_DEMO=1) con la base recién sembrada → node tests/e2e/turnos.mjs
 import { chromium } from "playwright-core";
+import pg from "pg";
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp" });
 
 const B = process.env.BASE ?? "http://localhost:4500";
 let fallos = 0;
@@ -89,7 +91,9 @@ const estado = (p) => p.evaluate(async () => (await fetch("/api/turnos")).json()
 // ── Dueño activa «exigir turno»: la cajera sin turno no puede cobrar
 {
   const { ctx, p } = await entrar("Carlos");
-  ok((await api(p, { accion: "exigir", valor: true })).status === 200, "el dueño activa exigir turno");
+  // En la demo pública nadie puede dejar la caja bloqueada: se activa por base de datos para probar el candado.
+  ok([400, 409, 422].includes((await api(p, { accion: "exigir", valor: true })).status), "en la demo «exigir turno» no se puede activar");
+  await pool.query(`update empresas set exige_turno = true where demo`);
   const caj = await entrar("Laura");
   ok((await api(caj.p, { accion: "exigir", valor: false })).status === 403, "la cajera no puede cambiar esa opción");
   await caj.p.goto(B + "/caja"); await caj.p.waitForLoadState("networkidle");
@@ -103,4 +107,5 @@ const estado = (p) => p.evaluate(async () => (await fetch("/api/turnos")).json()
 
 await b.close();
 console.log(`\n${fallos} fallos`);
+await pool.query(`update empresas set exige_turno = false where demo`); await pool.end();
 process.exit(fallos ? 1 : 0);

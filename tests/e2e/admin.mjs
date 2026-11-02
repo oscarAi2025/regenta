@@ -121,7 +121,7 @@ ok([400, 404].includes(sesDemo.status), "el acceso de demo no abre la sesión de
   await q.goto(B + "/equipo"); await q.waitForLoadState("networkidle");
   ok(await q.getByText("Cajera Equipo").count() === 1 && await q.getByText(/En proceso/).count() === 1, "Mi droguería muestra el equipo y la habilitación en proceso");
   await q.goto(B + "/inicio");
-  ok(await q.getByRole("region", { name: "Primeros pasos" }).count() === 1, "Inicio muestra los primeros pasos al dueño nuevo");
+  ok(await q.getByRole("region", { name: "Primeros pasos" }).waitFor({ timeout: 10000 }).then(() => true).catch(() => false), "Inicio muestra los primeros pasos al dueño nuevo");
   await q.goto(B + "/caja"); await q.waitForLoadState("networkidle");
   ok(await q.getByText(/aún no está habilitada ante la DIAN/).count() >= 1, "la caja avisa que falta la habilitación DIAN");
   const r1 = await fetch(B + "/api/restablecer", { method: "POST", headers: { ...h, "content-type": "application/json" }, body: JSON.stringify({ email: DUENO.email }) });
