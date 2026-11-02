@@ -15,10 +15,12 @@ export type Periodo = "mes" | "anio";
 
 export const wompiActivo = () => !!(process.env.WOMPI_PUBLIC_KEY && process.env.WOMPI_INTEGRITY_SECRET && process.env.WOMPI_EVENTS_SECRET);
 export const stripeActivo = () => !!(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET);
-/** QR de la cuenta empresarial Bancolombia (llave Bre-B): sin pasarela. REGENTA_QR_LLAVE es la llave que muestra la
- *  página (p. ej. @farmagenericos o el NIT); REGENTA_QR_IMAGEN, la imagen del QR (ruta en /public o URL). */
-export const qrActivo = () => !!process.env.REGENTA_QR_LLAVE;
-export const datosQr = () => ({ llave: process.env.REGENTA_QR_LLAVE ?? "", imagen: process.env.REGENTA_QR_IMAGEN ?? "", titular: process.env.REGENTA_QR_TITULAR ?? "IA DEV INVESTIMENTS COLOMBIA S.A.S." });
+/** QR Bre-B de la cuenta empresarial Bancolombia de IA DEV INVESTIMENTS COLOMBIA S.A.S. (el mismo de Justicia Activa):
+ *  sin pasarela, confirmación manual. Llave confirmada por Oscar: @iadevinvestiment. El QR no lleva monto fijo.
+ *  REGENTA_QR_LLAVE / REGENTA_QR_IMAGEN / REGENTA_QR_TITULAR solo hacen falta para cambiarlos; REGENTA_QR_LLAVE=off lo apaga. */
+const QR_LLAVE = "@iadevinvestiment";
+export const qrActivo = () => process.env.REGENTA_QR_LLAVE !== "off";
+export const datosQr = () => ({ llave: process.env.REGENTA_QR_LLAVE || QR_LLAVE, imagen: process.env.REGENTA_QR_IMAGEN || "/qr-pago.png", titular: process.env.REGENTA_QR_TITULAR || "IA DEV INVESTIMENTS COLOMBIA S.A.S." });
 
 /** Precio en pesos: el año completo cuesta 10 meses (2 meses gratis, como dice la nota de precios). */
 export function precio(plan: Plan, periodo: Periodo) {

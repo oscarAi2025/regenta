@@ -42,7 +42,7 @@ export function Resultado({ referencia, transaccion }: { referencia: string; tra
           <p className="text-muted">Paga exactamente</p>
           <p className="num font-cond text-[48px] leading-none" style={{ fontWeight: 700 }}>{pesos(e.monto)}</p>
           <p className="mt-2">Plan {plan}, {e.periodo === "anio" ? "anual" : "mensual"}.</p>
-          <p className="mt-3 text-[15px]">Escanea el QR desde la app de tu banco, Nequi o Daviplata{e.qr.llave ? <>, o transfiere a la llave Bre-B <b className="num">{e.qr.llave}</b></> : null}. Titular: {e.qr.titular}.</p>
+          <p className="mt-3 text-[15px]">Escanea el QR desde la app de tu banco, Nequi o Daviplata{e.qr.llave ? <>, o transfiere a la llave Bre-B <b className="num">{e.qr.llave}</b></> : null}. Titular: {e.qr.titular.replace(/\.$/, "")}.</p>
         </div>
       </div>
       <ol className="tarjeta p-6 grid gap-3 text-[15px]">

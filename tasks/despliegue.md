@@ -1,4 +1,4 @@
-# Puesta en producción de Regenta (Netlify + Supabase + Resend + Wompi)
+# Puesta en producción de Regenta (Netlify + Supabase + Resend + Stripe + QR Bancolombia)
 
 Orden recomendado. Cada paso dice qué hace Oscar y cómo se comprueba. Las claves nunca se pegan en el chat ni en el
 repositorio: van solo en el panel de cada servicio.
@@ -50,8 +50,7 @@ repositorio: van solo en el panel de cada servicio.
 | `RESEND_API_KEY` | La llave de Resend |
 | `CORREO_REMITENTE` | `Regenta <hola@correo.tudominio.co>` (dominio verificado) |
 | `CORREO_RESPUESTA` | `gerencia@farmagenericoscolombia.com` (opcional; es el valor por defecto) |
-| `REGENTA_QR_LLAVE` | La llave Bre-B de la cuenta empresarial Bancolombia (la que el cliente escribe si no escanea). Con ella aparece «QR Bancolombia» en /contratar. |
-| `REGENTA_QR_IMAGEN` | `/qr-pago.png`: la imagen del QR de la cuenta, guardada en `public/qr-pago.png` |
+| `REGENTA_QR_LLAVE` | No hace falta: ya trae la llave `@iadevinvestiment` y el QR (`public/qr-pago.png`) de la cuenta empresarial, los mismos de Justicia Activa. `off` apaga el QR. |
 | `REGENTA_QR_TITULAR` | Opcional. Titular que ve el cliente (por defecto IA DEV INVESTIMENTS COLOMBIA S.A.S.) |
 | `WOMPI_PUBLIC_KEY`, `WOMPI_INTEGRITY_SECRET`, `WOMPI_EVENTS_SECRET` | No se usan por ahora (sin Wompi). Si algún día se activa, salen del panel de Wompi. |
 | `ANTHROPIC_API_KEY` | Activa Regenta IA |
@@ -65,8 +64,8 @@ repositorio: van solo en el panel de cada servicio.
 
 ## 4. Cobros: QR Bancolombia y Stripe
 **QR de la cuenta empresarial Bancolombia (llave Bre-B), sin pasarela**
-1. En Bancolombia (canales digitales de la cuenta empresarial) registrar la llave Bre-B y descargar el QR. Guardar la
-   imagen como `public/qr-pago.png` y poner `REGENTA_QR_LLAVE` y `REGENTA_QR_IMAGEN`.
+1. Ya configurado: llave `@iadevinvestiment` y QR de la cuenta empresarial Bancolombia (`public/qr-pago.png`, el mismo de
+   Justicia Activa; sin monto fijo, el cliente escribe el valor que ve en pantalla).
 2. Flujo:
    - El cliente elige «QR Bancolombia» en /contratar y ve el monto exacto, el QR y la llave. También le llegan por correo.
    - Paga desde cualquier banco, Nequi o Daviplata y manda el comprobante por WhatsApp con su referencia.

@@ -40,3 +40,7 @@
 - Un webhook firmado solo avisa: la verdad se consulta en la API del proveedor (referencia y monto pueden no estar firmados).
 - Los límites de intentos en memoria no sirven en serverless y las cabeceras de IP las puede escribir el cliente: contar solo fallos, en la base, y creer solo la cabecera de la plataforma.
 - Las rutas que reciben un id deben filtrar por la empresa de la sesión aunque RLS ya proteja.
+
+## QR de pago (2 nov 2026)
+- Antes de pedirle a Oscar un dato o archivo (QR, llaves, cuentas), buscarlo en los otros repositorios de /home/claude: el QR Bre-B
+  y la llave de IA DEV ya estaban en justicia-activa (`src/data/pagos.ts`, `public/img/pagos/qr-iadev.png`). Pedirlo de nuevo lo molesta.
