@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 const ITEMS = [
   { href: "/inicio", label: "Inicio", roles: ["dueno", "admin", "cajero", "bodeguero"], d: "M4 11l8-7 8 7v9h-5v-6H9v6H4z" },
   { href: "/caja", label: "Caja", roles: ["dueno", "admin", "cajero"], d: "M4 7h16v12H4zM8 7V4h8v3M8 12h3M8 15h5" },
+  { href: "/turno", label: "Turno", roles: ["dueno", "admin", "cajero"], d: "M12 7v5l3 2M4 12a8 8 0 1 0 16 0 8 8 0 0 0-16 0" },
   { href: "/ventas", label: "Ventas", roles: ["dueno", "admin", "cajero"], d: "M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h3" },
   { href: "/cartera", label: "Cartera", roles: ["dueno", "admin"], d: "M3 7h18v12H3zM3 11h18M7 15h4M16 4l-3 3" },
   { href: "/productos", label: "Productos", roles: ["dueno", "admin", "cajero", "bodeguero"], d: "M7 4h10l3 4v12H4V8zM4 8h16M10 12h4" },

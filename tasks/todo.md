@@ -159,7 +159,7 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 
 ## Paridad con Alegra POS (auditoría 02/11/2026, fuentes en ayuda.alegra.com)
 - [x] Impresión de tirilla 80/58 mm: automática al cobrar (iframe), F8 reimprime, «Imprimir tiquete» en la venta, QR y CUDE, datos de la Res. 165/2023 art. 19-20
-- [ ] Turnos de caja: apertura con base, ingresos y egresos de efectivo, cierre con «dinero real en caja», diferencia, reporte imprimible
+- [x] Turnos de caja: apertura con base, ingresos y egresos de efectivo, cierre con «dinero real en caja», diferencia, reporte imprimible, «exigir turno» (migración 018, tests/e2e/turnos.mjs)
 - [ ] Pagos mixtos (efectivo + tarjeta/Nequi en la misma venta)
 - [ ] Descuento por ítem y descuento general (con su informe a la DIAN)
 - [ ] Devolución parcial (nota crédito por ítems/cantidades)
