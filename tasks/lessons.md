@@ -61,3 +61,12 @@
   `alter table … enable trigger` falla con "pending trigger events" si hay FK diferidas: `set constraints all immediate` antes.
   Comprobar con huella md5 por tabla (timezone UTC, collate "C") contra la copia local, no solo con conteos.
 - La pantalla de crear proyecto de Supabase: la lista de regiones se mueve al hacer scroll; confirmar con captura la región elegida.
+
+## Netlify con plan de créditos (02/11/2026)
+- En el plan por créditos cada build gasta créditos del EQUIPO. El equipo FARMAGENERICOS COLOMBIA tenía 42 créditos y
+  4 builds seguidos (incluido uno disparado solo por subir tsconfig.tsbuildinfo) agotaron el límite: Netlify pausó
+  TODOS los proyectos del equipo, no solo Regenta.
+- Regla: antes de desplegar, mirar los créditos que quedan. No hacer push a main por archivos sin efecto
+  (tsbuildinfo) mientras Netlify construye desde main. Probar todo lo posible antes del despliegue para hacer uno solo.
+- Probar la conexión (contraseña, CA) antes de gastar un build: un error de DATABASE_URL se ve en el registro de la
+  función sin volver a construir.
