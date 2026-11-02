@@ -4,6 +4,7 @@ import { comoUsuario } from "@/lib/db";
 import { leerSesion, puede } from "@/lib/sesion";
 import { pesos } from "@/components/ui/Cabecera";
 import { Anular } from "./Anular";
+import { Devolver } from "./Devolver";
 import { Abonos } from "./Abonos";
 import { Imprimir } from "./Imprimir";
 import { MEDIO } from "@/lib/formato";
@@ -21,12 +22,16 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
       cl.nombre cliente, cl.tipo_doc cli_tipo, cl.numero_doc cli_num, cl.dv cli_dv, to_char(v.vence_pago, 'DD/MM/YYYY') vence
       from ventas v join empresas e on e.id = v.empresa_id left join clientes cl on cl.id = v.cliente_id left join miembros m on m.empresa_id = v.empresa_id and m.user_id = v.usuario_id where v.id = $1 and v.empresa_id = $2`, [id, s.empresa])).rows[0];
     if (!v) return null;
-    const lineas = (await c.query(`select vl.descripcion, vl.presentacion, sum(vl.cantidad)::float cantidad, vl.precio::float, sum(vl.total)::float total, sum(vl.descuento)::float descuento, vl.iva_pct::float, string_agg(l.lote, ', ') lotes
+    const lineas = (await c.query(`select vl.producto_id::text, vl.descripcion, vl.presentacion, sum(vl.cantidad)::float cantidad, vl.precio::float, sum(vl.total)::float total, sum(vl.descuento)::float descuento, vl.iva_pct::float, string_agg(l.lote, ', ') lotes,
+        coalesce(sum((select sum(dl.cantidad) from devolucion_lineas dl where dl.venta_linea_id = vl.id)), 0)::float devuelto
       from venta_lineas vl join lotes l on l.id = vl.lote_id where vl.venta_id = $1 group by vl.descripcion, vl.presentacion, vl.precio, vl.iva_pct, vl.producto_id order by min(vl.id)`, [id])).rows;
+    const devoluciones = (await c.query(`select d.id::text, to_char(d.creado at time zone 'America/Bogota', 'DD/MM/YYYY HH24:MI') fecha, d.total::float, d.reembolso::float, d.a_saldo::float, d.medio, d.motivo,
+        (select dd.prefijo || dd.numero || ' · ' || dd.estado from documentos_dian dd where dd.devolucion_id = d.id) nota
+      from devoluciones d where d.venta_id = $1 order by d.creado`, [id])).rows;
     const pagos = (await c.query(`select medio, valor::float from pagos where venta_id = $1`, [id])).rows;
-    const doc = (await c.query(`select estado, cufe, simulado, ultimo_error, intentos from documentos_dian where venta_id = $1 order by creado limit 1`, [id])).rows[0];
+    const doc = (await c.query(`select estado, cufe, simulado, ultimo_error, intentos from documentos_dian where venta_id = $1 and tipo <> 'nota_credito' order by creado limit 1`, [id])).rows[0];
     const abonos = v.condicion === "credito" && puede.cartera(s.rol) ? (await c.query(`select id::text, to_char(creado at time zone 'America/Bogota', 'DD/MM/YYYY') fecha, medio, valor::float, referencia, anulado, anulado_motivo from abonos where venta_id = $1 order by creado`, [id])).rows : [];
-    return { v, lineas, pagos, doc, abonos };
+    return { v, lineas, pagos, doc, abonos, devoluciones };
   });
   if (!d) notFound();
   const { v } = d;
@@ -47,11 +52,13 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
               <p className="text-[15px] leading-snug">{l.descripcion}</p>
               <p className="flex justify-between text-sm text-muted num"><span>{l.cantidad} {l.presentacion === "caja" ? "caja" : "und"} × {pesos(l.precio)}{l.iva_pct ? ` · IVA ${l.iva_pct} %` : ""} · lote {l.lotes}</span><span className="text-ink font-semibold">{pesos(l.total)}</span></p>
               {l.descuento > 0 && <p className="text-sm text-cruz num">Descuento −{pesos(l.descuento)}</p>}
+              {l.devuelto > 0 && <p className="text-sm text-alerta num">Devuelto: {l.devuelto} {l.presentacion === "caja" ? "caja" : "und"}</p>}
             </li>
           ))}
         </ul>
         <div className="corte my-4" />
         <dl className="grid grid-cols-2 gap-y-1 text-sm num"><dt className="text-muted">Base</dt><dd className="text-right">{pesos(v.base)}</dd><dt className="text-muted">IVA</dt><dd className="text-right">{pesos(v.iva)}</dd></dl>
+        {Number(v.devuelto) > 0 && <dl className="grid grid-cols-2 gap-y-1 text-sm num mt-1"><dt className="text-alerta">Devuelto</dt><dd className="text-right text-alerta">−{pesos(v.devuelto)}</dd></dl>}
         <p className="mt-2 flex justify-between items-baseline"><span className="text-lg">Total</span><span className={`num titulo text-4xl ${v.estado === "anulada" ? "line-through text-muted" : ""}`}>{pesos(v.total)}</span></p>
         <div className="corte my-4" />
         <ul className="text-sm num grid gap-1">
@@ -75,7 +82,24 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
           )}
         </div>
         {v.condicion === "credito" && puede.cartera(s.rol) && <Abonos abonos={d.abonos.map((a) => ({ ...a, medio: MEDIO[a.medio] ?? a.medio }))} puedeAnular={v.estado === "cerrada"} />}
-        {v.estado === "cerrada" && puede.anular(s.rol) && <Anular id={v.id} />}
+        {d.devoluciones.length > 0 && (
+          <div className="tarjeta p-5">
+            <h2 className="titulo text-xl">Devoluciones</h2>
+            <ul className="mt-3 divide-y divide-line text-sm">
+              {d.devoluciones.map((x) => (
+                <li key={x.id} className="py-2 grid gap-1">
+                  <p className="flex justify-between gap-2"><span>{x.fecha} · {x.motivo}</span><span className="num font-semibold text-alerta">−{pesos(x.total)}</span></p>
+                  <p className="text-muted">{x.reembolso > 0 ? `Reembolso ${pesos(x.reembolso)} en ${(MEDIO[x.medio] ?? x.medio).toLowerCase()}` : ""}{x.a_saldo > 0 ? `${x.reembolso > 0 ? " · " : ""}${pesos(x.a_saldo)} descontado del saldo` : ""}{x.nota ? ` · Nota crédito ${x.nota}` : ""}</p>
+                  <a href={`/tiquete/devolucion/${x.id}`} className="text-cruz font-semibold">Ver comprobante</a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {v.estado === "cerrada" && puede.anular(s.rol) && d.lineas.some((l) => l.cantidad > l.devuelto) && (
+          <Devolver id={v.id} credito={v.condicion === "credito"} lineas={d.lineas.filter((l) => l.cantidad > l.devuelto).map((l) => ({ producto_id: l.producto_id, presentacion: l.presentacion, descripcion: l.descripcion, disponible: l.cantidad - l.devuelto, unitario: l.total / l.cantidad }))} />
+        )}
+        {v.estado === "cerrada" && Number(v.devuelto) === 0 && puede.anular(s.rol) && <Anular id={v.id} />}
       </section>
     </main>
   );

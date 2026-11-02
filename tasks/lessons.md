@@ -99,3 +99,7 @@
 - Regla: toda demo de un SaaS es un embudo. Barra fija con la oferta y «Contratar», recorrido guiado a los momentos «ajá», aviso tras cada acción clave, oferta (máx. 2 por visita) al completar / intención de salida / tiempo, y salida hacia una página de oferta, nunca al login.
 - Regla: en marketing no se nombran otros programas: se dice «software POS genérico».
 - Regla: avisos flotantes de la demo nunca encima de la zona de trabajo de la caja (taparon la venta y rompieron el flujo).
+
+## 2026-11-02 · Candado de inmutabilidad olvidado
+- Error: la migración 020 añadió ventas.devuelto pero el trigger venta_solo_anular solo permite cambiar «estado»: toda devolución habría fallado en producción. Lo destapó el e2e de la pantalla, no la migración.
+- Regla: al añadir una columna mutable a una tabla con trigger de inmutabilidad, actualizar el trigger en la misma migración y probar la escritura de punta a punta antes de aplicar en producción.

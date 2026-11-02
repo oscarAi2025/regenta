@@ -177,7 +177,8 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] Regenta IA con perfil experto (regencia, normativa, farmacología, mostrador, venta)
 - [x] Migración 020 (devoluciones) aplicada en Supabase
 - [ ] ANTHROPIC_API_KEY en Netlify (la pega Oscar) y redeploy
-- [ ] Devolución parcial: pantalla en el detalle de la venta + comprobante + e2e
+- [x] Devolución parcial: pantalla en el detalle de la venta + comprobante + e2e (tests/e2e/devoluciones.mjs, 0 fallos)
+- [ ] Aplicar migración 021_venta_devuelto.sql en Supabase y desplegar (el commit va con [skip netlify] hasta aplicarla)
 - [ ] Reportes por producto, cajero y medio · venta sin internet
 
 ## 2026-11-02 · MATIAS producción (paquete Casa de Software 30.000 pagado y aprobado)
