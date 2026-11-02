@@ -24,7 +24,7 @@ export function Asistente({ activa }: { activa: boolean }) {
     try {
       const r = await fetch("/api/ia", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mensajes: nuevos.slice(-12).map(({ role, content }) => ({ role, content })) }) });
       const j = await r.json().catch(() => ({}));
-      setMsgs([...nuevos, { role: "assistant", content: r.ok ? j.respuesta : j.error ?? "No pude responder ahora.", herramientas: j.herramientas }]);
+      setMsgs([...nuevos, { role: "assistant", content: r.ok && j.respuesta ? j.respuesta : j.error ?? "No pude responder ahora.", herramientas: j.herramientas }]);
     } catch { setMsgs([...nuevos, { role: "assistant", content: "Sin conexión: revisa internet e inténtalo otra vez." }]); }
     setPensando(false);
   }
