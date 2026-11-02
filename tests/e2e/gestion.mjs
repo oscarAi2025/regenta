@@ -239,10 +239,12 @@ async function entrar(ctx, quien) {
   const ctx = await b.newContext();
   const { p } = await entrar(ctx, "Laura");
   await p.goto(B + "/productos/importar");
+  await p.waitForURL((u) => u.pathname === "/productos", { timeout: 10000 }).catch(() => {});
   ok(new URL(p.url()).pathname === "/productos", "la cajera no entra a cargar productos");
   const r = await p.request.post(B + "/api/productos/importar", { data: { simular: true, filas: [{ nombre: "x", precio_caja: 1 }] } });
   ok(r.status() === 403, "la API de carga rechaza a la cajera", `${r.status()}`);
   await p.goto(B + "/inventario/recibir");
+  await p.waitForURL(/\/caja/, { timeout: 10000 }).catch(() => {});
   ok(new URL(p.url()).pathname === "/caja", "la cajera no recibe mercancía");
   if (CAP) {
     await p.setViewportSize({ width: 1440, height: 900 });

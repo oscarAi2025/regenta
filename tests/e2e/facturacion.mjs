@@ -155,6 +155,7 @@ async function agregar(p, texto) {
   const ancho = await p.evaluate(() => document.documentElement.scrollWidth);
   ok(ancho <= 390, "sin desborde horizontal en celular", String(ancho));
   await p.goto(B + "/cartera");
+  await p.getByRole("heading", { name: "Cartera" }).waitFor({ timeout: 10000 }).catch(() => {});
   ok(await p.getByRole("heading", { name: "Cartera" }).count() === 1, "Cartera abre en celular");
   await ctx.close();
 }
