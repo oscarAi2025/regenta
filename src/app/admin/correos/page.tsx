@@ -26,11 +26,11 @@ export default async function Correos({ searchParams }: { searchParams: Promise<
     bajas: (await c.query(`select count(*)::int n from correos_bajas`)).rows[0].n as number,
   }));
   const n = (e: string) => d.cuentas.find((x) => x.estado === e)?.n ?? 0;
-  const proveedor = !!process.env.RESEND_API_KEY && !!process.env.CORREO_REMITENTE;
+  const proveedor = (!!process.env.SMTP_USER && !!process.env.SMTP_PASS) || (!!process.env.RESEND_API_KEY && !!process.env.CORREO_REMITENTE);
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
       <Cabecera titulo="Correos" sub="Activación, bienvenida, pagos, recordatorios de renovación y el embudo de venta. Cada correo sale una sola vez." />
-      {!proveedor && <p role="status" className="tarjeta p-4 border-l-4 border-aviso">Falta configurar <span className="font-mono text-sm">RESEND_API_KEY</span> y <span className="font-mono text-sm">CORREO_REMITENTE</span>: los correos quedan como «simulados» y no le llegan a nadie.</p>}
+      {!proveedor && <p role="status" className="tarjeta p-4 border-l-4 border-aviso">Falta configurar el correo (<span className="font-mono text-sm">SMTP_USER</span> y <span className="font-mono text-sm">SMTP_PASS</span> del buzón de Google Workspace, o Resend): los correos quedan como «simulados» y no le llegan a nadie.</p>}
       <section className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {[["Programados", n("pendiente") + n("enviando")], ["Enviados", n("enviado")], ["Simulados", n("simulado")], ["Con error", n("error")], ["Se dieron de baja", d.bajas]].map(([t, x]) => (
           <div key={t as string} className="tarjeta p-4"><p className="text-sm text-muted">{t}</p><p className="font-cond text-3xl" style={{ fontWeight: 700 }}>{x}</p></div>

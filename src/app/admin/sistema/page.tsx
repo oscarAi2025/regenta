@@ -16,7 +16,7 @@ const VARIABLES: [string, string][] = [
   ["WOMPI_PUBLIC_KEY", "Pagos en Colombia (Wompi)"], ["WOMPI_INTEGRITY_SECRET", "Firma de pagos Wompi"], ["WOMPI_EVENTS_SECRET", "Eventos de Wompi"],
   ["STRIPE_SECRET_KEY", "Pagos con tarjeta internacional (Stripe)"], ["STRIPE_WEBHOOK_SECRET", "Eventos de Stripe"],
   ["REGENTA_DIAN", "Proveedor de emisión DIAN (hoy: simulado)"],
-  ["RESEND_API_KEY", "Envío de correos (Resend)"], ["CORREO_REMITENTE", "Remitente, p. ej. Regenta <hola@tudominio.co> (dominio verificado)"], ["CORREO_RESPUESTA", "A dónde llegan las respuestas (opcional)"],
+  ["SMTP_USER", "Buzón de Google Workspace que envía los correos (p. ej. hola@regenta.pro)"], ["SMTP_PASS", "Contraseña de aplicación de ese buzón"], ["RESEND_API_KEY", "Alternativa: envío con Resend"], ["CORREO_REMITENTE", "Remitente, p. ej. Regenta <hola@regenta.pro> (el buzón o un alias suyo)"], ["CORREO_RESPUESTA", "A dónde llegan las respuestas (opcional)"],
 ];
 
 export default async function Sistema() {

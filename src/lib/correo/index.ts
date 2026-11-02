@@ -1,13 +1,17 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import nodemailer, { type Transporter } from "nodemailer";
 import { sinRLS, type Tx } from "../db";
 import { SITIO, CORREO } from "../sitio";
 import { COMERCIALES, EMBUDO, PLANTILLAS, type Plantilla } from "./plantillas";
 
 // Cola de correos. Todo correo se encola con una clave única (nunca sale dos veces) y lo envía la tarea programada
-// (/api/tareas) o el propio flujo con enviarAhora(). Proveedor: Resend (RESEND_API_KEY). Sin la llave, los correos
-// quedan «simulado» y se ven en la consola: nada se pierde ni se envía a medias.
-//   CORREO_REMITENTE  p. ej. «Regenta <hola@tudominio.co>» (dominio verificado en Resend)
+// (/api/tareas) o el propio flujo con enviarAhora(). Proveedor, en este orden:
+//   1. Buzón propio de Google Workspace por SMTP (smtp.gmail.com:465): SMTP_USER (buzón) y SMTP_PASS (contraseña de
+//      aplicación). Es lo mismo que usa Justicia Activa: sin servicios intermedios.
+//   2. Resend (RESEND_API_KEY + CORREO_REMITENTE con dominio verificado).
+// Sin ninguno, los correos quedan «simulado» y se ven en la consola: nada se pierde ni se envía a medias.
+//   CORREO_REMITENTE  p. ej. «Regenta <hola@regenta.pro>». Con SMTP debe ser el buzón o un alias suyo («Enviar como»).
 //   CORREO_RESPUESTA  a dónde llegan las respuestas (por defecto gerencia@farmagenericoscolombia.com)
 
 const MAX_INTENTOS = 5;
@@ -54,11 +58,45 @@ export async function encolarEmbudo(c: Tx, s: { id: number; email: string; nombr
     await encolar(c, { clave: `embudo:${s.id}:${plantilla}`, para: s.email, plantilla, datos: { nombre: s.nombre, drogueria: s.drogueria }, programado: new Date(ahora + dias * 864e5) });
 }
 
-async function enviarResend(m: { id: number; para: string; asunto: string; html: string; texto: string; comercial: boolean; plantilla: string }) {
-  const remitente = process.env.CORREO_REMITENTE;
-  if (!process.env.RESEND_API_KEY || !remitente) return { simulado: true as const };
+type Saliente = { id: number; para: string; asunto: string; html: string; texto: string; comercial: boolean; plantilla: string };
+
+const smtpUser = () => process.env.SMTP_USER?.trim() ?? "";
+const smtpPass = () => (process.env.SMTP_PASS ?? "").replace(/\s+/g, ""); // Google la muestra en grupos de 4 con espacios
+let transporte: Transporter | null = null;
+
+function cabeceras(m: Saliente) {
   const cab: Record<string, string> = {};
   if (m.comercial) { cab["List-Unsubscribe"] = `<${SITIO}/api/correo/baja?t=${tokenBaja(m.para)}>, <mailto:${CORREO}?subject=Baja>`; cab["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"; }
+  return cab;
+}
+
+/** Elige el proveedor configurado. */
+async function enviar(m: Saliente) {
+  if (smtpUser() && smtpPass()) return enviarSmtp(m);
+  return enviarResend(m);
+}
+
+async function enviarSmtp(m: Saliente) {
+  const puerto = Number(process.env.SMTP_PORT ?? 465);
+  transporte ??= nodemailer.createTransport({ host: process.env.SMTP_HOST ?? "smtp.gmail.com", port: puerto, secure: puerto === 465, auth: { user: smtpUser(), pass: smtpPass() }, connectionTimeout: 10000, socketTimeout: 15000 });
+  try {
+    const r = await transporte.sendMail({
+      from: process.env.CORREO_REMITENTE || { name: "Regenta", address: smtpUser() }, to: m.para, subject: m.asunto, html: m.html, text: m.texto,
+      replyTo: process.env.CORREO_RESPUESTA ?? CORREO, headers: { ...cabeceras(m), "X-Regenta-Id": String(m.id) },
+    });
+    return { id: r.messageId ?? null };
+  } catch (e) {
+    // Un destinatario rechazado (550–553) no se arregla reintentando. Un 535 (usuario o contraseña) es de
+    // configuración: se reintenta, así que al corregir SMTP_PASS los correos salen solos.
+    const code = (e as { responseCode?: number }).responseCode ?? 0;
+    throw Object.assign(new Error(`SMTP: ${(e as Error).message}`), { definitivo: code >= 550 && code <= 553 });
+  }
+}
+
+async function enviarResend(m: Saliente) {
+  const remitente = process.env.CORREO_REMITENTE;
+  if (!process.env.RESEND_API_KEY || !remitente) return { simulado: true as const };
+  const cab = cabeceras(m);
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { authorization: `Bearer ${process.env.RESEND_API_KEY}`, "content-type": "application/json", "idempotency-key": `regenta-${m.id}` },
@@ -85,7 +123,7 @@ export async function enviarPendientes(max = 50, soloId?: number) {
       const p = PLANTILLAS[m.plantilla as Plantilla];
       if (!p) throw Object.assign(new Error(`Plantilla desconocida: ${m.plantilla}`), { definitivo: true });
       const correo = p({ ...m.datos, baja: enlaceBaja(m.para) });
-      const res = await enviarResend({ id: Number(m.id), para: m.para, asunto: correo.asunto, html: correo.html, texto: correo.texto, comercial: m.tipo === "comercial", plantilla: m.plantilla });
+      const res = await enviar({ id: Number(m.id), para: m.para, asunto: correo.asunto, html: correo.html, texto: correo.texto, comercial: m.tipo === "comercial", plantilla: m.plantilla });
       // Los enlaces de activación no se quedan guardados en claro después de enviados.
       await sinRLS((c) => c.query(`update correos set estado = $2, proveedor_id = $3, enviado = now(), error = null, datos = datos - 'enlace' where id = $1`, [m.id, "simulado" in res ? "simulado" : "enviado", "id" in res ? res.id : null]));
       if ("simulado" in res) r.simulados++; else r.enviados++;

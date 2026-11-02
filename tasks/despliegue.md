@@ -40,7 +40,14 @@ tabla), triggers activos, `anon` sin permisos en tablas ni funciones, todas las 
    ```
    Debe devolver el uuid y `authenticated`.
 
-## 2. Resend (correos)
+## 2. Correo (buzón propio de Google Workspace, como Justicia Activa)
+Regenta envía por SMTP con el buzón del dominio: `SMTP_USER` (p. ej. hola@regenta.pro) y `SMTP_PASS` (contraseña de
+aplicación de Google, requiere verificación en 2 pasos). `CORREO_REMITENTE` opcional («Regenta <hola@regenta.pro>»).
+Netlify no da correo: el buzón sale de Google Workspace (agregar regenta.pro como dominio y sus registros MX/SPF/DKIM
+en el DNS de Netlify). Probado el 02/11/2026 contra un servidor SMTP local: transaccional y comercial enviados, con
+remitente, responder-a y contraseña con espacios. Resend queda como alternativa.
+
+## 2b. Resend (alternativa)
 1. Crear la cuenta y agregar el dominio. Resend recomienda un subdominio, por ejemplo `correo.tudominio.co`.
 2. Copiar en el DNS del dominio los registros SPF y DKIM que muestra Resend y esperar a que diga «Verified»
    (normalmente unos 15 minutos, hasta 72 horas).
