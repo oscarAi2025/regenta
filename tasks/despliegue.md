@@ -4,6 +4,14 @@ Orden recomendado. Cada paso dice qué hace Oscar y cómo se comprueba. Las clav
 repositorio: van solo en el panel de cada servicio.
 
 ## 1. Supabase (base de datos)
+**Hecho el 02/11/2026.** Proyecto `regenta` (ref `dwjvwskgykcfxcbakiri`, São Paulo, Postgres 17, API de datos de
+Supabase desactivada). Se instaló desde el editor SQL, sin terminal: `node scripts/sql-supabase.mjs` genera
+`db/supabase/1_migraciones.sql` y `2_datos_NN.sql` a partir de una base preparada con db-reset contra la copia local de
+Supabase. Comprobado en el Supabase real: las 16 migraciones, 25.474 filas idénticas a la copia local (huella md5 por
+tabla), triggers activos, `anon` sin permisos en tablas ni funciones, todas las tablas con RLS, el cambio de rol
+`authenticated` funciona (el dueño demo ve sus 1.288 ventas y un usuario ajeno ve 0). Falta el superadministrador, que
+se crea cuando el sitio esté en Netlify. Los pasos de abajo quedan para una instalación nueva desde terminal.
+
 1. Crear el proyecto en la región más cercana (São Paulo, `sa-east-1`).
 2. Panel → Project Settings → Database:
    - Descargar el certificado SSL (`prod-ca-2021.crt`). Es la CA con la que se verifica la conexión.

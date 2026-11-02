@@ -55,3 +55,9 @@
   que llegara todo el HTML. Un `loading.tsx` en el grupo (app) da el límite de Suspense y lo eliminó (0 de 400).
   Medirlo con muchas visitas: una sola corrida verde no prueba nada en errores intermitentes.
 - Los límites por IP solo deben contar solicitudes válidas; si no, un usuario que corrige un dato queda bloqueado.
+- Instalar en Supabase sin contraseña ni terminal: generar SQL (scripts/sql-supabase.mjs) y correrlo en el editor SQL
+  desde Claude in Chrome (el texto se trae de raw.githubusercontent y se pone en Monaco). El JSON de los datos debe salir
+  como texto de Postgres (json_agg::text), no pasar por JavaScript: JS quita la escala de los números (81850.00 → 81850).
+  `alter table … enable trigger` falla con "pending trigger events" si hay FK diferidas: `set constraints all immediate` antes.
+  Comprobar con huella md5 por tabla (timezone UTC, collate "C") contra la copia local, no solo con conteos.
+- La pantalla de crear proyecto de Supabase: la lista de regiones se mueve al hacer scroll; confirmar con captura la región elegida.
