@@ -179,7 +179,8 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [ ] ANTHROPIC_API_KEY en Netlify (la pega Oscar) y redeploy
 - [x] Devolución parcial: pantalla en el detalle de la venta + comprobante + e2e (tests/e2e/devoluciones.mjs, 0 fallos)
 - [ ] Aplicar migración 021_venta_devuelto.sql en Supabase y desplegar (el commit va con [skip netlify] hasta aplicarla)
-- [ ] Reportes por producto, cajero y medio · venta sin internet
+- [x] Reportes (dueño/admin): netas, ganancia, IVA, por día, por medio, horas fuertes, por cajero, por producto; exportar CSV para Excel (tests/e2e/reportes.mjs)
+- [ ] Venta sin internet
 
 ## 2026-11-02 · MATIAS producción (paquete Casa de Software 30.000 pagado y aprobado)
 - [x] URL de producción del API: https://api-v2.matias-api.com (MATIAS_URL)
