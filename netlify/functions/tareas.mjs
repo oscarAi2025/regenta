@@ -1,4 +1,4 @@
-// Tarea programada de Netlify (cada hora, en UTC): llama a /api/tareas, que manda los correos que tocan, programa los
+// Tarea programada de Netlify (cada 15 minutos, en UTC): llama a /api/tareas, que manda los correos que tocan, programa los
 // recordatorios de renovación, procesa la cola DIAN y cada 6 horas trae las alertas del INVIMA.
 // Solo corre en el despliegue publicado (no en vistas previas). Se prueba con «Run now» en el panel de Netlify.
 // Variables (en el panel de Netlify, con alcance «Functions»): REGENTA_CRON_KEY y REGENTA_URL.
@@ -10,4 +10,4 @@ export default async () => {
   console.log("tareas", r.status, (await r.text()).slice(0, 2000));
 };
 
-export const config = { schedule: "@hourly" };
+export const config = { schedule: "*/15 * * * *" }; // cada 15 minutos: la cola DIAN no espera una hora

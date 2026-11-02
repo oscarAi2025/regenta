@@ -50,14 +50,16 @@ function emisor(demo = false): Emisor {
 }
 
 const ESPERA = [30, 120, 600, 1800, 7200]; // segundos entre reintentos
-const MAX_INTENTOS = 8; // después, rechazo definitivo para revisión manual
+const PLAZO_HORAS = 72; // sin respuesta en 3 días (caídas largas de la DIAN o del proveedor): rechazo para revisión manual
+const PRESUPUESTO_MS = 20000; // la función del servidor tiene ~26 s: se deja de tomar documentos a los 20 s
 
 /** Procesa hasta `max` documentos pendientes (o solo los de una venta). Devuelve el resumen.
  *  Un envío que quedó «enviando» más de 5 minutos se reintenta: el proveedor rechaza el mismo prefijo+número dos veces,
  *  así que el reintento no duplica la emisión. */
 export async function procesarCola(max = 20, venta?: string) {
   const r = { enviados: 0, aceptados: 0, rechazados: 0, reintentos: 0 };
-  for (let i = 0; i < max; i++) {
+  const t0 = Date.now();
+  for (let i = 0; i < max && Date.now() - t0 < PRESUPUESTO_MS; i++) {
     // Toma un documento y lo marca «enviando» (skip locked: varias instancias no toman el mismo).
     const doc = await sinRLS(async (c) => {
       const { rows } = await c.query(
@@ -67,13 +69,13 @@ export async function procesarCola(max = 20, venta?: string) {
                         or (estado = 'enviando' and actualizado < now() - interval '5 minutes'))  -- envío que se cayó a medias
                        and ($1::uuid is null or venta_id = $1)
                      order by creado limit 1 for update skip locked)
-         returning id, intentos`, [venta ?? null]);
-      return rows[0] as { id: string; intentos: number } | undefined;
+         returning id, intentos, coalesce(reenviado, creado) < now() - make_interval(hours => $2) vencido`, [venta ?? null, PLAZO_HORAS]);
+      return rows[0] as { id: string; intentos: number; vencido: boolean } | undefined;
     });
     if (!doc) break;
     const id = doc.id;
     r.enviados++;
-    if (doc.intentos > MAX_INTENTOS) { await guardar(id, { ok: false, definitivo: true, error: `Sin respuesta tras ${MAX_INTENTOS} intentos: revisar manualmente` }); r.rechazados++; continue; }
+    if (doc.vencido) { await guardar(id, { ok: false, definitivo: true, error: `Sin respuesta tras ${PLAZO_HORAS} horas (${doc.intentos} intentos): revisar y reenviar` }); r.rechazados++; continue; }
     const d = await armar(id);
     if (d.cerrado) {
       if (d.anulado) await sinRLS((c) => c.query(`update documentos_dian set estado = 'anulado', ultimo_error = 'Venta anulada antes de emitirse', actualizado = now() where id = $1`, [id]));
@@ -101,8 +103,8 @@ async function armar(id: string): Promise<{ documento: DocumentoParaEmitir; reso
               e.nit, e.dv, e.razon_social, e.responsable_iva, e.demo,
               e.matias_cliente, s.direccion as sede_direccion, cj.nombre as caja_nombre,
               (select m.nombre from miembros m where m.empresa_id = v.empresa_id and m.user_id = v.usuario_id) as cajero,
-              (select pruebas from resoluciones_dian r where r.empresa_id = d.empresa_id and r.tipo = d.tipo and r.prefijo = d.prefijo order by activa desc limit 1) as pruebas,
-              (select numero_resolucion from resoluciones_dian r where r.empresa_id = d.empresa_id and r.tipo = d.tipo and r.prefijo = d.prefijo order by activa desc limit 1) as resolucion
+              (select pruebas from resoluciones_dian r where r.empresa_id = d.empresa_id and r.tipo = d.tipo and r.prefijo = d.prefijo and d.numero between r.desde and r.hasta order by activa desc limit 1) as pruebas,
+              (select numero_resolucion from resoluciones_dian r where r.empresa_id = d.empresa_id and r.tipo = d.tipo and r.prefijo = d.prefijo and d.numero between r.desde and r.hasta order by activa desc limit 1) as resolucion
        from documentos_dian d join ventas v on v.id = d.venta_id join empresas e on e.id = d.empresa_id
        join sedes s on s.id = v.sede_id join cajas cj on cj.id = v.caja_id where d.id = $1`, [id]);
     if (!d) return { cerrado: true as const };

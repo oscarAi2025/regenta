@@ -1,7 +1,8 @@
 import "server-only";
 import "./zod-es";
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
-import { mensajeError } from "./db";
+import { mensajeError, sinRLS } from "./db";
 import { leerSesion, type Sesion } from "./sesion";
 
 /** Envuelve un handler de API: exige sesión y traduce los errores de la base de datos a mensajes claros. */
@@ -51,4 +52,19 @@ export function limitador(max: number, ventanaMs: number) {
     if (v.length >= max) { mapa.set(clave, v); return false; }
     v.push(ahora); mapa.set(clave, v); return true;
   };
+}
+
+/** Límite compartido por todas las instancias del servidor (en la base): `max` usos por `ventana` (intervalo de Postgres,
+ *  p. ej. '1 day'). Si la base falla, no bloquea (el límite en memoria sigue de primera barrera). */
+export async function limiteBD(clave: string, max: number, ventana: string): Promise<boolean> {
+  try { return !!(await sinRLS(async (c) => (await c.query(`select usar_limite($1, $2, $3::interval) ok`, [clave.slice(0, 200), max, ventana])).rows[0]?.ok)); }
+  catch (e) { console.error("limiteBD", (e as Error).message); return true; }
+}
+
+/** Llamadas de tareas programadas: «Authorization: Bearer REGENTA_CRON_KEY», comparada en tiempo constante. */
+export function cronAutorizado(req: Request) {
+  const k = process.env.REGENTA_CRON_KEY;
+  if (!k || k.length < 24) return false;
+  const a = Buffer.from(req.headers.get("authorization") ?? ""), b = Buffer.from(`Bearer ${k}`);
+  return a.length === b.length && timingSafeEqual(a, b);
 }

@@ -216,6 +216,25 @@ export function Caja({ fiar, empresa, nombreEmpresa }: { fiar: boolean; empresa:
   function teclaBuscador(e: React.KeyboardEvent) {
     if (e.key === "ArrowDown") { e.preventDefault(); setSel((s) => Math.min(s + 1, res.length - 1)); }
     if (e.key === "ArrowUp") { e.preventDefault(); setSel((s) => Math.max(s - 1, 0)); }
+    // Lector de código de barras: escribe el código y Enter antes de que termine la búsqueda. Con un código completo se
+    // busca ya mismo el producto exacto y se agrega (una caja); la búsqueda queda limpia para el siguiente.
+    const t = q.trim();
+    if (e.key === "Enter" && /^\d{7,14}$/.test(t)) {
+      e.preventDefault();
+      const exacto = (l: Producto[]) => l.find((p) => p.ean === t);
+      const ya = exacto(res);
+      if (ya) { agregar(ya, "caja"); setQ(""); return; }
+      (async () => {
+        let lista: Producto[] = [];
+        try {
+          if (navigator.onLine) lista = (await (await fetch(`/api/productos?q=${encodeURIComponent(t)}`)).json()).productos ?? [];
+          else lista = buscarLocal(t);
+        } catch { lista = buscarLocal(t); }
+        const p = exacto(lista);
+        if (p) { agregar(p, "caja"); setQ(""); } else if (lista[0]) { setRes(lista); setSel(0); }
+      })();
+      return;
+    }
     if (e.key === "Enter" && res[sel]) { e.preventDefault(); agregar(res[sel], "caja"); }
   }
 

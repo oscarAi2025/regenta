@@ -43,9 +43,8 @@ const devuelto = Number((await pool.query(`select coalesce(sum(total), 0) t from
   ok((resp.headers()["content-disposition"] ?? "").includes(`regenta-productos-${desde}-a-${hoy}.csv`), "el archivo trae nombre con el rango");
   for (const t of ["cajeros", "medios", "dias"]) ok((await p.request.get(B + `/api/reportes?desde=${desde}&hasta=${hoy}&tipo=${t}`)).ok(), `exporta ${t}`);
   // Rango rápido
-  await p.getByRole("link", { name: "Hoy", exact: true }).click();
-  await p.waitForURL(new RegExp(`desde=${hoy}&hasta=${hoy}`), { waitUntil: "commit" });
-  ok(true, "rango rápido «Hoy»");
+  const hrefHoy = await p.getByRole("link", { name: "Hoy", exact: true }).getAttribute("href");
+  ok(hrefHoy === `/reportes?desde=${hoy}&hasta=${hoy}`, "rango rápido «Hoy»", hrefHoy);
   // Fechas al revés se corrigen
   await p.goto(B + `/reportes?desde=${hoy}&hasta=${desde}`);
   ok(await p.getByRole("region", { name: "Resumen" }).isVisible(), "fechas invertidas no rompen la pantalla");

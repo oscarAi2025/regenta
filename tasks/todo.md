@@ -196,3 +196,16 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] Numeraciones de prueba emiten en simulado aunque el servidor use MATIAS
 - [x] La página del pago aprobado dice a qué correo (enmascarado) llegó el acceso y lleva a Entrar
 - [x] Correos reales con Resend (Google Admin no dio acceso): regenta.pro verificado (DKIM, SPF de envío, DMARC en Netlify DNS), CORREO_REMITENTE = Regenta <hola@regenta.pro>, RESEND_API_KEY (la pegó Oscar); botón «Enviarme un correo de prueba» en Consola → Sistema
+
+## 2026-11-02 · Auditoría integral (dueño, cajero, admin, superadmin, pagos, DIAN, correos) — migración 022
+- [x] Venta real bloqueada con numeración de prueba (sin validez fiscal); aviso en la caja y en «Mi droguería» mientras llega la habilitación
+- [x] Producción exige UUID de MATIAS y número de resolución; prefijo ≤ 4; búsqueda de la resolución por rango del consecutivo
+- [x] Consola: cargar numeración nueva (desactiva la anterior, no solapa números emitidos); alta manual crea NC de prueba
+- [x] Cola DIAN cada 15 min con presupuesto de tiempo; plazo de 72 h para rechazados; «Reenviar a la DIAN» en la venta (dueño/admin); devolución bloqueada si la factura está rechazada
+- [x] Tarea horaria: suscripción vencida → aviso, 3 días de gracia → suspensión; numeración por vencer/agotarse (30 y 7 días, 10 %); rechazos DIAN al dueño
+- [x] Pagar reactiva la cuenta y deja el plan pagado; pago con NIT ajeno no se liga solo (revisión en consola)
+- [x] Stripe: checkout validado (sesión, modo, COP, monto); renovaciones mensuales extienden el periodo (idempotente); cobro fallido no borra lo pagado; cancelación marcada
+- [x] Límites compartidos en la base (IA de la demo, solicitudes de demo, pagos, restablecer)
+- [x] Cajero: tope de salida de caja; no ve cifras globales en la IA; no renombra clientes; factura exige correo del cliente
+- [x] CSV sin inyección de fórmulas; claves de tareas comparadas en tiempo constante
+- [x] «¿Olvidaste tu contraseña?» autoservicio; «Mi droguería» (datos, topes de la cajera, plan, documentos del mes, habilitación, equipo con cupo del plan); primeros pasos en Inicio; lector de código de barras agrega al instante

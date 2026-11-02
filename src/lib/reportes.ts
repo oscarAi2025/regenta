@@ -56,6 +56,8 @@ export async function datosReporte(c: Tx, empresa: string, r: Rango, costos: boo
 
 /** CSV con separador «;» y BOM, para que Excel en español lo abra con tildes y columnas. */
 export function csv(filas: Record<string, unknown>[], columnas: [string, string][]) {
-  const celda = (v: unknown) => { const s = v === null || v === undefined ? "" : typeof v === "number" ? String(v).replace(".", ",") : String(v); return /[;"\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s; };
+  // Texto que empieza por = + - @ se abriría como fórmula en Excel (inyección): se antepone un apóstrofo.
+  const celda = (v: unknown) => { let s = v === null || v === undefined ? "" : typeof v === "number" ? String(v).replace(".", ",") : String(v);
+    if (typeof v !== "number" && /^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[;"\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s; };
   return "﻿" + [columnas.map(([, t]) => t).join(";"), ...filas.map((f) => columnas.map(([k]) => celda(f[k])).join(";"))].join("\r\n");
 }

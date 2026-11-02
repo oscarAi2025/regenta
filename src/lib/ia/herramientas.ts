@@ -29,8 +29,13 @@ const fechaOk = (f: unknown) => (typeof f === "string" && /^\d{4}-\d{2}-\d{2}$/.
 const limite = (n: unknown, def = 20) => Math.max(1, Math.min(50, Math.floor(Number(n) || def)));
 
 /** Ejecuta una herramienta y devuelve datos en JSON (o un error legible para la IA). */
+/** Cifras del negocio (ventas totales, patrón semanal): solo dueño y administrador. */
+const SOLO_GERENCIA = new Set(["resumen_ventas", "patron_semanal"]);
+export const herramientasPara = (rol: string) => (puede.verCostos(rol as Sesion["rol"]) ? HERRAMIENTAS : HERRAMIENTAS.filter((h) => !SOLO_GERENCIA.has(h.name)));
+
 export async function ejecutar(s: Sesion, nombre: string, entrada: Record<string, unknown>): Promise<unknown> {
   const costos = puede.verCostos(s.rol);
+  if (!costos && SOLO_GERENCIA.has(nombre)) return { error: "Esta consulta es solo para el dueño o el administrador de la droguería." };
   return comoUsuario(s, async (c) => {
     switch (nombre) {
       case "resumen_ventas": {

@@ -8,7 +8,9 @@ import { encolar, enviarAhora } from "@/lib/correo";
 
 const fechaReal = (s: string) => { const d = new Date(s + "T00:00:00Z"); return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s; };
 const Num = z.object({ prefijo: z.string().trim().regex(/^[A-Z0-9]{0,10}$/i, "Prefijo: solo letras y números"), desde: z.number().int().positive().max(1e12), hasta: z.number().int().positive().max(1e12),
-  vigente_hasta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(fechaReal, "Fecha de vigencia no válida").nullish(), pruebas: z.boolean() }).nullish();
+  vigente_hasta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(fechaReal, "Fecha de vigencia no válida").nullish(), pruebas: z.boolean(),
+  numero_resolucion: z.string().trim().regex(/^\d{6,20}$/, "Número de resolución: solo dígitos").nullish() })
+  .refine((n) => n.pruebas || (n.prefijo.length <= 4 && !!n.numero_resolucion), "Numeración de producción: prefijo de máximo 4 caracteres y número de resolución de la DIAN").nullish();
 const Nuevo = z.object({
   razon_social: z.string().trim().min(3, "Escribe la razón social").max(200),
   nombre_comercial: z.string().trim().max(200).nullish(),
@@ -34,8 +36,13 @@ export const POST = conAdmin(async (a, req) => {
     await c.query(`insert into cajas (empresa_id, sede_id, nombre) values ($1, $2, 'Caja 1')`, [e, sede]);
     for (const [tipo, n] of [["pos", d.pos], ["factura", d.factura]] as const) if (n) {
       if (n.hasta < n.desde) throw Object.assign(new Error(`Numeración ${tipo}: «hasta» debe ser mayor que «desde»`), { code: "P0001" });
-      await c.query(`insert into resoluciones_dian (empresa_id, tipo, prefijo, desde, hasta, actual, vigente_hasta, pruebas) values ($1, $2, $3, $4, $5, $6, $7, $8)`, [e, tipo, n.prefijo, n.desde, n.hasta, n.desde - 1, n.vigente_hasta ?? null, n.pruebas]);
+      await c.query(`insert into resoluciones_dian (empresa_id, tipo, prefijo, desde, hasta, actual, vigente_hasta, pruebas, numero_resolucion) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [e, tipo, n.prefijo, n.desde, n.hasta, n.desde - 1, n.vigente_hasta ?? null, n.pruebas, n.pruebas ? null : n.numero_resolucion]);
     }
+    // Lo que no se cargó queda con numeración de prueba (incluida la nota crédito, que necesitan devoluciones y anulaciones).
+    for (const [tipo, prefijo] of [["pos", "PRPOS"], ["factura", "PRFE"], ["nota_credito", "PRNC"]])
+      if (!(await c.query(`select 1 from resoluciones_dian where empresa_id = $1 and tipo = $2 and activa`, [e, tipo])).rowCount)
+        await c.query(`insert into resoluciones_dian (empresa_id, tipo, prefijo, desde, hasta, actual, pruebas) values ($1, $2, $3, 1, 1000000, 0, true)`, [e, tipo, prefijo]);
     const inv = await invitar(c, e, { ...d.dueno, rol: "dueno" });
     const correo = inv.enlace ? `invitacion:${inv.cuenta_id}:${Date.now()}` : null;
     if (correo) await encolar(c, { clave: correo, para: d.dueno.email, plantilla: "invitacion", empresa: e, datos: { nombre: d.dueno.nombre, empresa: d.nombre_comercial || d.razon_social, enlace: inv.enlace } });

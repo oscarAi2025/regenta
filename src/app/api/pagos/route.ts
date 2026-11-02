@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sinRLS } from "@/lib/db";
-import { ipCliente, limitador, mismoOrigen } from "@/lib/api";
+import { ipCliente, limitador, limiteBD, mismoOrigen } from "@/lib/api";
 import { datosQr, enlaceWompi, nuevaReferencia, precio, qrActivo, sesionStripe, stripeActivo, wompiActivo } from "@/lib/pagos";
 import { encolar, enviarAhora } from "@/lib/correo";
 import { SITIO } from "@/lib/sitio";
@@ -25,6 +25,7 @@ export async function POST(req: Request) {
   const p = Contratar.safeParse(await req.json().catch(() => null));
   if (!p.success) return NextResponse.json({ error: p.error.issues[0]?.message ?? "Revisa los datos" }, { status: 400 });
   const d = p.data;
+  if (!(await limiteBD(`pago:correo:${d.email.toLowerCase()}`, 10, "1 hour"))) return NextResponse.json({ error: "Demasiados intentos. Espera unos minutos o escríbenos por WhatsApp." }, { status: 429 });
   if (!(d.proveedor === "qr" ? qrActivo() : d.proveedor === "wompi" ? wompiActivo() : stripeActivo())) return NextResponse.json({ error: "Ese medio de pago aún no está activo. Escríbenos por WhatsApp y te ayudamos." }, { status: 503 });
   const referencia = nuevaReferencia(d.plan), monto = precio(d.plan, d.periodo);
   await sinRLS((c) => c.query(

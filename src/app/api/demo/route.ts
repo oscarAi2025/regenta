@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sinRLS } from "@/lib/db";
-import { ipCliente, limitador, mismoOrigen } from "@/lib/api";
+import { ipCliente, limitador, limiteBD, mismoOrigen } from "@/lib/api";
 import { encolarEmbudo, enviarAhora } from "@/lib/correo";
 import { TEXTO_CORREOS } from "@/lib/sitio";
 
@@ -32,6 +32,8 @@ export async function POST(req: Request) {
   // Solo cuentan las solicitudes válidas: corregir un dato mal escrito no gasta el límite.
   if (!permitido(ipCliente(req))) return NextResponse.json({ error: "Ya recibimos tus datos. Si quieres, escríbenos por WhatsApp." }, { status: 429 });
   const d = p.data;
+  if (!(await limiteBD(`demo:ip:${ipCliente(req)}`, 20, "1 day")) || (d.email && !(await limiteBD(`demo:correo:${d.email.toLowerCase()}`, 3, "1 day"))))
+    return NextResponse.json({ error: "Ya recibimos tus datos. Si quieres, escríbenos por WhatsApp." }, { status: 429 });
   const acepta = !!d.email && (d.acepta === true || d.acepta === "on");
   const consentimiento = acepta ? { texto: TEXTO_CORREOS, fecha: new Date().toISOString(), ip: ipCliente(req), navegador: (req.headers.get("user-agent") ?? "").slice(0, 200), origen: d.origen ?? null } : null;
   const id = await sinRLS(async (c) => {

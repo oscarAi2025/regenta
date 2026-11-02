@@ -5,6 +5,7 @@ import { leerSesion, puede } from "@/lib/sesion";
 import { pesos } from "@/components/ui/Cabecera";
 import { Anular } from "./Anular";
 import { Devolver } from "./Devolver";
+import { Reenviar } from "./Reenviar";
 import { Abonos } from "./Abonos";
 import { Imprimir } from "./Imprimir";
 import { MEDIO } from "@/lib/formato";
@@ -80,6 +81,7 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
               {d.doc?.simulado && <span className="text-muted"> · emisión simulada mientras se conecta MATIAS</span>}
             </p>
           )}
+          {v.estado !== "anulada" && d.doc?.estado === "rechazado" && puede.anular(s.rol) && <Reenviar id={v.id} />}
         </div>
         {v.condicion === "credito" && puede.cartera(s.rol) && <Abonos abonos={d.abonos.map((a) => ({ ...a, medio: MEDIO[a.medio] ?? a.medio }))} puedeAnular={v.estado === "cerrada"} />}
         {d.devoluciones.length > 0 && (

@@ -20,6 +20,10 @@ export const PATCH = conAdmin(async (a, req, ctx) => {
   const d = p.data;
   if (d.matias) {
     const m = d.matias;
+    if (!m.cliente && m.resoluciones.some((x) => !x.pruebas))
+      return NextResponse.json({ error: "Para pasar a producción la droguería necesita su UUID de cliente en MATIAS (si no, facturaría con el NIT de Regenta)" }, { status: 400 });
+    if (m.resoluciones.some((x) => !x.pruebas && !x.numero))
+      return NextResponse.json({ error: "Una numeración en producción necesita su número de resolución DIAN" }, { status: 400 });
     const ok = await sinRLS(async (c) => {
       const r = await c.query(`update empresas set matias_cliente = nullif($2, '') where id = $1 and not demo`, [id, m.cliente]);
       if (!r.rowCount) return false;

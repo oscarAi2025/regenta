@@ -60,7 +60,15 @@ export default async function Inicio() {
     const hoyPatron = (await c.query(`select nombre, frente_al_promedio from patron_semanal($1) where dia = extract(isodow from (now() at time zone 'America/Bogota'))::int`, [s.empresa])).rows[0] as { nombre: string; frente_al_promedio: number | null } | undefined;
     const invima = (await c.query(`select count(*) filter (where nivel is not null and revisada is null)::int pendientes,
       count(*) filter (where nivel = 'lote' and revisada is null)::int lote from alertas_empresa($1)`, [s.empresa])).rows[0];
-    return { hoy, medios, semana, margen, alertas, ultimas, pred, invima, hoyPatron };
+    // Primeros pasos del dueño (desaparecen al completarse).
+    const pasos = s.rol === "dueno" ? (await c.query(`select e.demo,
+        exists (select 1 from productos where empresa_id = $1 and activo) productos,
+        exists (select 1 from v_stock_vigente v join productos p on p.id = v.producto_id where p.empresa_id = $1 and v.unidades > 0) inventario,
+        (select count(*) from miembros where empresa_id = $1 and activo) > 1 equipo,
+        exists (select 1 from resoluciones_dian where empresa_id = $1 and activa and tipo = 'pos' and not pruebas) dian,
+        exists (select 1 from ventas where empresa_id = $1) venta
+      from empresas e where e.id = $1`, [s.empresa])).rows[0] : null;
+    return { hoy, medios, semana, margen, alertas, ultimas, pred, invima, hoyPatron, pasos };
   });
   const max = Math.max(1, ...d.semana.map((x) => x.total));
   const hora = Number(new Date().toLocaleString("en-US", { timeZone: "America/Bogota", hour: "numeric", hour12: false }));
@@ -73,6 +81,25 @@ export default async function Inicio() {
         {puede.vender(s.rol) && <Link href="/caja" className="btn-primario">Abrir caja</Link>}
         {puede.moverInventario(s.rol) && <Link href="/inventario/recibir" className="btn-borde">Recibir mercancía</Link>}
       </Cabecera>
+
+      {d.pasos && !d.pasos.demo && !(d.pasos.productos && d.pasos.inventario && d.pasos.equipo && d.pasos.dian && d.pasos.venta) && (
+        <section className="tarjeta p-5" aria-label="Primeros pasos">
+          <h2 className="titulo text-xl">Primeros pasos</h2>
+          <p className="text-sm text-muted mt-1">Deja tu droguería lista. Cada paso se marca solo cuando lo haces.</p>
+          <ol className="mt-3 grid sm:grid-cols-2 lg:grid-cols-5 gap-2">
+            {([["productos", "Carga tus productos", "/productos/importar"], ["inventario", "Recibe tu inventario por lote", "/inventario/recibir"],
+               ["equipo", "Crea a tu equipo", "/equipo"], ["dian", "Habilitación DIAN (la hacemos contigo)", "/equipo"], ["venta", "Haz tu primera venta", "/caja"]] as const).map(([k, t, href], i) => (
+              <li key={k}>
+                <Link href={href} className={`flex items-center gap-2 rounded-xl border-2 p-3 text-sm h-full ${d.pasos![k] ? "border-cruz bg-cruz-soft" : "border-line hover:border-ink"}`}>
+                  <span aria-hidden="true" className={`grid place-items-center w-7 h-7 rounded-full shrink-0 font-semibold ${d.pasos![k] ? "bg-cruz text-cruz-ink" : "bg-line"}`}>{d.pasos![k] ? "✓" : i + 1}</span>
+                  <span className={d.pasos![k] ? "line-through text-muted" : "font-semibold"}>{t}</span>
+                  <span className="sr-only">{d.pasos![k] ? "(hecho)" : "(pendiente)"}</span>
+                </Link>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
 
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3" aria-label="Hoy">
         <Dato titulo="Vendido hoy" valor={pesos(d.hoy.total)} tono="cruz" nota={`${d.hoy.ventas} venta${d.hoy.ventas === 1 ? "" : "s"}`} />

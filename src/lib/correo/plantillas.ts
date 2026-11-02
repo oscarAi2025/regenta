@@ -114,6 +114,23 @@ export const PLANTILLAS = {
     parrafos: [`${hola(d.nombre)}, la cuenta de <b>${esc(txt(d.empresa, "tu droguería"))}</b> en Regenta está suspendida. Tus datos siguen guardados.`, "Escríbenos por WhatsApp y la reactivamos."],
     boton: { texto: "Escribir por WhatsApp", href: wa(`Hola, quiero reactivar la cuenta de ${txt(d.empresa, "mi droguería")} en Regenta.`) } }) }),
 
+  cuenta_por_suspender: (d: Datos): Correo => ({ asunto: "Tu plan de Regenta venció: renuévalo para no perder la caja", ...marco({
+    previa: "En pocos días la cuenta se suspende.", titulo: "Renueva tu plan",
+    parrafos: [`${hola(d.nombre)}, el plan de <b>${esc(txt(d.empresa, "tu droguería"))}</b> venció${d.vence ? ` el ${esc(String(d.vence))}` : ""}. Si no se renueva, la cuenta se suspende el <b>${esc(txt(d.suspende, "en pocos días"))}</b> (tus datos quedan guardados).`],
+    boton: { texto: "Renovar mi plan", href: url("/contratar", "por_suspender") } }) }),
+
+  resolucion_por_vencer: (d: Datos): Correo => ({ asunto: `Tu numeración DIAN ${d.prefijo ?? ""} está por ${d.motivo === "agotarse" ? "agotarse" : "vencer"}`, ...marco({
+    previa: "Pide la nueva resolución antes de que la caja se detenga.", titulo: "Pide tu nueva resolución de numeración",
+    parrafos: [`${hola(d.nombre)}, la numeración <b>${esc(txt(d.prefijo, ""))}</b> de <b>${esc(txt(d.empresa, "tu droguería"))}</b> ${d.motivo === "agotarse" ? `está por agotarse: quedan <b>${esc(String(d.quedan ?? ""))}</b> números` : `vence el <b>${esc(String(d.vence ?? ""))}</b>`}.`,
+      "Solicita la nueva resolución en el portal MUISCA de la DIAN y envíanosla por WhatsApp: la cargamos el mismo día para que la caja no se detenga."],
+    boton: { texto: "Enviar la resolución por WhatsApp", href: wa(`Hola, adjunto la nueva resolución DIAN de ${txt(d.empresa, "mi droguería")}.`) } }) }),
+
+  documento_rechazado: (d: Datos): Correo => ({ asunto: `La DIAN rechazó el documento ${d.documento ?? ""}`, ...marco({
+    previa: "Revísalo y reenvíalo desde Regenta.", titulo: "Un documento necesita tu revisión",
+    parrafos: [`${hola(d.nombre)}, el documento <b>${esc(txt(d.documento, ""))}</b> de <b>${esc(txt(d.empresa, "tu droguería"))}</b> no fue aceptado: ${esc(txt(d.error, "sin detalle"))}.`,
+      "Corrige el dato que indica (por ejemplo, el correo o el documento del cliente) y pulsa «Reenviar a la DIAN» en el detalle de la venta."],
+    boton: { texto: "Ver la venta", href: url(String(d.ruta ?? "/ventas?dian=rechazado"), "rechazado") } }) }),
+
   // ── Embudo comercial (solicitudes de demo con autorización)
   embudo_1: (d: Datos): Correo => ({ asunto: "¿Cuánta plata se te vence al año?", ...marco({
     previa: "Haz la cuenta en 30 segundos.", titulo: primer(d.nombre) ? `${primer(d.nombre)}, la plata se va en lo que se vence` : "La plata se va en lo que se vence",

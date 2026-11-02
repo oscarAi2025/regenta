@@ -78,13 +78,25 @@ const rs = await post("/api/pagos", { plan: "pro", periodo: "mes", proveedor: "s
 ok(rs.status === 502 || rs.status === 201, "Stripe: sin red responde con mensaje claro", String(rs.status));
 const q = await import("pg"); const pool = new q.default.Pool({ connectionString: process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp" });
 const refS = `RG-PRO-PRUEBA${Date.now().toString(36).toUpperCase()}-ABCDEF12`;
-await pool.query(`insert into pagos_suscripcion (referencia, plan, periodo, monto, proveedor, nombre, empresa, email, telefono) values ($1, 'pro', 'mes', 139900, 'stripe', 'P', 'E', 'e@e.co', '300')`, [refS]);
-const cuerpo = JSON.stringify({ id: "evt_1", type: "checkout.session.completed", data: { object: { client_reference_id: refS, payment_status: "paid", subscription: "sub_1" } } });
-const t = Math.floor(Date.now() / 1000);
-const firma = createHmac("sha256", "whsec_prueba").update(`${t}.${cuerpo}`).digest("hex");
-ok((await post("/api/pagos/stripe", cuerpo, { "stripe-signature": `t=${t},v1=deadbeef` })).status === 400, "Stripe: firma falsa rechazada");
-ok((await post("/api/pagos/stripe", cuerpo, { "stripe-signature": `t=${t},v1=${firma}` })).status === 200, "Stripe: webhook firmado aceptado");
-ok((await pool.query(`select estado from pagos_suscripcion where referencia = $1`, [refS])).rows[0].estado === "aprobado", "Stripe: suscripción aprobada");
+await pool.query(`insert into pagos_suscripcion (referencia, plan, periodo, monto, proveedor, nombre, empresa, email, telefono, transaccion) values ($1, 'pro', 'mes', 139900, 'stripe', 'P', 'E', 'e@e.co', '300', 'cs_test_1')`, [refS]);
+const firmar = (c) => { const t = Math.floor(Date.now() / 1000); return `t=${t},v1=${createHmac("sha256", "whsec_prueba").update(`${t}.${c}`).digest("hex")}`; };
+const estadoS = async (r = refS) => (await pool.query(`select estado from pagos_suscripcion where referencia = $1`, [r])).rows[0]?.estado;
+const sesion = (x) => JSON.stringify({ id: "evt_1", type: "checkout.session.completed", data: { object: { id: "cs_test_1", mode: "subscription", currency: "cop", amount_total: 13990000, client_reference_id: refS, payment_status: "paid", subscription: "sub_1", ...x } } });
+const cuerpo = sesion({});
+ok((await post("/api/pagos/stripe", cuerpo, { "stripe-signature": `t=${Math.floor(Date.now() / 1000)},v1=deadbeef` })).status === 400, "Stripe: firma falsa rechazada");
+const otra = sesion({ id: "cs_ajena", amount_total: 100 });
+await post("/api/pagos/stripe", otra, { "stripe-signature": firmar(otra) });
+ok(await estadoS() === "pendiente", "Stripe: una sesión que no es la de la orden (otro id o monto) no aprueba");
+ok((await post("/api/pagos/stripe", cuerpo, { "stripe-signature": firmar(cuerpo) })).status === 200, "Stripe: webhook firmado aceptado");
+ok(await estadoS() === "aprobado", "Stripe: suscripción aprobada");
+const ren = JSON.stringify({ id: "evt_2", type: "invoice.paid", data: { object: { id: "in_renov01", billing_reason: "subscription_cycle", currency: "cop", amount_paid: 13990000, parent: { subscription_details: { subscription: "sub_1" } } } } });
+await post("/api/pagos/stripe", ren, { "stripe-signature": firmar(ren) });
+await post("/api/pagos/stripe", ren, { "stripe-signature": firmar(ren) });
+const renov = (await pool.query(`select estado, vence from pagos_suscripcion where referencia like $1 order by vence`, [refS + "%"])).rows;
+ok(renov.length === 2 && renov[1].estado === "aprobado" && renov[1].vence > renov[0].vence, "Stripe: la renovación mensual extiende el periodo una sola vez", String(renov.length));
+const fallo = JSON.stringify({ id: "evt_3", type: "invoice.payment_failed", data: { object: { id: "in_fallo01", subscription: "sub_1" } } });
+await post("/api/pagos/stripe", fallo, { "stripe-signature": firmar(fallo) });
+ok(await estadoS() === "aprobado", "Stripe: un cobro fallido no borra el periodo ya pagado");
 await pool.end();
 
 // ── Pantallas

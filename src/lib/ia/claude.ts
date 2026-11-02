@@ -1,6 +1,6 @@
 import "server-only";
 import type { Sesion } from "../sesion";
-import { HERRAMIENTAS, ejecutar } from "./herramientas";
+import { ejecutar, herramientasPara } from "./herramientas";
 
 // Regenta IA: conversación con un modelo de Claude (Anthropic) que responde con los datos de la droguería
 // usando solo las herramientas de lectura. La clave va en ANTHROPIC_API_KEY (variable de entorno del servidor).
@@ -49,7 +49,7 @@ export async function responder(s: Sesion, mensajes: Mensaje[]) {
   const turnos: Turno[] = mensajes.map((m) => ({ role: m.role, content: m.content }));
   const usadas: string[] = [];
   for (let paso = 0; paso < 6; paso++) {
-    const r = await llamar({ model: MODELO(), max_tokens: 2000, system: sistema(s), tools: HERRAMIENTAS, messages: turnos });
+    const r = await llamar({ model: MODELO(), max_tokens: 2000, system: sistema(s), tools: herramientasPara(s.rol), messages: turnos });
     const llamadas = r.content.filter((b): b is Extract<Bloque, { type: "tool_use" }> => b.type === "tool_use");
     if (r.stop_reason !== "tool_use" || !llamadas.length) {
       const texto = r.content.filter((b): b is Extract<Bloque, { type: "text" }> => b.type === "text").map((b) => b.text).join("\n").trim();

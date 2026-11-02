@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { conSesion, ipCliente, json, limitador } from "@/lib/api";
+import { conSesion, ipCliente, json, limitador, limiteBD } from "@/lib/api";
 import { sinRLS } from "@/lib/db";
 import { iaActiva, responder } from "@/lib/ia/claude";
 
@@ -13,7 +13,8 @@ const permitido = (uid: string) => {
   v.push(ahora); uso.set(uid, v); return true;
 };
 
-// En la demo pública todos comparten usuario: límite por IP (8 por minuto) y un tope diario para todo el servidor.
+// En la demo pública todos comparten usuario: límite por IP (8 por minuto, 40 al día) y un tope diario total de 400
+// (estos dos en la base, para que valgan entre instancias).
 const porIp = limitador(8, 60000);
 const diario = limitador(400, 86400000);
 const empresasDemo = new Map<string, boolean>();
@@ -24,7 +25,8 @@ export const POST = conSesion(async (s, req) => {
   if (!p.success || p.data.mensajes.at(-1)!.role !== "user") return json({ error: "Escribe tu pregunta" }, 400);
   if (!permitido(s.uid)) return json({ error: "Muchas preguntas seguidas: espera un minuto." }, 429);
   if (!empresasDemo.has(s.empresa)) empresasDemo.set(s.empresa, !!(await sinRLS(async (c) => (await c.query(`select demo from empresas where id = $1`, [s.empresa])).rows[0]?.demo)));
-  if (empresasDemo.get(s.empresa) && (!porIp(ipCliente(req)) || !diario("demo"))) return json({ error: "La demo tiene un límite de preguntas a Regenta IA. Escríbenos por WhatsApp y te la mostramos completa." }, 429);
+  if (empresasDemo.get(s.empresa) && (!porIp(ipCliente(req)) || !diario("demo")
+    || !(await limiteBD(`ia-demo:ip:${ipCliente(req)}`, 40, "1 day")) || !(await limiteBD("ia-demo:total", 400, "1 day")))) return json({ error: "La demo tiene un límite de preguntas a Regenta IA. Escríbenos por WhatsApp y te la mostramos completa." }, 429);
   // Respuesta en flujo: mientras la IA consulta herramientas se envía un espacio cada 3 s para que la plataforma no
   // corte la conexión por inactividad (Netlify la corta a los ~30 s sin datos). Al final va el JSON (los espacios
   // iniciales son JSON válido). Un error se informa en el mismo JSON con «error».

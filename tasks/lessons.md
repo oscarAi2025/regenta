@@ -107,3 +107,8 @@
 ## 2026-11-02 · Pruebas e2e con carreras de hidratación
 - Error: escribir en la caja justo después de goto (antes de hidratar React) perdía teclas; y esperar '[role="option"]' encontraba la lista «Ofrécelos primero», no los resultados. Fallaban de vez en cuando.
 - Regla: tras goto a una pantalla interactiva, esperar networkidle; y esperar el elemento exacto (aria-label="Resultados"), nunca un selector genérico que otra lista también cumple.
+
+## 2026-11-02 · Auditoría: lo que se pasaba por alto
+- Error: con numeración de prueba un cliente que paga podía «vender» documentos sin validez fiscal; Stripe aprobaba cualquier sesión firmada con la referencia; las renovaciones no extendían el periodo; una cuenta vencida nunca se suspendía; un pago con NIT ajeno se ligaba a otra droguería.
+- Regla: todo webhook valida que el objeto es el que creamos (id, moneda, monto), no solo la firma. Todo SaaS necesita el ciclo completo: renovar → extender, fallar → avisar sin borrar lo pagado, vencer → gracia → suspender, pagar → reactivar.
+- Regla: los límites anti-abuso que importan van en la base (las funciones serverless no comparten memoria).

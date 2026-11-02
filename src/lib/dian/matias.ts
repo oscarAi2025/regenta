@@ -1,7 +1,7 @@
 // Emisor MATIAS API (UBL 2.1). Documentación: https://docs.matias-api.com · OpenAPI: /openapi.json
 // Modelo «casa de software»: un solo token (MATIAS_TOKEN) para la cuenta principal; cada droguería es un cliente de esa
-// cuenta y se emite en su nombre con ?client_uuid= (columna empresas.matias_cliente). Sin client_uuid se emite con la
-// propia empresa de la cuenta (el NIT de Regenta).
+// cuenta y se emite en su nombre con ?client_uuid= (columna empresas.matias_cliente). Sin client_uuid NO se emite: saldría
+// con la propia empresa de la cuenta (el NIT de Regenta).
 // La emisión es síncrona: HTTP 200 con el veredicto de la DIAN en response.IsValid. Reintentar el MISMO número con el
 // MISMO uuid es seguro (MATIAS no emite dos veces; en producción consulta la DIAN antes de retransmitir).
 import type { DocumentoParaEmitir, Emisor, ResultadoEmision } from "./index";
@@ -9,7 +9,7 @@ import type { DocumentoParaEmitir, Emisor, ResultadoEmision } from "./index";
 // IDs del API (no los códigos DIAN): GET /identity-documents, /quantity-units, /payment-means.
 const TIPO_ID: Record<string, number> = { CC: 1, CE: 2, NIT: 3, TI: 7, PP: 9, PEP: 14 };
 const UNIDAD = 70; // «unidad» (código DIAN 94)
-const MEDIO: Record<string, number> = { efectivo: 10, tarjeta: 48, transferencia: 47, nequi: 47, daviplata: 47, bre_b: 47 };
+const MEDIO: Record<string, number> = { efectivo: 10, tarjeta: 48, transferencia: 47, nequi: 47, daviplata: 47, bre_b: 47, qr: 47 };
 const CONSUMIDOR_FINAL = { company_name: "CONSUMIDOR FINAL", dni: "222222222222" };
 
 const p2 = (n: number) => (Math.round(n * 100) / 100).toFixed(2);
@@ -119,12 +119,14 @@ export function emisorMatias(): Emisor {
     async emitir(d) {
       if (!token) return { ok: false, definitivo: false, error: "Falta MATIAS_TOKEN" };
       if (!d.resolucion) return { ok: false, definitivo: true, error: "La resolución no tiene número de resolución DIAN" };
+      // Nunca se emite una droguería con la cuenta propia de MATIAS (saldría con el NIT de Regenta).
+      if (!d.matias_cliente) return { ok: false, definitivo: false, error: "Falta conectar la droguería en MATIAS (UUID del cliente en la consola)" };
       if (d.tipo === "nota_credito" && !d.referencia?.cufe) return { ok: false, definitivo: false, error: "La nota crédito espera a que el documento original tenga CUFE" };
       const ruta = d.tipo === "nota_credito" ? "/api/ubl2.1/notes/credit" : "/api/ubl2.1/invoice";
       const q = d.matias_cliente ? `?client_uuid=${encodeURIComponent(d.matias_cliente)}` : "";
       const r = await fetch(base + ruta + q, {
         method: "POST", headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
-        body: JSON.stringify(payloadMatias(d)), signal: AbortSignal.timeout(60000),
+        body: JSON.stringify(payloadMatias(d)), signal: AbortSignal.timeout(15000),
       });
       const j = (await r.json().catch(() => ({ message: `Respuesta no JSON (${r.status})` }))) as Respuesta;
       return interpretar(r.status, j);

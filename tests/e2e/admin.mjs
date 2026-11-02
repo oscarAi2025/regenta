@@ -107,6 +107,31 @@ const uidDueno = (await pool.query(`select id from cuentas where email = $1`, [D
 const sesDemo = await fetch(B + "/api/sesion", { method: "POST", headers: { origin: B, "content-type": "application/json" }, body: JSON.stringify({ uid: uidDueno }) });
 ok([400, 404].includes(sesDemo.status), "el acceso de demo no abre la sesión de una cuenta real", String(sesDemo.status));
 
+// ── Mi droguería: el dueño configura, invita a su equipo, pide enlace de contraseña; sin habilitación no vende
+{
+  const h = { origin: B, "x-real-ip": IP };
+  const cfg = await q.request.patch(B + "/api/configuracion", { headers: h, data: { nombre_comercial: "Droguería Marta", direccion: "Cra 1 # 2-3", ciudad: "Ibagué", telefono: "3001234567", email: "", descuento_max_cajero: 5, egreso_max_cajero: 50000 } });
+  ok(cfg.status() === 200, "el dueño guarda los datos de su droguería", String(cfg.status()));
+  ok((await pool.query(`select egreso_max_cajero::int e from empresas where id = $1`, [emp.id])).rows[0].e === 50000, "tope de salida de caja de la cajera guardado");
+  const inv = await q.request.post(B + "/api/equipo", { headers: h, data: { nombre: "Cajera Equipo", email: `equipo.${sufijo}@prueba.example`, rol: "cajero" } });
+  ok(inv.status() === 201 && /\/activar\?t=/.test((await inv.json()).enlace ?? ""), "el dueño invita a su cajera con enlace", String(inv.status()));
+  ok((await correo(`equipo.${sufijo}@prueba.example`, "invitacion"))?.estado === "simulado", "la cajera recibe el correo de invitación");
+  const otroDueno = await q.request.post(B + "/api/equipo", { headers: h, data: { nombre: "Otro Dueño", email: `otro.${sufijo}@prueba.example`, rol: "dueno" } });
+  ok(otroDueno.status() === 400, "el dueño no crea otros dueños");
+  await q.goto(B + "/equipo"); await q.waitForLoadState("networkidle");
+  ok(await q.getByText("Cajera Equipo").count() === 1 && await q.getByText(/En proceso/).count() === 1, "Mi droguería muestra el equipo y la habilitación en proceso");
+  await q.goto(B + "/inicio");
+  ok(await q.getByRole("region", { name: "Primeros pasos" }).count() === 1, "Inicio muestra los primeros pasos al dueño nuevo");
+  await q.goto(B + "/caja"); await q.waitForLoadState("networkidle");
+  ok(await q.getByText(/aún no está habilitada ante la DIAN/).count() >= 1, "la caja avisa que falta la habilitación DIAN");
+  const r1 = await fetch(B + "/api/restablecer", { method: "POST", headers: { ...h, "content-type": "application/json" }, body: JSON.stringify({ email: DUENO.email }) });
+  const r2 = await fetch(B + "/api/restablecer", { method: "POST", headers: { ...h, "content-type": "application/json" }, body: JSON.stringify({ email: `nadie.${sufijo}@prueba.example` }) });
+  ok(r1.status === 200 && r2.status === 200 && (await r1.json()).mensaje === (await r2.json()).mensaje, "«olvidé mi contraseña» responde igual exista o no la cuenta");
+  ok((await correo(DUENO.email, "restablecer"))?.estado === "simulado", "llega el enlace para crear contraseña nueva");
+  const sigue = await d.request.post(B + "/api/acceso", { headers: { origin: B }, data: { email: DUENO.email, clave: DUENO.clave } });
+  ok(sigue.status() === 200, "pedir el enlace no bloquea la contraseña actual");
+}
+
 // ── Suspender: el dueño ya no entra; activar: vuelve a entrar
 await p.goto(B + `/admin/clientes/${emp.id}`);
 await p.getByRole("button", { name: "Suspender" }).click();

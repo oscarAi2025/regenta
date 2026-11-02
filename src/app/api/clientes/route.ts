@@ -33,10 +33,10 @@ export const POST = conSesion(async (s, req) => {
   const cliente = await comoUsuario(s, async (c) => (await c.query(
     `insert into clientes (empresa_id, tipo_doc, numero_doc, dv, nombre, email, telefono, autoriza_datos)
      values ($1, $2, $3, $4, $5, $6, $7, $8)
-     on conflict (empresa_id, tipo_doc, numero_doc) do update set nombre = excluded.nombre,
+     on conflict (empresa_id, tipo_doc, numero_doc) do update set nombre = case when $9 then excluded.nombre else clientes.nombre end, -- la cajera no renombra clientes existentes
        email = coalesce(excluded.email, clientes.email), telefono = coalesce(excluded.telefono, clientes.telefono),
        autoriza_datos = clientes.autoriza_datos or excluded.autoriza_datos
      returning ${CAMPOS}`,
-    [s.empresa, d.tipo_doc, d.numero_doc, d.tipo_doc === "NIT" ? dvNit(d.numero_doc) : null, d.nombre, d.email || null, d.telefono || null, d.autoriza_datos])).rows[0]);
+    [s.empresa, d.tipo_doc, d.numero_doc, d.tipo_doc === "NIT" ? dvNit(d.numero_doc) : null, d.nombre, d.email || null, d.telefono || null, d.autoriza_datos, puede.verCostos(s.rol)])).rows[0]);
   return json({ cliente }, 201);
 });

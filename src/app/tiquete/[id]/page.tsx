@@ -35,7 +35,7 @@ export default async function Tiquete({ params, searchParams }: { params: Promis
     if (!v) return null;
     const res = (await c.query(
       `select numero_resolucion, desde, hasta, to_char(vigente_desde, 'DD/MM/YYYY') vd, to_char(vigente_hasta, 'DD/MM/YYYY') vh, pruebas
-       from resoluciones_dian where empresa_id = $1 and tipo = $2 and prefijo = $3 order by activa desc limit 1`, [s.empresa, v.tipo_doc, v.prefijo])).rows[0];
+       from resoluciones_dian where empresa_id = $1 and tipo = $2 and prefijo = $3 and $4::bigint between desde and hasta order by activa desc limit 1`, [s.empresa, v.tipo_doc, v.prefijo, v.numero])).rows[0];
     const lineas = (await c.query(
       `select vl.descripcion, vl.presentacion, coalesce(p.ean, left(p.id::text, 8)) codigo, sum(vl.cantidad)::float cantidad, vl.precio::float precio,
               sum(vl.total)::float total, vl.iva_pct::float iva_pct, sum(vl.base)::float base, sum(vl.iva)::float iva, sum(vl.descuento)::float descuento, max(vl.descuento_pct)::float descuento_pct

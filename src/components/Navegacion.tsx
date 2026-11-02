@@ -12,6 +12,7 @@ const ITEMS = [
   { href: "/reportes", label: "Reportes", roles: ["dueno", "admin"], d: "M4 20V10M10 20V4M16 20v-7M22 20H2" },
   { href: "/prediccion", label: "Predicción", roles: ["dueno", "admin", "bodeguero"], d: "M4 19h16M6 16l4-5 3 3 5-7M15 7h3v3" },
   { href: "/alertas", label: "Alertas", roles: ["dueno", "admin", "cajero", "bodeguero"], d: "M12 4l9 16H3zM12 10v4M12 17h.01" },
+  { href: "/equipo", label: "Mi droguería", roles: ["dueno"], d: "M3 21V9l9-6 9 6v12M9 21v-6h6v6M3 21h18" },
   { href: "/inventario", label: "Inventario", roles: ["dueno", "admin", "cajero", "bodeguero"], d: "M4 8l8-4 8 4-8 4zM4 8v8l8 4 8-4V8M12 12v8" },
 ];
 
