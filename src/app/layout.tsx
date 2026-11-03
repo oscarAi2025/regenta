@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   title: { default: "Regenta", template: "%s · Regenta" },
   description: "Regenta by Farmagenéricos Colombia: software de facturación electrónica y gestión para droguerías, farmacias y distribuidoras farmacéuticas.",
   metadataBase: new URL(SITIO),
+  // Propiedad de regenta.pro en Google Search Console (etiqueta HTML de verificación).
+  verification: { google: "cg1KhVm39vQAMo3MqtwhE2n6ThhYyXnZ51Lc8-DWgWw" },
 };
 export const viewport: Viewport = { themeColor: "#102a43" };
 
