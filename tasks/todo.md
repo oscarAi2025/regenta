@@ -244,3 +244,11 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] Arreglado: /api/sesion devolvía 500 con cuerpo «null»; 6 rutas validaban datos antes que el rol (ahora 403 claro); estado de pago con límite por IP; reportes sin error interno si falla la base
 - [x] Cartera: el saldo a veces no se actualizaba tras un abono (router.refresh no aplicaba); ahora la fila toma el saldo que confirma el servidor
 - [x] Producción verificada: 282 comprobaciones de endpoints (sin sesión, sin clave, consola, datos basura, fugas) en 0 fallos; venta + anulación con nota crédito NCSE2 aceptada (demo, simulada) e inventario 380→378→380; la cajera recibe 403 en productos, equipo, reportes y anular
+
+## 2026-11-03 · Stripe (modo de prueba) configurado y probado en producción
+- [x] Webhook «Regenta pagos» (Workbench, formato Resumen/snapshot, API 2024-12-18.acacia, 4 eventos) → https://regenta.pro/api/pagos/stripe
+- [x] Oscar pegó STRIPE_WEBHOOK_SECRET y STRIPE_SECRET_KEY (sk_test) en Netlify; desplegado c180524
+- [x] Pago real de prueba (4242): aprobado, suscripción guardada, vence 03/12/2026, droguería «OSCARIN» creada con dueño y numeraciones de prueba, correos invitación y pago aprobado enviados
+- [x] Cancelación desde Stripe: llega customer.subscription.deleted, se marca cancelada, la droguería sigue activa hasta el vencimiento
+- [ ] Droguería de prueba «OSCARIN» usa el NIT real 901845370-5 de IA DEV INVESTIMENTS COLOMBIA: Oscar la suspende o la borra desde la consola
+- [ ] Modo real: decidir si se usa esta cuenta (gestionada por Mercury, Stripe recomienda una nueva) o una cuenta nueva de la LLC; repetir webhook + claves live (mejor clave restringida: Checkout Sessions y Subscriptions en escritura)
