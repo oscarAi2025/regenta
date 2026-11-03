@@ -107,12 +107,17 @@ async function enviarResend(m: Saliente) {
   return { id: j.id ?? null };
 }
 
-/** Envía los correos que ya tocan (máx. `max`). Reintenta con espera creciente; los errores 4xx no se reintentan. */
-export async function enviarPendientes(max = 50, soloId?: number) {
-  const r = { enviados: 0, simulados: 0, errores: 0 };
-  for (let i = 0; i < max; i++) {
+/** Envía los correos que ya tocan (máx. `max`, y sin pasar de `presupuesto` ms para no cortar la función a la mitad).
+ *  Reintenta con espera creciente; los errores 4xx no se reintentan. Un correo que quedó «enviando» más de 10 minutos
+ *  (la función se cortó entre el envío y el registro) vuelve a la cola: Resend no lo duplica gracias a la clave de idempotencia. */
+export async function enviarPendientes(max = 50, soloId?: number, presupuesto = 15000) {
+  const r = { enviados: 0, simulados: 0, errores: 0, recuperados: 0 };
+  const inicio = Date.now();
+  if (soloId === undefined) r.recuperados = (await sinRLS((c) => c.query(`update correos set estado = 'pendiente', programado = now()
+    where estado = 'enviando' and programado < now() - interval '10 minutes'`))).rowCount ?? 0;
+  for (let i = 0; i < max && Date.now() - inicio < presupuesto; i++) {
     const m = await sinRLS(async (c) => (await c.query(
-      `update correos set estado = 'enviando', intentos = intentos + 1 where id = (
+      `update correos set estado = 'enviando', intentos = intentos + 1, programado = now() where id = (
          select id from correos where estado = 'pendiente' and programado <= now() and ($1::bigint is null or id = $1) order by programado, id limit 1 for update skip locked)
        returning id, para, plantilla, tipo, datos`, [soloId ?? null])).rows[0]);
     if (!m) break;
@@ -129,7 +134,9 @@ export async function enviarPendientes(max = 50, soloId?: number) {
       if ("simulado" in res) r.simulados++; else r.enviados++;
     } catch (e) {
       const definitivo = (e as { definitivo?: boolean }).definitivo;
+      // Si ya no se reintenta, el enlace de contraseña tampoco se queda guardado en claro.
       await sinRLS((c) => c.query(`update correos set estado = case when $3 or intentos >= $4 then 'error' else 'pendiente' end, error = $2,
+        datos = case when $3 or intentos >= $4 then datos - 'enlace' else datos end,
         programado = now() + make_interval(mins => 5 * intentos * intentos) where id = $1`, [m.id, String((e as Error).message).slice(0, 500), !!definitivo, MAX_INTENTOS]));
       r.errores++;
     }
@@ -145,14 +152,18 @@ export async function enviarAhora(clave: string) {
   } catch (e) { console.error("correo", e); }
 }
 
-/** Recordatorios de renovación de pagos con QR o Wompi (no se cobran solos): 5 días antes, 1 día antes y 1 día después. */
+/** Recordatorios de renovación de lo que no se cobra solo (QR, Wompi o Stripe cancelada): 5 días antes, 1 día antes y 1 día después. */
 export async function programarRecordatorios() {
   return sinRLS(async (c) => {
     const filas = (await c.query(`
-      select distinct on (p.empresa_id) p.empresa_id, p.referencia, p.plan, p.vence::text vence, p.email, p.nombre, coalesce(e.nombre_comercial, e.razon_social) empresa
-      from pagos_suscripcion p join empresas e on e.id = p.empresa_id
-      where p.estado = 'aprobado' and p.proveedor in ('wompi', 'qr') and p.vence is not null and e.estado = 'activa' and not e.demo
-      order by p.empresa_id, p.vence desc`)).rows;
+      select * from (
+        select distinct on (p.empresa_id) p.empresa_id, p.referencia, p.plan, p.vence::text vence, p.email, p.nombre, p.proveedor,
+               coalesce((p.detalle ->> 'cancelada')::boolean or (p.detalle ->> 'cancelar_al_final')::boolean, false) cancelada,
+               coalesce(e.nombre_comercial, e.razon_social) empresa
+        from pagos_suscripcion p join empresas e on e.id = p.empresa_id
+        where p.estado = 'aprobado' and p.vence is not null and e.estado = 'activa' and not e.demo
+        order by p.empresa_id, p.vence desc) u
+      where not (u.proveedor = 'stripe' and not u.cancelada)`)).rows; // el último pago de cualquier medio; Stripe vigente se renueva solo
     let n = 0;
     const hoy = new Date(new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" }) + "T00:00:00Z");
     for (const f of filas) {

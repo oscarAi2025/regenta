@@ -83,3 +83,12 @@ test("solo precio por unidad: la caja de 1 unidad toma ese precio", () => {
   assert.equal(l.productos[0].precio_caja, 300);
   assert.equal(l.productos[0].precio_unidad, null);
 });
+
+test("el mismo producto con código de barras en unas filas y sin él en otras se une", () => {
+  const l = leerFilas([
+    { nombre: "DOLEX 500 MG X 24", laboratorio: "GSK", codigo_barras: "7702132000017", precio_caja: 9000, lote: "A1", vence: "2028-01-31", cantidad_unidades: 10 },
+    { nombre: "Dolex 500 mg x 24", laboratorio: "GSK", precio_caja: 9000, lote: "B2", vence: "2028-06-30", cantidad_unidades: 5 },
+  ], "2026-11-03");
+  assert.equal(l.productos.length, 1);
+  assert.deepEqual(l.productos[0].lotes.map((x) => [x.lote, x.unidades]), [["A1", 10], ["B2", 5]]);
+});

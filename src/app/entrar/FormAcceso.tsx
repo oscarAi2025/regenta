@@ -5,17 +5,27 @@ import { useState } from "react";
 export function FormAcceso({ consola = false }: { consola?: boolean }) {
   const [email, setEmail] = useState(""), [clave, setClave] = useState("");
   const [error, setError] = useState(""), [enviando, setEnviando] = useState(false);
-  async function entrar(e: React.FormEvent) {
-    e.preventDefault();
+  const [opciones, setOpciones] = useState<{ id: string; nombre: string; rol: string }[] | null>(null);
+  async function entrar(e: React.FormEvent | null, empresa?: string) {
+    e?.preventDefault();
     if (enviando) return;
     setEnviando(true); setError("");
     try {
-      const r = await fetch("/api/acceso", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, clave, consola }) });
+      const r = await fetch("/api/acceso", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, clave, consola, empresa }) });
       const j = await r.json();
       if (!r.ok) { setError(j.error ?? "No se pudo entrar"); return; }
+      if (j.elegir) { setOpciones(j.elegir); return; }
       location.href = j.destino;
     } catch { setError("Sin conexión con el servidor: revisa internet."); } finally { setEnviando(false); }
   }
+  const ROL: Record<string, string> = { dueno: "Dueño", admin: "Administrador", cajero: "Cajera/o", bodeguero: "Bodega" };
+  if (opciones) return (
+    <div className="mt-5 grid gap-2" role="group" aria-label="Elige la droguería">
+      <p className="font-semibold">¿A cuál droguería entras?</p>
+      {opciones.map((o) => <button key={o.id} onClick={() => entrar(null, o.id)} disabled={enviando} className="btn-borde h-12 justify-between"><span className="truncate">{o.nombre}</span><span className="text-sm text-muted">{ROL[o.rol] ?? o.rol}</span></button>)}
+      {error && <p role="alert" className="text-alerta text-sm font-semibold">{error}</p>}
+    </div>
+  );
   return (
     <form onSubmit={entrar} className="mt-5 grid gap-3" aria-label="Entrar con tu cuenta">
       <div><label htmlFor="a-email" className="etiqueta">Correo</label><input id="a-email" type="email" required autoComplete="username" className="campo" value={email} onChange={(e) => setEmail(e.target.value)} /></div>

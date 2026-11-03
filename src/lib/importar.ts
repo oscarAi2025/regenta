@@ -213,5 +213,21 @@ export function leerFilas(filas: Fila[], hoy: string, primeraFila = 2): Lectura 
       avisos.push({ fila: n, texto: `mismo lote ${lote} que la fila ${existente.filas[0]}: se suman las cantidades` });
     } else p.lotes.push({ lote, vence: vence ?? null, unidades: cant, ...(costo !== undefined ? { costo } : {}), filas: [n] });
   });
-  return { productos, errores, avisos, columnas };
+  // Mismo producto escrito con código de barras en unas filas y sin él en otras (mismo nombre y laboratorio): uno solo.
+  const conEan = new Map<string, Producto>();
+  for (const x of productos) if (x.ean) { const k = claveNombre(x.nombre, x.laboratorio); if (!conEan.has(k)) conEan.set(k, x); }
+  const unidos = productos.filter((x) => {
+    if (x.ean) return true;
+    const destino = conEan.get(claveNombre(x.nombre, x.laboratorio));
+    if (!destino) return true;
+    avisos.push({ fila: x.fila, texto: `es el mismo producto de la fila ${destino.fila} (allí con código de barras): se unen` });
+    for (const l of x.lotes) {
+      const y = destino.lotes.find((z) => z.lote === l.lote);
+      if (!y) destino.lotes.push(l);
+      else if (y.vence && l.vence && y.vence !== l.vence) errores.push({ fila: l.filas[0], texto: `el lote ${l.lote} aparece en la fila ${y.filas[0]} con otro vencimiento` });
+      else { y.unidades += l.unidades; y.vence ??= l.vence; y.filas.push(...l.filas); }
+    }
+    return false;
+  });
+  return { productos: unidos, errores, avisos, columnas };
 }

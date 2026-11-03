@@ -23,6 +23,9 @@ export const POST = conAdmin(async (a, req, ctx) => {
   const p = Numeracion.safeParse(await req.json().catch(() => null));
   if (!p.success) return NextResponse.json({ error: p.error.issues[0]?.message ?? "Revisa los datos" }, { status: 400 });
   const n = p.data;
+  // Una numeración se activa al guardarla: si su vigencia aún no empieza, la DIAN rechazaría esas ventas.
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+  if (n.vigente_desde && n.vigente_desde > hoy) return NextResponse.json({ error: `Esta resolución empieza a regir el ${n.vigente_desde.split("-").reverse().join("/")}: cárgala ese día` }, { status: 400 });
   const r = await sinRLS(async (c) => {
     const e = (await c.query(`select demo, matias_cliente from empresas where id = $1 for update`, [id])).rows[0];
     if (!e) return { status: 404, error: "Cliente no encontrado" };
@@ -34,9 +37,12 @@ export const POST = conAdmin(async (a, req, ctx) => {
     await c.query(`insert into resoluciones_dian (empresa_id, tipo, numero_resolucion, prefijo, desde, hasta, actual, vigente_desde, vigente_hasta, pruebas)
       values ($1, $2, nullif($3, ''), $4, $5, $6, $5 - 1, nullif($7, '')::date, nullif($8, '')::date, $9)`,
       [id, n.tipo, n.numero_resolucion, n.prefijo, n.desde, n.hasta, n.vigente_desde ?? "", n.vigente_hasta ?? "", n.pruebas]);
+    const q = (await c.query(`select bool_or(tipo in ('pos', 'factura') and not pruebas) ventas_reales, bool_or(tipo = 'nota_credito' and not pruebas) nc_real
+      from resoluciones_dian where empresa_id = $1 and activa`, [id])).rows[0];
+    if (q.ventas_reales && !q.nc_real) throw Object.assign(new Error("Primero carga la numeración de notas crédito de producción: sin ella las anulaciones y devoluciones de estas ventas no podrían enviarse a la DIAN"), { status: 400 });
     await evento(a, "nueva_numeracion", id, n, c);
     return { status: 201, ok: true };
-  });
+  }).catch((e) => { if ((e as { status?: number }).status) return { status: (e as { status: number }).status, error: (e as Error).message }; throw e; });
   if (r.error) return NextResponse.json({ error: r.error }, { status: r.status });
   return NextResponse.json({ ok: true, mensaje: "Numeración guardada: la siguiente venta usa la nueva" }, { status: 201 });
 });

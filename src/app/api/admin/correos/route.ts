@@ -13,7 +13,7 @@ export const PATCH = conAdmin(async (a, req) => {
   const { id, accion } = p.data;
   const n = await sinRLS((c) => accion === "reintentar"
     ? c.query(`update correos set estado = 'pendiente', intentos = 0, programado = now(), error = null where id = $1 and estado in ('error', 'cancelado')`, [id])
-    : c.query(`update correos set estado = 'cancelado', error = 'Cancelado desde la consola' where id = $1 and estado = 'pendiente'`, [id]));
+    : c.query(`update correos set estado = 'cancelado', error = 'Cancelado desde la consola', datos = datos - 'enlace' where id = $1 and estado = 'pendiente'`, [id]));
   if (!n.rowCount) return NextResponse.json({ error: "Ese correo ya no se puede " + (accion === "reintentar" ? "reintentar" : "cancelar") }, { status: 409 });
   if (accion === "reintentar") await enviarPendientes(1, id);
   await evento(a, "correo_" + accion, null, { id });

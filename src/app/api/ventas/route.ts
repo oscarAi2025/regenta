@@ -13,6 +13,7 @@ const Venta = z.object({
   lineas: z.array(z.object({ producto_id: z.string().uuid(), presentacion: z.enum(["caja", "unidad"]), cantidad: z.number().int().positive().max(10000), descuento_pct: z.number().min(0).max(99).optional() })).min(1).max(200),
   descuento_pct: z.number().min(0).max(99).optional(),
   pagos: z.array(Pago).max(6),
+  sin_conexion: z.boolean().optional(), // venta que ya se hizo en el mostrador sin internet: no se le exige turno abierto
 }).refine((v) => v.condicion === "credito" ? v.pagos.length === 0 : v.pagos.length > 0, { message: "Datos de pago incompletos" })
   .refine((v) => v.tipo_doc === "pos" || v.cliente_id, { message: "La factura electrónica necesita el cliente" });
 
@@ -26,7 +27,7 @@ export const POST = conSesion(async (s, req) => {
     // Con «exigir turno» activo no se vende sin turno abierto en la caja (como en Alegra POS).
     const sinTurno = (await c.query(`select e.exige_turno and not exists (select 1 from turnos t where t.caja_id = $2 and t.estado = 'abierto') falta
       from empresas e where e.id = $1`, [s.empresa, puesto.caja_id])).rows[0]?.falta;
-    if (sinTurno) throw Object.assign(new Error("Abre el turno de caja antes de vender (Caja → Turno)"), { code: "P0001" });
+    if (sinTurno && !p.data.sin_conexion) throw Object.assign(new Error("Abre el turno de caja antes de vender (Caja → Turno)"), { code: "P0001" });
     return (await c.query(`select registrar_venta($1) r`, [{ ...p.data, empresa_id: s.empresa, sede_id: puesto.sede_id, caja_id: puesto.caja_id }])).rows[0].r;
   });
   // Emite solo el documento de esta venta: si la DIAN tarda o falla, la venta ya está guardada y la cola reintenta.

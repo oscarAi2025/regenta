@@ -241,7 +241,7 @@ test("el dueño no puede cambiarse el plan, el estado ni el NIT", async () => {
 });
 
 test("en la demo nadie puede tocar usuarios ni datos de la empresa", async () => {
-  await assert.rejects(como(U.carlos, (c) => c.query(`update miembros set activo = false where empresa_id = $1`, [E.A])), /demostración/);
+  await assert.rejects(como(U.carlos, (c) => c.query(`update miembros set activo = false where empresa_id = $1`, [E.A])), /demostración|permission denied/);
   await assert.rejects(como(U.carlos, (c) => c.query(`update empresas set telefono = '1' where id = $1`, [E.A])), /demostración/);
 });
 
@@ -397,4 +397,49 @@ test("recibir: un lote existente no cambia de fecha y no se recibe mercancía ve
   const n = await como(U.carlos, async (c) => { const id = await nuevo(c); await entrada(c, id, "MISMA", "2030-01-01"); await entrada(c, id, "MISMA", "2030-01-01");
     return (await c.query(`select unidades from v_stock_lotes where producto_id = $1`, [id])).rows[0].unidades; });
   assert.equal(Number(n), 2, "el mismo lote con la misma fecha suma");
+});
+
+test("anular una venta ya emitida en producción exige numeración de notas crédito en producción", async () => {
+  const c = await pool.connect();
+  try {
+    await c.query("begin");
+    await c.query(`update resoluciones_dian set pruebas = false, numero_resolucion = '18760000000001' where empresa_id = $1 and tipo = 'pos' and activa`, [E.A]);
+    await c.query(`update resoluciones_dian set pruebas = true where empresa_id = $1 and tipo = 'nota_credito' and activa`, [E.A]);
+    await c.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: U.carlos, role: "authenticated" })]);
+    await c.query("set local role authenticated");
+    const v = (await c.query("select registrar_venta($1) r", [venta([{ producto_id: prod.id, presentacion: "unidad", cantidad: 1 }], { pagos: [{ medio: "efectivo", valor: 100000 }] })])).rows[0].r;
+    await c.query("reset role");
+    await c.query(`update documentos_dian set estado = 'aceptado', cufe = 'x' where venta_id = $1`, [v.venta_id]);
+    await c.query("set local role authenticated");
+    await c.query("savepoint a");
+    await assert.rejects(c.query("select anular_venta($1, 'Prueba de guardia')", [v.venta_id]), /notas crédito sigue en pruebas/);
+    await c.query("rollback to savepoint a");
+    // con la numeración de notas crédito en producción, sí
+    await c.query("reset role");
+    await c.query(`update resoluciones_dian set pruebas = false, numero_resolucion = '18760000000002' where empresa_id = $1 and tipo = 'nota_credito' and activa`, [E.A]);
+    await c.query("set local role authenticated");
+    await c.query("select anular_venta($1, 'Prueba de guardia')", [v.venta_id]);
+    const nc = (await c.query(`select count(*)::int n from documentos_dian where venta_id = $1 and tipo = 'nota_credito'`, [v.venta_id])).rows[0].n;
+    assert.equal(nc, 1);
+  } finally { await c.query("rollback").catch(() => {}); c.release(); }
+});
+
+test("anular una venta cuyo envío quedó en duda (ya se intentó) genera nota crédito; si nunca salió, no", async () => {
+  await como(U.carlos, async (c) => {
+    const v1 = (await c.query("select registrar_venta($1) r", [venta([{ producto_id: prod.id, presentacion: "unidad", cantidad: 1 }], { pagos: [{ medio: "efectivo", valor: 100000 }] })])).rows[0].r;
+    await c.query("select anular_venta($1, 'Nunca salió')", [v1.venta_id]);
+    const a = (await c.query(`select estado from documentos_dian where venta_id = $1 and tipo <> 'nota_credito'`, [v1.venta_id])).rows[0].estado;
+    assert.equal(a, "anulado");
+    const v2 = (await c.query("select registrar_venta($1) r", [venta([{ producto_id: prod.id, presentacion: "unidad", cantidad: 1 }], { pagos: [{ medio: "efectivo", valor: 100000 }] })])).rows[0].r;
+    await c.query("reset role");
+    await c.query(`update documentos_dian set estado = 'pendiente', intentos = 1 where venta_id = $1`, [v2.venta_id]);
+    await c.query("set local role authenticated");
+    await c.query("select anular_venta($1, 'Envío en duda')", [v2.venta_id]);
+    const docs = (await c.query(`select tipo, estado from documentos_dian where venta_id = $1 order by tipo`, [v2.venta_id])).rows;
+    assert.deepEqual(docs.map((d) => [d.tipo, d.estado]), [["nota_credito", "pendiente"], ["pos", "pendiente"]]);
+  });
+});
+
+test("los usuarios no escriben la tabla de miembros directamente", async () => {
+  await assert.rejects(como(U.carlos, (c) => c.query(`insert into miembros (empresa_id, user_id, nombre, rol) values ($1, $2, 'x', 'dueno')`, [E.A, U.duenoB])), /permission denied/);
 });

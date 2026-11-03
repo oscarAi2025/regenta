@@ -24,7 +24,7 @@ export async function revisarSuscripciones() {
       const vence = new Date(f.vence).toISOString().slice(0, 10);
       const limite = new Date(new Date(vence + "T12:00:00Z").getTime() + GRACIA_DIAS * 86400000);
       const suspender = Date.now() > limite.getTime() + 86400000 / 2;
-      if (suspender) await c.query(`update empresas set estado = 'suspendida' where id = $1 and estado = 'activa'`, [f.id]);
+      if (suspender) await c.query(`update empresas set estado = 'suspendida', suspension = 'impago' where id = $1 and estado = 'activa'`, [f.id]);
       for (const d of await duenos(c, f.id)) {
         const ok = await encolar(c, suspender
           ? { clave: `suspendida-auto:${f.id}:${vence}:${d.email}`, para: d.email, plantilla: "cuenta_suspendida", empresa: f.id, datos: { nombre: d.nombre, empresa: f.nombre } }

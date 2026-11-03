@@ -21,7 +21,13 @@ export async function POST(req: Request) {
   const clave = await sinRLS(async (c) => {
     const o = (await c.query(`select monto, moneda, estado, transaccion from pagos_suscripcion where referencia = $1 and proveedor = 'wompi' for update`, [t.reference])).rows[0];
     if (!o) return null;
-    if (o.transaccion && o.transaccion !== t.id && o.estado === "aprobado") return null; // la orden ya la pagó otra transacción
+    if (o.transaccion && o.transaccion !== t.id && o.estado === "aprobado") {
+      // La orden ya la pagó otra transacción: un segundo cobro aprobado (el cliente pagó dos veces) queda a la vista en la
+      // consola para devolverlo; no se acredita dos veces.
+      if (t.status === "APPROVED") await c.query(`update pagos_suscripcion set detalle = coalesce(detalle, '{}'::jsonb) || $2::jsonb, atendido = false where referencia = $1`,
+        [t.reference, JSON.stringify({ revisar: "segundo_pago", transaccion_extra: t.id, monto_extra: t.amount_in_cents / 100 })]);
+      return null;
+    }
     const coincide = t.amount_in_cents === o.monto * 100 && t.currency === o.moneda;
     const estado = coincide ? estadoWompi(t.status ?? "") : "error";
     if (o.estado === "anulado" || o.estado === estado) return null; // anulado es final; sin cambios no se toca nada

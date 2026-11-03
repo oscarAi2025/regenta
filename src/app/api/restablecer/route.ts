@@ -30,6 +30,7 @@ export async function POST(req: Request) {
     await encolar(c, { clave: k, para: email, plantilla: "restablecer", empresa: cu.empresa_id, datos: { nombre: cu.nombre, empresa: cu.empresa, enlace } });
     return k;
   }).catch((e) => { console.error("restablecer", (e as Error).message); return null; });
-  if (clave) await enviarAhora(clave);
+  // Mismo tiempo de respuesta exista o no la cuenta (si no, midiendo el tiempo se sabría qué correos están registrados).
+  await Promise.all([clave ? enviarAhora(clave) : null, new Promise((r) => setTimeout(r, 1500))]);
   return NextResponse.json({ ok: true, mensaje: RESPUESTA });
 }

@@ -121,3 +121,9 @@
 
 ## Stripe (03/11/2026)
 - El webhook de Regenta lee eventos «snapshot» (data.object). Al crear el destino en Workbench elegir **Snapshot**, no Thin (que es la recomendada por defecto).
+
+## Revisión independiente (03/11/2026)
+- Reutilizar una cuenta «por correo» al invitar es una puerta de toma de cuentas: nunca vincular desde el flujo del cliente una cuenta que ya pertenece a otra empresa o ya tiene contraseña, y nunca devolver en la respuesta un enlace de contraseña de alguien que ya la tiene.
+- Si un documento se emite en «real» o «simulado» según SU numeración, la nota crédito puede salir simulada aunque el original sea real: la nota hereda el modo del original (guardia en la base).
+- Un envío con timeout no es «no enviado»: tras un intento, anular debe producir nota crédito y enviar el original.
+- Toda cola con estado «enviando» necesita recuperación por tiempo (correos igual que DIAN).

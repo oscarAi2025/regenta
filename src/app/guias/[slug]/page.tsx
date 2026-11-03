@@ -1,3 +1,4 @@
+import { metaPublica } from "@/lib/seo";
 import { BotonDemo } from "@/components/landing/BotonDemo";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -14,8 +15,8 @@ export function generateStaticParams() { return GUIAS.map((g) => ({ slug: g.slug
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const g = guia((await params).slug);
   if (!g) return {};
-  return { title: { absolute: g.titulo }, description: g.descripcion, alternates: { canonical: `/guias/${g.slug}` }, robots: { index: true, follow: true },
-    openGraph: { type: "article", locale: "es_CO", siteName: "Regenta", title: g.titulo, description: g.descripcion, url: `/guias/${g.slug}`, images: [{ url: "/capturas/og.png", width: 1200, height: 630 }], modifiedTime: g.actualizada } };
+  const m = metaPublica(`/guias/${g.slug}`, g.titulo, g.descripcion, "article");
+  return { ...m, openGraph: { ...(m.openGraph as object), type: "article", modifiedTime: g.actualizada } };
 }
 
 const fecha = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" });

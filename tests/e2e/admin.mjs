@@ -118,6 +118,19 @@ ok([400, 404].includes(sesDemo.status), "el acceso de demo no abre la sesión de
   ok((await correo(`equipo.${sufijo}@prueba.example`, "invitacion"))?.estado === "simulado", "la cajera recibe el correo de invitación");
   const otroDueno = await q.request.post(B + "/api/equipo", { headers: h, data: { nombre: "Otro Dueño", email: `otro.${sufijo}@prueba.example`, rol: "dueno" } });
   ok(otroDueno.status() === 400, "el dueño no crea otros dueños");
+  // Toma de cuenta: invitar el correo del dueño de OTRA droguería no lo vincula ni le genera enlace
+  // El dueño de la Droguería Vecina (otra empresa del sembrado) con su cuenta de acceso.
+  const ajeno = (await pool.query(`insert into cuentas (id, email, nombre) values ('00000000-0000-4000-8000-000000000004', $1, 'Dueño Vecina')
+    on conflict (id) do update set email = excluded.email returning id, email`, [`vecina.${sufijo}@prueba.example`])).rows[0];
+  const robo = await q.request.post(B + "/api/equipo", { headers: h, data: { nombre: "Vecino", email: ajeno.email, rol: "cajero" } });
+  ok(robo.status() === 409 && !(await robo.json()).enlace, "no se puede invitar la cuenta de otra droguería", String(robo.status()));
+  ok((await pool.query(`select count(*)::int n from miembros where empresa_id = $1 and user_id = $2`, [emp.id, ajeno.id])).rows[0].n === 0, "la cuenta ajena no quedó vinculada");
+  await pool.query(`insert into miembros (empresa_id, user_id, nombre, rol) values ($1, $2, 'Vecino', 'cajero')`, [emp.id, ajeno.id]); // aunque estuviera vinculada…
+  const robo2 = await q.request.patch(B + "/api/equipo", { headers: h, data: { cuenta_id: ajeno.id, enlace: true } });
+  ok(robo2.status() === 409, "…no se le genera enlace de contraseña", String(robo2.status()));
+  await pool.query(`delete from miembros where empresa_id = $1 and user_id = $2`, [emp.id, ajeno.id]);
+  const reenvio = await q.request.patch(B + "/api/equipo", { headers: h, data: { cuenta_id: (await pool.query(`select id from cuentas where email = $1`, [`equipo.${sufijo}@prueba.example`])).rows[0].id, enlace: true } });
+  ok(reenvio.status() === 200, "reenviar la invitación a la propia cajera sigue funcionando", String(reenvio.status()));
   await q.goto(B + "/equipo"); await q.waitForLoadState("networkidle");
   ok(await q.getByText("Cajera Equipo").count() === 1 && await q.getByText(/En proceso/).count() === 1, "Mi droguería muestra el equipo y la habilitación en proceso");
   await q.goto(B + "/inicio");

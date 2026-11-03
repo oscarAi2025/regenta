@@ -49,8 +49,9 @@ export async function POST(req: Request) {
     if (ev.type === "invoice.paid") {
       if (o.billing_reason === "subscription_create" || !o.id) return []; // la primera factura la cubre el checkout
       if (String(o.currency).toLowerCase() !== "cop" || Number(o.amount_paid) !== Number(p.monto) * 100) {
-        await c.query(`update pagos_suscripcion set detalle = $2, actualizado = now() where referencia = $1`,
-          [p.referencia, JSON.stringify({ evento: ev.type, alerta: "renovacion_monto_distinto", factura: o.id, monto: o.amount_paid ?? null })]);
+        // Cobro real que no cuadra con la orden: no se acredita solo, pero queda a la vista en la consola («sin atender»).
+        await c.query(`update pagos_suscripcion set detalle = coalesce(detalle, '{}'::jsonb) || $2::jsonb, atendido = false, actualizado = now() where referencia = $1`,
+          [p.referencia, JSON.stringify({ revisar: "renovacion_monto_distinto", factura: o.id, monto: o.amount_paid ?? null })]);
         return [];
       }
       const ref = `${p.referencia}-R${String(o.id).replace(/[^0-9A-Za-z]/g, "").slice(-12).toUpperCase()}`;

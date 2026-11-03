@@ -39,3 +39,14 @@ export const ClienteEntrada = z.object({
   telefono: z.string().trim().max(30).nullish(),
   autoriza_datos: z.boolean().default(false),
 }).refine((c) => c.tipo_doc !== "NIT" || /^\d{6,10}$/.test(c.numero_doc), { message: "El NIT va sin dígito de verificación: de 6 a 10 números", path: ["numero_doc"] });
+
+/** NIT sin dígito de verificación, como sea que lo escriban: 900.123.456-7 · 900123456 7 · 9001234567 (si el último dígito
+ *  es justo su DV) · 900123456. */
+export function nitSinDv(v: unknown): string {
+  const s = String(v ?? "").trim();
+  const sep = s.match(/^([\d.\s]+?)\s*[-\s]\s*(\d)$/);
+  if (sep) { const base = sep[1].replace(/\D/g, ""); if (base.length >= 6) return base; }
+  const d = s.replace(/\D/g, "");
+  if (d.length === 10 && dvNit(d.slice(0, 9)) === d[9]) return d.slice(0, 9);
+  return d;
+}

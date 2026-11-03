@@ -11,6 +11,7 @@ export type VentaEnCola = {
   idem_key: string; empresa: string; creado: string; cuerpo: Record<string, unknown>; total: number; cambio: number;
   lineas: { nombre: string; cantidad: number; presentacion: "caja" | "unidad"; total: number; producto_id: string; unidades: number }[];
   error?: string;
+  aviso?: string; // error pasajero: se reintenta sola
 };
 
 const K_CATALOGO = "regenta.catalogo";
@@ -53,6 +54,18 @@ export function encolar(v: VentaEnCola) {
   const ok = escribir(K_COLA, [...cola().filter((x) => x.idem_key !== v.idem_key), v]);
   avisar(); return ok;
 }
+/** Vuelve a intentar una venta que falló. Si el error fue que el precio cambió («no cubre el total»), con `precioHoy`
+ *  se registra al precio actual: el pago se ajusta al total nuevo (lo que ya se cobró en caja queda como diferencia). */
+export function reintentar(idem: string, precioHoy = false) {
+  escribir(K_COLA, cola().map((x) => {
+    if (x.idem_key !== idem) return x;
+    const total = precioHoy ? Number(String(x.error ?? "").match(/no cubre el total \((\d+(?:\.\d+)?)\)/)?.[1] ?? 0) : 0;
+    const pagos = (x.cuerpo.pagos as { medio: string; valor: number }[] | undefined) ?? [];
+    const cuerpo = total && pagos.length ? { ...x.cuerpo, pagos: [{ ...pagos[0], valor: Math.ceil(total) }] } : x.cuerpo;
+    return { ...x, cuerpo, error: undefined, aviso: undefined };
+  }));
+  avisar();
+}
 export function descartar(idem: string) { escribir(K_COLA, cola().filter((x) => x.idem_key !== idem)); avisar(); }
 
 let enCurso = false;
@@ -71,6 +84,11 @@ export async function sincronizar(empresa: string | null): Promise<{ enviadas: n
       if (r.ok) { descartar(v.idem_key); enviadas++; continue; }
       if (r.status >= 500 || r.status === 429) break; // el servidor se recupera: se reintenta luego
       const j = await r.json().catch(() => ({}));
+      // Errores que se arreglan solos o con una acción en la droguería (abrir el turno, recibir mercancía, reactivar la
+      // cuenta, cargar la resolución): la venta sigue en cola y se reintenta en la próxima sincronización.
+      if (/turno|existencias|suspendida|habilitada|resoluci[oó]n|numeraci[oó]n/i.test(String(j.error ?? ""))) {
+        escribir(K_COLA, cola().map((x) => (x.idem_key === v.idem_key ? { ...x, aviso: j.error } : x))); avisar(); continue;
+      }
       escribir(K_COLA, cola().map((x) => (x.idem_key === v.idem_key ? { ...x, error: j.error ?? `No se pudo registrar (${r.status})` } : x))); avisar();
     }
   } finally { enCurso = false; }

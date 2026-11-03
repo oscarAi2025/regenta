@@ -1,3 +1,4 @@
+import { metaPublica } from "@/lib/seo";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PAGINAS, pagina } from "@/content/paginas";
@@ -8,8 +9,7 @@ export function generateStaticParams() { return PAGINAS.filter((p) => p.grupo ==
 export async function generateMetadata({ params }: { params: Promise<{ ruta: string }> }): Promise<Metadata> {
   const p = pagina((await params).ruta);
   if (!p) return {};
-  return { title: { absolute: p.titulo }, description: p.descripcion, alternates: { canonical: `/funciones/${p.ruta}` }, robots: { index: true, follow: true },
-    openGraph: { type: "website", locale: "es_CO", siteName: "Regenta", title: p.titulo, description: p.descripcion, url: `/funciones/${p.ruta}`, images: [{ url: "/capturas/og.png", width: 1200, height: 630 }] } };
+  return metaPublica(`/funciones/${p.ruta}`, p.titulo, p.descripcion);
 }
 export default async function Funcion({ params }: { params: Promise<{ ruta: string }> }) {
   const p = pagina((await params).ruta);

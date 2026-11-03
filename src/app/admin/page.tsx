@@ -12,7 +12,7 @@ export default async function Resumen() {
   const d = await sinRLS(async (c) => {
     const empresas = (await c.query(`select plan, estado, count(*)::int n from empresas where not demo group by 1, 2`)).rows as { plan: string; estado: string; n: number }[];
     const pagos = (await c.query(`select coalesce(sum(monto) filter (where estado = 'aprobado' and creado >= date_trunc('month', now())), 0)::float mes,
-      count(*) filter (where estado = 'aprobado' and not atendido)::int sin_atender, count(*) filter (where estado = 'pendiente' and creado > now() - interval '2 days')::int pendientes from pagos_suscripcion`)).rows[0];
+      count(*) filter (where (estado = 'aprobado' or detalle ? 'revisar') and not atendido)::int sin_atender, count(*) filter (where estado = 'pendiente' and creado > now() - interval '2 days')::int pendientes from pagos_suscripcion`)).rows[0];
     const solicitudes = (await c.query(`select count(*) filter (where estado = 'nueva')::int nuevas, count(*) filter (where creado > now() - interval '7 days')::int semana from solicitudes_demo`)).rows[0];
     const dian = (await c.query(`select count(*) filter (where d.estado in ('pendiente', 'enviando'))::int cola, count(*) filter (where d.estado = 'rechazado')::int rechazados from documentos_dian d join empresas e on e.id = d.empresa_id where not e.demo`)).rows[0];
     const ventas = (await c.query(`select count(*)::int n, coalesce(sum(total), 0)::float t from ventas v join empresas e on e.id = v.empresa_id where not e.demo and v.estado = 'cerrada' and (v.creado at time zone 'America/Bogota')::date = (now() at time zone 'America/Bogota')::date`)).rows[0];

@@ -2,7 +2,7 @@ import "server-only";
 import type { Tx } from "./db";
 import { encolar } from "./correo";
 import { invitar } from "./admin-datos";
-import { dvNit } from "./validar";
+import { dvNit, nitSinDv } from "./validar";
 
 const PLAN: Record<string, string> = { esencial: "Esencial", pro: "Pro" };
 
@@ -11,7 +11,7 @@ const PLAN: Record<string, string> = { esencial: "Esencial", pro: "Pro" };
  *  es cliente (renovación o segundo pago), solo liga el pago. Sin NIT queda para la consola. Devuelve la clave del correo. */
 async function darDeAlta(c: Tx, p: Record<string, any>): Promise<string | null> {
   if (p.empresa_id) return null;
-  const nit = String(p.nit ?? "").split("-")[0].replace(/\D/g, ""); // sin dígito de verificación
+  const nit = nitSinDv(p.nit); // sin dígito de verificación (aunque lo escriban pegado o con espacio)
   if (nit.length < 6 || nit.length > 10) return null;
   const existe = (await c.query(`select id from empresas where nit = $1`, [nit])).rows[0];
   if (existe) {
@@ -52,17 +52,36 @@ export async function alCambiarPago(c: Tx, referencia: string): Promise<string[]
     await c.query("savepoint alta");
     try { invitacion = await darDeAlta(c, p); await c.query("release savepoint alta"); }
     catch (e) { await c.query("rollback to savepoint alta"); console.error("alta automática", referencia, (e as Error).message); }
-    // Pagar reactiva la cuenta suspendida y deja el plan pagado.
-    await c.query(`update empresas e set estado = 'activa', plan = p.plan from pagos_suscripcion p
-      where p.referencia = $1 and e.id = p.empresa_id and not e.demo`, [referencia]);
+    // Pagar reactiva la cuenta suspendida POR FALTA DE PAGO (no la que suspendió la consola) y deja el plan pagado
+    // (salvo planes especiales de la consola, que no se rebajan).
+    await c.query(`update empresas e set estado = case when e.estado = 'suspendida' and e.suspension = 'impago' then 'activa' else e.estado end,
+        suspension = case when e.estado = 'suspendida' and e.suspension = 'impago' then null else e.suspension end,
+        plan = case when e.plan in ('esencial', 'pro') then p.plan else e.plan end
+      from pagos_suscripcion p where p.referencia = $1 and e.id = p.empresa_id and not e.demo`, [referencia]);
     const empresa = (await c.query(`select empresa_id from pagos_suscripcion where referencia = $1`, [referencia])).rows[0]?.empresa_id ?? null;
     // El periodo empieza hoy o donde termina el último periodo pagado de la misma empresa o correo (renovación anticipada).
     if (!p.vence) await c.query(`update pagos_suscripcion set vence = greatest(current_date, coalesce((select max(vence) from pagos_suscripcion q where q.referencia <> $1 and q.estado = 'aprobado'
-        and (q.empresa_id = $2 or lower(q.email) = lower($3))), current_date)) + case when $4 = 'anio' then interval '1 year' else interval '1 month' end where referencia = $1`, [referencia, empresa, p.email, p.periodo]);
+        and (case when $2::uuid is not null then q.empresa_id = $2 else q.empresa_id is null and lower(q.email) = lower($3) end)), current_date)) + case when $4 = 'anio' then interval '1 year' else interval '1 month' end where referencia = $1`, [referencia, empresa, p.email, p.periodo]);
     const vence = (await c.query(`select to_char(vence, 'DD/MM/YYYY') v from pagos_suscripcion where referencia = $1`, [referencia])).rows[0]?.v;
     await encolar(c, { clave: `pago:${referencia}:aprobado`, para: p.email, plantilla: "pago_aprobado", empresa,
       datos: { nombre: p.nombre, plan: PLAN[p.plan] ?? p.plan, plan_id: p.plan, periodo: p.periodo === "anio" ? "anual" : "mensual", monto: p.monto, referencia, vence } });
     return [`pago:${referencia}:aprobado`, ...(invitacion ? [invitacion] : [])];
+  }
+  if (p.estado === "anulado" && p.empresa_id) {
+    // Un pago aprobado que después se anula (reverso de Wompi): si la droguería no tiene otro pago vigente, se suspende
+    // por falta de pago (un pago nuevo la reactiva sola) y se avisa al dueño. Queda marcado para revisión en la consola.
+    await c.query(`update pagos_suscripcion set detalle = coalesce(detalle, '{}'::jsonb) || '{"revisar":"pago_anulado"}'::jsonb, atendido = false where referencia = $1`, [referencia]);
+    const vigente = (await c.query(`select 1 from pagos_suscripcion where empresa_id = $1 and estado = 'aprobado' and referencia <> $2 and vence >= current_date`, [p.empresa_id, referencia])).rowCount;
+    if (vigente) return [];
+    const e = (await c.query(`update empresas set estado = 'suspendida', suspension = 'impago' where id = $1 and estado = 'activa' and not demo
+      returning coalesce(nombre_comercial, razon_social) nombre`, [p.empresa_id])).rows[0];
+    if (!e) return [];
+    const claves: string[] = [];
+    for (const d of (await c.query(`select cu.email, cu.nombre from miembros m join cuentas cu on cu.id = m.user_id where m.empresa_id = $1 and m.activo and m.rol = 'dueno'`, [p.empresa_id])).rows) {
+      const k = `suspendida-anulado:${referencia}:${d.email}`;
+      if (await encolar(c, { clave: k, para: d.email, plantilla: "cuenta_suspendida", empresa: p.empresa_id, datos: { nombre: d.nombre, empresa: e.nombre } })) claves.push(k);
+    }
+    return claves;
   }
   if (p.estado === "rechazado") {
     await encolar(c, { clave: `pago:${referencia}:rechazado`, para: p.email, plantilla: "pago_rechazado", datos: { nombre: p.nombre, plan: PLAN[p.plan] ?? p.plan, plan_id: p.plan } });

@@ -3,6 +3,8 @@ import { sinRLS } from "@/lib/db";
 import { leerSesion } from "@/lib/sesion";
 import { Cabecera } from "@/components/ui/Cabecera";
 import { Equipo, Configuracion } from "./Equipo";
+import { suscripcionStripe } from "@/lib/pagos";
+import { Renovacion } from "./Renovacion";
 
 export const metadata = { title: "Mi droguería" };
 
@@ -20,7 +22,8 @@ export default async function PaginaEquipo() {
     const plan = (await c.query(`select to_char(max(vence), 'DD/MM/YYYY') vence, max(vence) < current_date vencido from pagos_suscripcion where empresa_id = $1 and estado = 'aprobado'`, [s.empresa])).rows[0];
     const mes = (await c.query(`select count(*)::int n from documentos_dian where empresa_id = $1 and creado >= date_trunc('month', now() at time zone 'America/Bogota') at time zone 'America/Bogota'`, [s.empresa])).rows[0].n;
     const res = (await c.query(`select tipo, prefijo, desde, hasta, actual, pruebas, to_char(vigente_hasta, 'DD/MM/YYYY') vence from resoluciones_dian where empresa_id = $1 and activa order by tipo`, [s.empresa])).rows;
-    return { e, miembros, plan, mes, res };
+    const stripe = await suscripcionStripe(c, s.empresa);
+    return { e, miembros, plan, mes, res, stripe };
   }) as any;
   const cupoDocs = d.e.plan === "esencial" ? 2000 : d.e.plan === "pro" ? 5000 : null;
   const nombrePlan: Record<string, string> = { esencial: "Esencial", pro: "Pro", cadena: "Cadena", socio: "Socio" };
@@ -35,6 +38,7 @@ export default async function PaginaEquipo() {
           <p className={`text-sm mt-1 ${d.plan?.vencido ? "text-alerta font-semibold" : "text-muted"}`}>
             {d.e.demo ? "Demostración" : d.plan?.vence ? `${d.plan.vencido ? "Venció" : "Pagado hasta"} el ${d.plan.vence}` : "Pago gestionado por soporte"}
           </p>
+          {!d.e.demo && d.stripe && <Renovacion cancelada={d.stripe.al_final} />}
           {!d.e.demo && <a href={`/contratar?plan=${d.e.plan === "pro" ? "pro" : "esencial"}`} className="btn-primario mt-3 inline-flex">Renovar o cambiar de plan</a>}
         </div>
         <div className="tarjeta p-5">

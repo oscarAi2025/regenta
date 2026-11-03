@@ -77,6 +77,10 @@ export async function procesarCola(max = 20, venta?: string) {
     r.enviados++;
     if (doc.vencido) { await guardar(id, { ok: false, definitivo: true, error: `Sin respuesta tras ${PLAZO_HORAS} horas (${doc.intentos} intentos): revisar y reenviar` }); r.rechazados++; continue; }
     const d = await armar(id);
+    if (d.esperar) {
+      await sinRLS((c) => c.query(`update documentos_dian set estado = 'pendiente', intentos = greatest(intentos - 1, 0), proximo_intento = now() + interval '1 minute', actualizado = now() where id = $1`, [id]));
+      r.enviados--; continue;
+    }
     if (d.cerrado) {
       if (d.anulado) await sinRLS((c) => c.query(`update documentos_dian set estado = 'anulado', ultimo_error = 'Venta anulada antes de emitirse', actualizado = now() where id = $1`, [id]));
       else await guardar(id, { ok: false, definitivo: true, error: "Documento sin venta asociada" });
@@ -96,7 +100,7 @@ export async function procesarCola(max = 20, venta?: string) {
   return r;
 }
 
-async function armar(id: string): Promise<{ documento: DocumentoParaEmitir; resolucionPruebas: boolean | null; demo: boolean; cerrado?: false } | { cerrado: true; anulado?: boolean }> {
+async function armar(id: string): Promise<{ documento: DocumentoParaEmitir; resolucionPruebas: boolean | null; demo: boolean; cerrado?: false; esperar?: false } | { cerrado: true; anulado?: boolean; esperar?: false } | { esperar: true; cerrado?: false }> {
   return sinRLS(async (c) => {
     const { rows: [d] } = await c.query(
       `select d.*, v.base, v.iva as iva_total, v.total, v.creado as fecha, v.cliente_id, v.estado as venta_estado, v.condicion, v.vence_pago::text, v.plazo_dias,
@@ -108,8 +112,11 @@ async function armar(id: string): Promise<{ documento: DocumentoParaEmitir; reso
        from documentos_dian d join ventas v on v.id = d.venta_id join empresas e on e.id = d.empresa_id
        join sedes s on s.id = v.sede_id join cajas cj on cj.id = v.caja_id where d.id = $1`, [id]);
     if (!d) return { cerrado: true as const };
-    // Una venta anulada antes de emitirse no se envía (su nota crédito sí: tipo nota_credito).
-    if (d.venta_estado === 'anulada' && d.tipo !== 'nota_credito') return { cerrado: true as const, anulado: true };
+    // Una venta anulada antes de emitirse no se envía. Excepción: si al anularla ya tenía nota crédito (su envío pudo quedar
+    // validado en la DIAN), el original sale igual y después la nota que lo anula.
+    if (d.venta_estado === 'anulada' && d.tipo !== 'nota_credito'
+      && !(await c.query(`select 1 from documentos_dian where venta_id = $1 and tipo = 'nota_credito' and devolucion_id is null`, [d.venta_id])).rowCount)
+      return { cerrado: true as const, anulado: true };
     // Nota crédito de una devolución parcial: solo lo devuelto (líneas, totales y reembolso de esa devolución).
     const dev = d.devolucion_id ? (await c.query(`select base::float, iva::float, total::float, medio from devoluciones where id = $1`, [d.devolucion_id])).rows[0] : null;
     const lineas = (await c.query(dev
@@ -122,6 +129,8 @@ async function armar(id: string): Promise<{ documento: DocumentoParaEmitir; reso
     const ref = d.tipo === "nota_credito" ? (await c.query(
       `select o.tipo, o.prefijo, o.numero, o.cufe, v.creado as fecha from documentos_dian o join ventas v on v.id = o.venta_id
        where o.venta_id = $1 and o.tipo <> 'nota_credito'`, [d.venta_id])).rows[0] : null;
+    // La nota crédito necesita el CUFE del original: si el original aún no está aceptado, espera (no gasta intentos).
+    if (d.tipo === "nota_credito" && !ref?.cufe) return { esperar: true as const };
     const cli = d.cliente_id ? (await c.query(`select tipo_doc, numero_doc, dv, nombre, email from clientes where id = $1`, [d.cliente_id])).rows[0] : null;
     return {
       resolucionPruebas: d.pruebas, demo: !!d.demo,

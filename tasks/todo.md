@@ -224,3 +224,17 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] Migración 023 aplicada en producción (21 políticas, ninguna con rol_en) · despliegue lanzado 07:51 con región São Paulo
 - [ ] Confirmar que el despliegue terminó y medir de nuevo en vivo (Chrome se desconectó antes de verlo)
 - [ ] Stripe: Oscar pega STRIPE_SECRET_KEY y STRIPE_WEBHOOK_SECRET (destino de eventos «Snapshot» → https://regenta.pro/api/pagos/stripe)
+
+## 2026-11-03 · Revisión independiente (3 revisores) — migración 024
+- [x] CRÍTICO toma de cuentas: el dueño ya no puede invitar/«reactivar» la cuenta de otra droguería ni recibir enlaces de contraseña de quien ya la tiene; la base ya no deja a usuarios escribir miembros (e2e admin + db.test)
+- [x] CRÍTICO DIAN: una nota crédito de una venta real nunca sale simulada (trigger nc_exige_produccion); la consola no pasa ventas a producción sin notas crédito en producción
+- [x] Anular con envío en duda: se manda el original y luego su nota crédito (la nota espera el CUFE); anulación de un turno anterior descuenta el efectivo del turno abierto
+- [x] Correos atascados en «enviando» vuelven a la cola; presupuesto de tiempo; el enlace de contraseña no queda en claro tras error/cancelación
+- [x] Pagos: pago anulado suspende (si no hay otro vigente); suspensión manual vs impago (un pago no reactiva la manual); vencimiento por empresa; planes especiales no se rebajan; doble cobro y renovación con otro monto quedan «por atender»; NIT con DV pegado; recordatorios también tras Stripe cancelada; el dueño cancela la renovación con tarjeta en Mi droguería; suspender en consola cancela la suscripción de Stripe
+- [x] Entrar: selector de droguería si la cuenta tiene varias; bloqueo por correo no deja fuera al dueño; «olvidé mi contraseña» responde en el mismo tiempo
+- [x] Sin conexión: errores pasajeros se reintentan solos; «Reintentar» y «Registrar con el precio de hoy»; no exige turno a ventas ya hechas sin internet
+- [x] Importación: mismo producto con y sin código de barras se une; resolución que aún no empieza no se puede cargar
+- [x] SEO: robots.txt deja leer el noindex de /entrar y /activar y bloquea las rutas internas que faltaban; etiquetas twitter en todas las páginas públicas
+- [ ] Producción: aplicar migración 024 y desplegar (necesita Chrome)
+- [ ] Dudas normativas para confirmar con MATIAS/DIAN: contingencia de 72 h, fecha en reenvíos, responsabilidades fiscales del adquirente (tax_level/regime), código de medio de pago para débito/Nequi
+- [ ] Pendientes menores: abonos en efectivo con varias cajas activas; CSP sin 'unsafe-inline' (nonce)

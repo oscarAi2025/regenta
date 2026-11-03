@@ -3,7 +3,7 @@ import { guardarImpresora, imprimirTiquete, leerImpresora, type Impresora } from
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pesos } from "@/lib/formato";
 import { ClienteFactura, documento, type Cliente } from "./ClienteFactura";
-import { actualizarCatalogo, buscarLocal, catalogo, cola, descartar, encolar, esFallaDeRed, imprimirProvisional, sincronizar, type VentaEnCola } from "@/lib/sin-conexion";
+import { actualizarCatalogo, buscarLocal, catalogo, cola, descartar, encolar, reintentar, esFallaDeRed, imprimirProvisional, sincronizar, type VentaEnCola } from "@/lib/sin-conexion";
 
 type Producto = {
   id: string; nombre: string; laboratorio: string | null; ean: string | null; iva: number; unidades_por_caja: number;
@@ -189,7 +189,7 @@ export function Caja({ fiar, empresa, nombreEmpresa }: { fiar: boolean; empresa:
       if (tipoDoc !== "pos" || aCredito) { setError("Sin internet: la factura electrónica necesita conexión. Cobra con tiquete POS y se envía solo al volver internet."); return; }
       // Sin internet: la venta se guarda en esta caja y se envía sola al volver la conexión (misma clave: no se duplica).
       const v: VentaEnCola = {
-        idem_key: idem.current, empresa, creado: new Date().toISOString(), cuerpo, total: Math.round(totales.total), cambio: medio === "efectivo" ? cambio : 0,
+        idem_key: idem.current, empresa, creado: new Date().toISOString(), cuerpo: { ...cuerpo, sin_conexion: true }, total: Math.round(totales.total), cambio: medio === "efectivo" ? cambio : 0,
         lineas: lineas.map((l) => ({ nombre: l.p.nombre, cantidad: l.cantidad, presentacion: l.presentacion, total: netoLinea(l).neto, producto_id: l.p.id, unidades: l.cantidad * (l.presentacion === "caja" ? l.p.unidades_por_caja : 1) })),
       };
       if (!encolar(v)) { setError("Sin internet y este navegador no deja guardar la venta. Anótala y regístrala al volver la conexión."); return; }
@@ -252,7 +252,7 @@ export function Caja({ fiar, empresa, nombreEmpresa }: { fiar: boolean; empresa:
         {fallidas.length > 0 && (
           <div role="alert" className="mb-3 rounded-xl bg-alerta-soft text-alerta px-4 py-3">
             <p className="font-semibold">{fallidas.length} venta{fallidas.length === 1 ? "" : "s"} hecha{fallidas.length === 1 ? "" : "s"} sin internet no se pudo registrar:</p>
-            <ul className="mt-1 text-sm grid gap-1">{fallidas.map((v) => <li key={v.idem_key} className="flex flex-wrap justify-between gap-2"><span>{new Date(v.creado).toLocaleString("es-CO")} · {pesos(v.total)} · {v.error}</span><button onClick={() => descartar(v.idem_key)} className="underline">Ya la registré a mano</button></li>)}</ul>
+            <ul className="mt-1 text-sm grid gap-1">{fallidas.map((v) => <li key={v.idem_key} className="flex flex-wrap justify-between gap-2"><span>{new Date(v.creado).toLocaleString("es-CO")} · {pesos(v.total)} · {v.error}</span><span className="flex flex-wrap gap-3">{/no cubre el total/.test(v.error ?? "") && <button onClick={() => { reintentar(v.idem_key, true); void sincronizar(empresa).then(contar); }} className="underline font-semibold">Registrar con el precio de hoy</button>}<button onClick={() => { reintentar(v.idem_key); void sincronizar(empresa).then(contar); }} className="underline font-semibold">Reintentar</button><button onClick={() => descartar(v.idem_key)} className="underline">Ya la registré a mano</button></span></li>)}</ul>
           </div>
         )}
         <div className="relative">

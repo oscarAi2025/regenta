@@ -74,5 +74,23 @@ export async function sesionStripe(d: { referencia: string; plan: Plan; periodo:
   return { id: j.id!, url: j.url };
 }
 
+/** Cancela una suscripción de Stripe: al final del periodo ya pagado (el cliente se va) o de inmediato (suspensión de la
+ *  consola). Devuelve false si Stripe no está configurado o no respondió bien. */
+export async function cancelarSuscripcionStripe(id: string, alFinal: boolean) {
+  if (!process.env.STRIPE_SECRET_KEY || !/^sub_[\w]+$/.test(id)) return false;
+  const r = await fetch(`https://api.stripe.com/v1/subscriptions/${id}`, {
+    method: alFinal ? "POST" : "DELETE", body: alFinal ? new URLSearchParams({ cancel_at_period_end: "true" }) : undefined,
+    headers: { authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}`, ...(alFinal ? { "content-type": "application/x-www-form-urlencoded" } : {}) },
+  }).catch(() => null);
+  return !!r?.ok;
+}
+
+/** Suscripción de Stripe vigente de una droguería (la que se renueva sola), si tiene. */
+export async function suscripcionStripe(c: { query: (q: string, v: unknown[]) => Promise<{ rows: { suscripcion: string; al_final: boolean }[] }> }, empresa: string) {
+  return (await c.query(`select suscripcion, coalesce((detalle ->> 'cancelar_al_final')::boolean, false) al_final from pagos_suscripcion
+    where empresa_id = $1 and proveedor = 'stripe' and estado = 'aprobado' and suscripcion is not null and not coalesce((detalle ->> 'cancelada')::boolean, false)
+    order by creado desc limit 1`, [empresa])).rows[0] ?? null;
+}
+
 /** Estado de Wompi → estado del pago en Regenta. */
 export const estadoWompi = (s: string) => ({ APPROVED: "aprobado", DECLINED: "rechazado", VOIDED: "anulado", ERROR: "error" } as Record<string, string>)[s] ?? "pendiente";
