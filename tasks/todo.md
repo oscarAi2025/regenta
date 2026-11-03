@@ -76,7 +76,7 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [ ] Oscar: aprobar precios y escalones del Plan Socio (src/lib/planes.ts)
 - [ ] Poner ANTHROPIC_API_KEY en el servidor de producción para activar Regenta IA
 - [ ] Reinicio nocturno de los datos de la demo pública
-- [ ] Varias sedes/cajas (hoy se usa la primera caja activa y su sede)
+- [x] Varias sedes/cajas (hoy se usa la primera caja activa y su sede)
 - [ ] Accesibilidad del listado de la caja (aria-activedescendant)
 - [ ] Probar /api/invima contra invima.gov.co desde producción; confirmar con MATIAS consumo del POS
 
@@ -140,8 +140,8 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] Pruebas: base 32/32 · firmas 6/6 · e2e caja, gestión, IA, facturación, pagos y consola 0 fallos · auditoría 145 revisiones 0 fallos
 
 ### Pendiente
-- [ ] Oscar: crear su superadministrador en producción con scripts/crear-superadmin.mjs
-- [ ] Correo transaccional para enviar invitaciones (hoy se mandan por WhatsApp desde la consola)
+- [x] Oscar: crear su superadministrador en producción con scripts/crear-superadmin.mjs
+- [x] Correo transaccional para enviar invitaciones (hoy se mandan por WhatsApp desde la consola)
 - [ ] Reinicio de la demo desde la consola
 
 ## Iteración 10 (1/11/2026): correos, seguridad de la consola y despliegue
@@ -154,7 +154,7 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 ### Pendiente
 - [ ] Oscar: cuentas y variables según tasks/despliegue.md (Supabase, Resend con dominio, Netlify, Wompi, superadmin)
 - [ ] Emisor MATIAS real en src/lib/dian (requiere contrato Casa de Software y su URL de producción; hoy «simulado»)
-- [ ] Un mismo correo dueño de dos droguerías: elegir droguería al entrar (hoy entra a la más antigua)
+- [x] Un mismo correo dueño de dos droguerías: elegir droguería al entrar (hoy entra a la más antigua)
 - [ ] Caja: conservar la venta en curso si se recarga la página
 
 ## Paridad con Alegra POS (auditoría 02/11/2026, fuentes en ayuda.alegra.com)
@@ -250,7 +250,7 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] Oscar pegó STRIPE_WEBHOOK_SECRET y STRIPE_SECRET_KEY (sk_test) en Netlify; desplegado c180524
 - [x] Pago real de prueba (4242): aprobado, suscripción guardada, vence 03/12/2026, droguería «OSCARIN» creada con dueño y numeraciones de prueba, correos invitación y pago aprobado enviados
 - [x] Cancelación desde Stripe: llega customer.subscription.deleted, se marca cancelada, la droguería sigue activa hasta el vencimiento
-- [ ] Droguería de prueba «OSCARIN» usa el NIT real 901845370-5 de IA DEV INVESTIMENTS COLOMBIA: Oscar la suspende o la borra desde la consola
+- [x] Droguería de prueba «OSCARIN» usa el NIT real 901845370-5 de IA DEV INVESTIMENTS COLOMBIA: Oscar la suspende o la borra desde la consola
 - [x] Modo real: decidir si se usa esta cuenta (gestionada por Mercury, Stripe recomienda una nueva) o una cuenta nueva de la LLC; repetir webhook + claves live (mejor clave restringida: Checkout Sessions y Subscriptions en escritura)
 
 ## 2026-11-03 · Cajas por plan y equipo visible
@@ -265,9 +265,9 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] Desplegado 9b1015f (cajas por plan) con las claves live
 - [x] En vivo: webhook responde 400 «Firma no válida» (la clave está cargada, ya no 503); /api/pagos con Stripe devuelve sesión cs_live_ en checkout.stripe.com
 - [x] En vivo: Mi droguería muestra Equipo (0 de 3) y Cajas (1 de 1 en Esencial, Agregar caja, Renombrar, Desactivar); /api/cajas sin sesión → 401
-- [ ] Orden de prueba RG-ESENCIAL-MW0IN3QT-7F2A2B5E («PRUEBA STRIPE LIVE») queda pendiente sin pagar; la sesión de Stripe vence sola en 24 h
+- [x] Orden de prueba RG-ESENCIAL-MW0IN3QT-7F2A2B5E («PRUEBA STRIPE LIVE») queda pendiente sin pagar; la sesión de Stripe vence sola en 24 h
 - [ ] Oscar: primer cobro real (puede reembolsarlo) para confirmar la firma del webhook live de punta a punta
-- [ ] Oscar: suspender o borrar la droguería de prueba «OSCARIN» (NIT real 901845370-5)
+- [x] Oscar: suspender o borrar la droguería de prueba «OSCARIN» (NIT real 901845370-5)
 
 ## 2026-11-03 · Consola: eliminar prueba y descartar órdenes (56715e4, sin desplegar)
 - [x] Eliminar droguería de prueba: solo suspendida, sin numeración DIAN en producción, no demo, confirmando NIT; borra cuentas huérfanas; pagos y bitácora quedan (migración 025)
@@ -291,7 +291,7 @@ Baja: 17 correo al cancelar renovación · 18 plan Socio límites/descuento · 1
 - [x] Suite completa: endpoints 931 · 0 fallos; todos los e2e 0 fallos; unitarias 36 + 22
 - [x] En vivo (bd0efdc): orden de prueba «descartada sin pagar»; OSCARIN ya no está en clientes; webhook Stripe 400 firma; /api/exportar sin sesión 401; ficha con «Descargar sus datos» y ZIP 200 (PK); /admin/activar con enlace falso «ya no sirve»
 - [x] Superadmin de Oscar (gerencia@farmagenericoscolombia.com) con contraseña propia vía db/consola/superadmin-enlace.sql
-- [ ] Detalle: un pago aprobado cuya droguería se eliminó aún muestra «Crear su cuenta» (ocultar si está atendido)
+- [x] Detalle: un pago aprobado cuya droguería se eliminó aún muestra «Crear su cuenta» (ocultar si está atendido)
 
 ## 2026-11-03 · Puntos medios y bajos de la revisión (migración 027)
 - [x] 7 Reintentar correo de contraseña genera enlace nuevo
