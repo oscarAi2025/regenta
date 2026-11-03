@@ -88,6 +88,7 @@ const R = [
   { m: "GET", p: "/api/reportes?tipo=nada", acceso: "sesion", espera: 400 },
   { m: "GET", p: "/api/reportes?desde=x&hasta=y", acceso: "sesion" },
   { m: "POST", p: "/api/suscripcion", acceso: "sesion", rol: ["cajero", 403] },
+  { m: "GET", p: "/api/exportar", acceso: "sesion", rol: ["cajero", 403] },
   { m: "GET", p: "/api/turnos", acceso: "sesion" },
   { m: "POST", p: "/api/turnos", acceso: "sesion", basura: true, rol: ["bodega", 403] },
   { m: "POST", p: `/api/ventas/${U}/devolucion`, acceso: "sesion", basura: true, rol: ["cajero", 403] },
@@ -98,6 +99,8 @@ const R = [
   { m: "POST", p: `/api/admin/clientes/${U}/entrar`, acceso: "admin" },
   { m: "POST", p: `/api/admin/clientes/${U}/numeraciones`, acceso: "admin", basura: true },
   { m: "PATCH", p: `/api/admin/clientes/${U}`, acceso: "admin", basura: true },
+  { m: "DELETE", p: `/api/admin/clientes/${U}`, acceso: "admin", basura: true },
+  { m: "GET", p: `/api/admin/clientes/${U}/exportar`, acceso: "admin" },
   { m: "POST", p: `/api/admin/clientes/${U}/usuarios`, acceso: "admin", basura: true },
   { m: "PATCH", p: `/api/admin/clientes/${U}/usuarios`, acceso: "admin", basura: true },
   { m: "POST", p: "/api/admin/clientes", acceso: "admin", basura: true },
@@ -154,7 +157,7 @@ for (const e of R) {
     ok(r.s < 500 || ((e.acceso === "firma" || e.sinConfig) && r.s === 503), `${n}: responde sin error interno`, `${r.s} ${r.texto.slice(0, 120)}`);
     if (e.espera) ok(r.s === e.espera, `${n}: responde ${e.espera}`, String(r.s));
     ok(limpio(r), `${n}: no deja ver detalles internos`, r.texto.slice(0, 160));
-    if (!/text\/csv/.test(r.tipo) && r.texto.trim() && !/ndjson/.test(r.tipo)) ok(/json/.test(r.tipo), `${n}: responde JSON`, r.tipo);
+    if (!/text\/csv|application\/zip/.test(r.tipo) && r.texto.trim() && !/ndjson/.test(r.tipo)) ok(/json/.test(r.tipo), `${n}: responde JSON`, r.tipo);
   }
   // 5. Datos basura: siempre 4xx (o el flujo propio), jamás 500 ni fugas
   if (e.basura) for (const crudo of BASURA) {

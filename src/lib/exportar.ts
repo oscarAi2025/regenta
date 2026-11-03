@@ -21,7 +21,10 @@ const HOJAS: { archivo: string; sql: string; columnas: [string, string][] }[] = 
     columnas: [["prefijo", "Prefijo"], ["numero", "Número"], ["fecha", "Fecha"], ["descripcion", "Producto"], ["presentacion", "Presentación"], ["lote", "Lote"], ["cantidad", "Cantidad"], ["unidades", "Unidades"], ["precio", "Precio"], ["descuento", "Descuento"], ["iva_pct", "IVA %"], ["base", "Base"], ["iva", "IVA"], ["total", "Total"]] },
   { archivo: "pagos_de_ventas.csv", sql: `select v.prefijo, v.numero, p.medio, p.valor, p.referencia from pagos p join ventas v on v.id = p.venta_id where p.empresa_id = $1 order by v.creado`,
     columnas: [["prefijo", "Prefijo"], ["numero", "Número"], ["medio", "Medio"], ["valor", "Valor"], ["referencia", "Referencia"]] },
-  { archivo: "cartera.csv", sql: `select prefijo, numero, cliente, numero_doc, total, abonado, saldo, to_char(vence_pago, 'YYYY-MM-DD') vence, dias_mora from v_cartera where empresa_id = $1 and saldo > 0 order by vence_pago`,
+  { archivo: "cartera.csv", sql: `select v.prefijo, v.numero, c.nombre cliente, c.numero_doc, v.total, coalesce(a.abonado, 0) abonado, v.total - v.devuelto - coalesce(a.abonado, 0) saldo,
+      to_char(v.vence_pago, 'YYYY-MM-DD') vence, greatest(0, current_date - v.vence_pago) dias_mora
+      from ventas v join clientes c on c.id = v.cliente_id left join (select venta_id, sum(valor) abonado from abonos where not anulado group by venta_id) a on a.venta_id = v.id
+      where v.empresa_id = $1 and v.condicion = 'credito' and v.estado = 'cerrada' and v.total - v.devuelto - coalesce(a.abonado, 0) > 0 order by v.vence_pago`,
     columnas: [["prefijo", "Prefijo"], ["numero", "Número"], ["cliente", "Cliente"], ["numero_doc", "Documento"], ["total", "Total"], ["abonado", "Abonado"], ["saldo", "Saldo"], ["vence", "Vence"], ["dias_mora", "Días de mora"]] },
   { archivo: "abonos.csv", sql: `select v.prefijo, v.numero, to_char(a.creado at time zone 'America/Bogota', 'YYYY-MM-DD HH24:MI') fecha, a.medio, a.valor, a.referencia, a.anulado from abonos a join ventas v on v.id = a.venta_id where a.empresa_id = $1 order by a.creado`,
     columnas: [["prefijo", "Prefijo"], ["numero", "Número"], ["fecha", "Fecha"], ["medio", "Medio"], ["valor", "Valor"], ["referencia", "Referencia"], ["anulado", "Anulado"]] },

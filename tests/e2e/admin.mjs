@@ -271,7 +271,7 @@ await p.getByRole("button", { name: "Sí, dejar de recibirlos" }).click();
 await p.getByText("No te enviaremos más correos comerciales").waitFor();
 const cancelados = (await pool.query(`select count(*)::int n from correos where para = $1 and tipo = 'comercial' and estado = 'cancelado'`, [conEmail])).rows[0].n;
 ok(cancelados === 5, "la baja cancela el embudo pendiente", String(cancelados));
-ok((await fetch(B + `/api/correo/baja?t=${tokenBaja(conEmail).replace(/.$/, "x")}`, { method: "POST" })).status === 400, "un enlace de baja alterado no sirve");
+ok((await fetch(B + `/api/correo/baja?t=${tokenBaja(conEmail).replace(/.$/, (c) => (c === "x" ? "y" : "x"))}`, { method: "POST" })).status === 400, "un enlace de baja alterado no sirve");
 await p.goto(B + "/baja?t=falso.falso"); ok(await p.getByText("Este enlace no es válido").count() === 1, "página de baja con enlace inválido");
 // Recordatorio de renovación: un pago Wompi aprobado que vence en 5 días (hoy de Bogotá)
 const refR = `RG-PRO-REN${sufijo}-ABCDEF12`;
@@ -404,9 +404,10 @@ ok(otraVez.status() === 409, "QR: no se confirma dos veces");
 
   // El dueño: sus pagos con comprobante y su copia de datos.
   await p.request.post(B + `/api/admin/clientes/${emp.id}/entrar`, { headers: { origin: B } });
-  await p.goto(B + "/equipo");
+  await p.goto(B + "/equipo", { waitUntil: "networkidle" });
   const pagosDueno = p.getByRole("region", { name: "Pagos de tu plan" });
-  ok(await pagosDueno.getByText("Factura FE 1234").count() === 1, "Mi droguería lista los pagos con su factura");
+  const conFactura = await pagosDueno.getByText("Factura FE 1234").waitFor({ timeout: 15000 }).then(() => true, () => false);
+  ok(conFactura, "Mi droguería lista los pagos con su factura", p.url());
   await p.goto(B + `/recibo/${refL}`);
   ok(await p.getByRole("heading", { name: "Comprobante de pago" }).count() === 1 && await p.getByText("DROGUERIA CORREGIDA SAS").count() === 1 && await p.getByText("FE 1234").count() === 1, "comprobante del pago para el dueño");
   ok((await p.request.get(B + `/recibo/RG-PRO-${"X".repeat(8)}`)).status() === 404, "comprobante de otro pago: no existe");
