@@ -1,5 +1,6 @@
 import { puede } from "@/lib/sesion";
 import { z } from "zod";
+import { cajaElegida } from "@/lib/caja-elegida";
 import { comoUsuario, puestoDeTrabajo } from "@/lib/db";
 import { conSesion, esUuid, json } from "@/lib/api";
 import { procesarCola } from "@/lib/dian";
@@ -24,7 +25,7 @@ export const POST = conSesion(async (s, req, ctx) => {
     // La nota crédito referencia la factura: si la DIAN la rechazó, primero se corrige y se reenvía.
     if ((await c.query(`select 1 from documentos_dian where venta_id = $1 and devolucion_id is null and tipo <> 'nota_credito' and estado = 'rechazado'`, [id])).rowCount)
       return { rechazada: true };
-    const puesto = await puestoDeTrabajo(c, s.empresa).catch(() => null);
+    const puesto = await puestoDeTrabajo(c, s.empresa, await cajaElegida()).catch(() => null);
     return (await c.query(`select devolver_venta($1) r`, [{ ...p.data, venta_id: id, caja_id: puesto?.caja_id ?? null }])).rows[0].r;
   });
   if (!r) return json({ error: "Ese registro no existe en tu droguería" }, 404);

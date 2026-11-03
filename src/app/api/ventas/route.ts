@@ -1,5 +1,6 @@
 import { puede } from "@/lib/sesion";
 import { z } from "zod";
+import { cajaElegida } from "@/lib/caja-elegida";
 import { comoUsuario, puestoDeTrabajo } from "@/lib/db";
 import { conSesion, json } from "@/lib/api";
 import { procesarCola } from "@/lib/dian";
@@ -23,8 +24,9 @@ export const POST = conSesion(async (s, req) => {
   if (!puede.vender(s.rol)) return json({ error: "Tu usuario no puede vender" }, 403); // el permiso se mira antes que los datos
   const p = Venta.safeParse(await req.json().catch(() => null));
   if (!p.success) return json({ error: p.error.issues.find((i) => i.code === "custom")?.message ?? p.error.issues.find((i) => i.path.includes("pagos"))?.message ?? "Datos de la venta incompletos" }, 400);
+  const caja = await cajaElegida();
   const r = await comoUsuario(s, async (c) => {
-    const puesto = await puestoDeTrabajo(c, s.empresa);
+    const puesto = await puestoDeTrabajo(c, s.empresa, caja);
     if (!puesto.caja_id) throw Object.assign(new Error("Esta empresa no tiene cajas activas"), { code: "P0001" });
     // Con «exigir turno» activo no se vende sin turno abierto en la caja (como en Alegra POS).
     const sinTurno = (await c.query(`select e.exige_turno and not exists (select 1 from turnos t where t.caja_id = $2 and t.estado = 'abierto') falta

@@ -31,3 +31,12 @@ export function precioSocio(plan: "esencial" | "pro", compras: number) {
   const e = [...SOCIO.escalones].reverse().find((x) => compras >= x.desde);
   return e ? e[plan] : base;
 }
+
+/** Lo que incluye cada plan en cajas y usuarios activos (null = sin tope). Es lo que se vende arriba: un solo lugar. */
+export const LIMITES: Record<string, { cajas: number | null; usuarios: number | null }> = {
+  esencial: { cajas: 1, usuarios: 3 },
+  pro: { cajas: 3, usuarios: null },
+  cadena: { cajas: null, usuarios: null },
+  socio: { cajas: null, usuarios: null },
+};
+export const limite = (plan: string) => LIMITES[plan] ?? LIMITES.esencial;

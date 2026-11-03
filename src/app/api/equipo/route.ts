@@ -3,12 +3,12 @@ import { sinRLS } from "@/lib/db";
 import { conSesion, json } from "@/lib/api";
 import { enlaceInvitacion, invitar } from "@/lib/admin-datos";
 import { encolar, enviarAhora } from "@/lib/correo";
+import { limite } from "@/lib/planes";
 
 // El dueño administra su equipo: invita, desactiva y reenvía enlaces. No crea otros dueños (eso pasa por soporte).
 const Nuevo = z.object({ nombre: z.string().trim().min(3, "Escribe el nombre").max(120), email: z.string().trim().toLowerCase().email("Correo no válido").max(160),
   rol: z.enum(["admin", "cajero", "bodeguero"]) });
 const Cambio = z.object({ cuenta_id: z.string().uuid(), activo: z.boolean().optional(), enlace: z.literal(true).optional(), rol: z.enum(["admin", "cajero", "bodeguero"]).optional() });
-const TOPE: Record<string, number> = { esencial: 3 };
 const negar = (m: string, status = 400) => Object.assign(new Error(m), { status });
 
 async function base(c: Parameters<Parameters<typeof sinRLS>[0]>[0], empresa: string) {
@@ -26,8 +26,8 @@ async function cuentaAjena(c: Parameters<Parameters<typeof sinRLS>[0]>[0], empre
   return r;
 }
 async function cupo(c: Parameters<Parameters<typeof sinRLS>[0]>[0], empresa: string, plan: string) {
-  const tope = TOPE[plan];
-  if (!tope) return;
+  const tope = limite(plan).usuarios;
+  if (tope === null) return;
   const n = Number((await c.query(`select count(*) n from miembros where empresa_id = $1 and activo`, [empresa])).rows[0].n);
   if (n >= tope) throw negar(`Tu plan Esencial incluye hasta ${tope} usuarios activos. Desactiva uno o pásate a Pro (usuarios ilimitados).`, 409);
 }

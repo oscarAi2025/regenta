@@ -1,5 +1,6 @@
 import { puede } from "@/lib/sesion";
 import { z } from "zod";
+import { cajaElegida } from "@/lib/caja-elegida";
 import { comoUsuario, puestoDeTrabajo } from "@/lib/db";
 import { estadoTurno } from "@/lib/turnos";
 import { conSesion, json } from "@/lib/api";
@@ -13,16 +14,17 @@ const Accion = z.discriminatedUnion("accion", [
   z.object({ accion: z.literal("exigir"), valor: z.boolean() }),
 ]);
 
-export const GET = conSesion(async (s) => json(await comoUsuario(s, (c) => estadoTurno(c, s.empresa))));
+export const GET = conSesion(async (s) => { const caja = await cajaElegida(); return json(await comoUsuario(s, (c) => estadoTurno(c, s.empresa, caja))); });
 
 export const POST = conSesion(async (s, req) => {
   if (!puede.vender(s.rol)) return json({ error: "Solo quien vende maneja el turno de caja" }, 403); // el permiso se mira antes que los datos
   const p = Accion.safeParse(await req.json().catch(() => null));
   if (!p.success) return json({ error: p.error.issues[0]?.message ?? "Datos incompletos" }, 400);
   const a = p.data;
+  const caja = await cajaElegida();
   const r = await comoUsuario(s, async (c) => {
     if (a.accion === "abrir") {
-      const { caja_id } = await puestoDeTrabajo(c, s.empresa);
+      const { caja_id } = await puestoDeTrabajo(c, s.empresa, caja);
       if (!caja_id) throw Object.assign(new Error("Esta empresa no tiene cajas activas"), { code: "P0001" });
       return { turno: (await c.query(`select abrir_turno($1, $2) id`, [caja_id, a.base])).rows[0].id };
     }

@@ -46,7 +46,7 @@ export function Configuracion({ inicial, demo }: { inicial: Record<string, strin
   );
 }
 
-export function Equipo({ miembros, demo, tope }: { miembros: Miembro[]; demo: boolean; tope: number | null }) {
+export function Equipo({ miembros, demo, tope, plan }: { miembros: Miembro[]; demo: boolean; tope: number | null; plan: string }) {
   const [abierto, setAbierto] = useState(false);
   const [n, setN] = useState({ nombre: "", email: "", rol: "cajero" });
   const [msg, setMsg] = useState<{ ok: boolean; t: string; enlace?: string } | null>(null), [enviando, setEnviando] = useState(false);
@@ -69,9 +69,12 @@ export function Equipo({ miembros, demo, tope }: { miembros: Miembro[]; demo: bo
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="titulo text-xl">Equipo</h2>
-          <p className="text-sm text-muted">{activos} usuario{activos === 1 ? "" : "s"} activo{activos === 1 ? "" : "s"}{tope ? ` de ${tope} en tu plan` : ""}. Cada persona entra con su correo: así la auditoría sabe quién hizo qué.</p>
+          <p className="text-sm text-muted">{activos} usuario{activos === 1 ? "" : "s"} activo{activos === 1 ? "" : "s"}{tope ? ` de ${tope} en tu plan` : " · usuarios ilimitados en tu plan"}. Cada persona entra con su correo y su contraseña: así la auditoría sabe quién hizo qué.
+            {plan === "esencial" && " Con Pro, usuarios ilimitados."}</p>
         </div>
-        {!demo && !abierto && <button onClick={() => setAbierto(true)} className="btn-primario">Agregar persona</button>}
+        {!abierto && (tope !== null && activos >= tope && !demo
+          ? <a href="/contratar?plan=pro" className="btn-borde">Pasar a Pro para más usuarios</a>
+          : <button onClick={() => setAbierto(true)} className="btn-primario">Agregar persona</button>)}
       </div>
       {abierto && (
         <form onSubmit={invitar} className="mt-4 grid sm:grid-cols-[1fr_1fr_auto_auto] gap-2 items-end" aria-label="Agregar persona">

@@ -113,8 +113,12 @@ export function mensajeError(e: unknown): { status: number; error: string } {
 /** Escapa los comodines de LIKE (% _ \\) en lo que escribe el usuario. */
 export const sinComodines = (w: string) => w.replace(/[\\%_]/g, (m) => "\\" + m);
 
-/** Sede y caja de trabajo de la empresa: la primera caja activa y su sede (una sede por ahora). */
-export async function puestoDeTrabajo(c: Tx, empresa: string): Promise<{ sede_id: string; caja_id: string | null }> {
+/** Sede y caja de trabajo: la caja que eligió este equipo (si es de la empresa y está activa) o la primera caja activa. */
+export async function puestoDeTrabajo(c: Tx, empresa: string, cajaElegida?: string | null): Promise<{ sede_id: string; caja_id: string | null }> {
+  if (cajaElegida && /^[0-9a-f-]{36}$/i.test(cajaElegida)) {
+    const e = (await c.query(`select id, sede_id from cajas where id = $1 and empresa_id = $2 and activa`, [cajaElegida, empresa])).rows[0];
+    if (e) return { sede_id: e.sede_id, caja_id: e.id };
+  }
   const caja = (await c.query(`select id, sede_id from cajas where empresa_id = $1 and activa order by nombre, id limit 1`, [empresa])).rows[0];
   if (caja) return { sede_id: caja.sede_id, caja_id: caja.id };
   const sede = (await c.query(`select id from sedes where empresa_id = $1 order by creado limit 1`, [empresa])).rows[0];

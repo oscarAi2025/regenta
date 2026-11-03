@@ -5,6 +5,8 @@ import { leerSesion, puede } from "@/lib/sesion";
 import { Cabecera } from "@/components/ui/Cabecera";
 import { pesos } from "@/lib/formato";
 import { estadoTurno } from "@/lib/turnos";
+import { cajaElegida } from "@/lib/caja-elegida";
+import { ElegirCaja } from "@/components/app/ElegirCaja";
 import { Turno } from "./Turno";
 
 export const metadata = { title: "Turno de caja" };
@@ -14,8 +16,10 @@ export default async function PaginaTurno() {
   if (!s) redirect("/entrar");
   if (!puede.vender(s.rol)) redirect("/inicio?aviso=permiso");
   const gerencia = puede.cartera(s.rol);
-  const { estado, historial } = await comoUsuario(s, async (c) => ({
-    estado: await estadoTurno(c, s.empresa),
+  const caja = await cajaElegida();
+  const { estado, historial, cajas } = await comoUsuario(s, async (c) => ({
+    cajas: (await c.query(`select id, nombre from cajas where empresa_id = $1 and activa order by nombre`, [s.empresa])).rows as { id: string; nombre: string }[],
+    estado: await estadoTurno(c, s.empresa, caja),
     historial: (await c.query(
       `select t.id, cj.nombre caja, to_char(t.abierto at time zone 'America/Bogota', 'DD/MM HH24:MI') abierto, to_char(t.cerrado at time zone 'America/Bogota', 'DD/MM HH24:MI') cerrado,
               ma.nombre abre, mc.nombre cierra, (t.resumen ->> 'ventas')::float ventas, t.efectivo_esperado::float esperado, t.efectivo_contado::float contado, t.diferencia::float diferencia
@@ -29,6 +33,7 @@ export default async function PaginaTurno() {
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
       <Cabecera titulo="Turno de caja" sub="Abre la caja con la base, registra entradas y salidas de efectivo y ciérrala contando el dinero." />
+      {cajas.length > 1 && <ElegirCaja cajas={cajas} actual={estado.caja?.id ?? null} />}
       <Turno estado={JSON.parse(JSON.stringify(estado))} dueno={s.rol === "dueno"} />
       <section className="tarjeta overflow-x-auto" aria-label="Turnos cerrados">
         <h2 className="titulo text-xl px-4 pt-4">Turnos cerrados</h2>

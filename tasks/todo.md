@@ -252,3 +252,10 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] Cancelación desde Stripe: llega customer.subscription.deleted, se marca cancelada, la droguería sigue activa hasta el vencimiento
 - [ ] Droguería de prueba «OSCARIN» usa el NIT real 901845370-5 de IA DEV INVESTIMENTS COLOMBIA: Oscar la suspende o la borra desde la consola
 - [ ] Modo real: decidir si se usa esta cuenta (gestionada por Mercury, Stripe recomienda una nueva) o una cuenta nueva de la LLC; repetir webhook + claves live (mejor clave restringida: Checkout Sessions y Subscriptions en escritura)
+
+## 2026-11-03 · Cajas por plan y equipo visible
+- [x] Límites del plan en un solo lugar (lib/planes LIMITES): Esencial 1 caja / 3 usuarios; Pro 3 cajas / usuarios ilimitados
+- [x] Mi droguería → Cajas: crear, renombrar, activar/desactivar (no la última, no con turno abierto, tope del plan, nombres únicos); /api/cajas
+- [x] Cada computadora elige su caja (cookie regenta_caja, validada en el servidor): ventas, devoluciones y turno quedan en esa caja; selector en Caja y Turno si hay más de una
+- [x] Equipo: «Agregar persona» visible también en la demo (responde que se hace al contratar); con el cupo lleno, botón para pasar a Pro
+- [x] Pruebas: tests/e2e/cajas.mjs, admin (cajas por plan), contrato de endpoints (899 comprobaciones)

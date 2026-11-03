@@ -5,6 +5,8 @@ import { Cabecera } from "@/components/ui/Cabecera";
 import { Equipo, Configuracion } from "./Equipo";
 import { suscripcionStripe } from "@/lib/pagos";
 import { Renovacion } from "./Renovacion";
+import { Cajas } from "./Cajas";
+import { limite } from "@/lib/planes";
 
 export const metadata = { title: "Mi droguería" };
 
@@ -23,7 +25,9 @@ export default async function PaginaEquipo() {
     const mes = (await c.query(`select count(*)::int n from documentos_dian where empresa_id = $1 and creado >= date_trunc('month', now() at time zone 'America/Bogota') at time zone 'America/Bogota'`, [s.empresa])).rows[0].n;
     const res = (await c.query(`select tipo, prefijo, desde, hasta, actual, pruebas, to_char(vigente_hasta, 'DD/MM/YYYY') vence from resoluciones_dian where empresa_id = $1 and activa order by tipo`, [s.empresa])).rows;
     const stripe = await suscripcionStripe(c, s.empresa);
-    return { e, miembros, plan, mes, res, stripe };
+    const cajas = (await c.query(`select cj.id, cj.nombre, cj.activa, exists (select 1 from turnos t where t.caja_id = cj.id and t.estado = 'abierto') turno_abierto
+      from cajas cj where cj.empresa_id = $1 order by cj.activa desc, cj.nombre`, [s.empresa])).rows;
+    return { e, miembros, plan, mes, res, stripe, cajas };
   }) as any;
   const cupoDocs = d.e.plan === "esencial" ? 2000 : d.e.plan === "pro" ? 5000 : null;
   const nombrePlan: Record<string, string> = { esencial: "Esencial", pro: "Pro", cadena: "Cadena", socio: "Socio" };
@@ -59,7 +63,8 @@ export default async function PaginaEquipo() {
       </section>
       <Configuracion inicial={{ nombre_comercial: d.e.nombre_comercial ?? d.e.razon_social, direccion: d.e.direccion ?? "", ciudad: d.e.ciudad ?? "", telefono: d.e.telefono ?? "",
         email: d.e.email ?? "", descuento_max_cajero: d.e.descuento_max_cajero, egreso_max_cajero: d.e.egreso_max_cajero }} demo={d.e.demo} />
-      <Equipo miembros={d.miembros} demo={d.e.demo} tope={d.e.plan === "esencial" ? 3 : null} />
+      <Equipo miembros={d.miembros} demo={d.e.demo} tope={limite(d.e.plan).usuarios} plan={d.e.plan} />
+      <Cajas cajas={d.cajas} tope={limite(d.e.plan).cajas} plan={d.e.plan} demo={d.e.demo} />
     </main>
   );
 }

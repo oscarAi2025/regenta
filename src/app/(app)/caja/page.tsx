@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { leerSesion, puede } from "@/lib/sesion";
-import { comoUsuario } from "@/lib/db";
+import { comoUsuario, puestoDeTrabajo } from "@/lib/db";
+import { cajaElegida } from "@/lib/caja-elegida";
+import { ElegirCaja } from "@/components/app/ElegirCaja";
 import { Caja } from "./Caja";
 
 export const metadata = { title: "Caja" };
@@ -9,9 +11,14 @@ export default async function PaginaCaja() {
   const s = await leerSesion();
   if (!s) redirect("/entrar");
   if (!puede.vender(s.rol)) redirect("/inventario?aviso=permiso");
-  const e = await comoUsuario(s, async (c) => (await c.query(`select coalesce(e.nombre_comercial, e.razon_social) n,
+  const elegida = await cajaElegida();
+  const { e, cajas, actual } = await comoUsuario(s, async (c) => ({
+    e: (await c.query(`select coalesce(e.nombre_comercial, e.razon_social) n,
       not e.demo and not exists (select 1 from resoluciones_dian r where r.empresa_id = e.id and r.activa and r.tipo = 'pos' and not r.pruebas) sin_habilitar
-    from empresas e where e.id = $1`, [s.empresa])).rows[0]);
+    from empresas e where e.id = $1`, [s.empresa])).rows[0],
+    cajas: (await c.query(`select id, nombre from cajas where empresa_id = $1 and activa order by nombre`, [s.empresa])).rows as { id: string; nombre: string }[],
+    actual: (await puestoDeTrabajo(c, s.empresa, elegida)).caja_id,
+  }));
   return (
     <main>
       <h1 className="sr-only">Caja</h1>
@@ -21,6 +28,7 @@ export default async function PaginaCaja() {
           Mientras tanto, deja todo listo: carga tus productos e inventario y crea a tu equipo. ¿Dudas? WhatsApp +57 321 214 1970.
         </div>
       )}
+      {cajas.length > 1 && <div className="mx-4 mt-3 flex justify-end"><ElegirCaja cajas={cajas} actual={actual} /></div>}
       <Caja fiar={puede.fiar(s.rol)} empresa={s.empresa} nombreEmpresa={e?.n ?? ""} />
     </main>
   );
