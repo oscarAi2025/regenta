@@ -268,3 +268,20 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [ ] Orden de prueba RG-ESENCIAL-MW0IN3QT-7F2A2B5E («PRUEBA STRIPE LIVE») queda pendiente sin pagar; la sesión de Stripe vence sola en 24 h
 - [ ] Oscar: primer cobro real (puede reembolsarlo) para confirmar la firma del webhook live de punta a punta
 - [ ] Oscar: suspender o borrar la droguería de prueba «OSCARIN» (NIT real 901845370-5)
+
+## 2026-11-03 · Consola: eliminar prueba y descartar órdenes (56715e4, sin desplegar)
+- [x] Eliminar droguería de prueba: solo suspendida, sin numeración DIAN en producción, no demo, confirmando NIT; borra cuentas huérfanas; pagos y bitácora quedan (migración 025)
+- [x] Descartar orden de pasarela sin pagar: cierra la sesión de Stripe, queda rechazada/atendida sin correo; un pago tardío igual se aprueba
+- [x] e2e admin 0 fallos
+- [ ] Oscar autoriza 025 en producción → desplegar → descartar RG-ESENCIAL-MW0IN3QT-7F2A2B5E y eliminar OSCARIN
+
+## 2026-11-03 · Revisión independiente por tipo de usuario (24 hallazgos)
+Alta:
+- [ ] 1 Stripe: segunda suscripción sin cancelar la anterior; correo de cobro fallido dice «no se cobró nada» mientras Stripe reintenta
+- [ ] 2 Renovación con otro correo (nit_existente): no hay «Ligar a cliente» que reactive, aplique plan y vencimiento
+- [ ] 3 Consola no edita datos fiscales (razón social, DV, responsable IVA, dirección, ciudad)
+- [ ] 4 Dueño sin historial de pagos/recibos de su suscripción
+- [ ] 5 Exportar datos (productos, clientes, ventas, cartera, XML/PDF DIAN) también suspendida — lo prometen los términos
+- [ ] 6 Guardar aceptación de términos (versión, fecha, IP) en la orden de pago
+Media: 7 reintento de correo con enlace sale sin enlace · 8 suspendido sin botón Renovar · 9 bajar de plan inmediato y sin recortar excesos · 10 cobro de documentos extra prometido y no implementado · 11 reembolso/garantía sin acción · 12 pago manual / vencimiento de clientes de consola · 13 correo «ya estás habilitado» y textos · 14 cambiar rol/correo/dueño desde consola · 15 gestión de clientes de la droguería · 16 proveedores y costo al recibir
+Baja: 17 correo al cancelar renovación · 18 plan Socio límites/descuento · 19 reactivar tras suspender no restaura Stripe · 20 recordatorios a dueños actuales · 21 aviso de vencimiento en la app · 22 cambiar contraseña dentro · 23 enlace vencido → pedir uno nuevo · 24 tope diario de IA por empresa
