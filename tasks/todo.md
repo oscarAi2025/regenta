@@ -114,7 +114,7 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 
 ### Pendiente
 - [ ] Oscar: crear cuenta Wompi (Bancolombia) y poner WOMPI_PUBLIC_KEY, WOMPI_INTEGRITY_SECRET, WOMPI_EVENTS_SECRET; URL de eventos: /api/pagos/wompi
-- [ ] Oscar: Stripe con la LLC (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET; webhook /api/pagos/stripe) si quiere renovación automática con tarjeta
+- [x] Oscar: Stripe con la LLC (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET; webhook /api/pagos/stripe) si quiere renovación automática con tarjeta
 - [ ] Probar en sandbox de Wompi la URL del checkout y la de la API de pruebas (no confirmadas en su documentación de Colombia)
 - [ ] Aviso al equipo cuando entra un pago aprobado (correo o WhatsApp)
 
@@ -213,7 +213,7 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] Producción 2026-11-03: migración 022 aplicada en Supabase (registrada en regenta_migraciones; columnas, 6 funciones y limites_uso verificadas); despliegue Netlify de 32660db sin errores
 - [x] Verificado en vivo: /api/tareas y /api/dian sin clave → 401; restablecer → respuesta genérica; equipo/configuración sin sesión → 401; «¿Olvidaste tu contraseña?» en /entrar; venta POS en la demo (3 u, $3.600, inventario 383→380, documento aceptado simulado); tarea programada cada 15 min, «Run now» → 200
 ### Pendiente
-- [ ] Stripe en producción: falta STRIPE_WEBHOOK_SECRET (el webhook responde 503 «Stripe no configurado"); Oscar lo pega en Netlify si va a cobrar con Stripe
+- [x] Stripe en producción: falta STRIPE_WEBHOOK_SECRET (el webhook responde 503 «Stripe no configurado"); Oscar lo pega en Netlify si va a cobrar con Stripe
 - [ ] Habilitación DIAN y certificado MATIAS de cada droguería (equipo de Oscar)
 
 ## 2026-11-03 · Importación, anulación, Regenta IA en celular y velocidad
@@ -223,7 +223,7 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] Velocidad: región de funciones Netlify → São Paulo (junto a Supabase; autorizado por Oscar); arranque de transacción en una sola ida a la base; cabecera con una consulta; seguridad por fila con mis_empresas() (migración 023: 10–20× más rápido en inventario, mismo resultado por rol)
 - [x] Migración 023 aplicada en producción (21 políticas, ninguna con rol_en) · despliegue lanzado 07:51 con región São Paulo
 - [x] Despliegue confirmado; en vivo (desde España): primera respuesta 0,3–0,6 s (antes 1,3 s); Inicio 1,1 s (antes 3,8–7,2 s); Inventario 1,1 s (antes 2,4 s); Predicción 0,9 s (antes 2,9 s)
-- [ ] Stripe: Oscar pega STRIPE_SECRET_KEY y STRIPE_WEBHOOK_SECRET (destino de eventos «Snapshot» → https://regenta.pro/api/pagos/stripe)
+- [x] Stripe: Oscar pega STRIPE_SECRET_KEY y STRIPE_WEBHOOK_SECRET (destino de eventos «Snapshot» → https://regenta.pro/api/pagos/stripe)
 
 ## 2026-11-03 · Revisión independiente (3 revisores) — migración 024
 - [x] CRÍTICO toma de cuentas: el dueño ya no puede invitar/«reactivar» la cuenta de otra droguería ni recibir enlaces de contraseña de quien ya la tiene; la base ya no deja a usuarios escribir miembros (e2e admin + db.test)
@@ -251,7 +251,7 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] Pago real de prueba (4242): aprobado, suscripción guardada, vence 03/12/2026, droguería «OSCARIN» creada con dueño y numeraciones de prueba, correos invitación y pago aprobado enviados
 - [x] Cancelación desde Stripe: llega customer.subscription.deleted, se marca cancelada, la droguería sigue activa hasta el vencimiento
 - [ ] Droguería de prueba «OSCARIN» usa el NIT real 901845370-5 de IA DEV INVESTIMENTS COLOMBIA: Oscar la suspende o la borra desde la consola
-- [ ] Modo real: decidir si se usa esta cuenta (gestionada por Mercury, Stripe recomienda una nueva) o una cuenta nueva de la LLC; repetir webhook + claves live (mejor clave restringida: Checkout Sessions y Subscriptions en escritura)
+- [x] Modo real: decidir si se usa esta cuenta (gestionada por Mercury, Stripe recomienda una nueva) o una cuenta nueva de la LLC; repetir webhook + claves live (mejor clave restringida: Checkout Sessions y Subscriptions en escritura)
 
 ## 2026-11-03 · Cajas por plan y equipo visible
 - [x] Límites del plan en un solo lugar (lib/planes LIMITES): Esencial 1 caja / 3 usuarios; Pro 3 cajas / usuarios ilimitados
@@ -259,3 +259,12 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] Cada computadora elige su caja (cookie regenta_caja, validada en el servidor): ventas, devoluciones y turno quedan en esa caja; selector en Caja y Turno si hay más de una
 - [x] Equipo: «Agregar persona» visible también en la demo (responde que se hace al contratar); con el cupo lleno, botón para pasar a Pro
 - [x] Pruebas: tests/e2e/cajas.mjs, admin (cajas por plan), contrato de endpoints (899 comprobaciones)
+
+## 2026-11-03 · Stripe en modo real + cajas en producción
+- [x] Webhook live we_1UXeDORSn19yy9XRFUqnntak (Resumen, 4 eventos) → https://regenta.pro/api/pagos/stripe; Oscar pegó las claves live en Netlify
+- [x] Desplegado 9b1015f (cajas por plan) con las claves live
+- [x] En vivo: webhook responde 400 «Firma no válida» (la clave está cargada, ya no 503); /api/pagos con Stripe devuelve sesión cs_live_ en checkout.stripe.com
+- [x] En vivo: Mi droguería muestra Equipo (0 de 3) y Cajas (1 de 1 en Esencial, Agregar caja, Renombrar, Desactivar); /api/cajas sin sesión → 401
+- [ ] Orden de prueba RG-ESENCIAL-MW0IN3QT-7F2A2B5E («PRUEBA STRIPE LIVE») queda pendiente sin pagar; la sesión de Stripe vence sola en 24 h
+- [ ] Oscar: primer cobro real (puede reembolsarlo) para confirmar la firma del webhook live de punta a punta
+- [ ] Oscar: suspender o borrar la droguería de prueba «OSCARIN» (NIT real 901845370-5)
