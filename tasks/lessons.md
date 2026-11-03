@@ -112,3 +112,12 @@
 - Error: con numeración de prueba un cliente que paga podía «vender» documentos sin validez fiscal; Stripe aprobaba cualquier sesión firmada con la referencia; las renovaciones no extendían el periodo; una cuenta vencida nunca se suspendía; un pago con NIT ajeno se ligaba a otra droguería.
 - Regla: todo webhook valida que el objeto es el que creamos (id, moneda, monto), no solo la firma. Todo SaaS necesita el ciclo completo: renovar → extender, fallar → avisar sin borrar lo pagado, vencer → gracia → suspender, pagar → reactivar.
 - Regla: los límites anti-abuso que importan van en la base (las funciones serverless no comparten memoria).
+
+## Velocidad (03/11/2026)
+- Antes de optimizar consultas, medir el piso: si una página vacía tarda 1,3 s, el problema es la distancia servidor↔base (región), no el SQL. Servidor y base en la misma región.
+- Políticas RLS con una función por fila (rol_en(empresa_id)) cuestan muchísimo aunque haya pocos datos: usar `empresa_id in (select mis_empresas())`, que se calcula una vez por consulta. Comparar resultados por rol antes y después.
+- Medir justo después de resetear la base engaña: sin estadísticas (ANALYZE) los planes son malos. Repetir la medida con estadísticas.
+- Cada ida a la base cuenta con la base lejos: juntar begin/set_config/set role en una sola consulta.
+
+## Stripe (03/11/2026)
+- El webhook de Regenta lee eventos «snapshot» (data.object). Al crear el destino en Workbench elegir **Snapshot**, no Thin (que es la recomendada por defecto).

@@ -35,7 +35,7 @@ if (process.env.DATABASE_CA && !normalizarPem(process.env.DATABASE_CA).length) c
 export const pool = (g.__regentaPool ??= new pg.Pool({
   connectionString: url.replace(/[?&]sslmode=[^&]*/g, ""),
   max: remota ? 3 : 10, // en funciones serverless cada instancia abre pocas conexiones: el pooler reparte
-  idleTimeoutMillis: remota ? 10000 : 30000,
+  idleTimeoutMillis: remota ? 60000 : 30000, // reabrir una conexión TLS al pooler cuesta varias idas: se conserva más
   ...(remota
     ? { ssl: cas.length ? { ca: cas, rejectUnauthorized: true } : { rejectUnauthorized: true } }
     : { options: "-c timezone=America/Bogota" }), // «hoy» es el día de Bogotá en todas las consultas
@@ -50,13 +50,27 @@ if (!(g as { __regentaPoolErr?: boolean }).__regentaPoolErr) {
 
 export type Tx = pg.PoolClient;
 
-/** Ejecuta fn como el usuario de la sesión, en una transacción. */
+// Diagnóstico: con REGENTA_SQL_TIEMPOS=1 cada consulta escribe en el registro cuánto tardó (para encontrar las lentas).
+const medir = (c: Tx) => {
+  if (!process.env.REGENTA_SQL_TIEMPOS || (c as { __medido?: boolean }).__medido) return c;
+  const q = c.query.bind(c) as (...a: unknown[]) => Promise<unknown>;
+  (c as unknown as { query: unknown }).query = async (...a: unknown[]) => {
+    const t = performance.now(); const r = await q(...a);
+    const sql = String(typeof a[0] === "string" ? a[0] : (a[0] as { text?: string })?.text).replace(/\s+/g, " ").slice(0, 110);
+    console.log(`[sql ${Math.round(performance.now() - t)} ms] ${sql}`);
+    return r;
+  };
+  (c as { __medido?: boolean }).__medido = true;
+  return c;
+};
+
+/** Ejecuta fn como el usuario de la sesión, en una transacción. El arranque (transacción, identidad del usuario, rol y
+ *  zona horaria) va en UNA sola ida a la base: con la base lejos del servidor, cada ida cuenta. */
 export async function comoUsuario<T>(s: Pick<Sesion, "uid">, fn: (c: Tx) => Promise<T>): Promise<T> {
-  const c = await pool.connect();
+  const c = medir(await pool.connect());
   try {
-    await c.query("begin");
-    await c.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: s.uid, role: "authenticated" })]);
-    await c.query("set local role authenticated; set local timezone = 'America/Bogota'");
+    const claims = c.escapeLiteral(JSON.stringify({ sub: s.uid, role: "authenticated" }));
+    await c.query(`begin; select set_config('request.jwt.claims', ${claims}, true); set local role authenticated; set local timezone = 'America/Bogota'`);
     const r = await fn(c);
     await c.query("commit");
     return r;
@@ -70,10 +84,9 @@ export async function comoUsuario<T>(s: Pick<Sesion, "uid">, fn: (c: Tx) => Prom
 
 /** Conexión del servidor sin RLS: solo para procesos internos. */
 export async function sinRLS<T>(fn: (c: Tx) => Promise<T>): Promise<T> {
-  const c = await pool.connect();
+  const c = medir(await pool.connect());
   try {
-    await c.query("begin");
-    await c.query("set local timezone = 'America/Bogota'");
+    await c.query("begin; set local timezone = 'America/Bogota'");
     const r = await fn(c);
     await c.query("commit");
     return r;

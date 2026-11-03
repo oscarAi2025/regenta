@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { comoUsuario } from "@/lib/db";
+import { pool } from "@/lib/db";
 import { leerSesion } from "@/lib/sesion";
 import { Isotipo } from "@/components/Marca";
 import { Navegacion } from "@/components/Navegacion";
@@ -19,7 +19,8 @@ export const metadata: Metadata = { robots: { index: false, follow: false } };
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const s = await leerSesion();
   if (!s) redirect("/entrar");
-  const emp = await comoUsuario(s, async (c) => (await c.query(`select nombre_comercial, razon_social, nit, dv, demo from empresas where id = $1`, [s.empresa])).rows[0]);
+  // Una sola ida a la base (sin transacción): solo los datos de la cabecera de la empresa de la sesión firmada.
+  const emp = (await pool.query(`select nombre_comercial, razon_social, nit, dv, demo from empresas where id = $1`, [s.empresa])).rows[0];
   if (!emp) redirect("/entrar");
   const rol = { dueno: "Dueño", admin: "Administrador", cajero: "Cajera", bodeguero: "Bodega", vendedor: "Vendedor" }[s.rol];
   return (

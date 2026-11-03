@@ -251,5 +251,8 @@ await db.query(`update movimientos set creado = now() - interval '57 days' where
 await db.query(`update movimientos set creado = now() - interval '60 days' where empresa_id = $1 and tipo = 'inicial'`, [E.A]);
 for (const t of HISTORIA) await db.query(`alter table ${t} enable trigger user`);
 await db.query("commit");
+// Estadísticas al día (como en producción, donde las mantiene el autovacuum): sin ellas los planes salen malos y las
+// primeras consultas tras sembrar tardan segundos.
+await db.query("analyze");
 console.log("demo: ventas", ventasDemo.length, fallidas ? `(${fallidas} sin existencias)` : "");
 await db.end();

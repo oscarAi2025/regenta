@@ -215,3 +215,10 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 ### Pendiente
 - [ ] Stripe en producción: falta STRIPE_WEBHOOK_SECRET (el webhook responde 503 «Stripe no configurado"); Oscar lo pega en Netlify si va a cobrar con Stripe
 - [ ] Habilitación DIAN y certificado MATIAS de cada droguería (equipo de Oscar)
+
+## 2026-11-03 · Importación, anulación, Regenta IA en celular y velocidad
+- [x] Importar productos: .xlsx y .csv de cualquier sistema; columnas reconocidas solas (y corregibles); números, fechas, IVA y códigos en cualquier formato; filas del mismo producto unidas; lotes ya cargados no se suman otra vez (subir el mismo archivo dos veces no cambia nada); ajustes automáticos explicados; todo o nada, en bloque (hasta 15.000 filas)
+- [x] Anular: la nota crédito de anulación sale a la DIAN al instante; la venta muestra nota, estado y CUDE (o «no hizo falta nota crédito»); reenvío si la rechazan
+- [x] Regenta IA: respuesta en flujo palabra por palabra, consultas en paralelo, instrucciones en caché, «Detener»; en celular pantalla completa, «atrás» la cierra, botón pequeño que se esconde al bajar; negritas y listas legibles
+- [x] Velocidad: región de funciones Netlify → São Paulo (junto a Supabase; autorizado por Oscar); arranque de transacción en una sola ida a la base; cabecera con una consulta; seguridad por fila con mis_empresas() (migración 023: 10–20× más rápido en inventario, mismo resultado por rol)
+- [ ] Aplicar migración 023 en producción y desplegar; medir de nuevo en vivo

@@ -47,7 +47,7 @@ const devuelto = Number((await pool.query(`select coalesce(sum(total), 0) t from
   ok(hrefHoy === `/reportes?desde=${hoy}&hasta=${hoy}`, "rango rápido «Hoy»", hrefHoy);
   // Fechas al revés se corrigen
   await p.goto(B + `/reportes?desde=${hoy}&hasta=${desde}`);
-  ok(await p.getByRole("region", { name: "Resumen" }).isVisible(), "fechas invertidas no rompen la pantalla");
+  ok(await p.getByRole("region", { name: "Resumen" }).waitFor({ timeout: 10000 }).then(() => true, () => false), "fechas invertidas no rompen la pantalla");
   ok(errs.length === 0, "sin errores de JavaScript", errs.join(" | "));
   await ctx.close();
 }
