@@ -274,7 +274,7 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] Descartar orden de pasarela sin pagar: cierra la sesión de Stripe, queda rechazada/atendida sin correo; un pago tardío igual se aprueba
 - [x] e2e admin 0 fallos
 - [x] 025 aplicada en producción (Oscar confirmó Run query)
-- [ ] Oscar: desplegar 07ab9c8 → descartar RG-ESENCIAL-MW0IN3QT-7F2A2B5E y eliminar OSCARIN desde la consola
+- [x] Desplegado bd0efdc; Oscar descartó RG-ESENCIAL-MW0IN3QT-7F2A2B5E y eliminó OSCARIN desde la consola
 
 ## 2026-11-03 · Revisión independiente por tipo de usuario (24 hallazgos)
 Alta:
@@ -289,4 +289,6 @@ Baja: 17 correo al cancelar renovación · 18 plan Socio límites/descuento · 1
 
 ## 2026-11-03 · Graves resueltos (8ea67d3 + 07ab9c8) · 026 aplicada por Oscar
 - [x] Suite completa: endpoints 931 · 0 fallos; todos los e2e 0 fallos; unitarias 36 + 22
-- [ ] Comprobar en producción tras el despliegue de 07ab9c8 (Chrome de Oscar no conecta con la sesión)
+- [x] En vivo (bd0efdc): orden de prueba «descartada sin pagar»; OSCARIN ya no está en clientes; webhook Stripe 400 firma; /api/exportar sin sesión 401; ficha con «Descargar sus datos» y ZIP 200 (PK); /admin/activar con enlace falso «ya no sirve»
+- [x] Superadmin de Oscar (gerencia@farmagenericoscolombia.com) con contraseña propia vía db/consola/superadmin-enlace.sql
+- [ ] Detalle: un pago aprobado cuya droguería se eliminó aún muestra «Crear su cuenta» (ocultar si está atendido)
