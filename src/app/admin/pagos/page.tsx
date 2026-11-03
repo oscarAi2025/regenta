@@ -36,13 +36,14 @@ export default async function Pagos({ searchParams }: { searchParams: Promise<{ 
                 <td className="px-4 py-3"><p className="font-semibold">{p.empresa}</p><p className="text-sm text-muted">{p.nombre} · {p.telefono} · {p.email}{p.nit ? ` · NIT ${p.nit}` : ""}</p>{p.cliente && <Link href={`/admin/clientes/${p.empresa_id}`} className="text-sm text-cruz underline">Cliente: {p.cliente}</Link>}</td>
                 <td className="px-4 py-3">{NOMBRE_PLAN[p.plan]} {p.periodo === "anio" ? "anual" : "mensual"}<p className="text-sm text-muted">{p.proveedor === "qr" ? "QR Bancolombia" : p.proveedor === "wompi" ? "Wompi" : "Stripe"}{p.metodo ? ` · ${p.metodo}` : ""}</p></td>
                 <td className="px-4 py-3 num text-right font-semibold">{pesos(p.monto)}</td>
-                <td className="px-4 py-3"><span className={`font-semibold ${ESTADO[p.estado] ?? ""}`}>{p.estado}</span>{p.atendido && <p className="text-sm text-muted">atendido</p>}
+                <td className="px-4 py-3"><span className={`font-semibold ${ESTADO[p.estado] ?? ""}`}>{p.estado}</span>{p.detalle?.descartado ? <p className="text-sm text-muted">descartada sin pagar</p> : p.atendido && <p className="text-sm text-muted">atendido</p>}
                   {p.detalle?.revisar && <p className="text-sm text-alerta font-semibold">{REVISAR[p.detalle.revisar] ?? p.detalle.revisar}</p>}</td>
                 <td className="px-4 py-3"><div className="flex flex-wrap gap-2">
                   {p.proveedor === "qr" && p.estado === "pendiente" && <>
                     <Accion url="/api/admin/pagos" metodo="PATCH" cuerpo={{ referencia: p.referencia, confirmar: "aprobado" }} texto="Confirmar: el dinero llegó" confirmar={`¿Llegaron ${pesos(p.monto)}? Sí`} clase="btn-primario h-9 text-sm" />
                     <Accion url="/api/admin/pagos" metodo="PATCH" cuerpo={{ referencia: p.referencia, confirmar: "rechazado" }} texto="No llegó" confirmar="¿Marcar como no recibido? Sí" clase="btn-borde h-9 text-sm text-muted" />
                   </>}
+                  {p.proveedor !== "qr" && ["pendiente", "error"].includes(p.estado) && <Accion url="/api/admin/pagos" metodo="PATCH" cuerpo={{ referencia: p.referencia, descartar: true }} texto="Descartar orden sin pagar" confirmar="¿Descartar? Se cierra su enlace de pago. Sí" clase="btn-borde h-9 text-sm text-muted" />}
                   {p.estado === "aprobado" && !p.empresa_id && <Link href={`/admin/clientes/nuevo?pago=${encodeURIComponent(p.referencia)}`} className="btn-primario h-9 text-sm">Crear su cuenta</Link>}
                   {!p.atendido && <Accion url="/api/admin/pagos" metodo="PATCH" cuerpo={{ referencia: p.referencia, atendido: true }} texto="Marcar atendido" clase="btn-borde h-9 text-sm" />}
                   <a href={`https://wa.me/57${String(p.telefono).replace(/\D/g, "").slice(-10)}`} target="_blank" rel="noopener" className="btn-borde h-9 text-sm">WhatsApp</a>

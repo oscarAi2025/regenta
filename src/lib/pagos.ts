@@ -85,6 +85,20 @@ export async function cancelarSuscripcionStripe(id: string, alFinal: boolean) {
   return !!r?.ok;
 }
 
+/** Cierra una sesión de Stripe Checkout que nadie pagó, para que el enlace ya no sirva. «pagada» si el cliente ya pagó
+ *  (entonces no se descarta: llegará el aviso), «cerrada» si quedó cerrada (o ya había vencido), null si Stripe no respondió. */
+export async function expirarSesionStripe(id: string): Promise<"pagada" | "cerrada" | null> {
+  if (!process.env.STRIPE_SECRET_KEY || !/^cs_[\w]+$/.test(id)) return null;
+  const h = { authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}` };
+  const r = await fetch(`https://api.stripe.com/v1/checkout/sessions/${id}`, { headers: h }).catch(() => null);
+  if (!r?.ok) return null;
+  const s = await r.json() as { status?: string; payment_status?: string };
+  if (s.status === "complete" || s.payment_status === "paid") return "pagada";
+  if (s.status === "expired") return "cerrada";
+  const x = await fetch(`https://api.stripe.com/v1/checkout/sessions/${id}/expire`, { method: "POST", headers: h }).catch(() => null);
+  return x?.ok ? "cerrada" : null;
+}
+
 /** Suscripción de Stripe vigente de una droguería (la que se renueva sola), si tiene. */
 export async function suscripcionStripe(c: { query: (q: string, v: unknown[]) => Promise<{ rows: { suscripcion: string; al_final: boolean }[] }> }, empresa: string) {
   return (await c.query(`select suscripcion, coalesce((detalle ->> 'cancelar_al_final')::boolean, false) al_final from pagos_suscripcion

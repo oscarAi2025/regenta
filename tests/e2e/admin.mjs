@@ -322,6 +322,55 @@ ok(await pq.getByText(/Tu cuenta ya está creada/).count() === 1 && await pq.get
 const otraVez = await p.request.patch(B + "/api/admin/pagos", { headers: { origin: B }, data: { referencia: jq.referencia, confirmar: "aprobado" } });
 ok(otraVez.status() === 409, "QR: no se confirma dos veces");
 
+// ── Descartar una orden de pasarela que nadie pagó (cierra el enlace; sin correo al cliente) y eliminar una droguería de prueba
+{
+  const ref = `RG-ESENCIAL-DESC${sufijo}`, pemail = `desc${sufijo}@pago.test`;
+  await pool.query(`insert into pagos_suscripcion (referencia, plan, periodo, monto, proveedor, nombre, empresa, nit, email, telefono) values ($1, 'esencial', 'mes', 89900, 'wompi', 'Sin Pagar', 'Orden abandonada', '900123', $2, '3001112233')`, [ref, pemail]);
+  await p.goto(B + "/admin/pagos");
+  const fila = p.locator("tr", { hasText: ref });
+  await fila.getByRole("button", { name: "Descartar orden sin pagar" }).click();
+  await fila.getByRole("button", { name: /¿Descartar\?/ }).click();
+  await fila.getByText("descartada sin pagar").waitFor();
+  const o = (await pool.query(`select estado, atendido, detalle from pagos_suscripcion where referencia = $1`, [ref])).rows[0];
+  ok(o.estado === "rechazado" && o.atendido && o.detalle?.descartado === true, "descartar: la orden queda rechazada, atendida y marcada", JSON.stringify(o));
+  ok((await pool.query(`select count(*)::int n from correos where para = $1`, [pemail])).rows[0].n === 0, "descartar: no se escribe al cliente");
+  const dos = await p.request.patch(B + "/api/admin/pagos", { headers: { origin: B }, data: { referencia: ref, descartar: true } });
+  ok(dos.status() === 409, "descartar: una orden ya cerrada no se descarta otra vez", String(dos.status()));
+  const qr = await p.request.patch(B + "/api/admin/pagos", { headers: { origin: B }, data: { referencia: jq.referencia, descartar: true } });
+  ok(qr.status() === 409, "descartar: un pago por QR (ya aprobado) no se descarta", String(qr.status()));
+
+  // Eliminar: la droguería creada por el pago QR (de prueba). Activa → no; NIT mal → no; suspendida → sí, con su dueño.
+  const del = (data) => p.request.delete(B + `/api/admin/clientes/${alta.id}`, { headers: { origin: B }, data });
+  ok((await del({ nit: alta.nit })).status() === 409, "eliminar: una droguería activa no se elimina (primero se suspende)");
+  await p.request.patch(B + `/api/admin/clientes/${alta.id}`, { headers: { origin: B }, data: { estado: "suspendida" } });
+  ok((await del({ nit: "123456789" })).status() === 400, "eliminar: exige escribir su NIT");
+  const cuenta = (await pool.query(`select cu.id from miembros m join cuentas cu on cu.id = m.user_id where m.empresa_id = $1`, [alta.id])).rows[0].id;
+  await p.goto(B + `/admin/clientes/${alta.id}`);
+  await p.getByRole("button", { name: "Eliminar droguería de prueba" }).click();
+  const borrar = p.getByRole("button", { name: "Eliminar para siempre" });
+  ok(await borrar.isDisabled(), "eliminar: el botón espera el NIT");
+  const dv = (await pool.query(`select dv from empresas where id = $1`, [alta.id])).rows[0].dv;
+  await p.getByLabel(/Escribe el NIT/).fill(`${alta.nit}-${dv}`); // con dígito de verificación también vale
+  await borrar.click();
+  await p.waitForURL(/\/admin\/clientes\?eliminado=1/);
+  const queda = (await pool.query(`select (select count(*) from empresas where id = $1)::int empresa, (select count(*) from cuentas where id = $2)::int cuenta,
+    (select count(*) from pagos_suscripcion where referencia = $3 and empresa_id is null)::int pago, (select count(*) from admin_eventos where accion = 'eliminar_cliente_prueba' and datos ->> 'empresa_id' = $1::text)::int bitacora`, [alta.id, cuenta, jq.referencia])).rows[0];
+  ok(queda.empresa === 0 && queda.cuenta === 0 && queda.pago === 1 && queda.bitacora === 1, "eliminar: se va la droguería y su cuenta; el pago y la bitácora quedan", JSON.stringify(queda));
+
+  // Una droguería que facturó en producción no se elimina (sus documentos se conservan por ley).
+  await pool.query(`update resoluciones_dian set pruebas = false, numero_resolucion = coalesce(numero_resolucion, '18764000001234'), vigente_desde = coalesce(vigente_desde, current_date) where empresa_id = $1 and tipo = 'pos'`, [emp.id]);
+  await pool.query(`update resoluciones_dian set pruebas = false, numero_resolucion = coalesce(numero_resolucion, '18764000005678'), vigente_desde = coalesce(vigente_desde, current_date) where empresa_id = $1 and tipo = 'nota_credito'`, [emp.id]);
+  await p.request.patch(B + `/api/admin/clientes/${emp.id}`, { headers: { origin: B }, data: { estado: "suspendida" } });
+  const real = await p.request.delete(B + `/api/admin/clientes/${emp.id}`, { headers: { origin: B }, data: { nit: NIT } });
+  ok(real.status() === 409 && /conservan por ley/.test((await real.json()).error), "eliminar: una droguería con facturación real solo se suspende", String(real.status()));
+  await p.goto(B + `/admin/clientes/${emp.id}`);
+  ok(await p.getByRole("button", { name: "Eliminar droguería de prueba" }).count() === 0, "eliminar: el botón no aparece en una droguería con facturación real");
+  await p.request.patch(B + `/api/admin/clientes/${emp.id}`, { headers: { origin: B }, data: { estado: "activa" } });
+  const idDemo = (await pool.query(`select id, nit from empresas where demo limit 1`)).rows[0];
+  ok((await p.request.delete(B + `/api/admin/clientes/${idDemo.id}`, { headers: { origin: B }, data: { nit: idDemo.nit } })).status() === 409, "eliminar: la demo no se elimina");
+  ok((await fetch(B + `/api/admin/clientes/${emp.id}`, { method: "DELETE", headers: { origin: B, "content-type": "application/json" }, body: JSON.stringify({ nit: NIT }) })).status === 401, "eliminar: exige sesión de administrador");
+}
+
 // ── Móvil y salida
 const m = await (await b.newContext(devices["Pixel 7"])).newPage();
 await m.context().addCookies(await ctx.cookies());

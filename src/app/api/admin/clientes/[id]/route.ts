@@ -64,3 +64,25 @@ export const PATCH = conAdmin(async (a, req, ctx) => {
   await evento(a, d.estado ? (d.estado === "activa" ? "activar_cliente" : "suspender_cliente") : d.plan ? "cambiar_plan" : "nota_cliente", id, d);
   return NextResponse.json({ ok: true, mensaje: d.estado === "suspendida" ? "Cliente suspendido" + aviso : d.estado === "activa" ? "Cliente activado" : "Guardado" });
 });
+
+/** Eliminar una droguería de PRUEBA (la base exige: no demo, suspendida y sin numeración DIAN en producción). Se confirma
+ *  con su NIT. Antes se corta cualquier renovación con tarjeta que aún tenga en Stripe. */
+export const DELETE = conAdmin(async (a, req, ctx) => {
+  const { id } = await ctx.params;
+  if (!esUuid(id)) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+  const b = z.object({ nit: z.string().max(30) }).safeParse(await req.json().catch(() => null));
+  const e = await sinRLS(async (c) => (await c.query(`select nit, dv, coalesce(nombre_comercial, razon_social) nombre from empresas where id = $1`, [id])).rows[0]);
+  if (!e) return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
+  const digitos = b.success ? b.data.nit.replace(/\D/g, "") : "";
+  if (digitos !== String(e.nit) && digitos !== `${e.nit}${e.dv ?? ""}`) return NextResponse.json({ error: "Escribe el NIT de la droguería para confirmar" }, { status: 400 });
+  const sub = await sinRLS((c) => suscripcionStripe(c, id));
+  if (sub && !(await cancelarSuscripcionStripe(sub.suscripcion, false)))
+    return NextResponse.json({ error: "No se pudo cancelar su suscripción en Stripe: cancélala en el panel de Stripe y vuelve a intentar" }, { status: 502 });
+  const cuentas = await sinRLS(async (c) => {
+    const n = (await c.query(`select eliminar_empresa_prueba($1) n`, [id])).rows[0].n as number;
+    await evento(a, "eliminar_cliente_prueba", null, { empresa_id: id, nombre: e.nombre, nit: e.nit, cuentas_borradas: n }, c);
+    return n;
+  }).catch((err) => { if ((err as { code?: string }).code === "P0001") return err as Error; throw err; });
+  if (cuentas instanceof Error) return NextResponse.json({ error: cuentas.message }, { status: 409 });
+  return NextResponse.json({ ok: true, mensaje: `Eliminada ${e.nombre} (${cuentas} cuenta${cuentas === 1 ? "" : "s"} borrada${cuentas === 1 ? "" : "s"})` });
+});

@@ -8,6 +8,7 @@ import { ROLES } from "@/lib/admin-datos";
 import { Usuarios } from "./Usuarios";
 import { Nota } from "./Nota";
 import { Facturacion } from "./Facturacion";
+import { Eliminar } from "./Eliminar";
 
 export const metadata = { title: "Cliente" };
 export const dynamic = "force-dynamic";
@@ -41,6 +42,8 @@ export default async function Cliente({ params }: { params: Promise<{ id: string
         {!e.demo && (e.estado === "activa"
           ? <Accion url={`/api/admin/clientes/${id}`} metodo="PATCH" cuerpo={{ estado: "suspendida" }} texto="Suspender" confirmar="¿Suspender? Sí" clase="btn-peligro" />
           : <Accion url={`/api/admin/clientes/${id}`} metodo="PATCH" cuerpo={{ estado: "activa" }} texto="Activar" clase="btn-primario" />)}
+        {/* Solo una droguería de prueba (suspendida y que nunca facturó en producción) se puede borrar; las reales se conservan. */}
+        {!e.demo && e.estado === "suspendida" && d.resoluciones.every((r) => r.pruebas) && <Eliminar id={id} nit={String(e.nit)} dv={String(e.dv ?? "")} nombre={e.nombre_comercial ?? e.razon_social} />}
       </Cabecera>
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Dato titulo="Estado" valor={e.estado === "activa" ? "Activo" : "Suspendido"} tono={e.estado === "activa" ? "cruz" : "alerta"} nota={`cliente desde ${new Date(e.creado).toLocaleDateString("es-CO")}`} />
