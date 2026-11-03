@@ -314,3 +314,5 @@ Baja: 17 correo al cancelar renovación · 18 plan Socio límites/descuento · 1
 - [x] 24 Tope diario de Regenta IA por droguería (300)
 - [x] Detalle: pago aprobado de una droguería eliminada ya no ofrece «Crear su cuenta»
 - [x] BUG previo: cargar numeración DIAN desde la consola daba 500 (integer vs bigint) — corregido y cubierto por ingresos.mjs
+- [x] 027 aplicada en producción; desplegado ea3626f y verificado en vivo (consola: cargos, devoluciones, alerta sin habilitar; /api/activar/nuevo 200; /api/cuenta sin sesión 401; webhook 400)
+- [x] Suite completa: endpoints 1085 · todos los e2e 0 fallos (incluye ingresos.mjs y consola-clave.mjs) · auditoría 160 · unitarias 36 + 22
