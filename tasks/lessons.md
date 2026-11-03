@@ -129,3 +129,6 @@
 - Toda cola con estado «enviando» necesita recuperación por tiempo (correos igual que DIAN).
 - Un fallo «intermitente» en las pruebas puede ser real: reproducirlo con registro de red antes de descartarlo (el abono se guardaba pero la pantalla no se refrescaba).
 - Las rutas deben mirar el permiso antes que los datos: un rol sin permiso merece 403, no «falta un dato».
+
+- Una vista con filtro por usuario (mis_empresas / auth.uid()) no sirve en procesos del servidor (sinRLS): ahí hay que consultar las tablas filtrando por empresa. El error salta solo cuando la conexión del pool tuvo antes claims de un usuario (cadena vacía → JSON inválido), así que puede pasar las pruebas una vez y fallar la siguiente.
+- Al alterar un token en una prueba, garantizar que el valor cambia (sustituir el último carácter por uno distinto al que había).
