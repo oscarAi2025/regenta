@@ -209,3 +209,9 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] Cajero: tope de salida de caja; no ve cifras globales en la IA; no renombra clientes; factura exige correo del cliente
 - [x] CSV sin inyección de fórmulas; claves de tareas comparadas en tiempo constante
 - [x] «¿Olvidaste tu contraseña?» autoservicio; «Mi droguería» (datos, topes de la cajera, plan, documentos del mes, habilitación, equipo con cupo del plan); primeros pasos en Inicio; lector de código de barras agrega al instante
+- [x] Pruebas: 13 grupos e2e en 0 fallos + unitarias 33 y 14
+- [x] Producción 2026-11-03: migración 022 aplicada en Supabase (registrada en regenta_migraciones; columnas, 6 funciones y limites_uso verificadas); despliegue Netlify de 32660db sin errores
+- [x] Verificado en vivo: /api/tareas y /api/dian sin clave → 401; restablecer → respuesta genérica; equipo/configuración sin sesión → 401; «¿Olvidaste tu contraseña?» en /entrar; venta POS en la demo (3 u, $3.600, inventario 383→380, documento aceptado simulado); tarea programada cada 15 min, «Run now» → 200
+### Pendiente
+- [ ] Stripe en producción: falta STRIPE_WEBHOOK_SECRET (el webhook responde 503 «Stripe no configurado"); Oscar lo pega en Netlify si va a cobrar con Stripe
+- [ ] Habilitación DIAN y certificado MATIAS de cada droguería (equipo de Oscar)
