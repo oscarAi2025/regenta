@@ -1,0 +1,35 @@
+// Contraseña del superadministrador con el enlace de un solo uso que genera db/consola/superadmin-enlace.sql (editor SQL):
+// el enlace pone la contraseña y entra a la consola; no se reutiliza; /activar (clientes) no acepta enlaces de superadmin.
+import { chromium } from "playwright-core";
+import { execFileSync } from "node:child_process";
+const B = "http://localhost:4500";
+const sql = "db/consola/superadmin-enlace.sql";
+const link = () => execFileSync("psql", ["-h", "/tmp", "-p", "5433", "-U", "postgres", "regenta", "-Atf", sql]).toString().trim().split("\n").pop().replace("https://regenta.pro", B);
+const enlace = link();
+const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
+const p = await b.newPage();
+const out = [];
+await p.goto(enlace);
+out.push("form: " + (await p.getByRole("heading", { name: "Contraseña de la consola" }).count()));
+const clave = "Prueba" + Date.now();
+await p.fill("#v-clave", clave); await p.fill("#v-repetir", clave);
+await p.getByRole("button", { name: "Guardar contraseña" }).click();
+await p.getByText(/está activa/).waitFor();
+await p.getByRole("link", { name: "Entrar a Regenta" }).click();
+await p.waitForURL(/admin\/entrar/);
+await p.fill("#a-email", "gerencia@farmagenericoscolombia.com"); await p.fill("#a-clave", clave);
+await p.getByRole("button", { name: "Entrar" }).click();
+await p.waitForURL(/\/admin$/);
+out.push("consola: " + (await p.getByRole("heading", { name: "Resumen" }).count()));
+await p.goto(enlace);
+out.push("reuso bloqueado: " + (await p.getByText("Este enlace ya no sirve").count()));
+const enlace2 = link().replace("/admin/activar", "/activar");
+await p.goto(enlace2);
+out.push("activar normal rechaza: " + (await p.getByText("Este enlace ya no sirve").count()));
+const r = await fetch(B + "/api/activar", { method: "POST", headers: { "content-type": "application/json", origin: B }, body: JSON.stringify({ token: new URL(enlace2).searchParams.get("t"), clave: "OtraClave12345", repetir: "OtraClave12345" }) });
+out.push("api activar normal: " + r.status);
+const esperado = ["form: 1", "consola: 1", "reuso bloqueado: 1", "activar normal rechaza: 1", "api activar normal: 400"];
+const fallos = esperado.filter((e, i) => out[i] !== e);
+console.log(out.join("\n")); console.log(fallos.length ? `\n${fallos.length} fallo(s)` : "\n0 fallos");
+await b.close();
+process.exit(fallos.length ? 1 : 0);

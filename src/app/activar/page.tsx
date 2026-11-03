@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Activa tu cuenta", robots: { index: 
 export default async function PaginaActivar({ searchParams }: { searchParams: Promise<{ t?: string }> }) {
   const { t = "" } = await searchParams;
   // Se revisa el enlace antes de pedir la contraseña: uno vencido o ya usado lo dice de una vez.
-  const valido = /^[\w-]{20,100}$/.test(t) && !!(await sinRLS((c) => c.query(`select 1 from invitaciones where token_hash = $1 and usada is null and expira > now()`, [hashToken(t)]))).rowCount;
+  const valido = /^[\w-]{20,100}$/.test(t) && !!(await sinRLS((c) => c.query(`select 1 from invitaciones i where token_hash = $1 and usada is null and expira > now() and not exists (select 1 from superadmins s where s.user_id = i.cuenta_id)`, [hashToken(t)]))).rowCount;
   if (!valido) return (
     <main className="min-h-screen grid place-items-center bg-paper px-4 py-10">
       <div className="w-full max-w-md tarjeta p-6 sm:p-8">

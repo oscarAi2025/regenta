@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
-export function Activar({ token }: { token: string }) {
+export function Activar({ token, api = "/api/activar", entrar = "/entrar", boton = "Activar mi cuenta" }: { token: string; api?: string; entrar?: string; boton?: string }) {
   const [clave, setClave] = useState(""), [repetir, setRepetir] = useState("");
   const [error, setError] = useState(""), [listo, setListo] = useState(""), [enviando, setEnviando] = useState(false);
   async function guardar(e: React.FormEvent) {
@@ -10,7 +10,7 @@ export function Activar({ token }: { token: string }) {
     if (enviando) return;
     setEnviando(true); setError("");
     try {
-      const r = await fetch("/api/activar", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token, clave, repetir }) });
+      const r = await fetch(api, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token, clave, repetir }) });
       const j = await r.json();
       if (!r.ok) { setError(j.error ?? "No se pudo activar"); return; }
       setListo(j.email);
@@ -20,7 +20,7 @@ export function Activar({ token }: { token: string }) {
   if (listo) return (
     <div className="mt-6 grid gap-4">
       <p className="rounded-xl bg-cruz-soft text-cruz px-4 py-3 font-semibold">Listo. Tu cuenta {listo} está activa.</p>
-      <Link href="/entrar" className="btn-oscuro h-12">Entrar a Regenta</Link>
+      <Link href={entrar} className="btn-oscuro h-12">Entrar a Regenta</Link>
     </div>
   );
   return (
@@ -29,7 +29,7 @@ export function Activar({ token }: { token: string }) {
         <p className="mt-1 text-xs text-muted">Mínimo 10 caracteres, con letras y números.</p></div>
       <div><label htmlFor="v-repetir" className="etiqueta">Repítela</label><input id="v-repetir" type="password" required autoComplete="new-password" className="campo" value={repetir} onChange={(e) => setRepetir(e.target.value)} /></div>
       {error && <p role="alert" className="text-alerta text-sm font-semibold">{error}</p>}
-      <button disabled={enviando} className="btn-oscuro h-12 disabled:opacity-60">{enviando ? "Guardando…" : "Activar mi cuenta"}</button>
+      <button disabled={enviando} className="btn-oscuro h-12 disabled:opacity-60">{enviando ? "Guardando…" : boton}</button>
     </form>
   );
 }

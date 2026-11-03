@@ -55,6 +55,7 @@ const R = [
   { m: "POST", p: "/api/sesion", acceso: "publico", basura: true },
   { m: "DELETE", p: "/api/sesion", acceso: "publico" },
   { m: "POST", p: "/api/admin/salir", acceso: "publico" },
+  { m: "POST", p: "/api/admin/activar", acceso: "publico", basura: true },
   // firmados por la pasarela / tarea programada
   { m: "POST", p: "/api/pagos/stripe", acceso: "firma", basura: true },
   { m: "POST", p: "/api/pagos/wompi", acceso: "firma", basura: true },
