@@ -221,4 +221,6 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] Anular: la nota crédito de anulación sale a la DIAN al instante; la venta muestra nota, estado y CUDE (o «no hizo falta nota crédito»); reenvío si la rechazan
 - [x] Regenta IA: respuesta en flujo palabra por palabra, consultas en paralelo, instrucciones en caché, «Detener»; en celular pantalla completa, «atrás» la cierra, botón pequeño que se esconde al bajar; negritas y listas legibles
 - [x] Velocidad: región de funciones Netlify → São Paulo (junto a Supabase; autorizado por Oscar); arranque de transacción en una sola ida a la base; cabecera con una consulta; seguridad por fila con mis_empresas() (migración 023: 10–20× más rápido en inventario, mismo resultado por rol)
-- [ ] Aplicar migración 023 en producción y desplegar; medir de nuevo en vivo
+- [x] Migración 023 aplicada en producción (21 políticas, ninguna con rol_en) · despliegue lanzado 07:51 con región São Paulo
+- [ ] Confirmar que el despliegue terminó y medir de nuevo en vivo (Chrome se desconectó antes de verlo)
+- [ ] Stripe: Oscar pega STRIPE_SECRET_KEY y STRIPE_WEBHOOK_SECRET (destino de eventos «Snapshot» → https://regenta.pro/api/pagos/stripe)
