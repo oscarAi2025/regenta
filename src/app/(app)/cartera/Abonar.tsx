@@ -22,6 +22,7 @@ export function Abonar({ venta, saldo, numero }: { venta: string; saldo: number;
       const r = await fetch("/api/cartera", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ venta_id: venta, medio, valor: n, referencia: ref || null }) });
       const j = await r.json();
       if (!r.ok) { setError(j.error ?? "No se pudo registrar el abono"); return; }
+      window.dispatchEvent(new CustomEvent("regenta:abono", { detail: { venta, abonado: Number(j.abonado), saldo: Number(j.saldo) } }));
       setAbierto(false); setValor(""); setRef(""); router.refresh();
     } catch { setError("Sin conexión con el servidor: vuelve a intentarlo"); } finally { setEnviando(false); }
   }

@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     const esDemo = await sinRLS(async (c) => (await c.query(`select demo from empresas where id = $1`, [actual.empresa])).rows[0]?.demo);
     if (!esDemo) return NextResponse.json({ error: "Ya tienes una sesión abierta: sal primero" }, { status: 409 });
   }
-  const { uid } = (await req.json().catch(() => ({}))) as { uid?: string };
+  const { uid } = ((await req.json().catch(() => null)) ?? {}) as { uid?: string };
   // Solo los tres usuarios sembrados: nunca una cuenta real, aunque alguien la agregue a la empresa demo.
   if (!uid || !(Object.values(USUARIOS_DEMO) as string[]).includes(uid)) return NextResponse.json({ error: "Usuario no válido" }, { status: 400 });
   const m = await sinRLS(async (c) => (await c.query(

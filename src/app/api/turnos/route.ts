@@ -1,3 +1,4 @@
+import { puede } from "@/lib/sesion";
 import { z } from "zod";
 import { comoUsuario, puestoDeTrabajo } from "@/lib/db";
 import { estadoTurno } from "@/lib/turnos";
@@ -15,6 +16,7 @@ const Accion = z.discriminatedUnion("accion", [
 export const GET = conSesion(async (s) => json(await comoUsuario(s, (c) => estadoTurno(c, s.empresa))));
 
 export const POST = conSesion(async (s, req) => {
+  if (!puede.vender(s.rol)) return json({ error: "Solo quien vende maneja el turno de caja" }, 403); // el permiso se mira antes que los datos
   const p = Accion.safeParse(await req.json().catch(() => null));
   if (!p.success) return json({ error: p.error.issues[0]?.message ?? "Datos incompletos" }, 400);
   const a = p.data;

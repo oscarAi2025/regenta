@@ -12,7 +12,8 @@
     "e2e": "node tests/e2e/caja.mjs && node tests/e2e/gestion.mjs && node tests/e2e/ia.mjs && node tests/e2e/facturacion.mjs",
     "auditoria": "node tests/e2e/auditoria.mjs",
     "pagos": "node tests/e2e/pagos.mjs",
-    "admin": "node tests/e2e/admin.mjs"
+    "admin": "node tests/e2e/admin.mjs",
+    "endpoints": "node tests/e2e/endpoints.mjs"
   },
   "dependencies": {
     "@fontsource/barlow": "^5.3.0",

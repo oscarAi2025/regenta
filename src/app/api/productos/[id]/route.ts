@@ -1,9 +1,11 @@
+import { puede } from "@/lib/sesion";
 import { comoUsuario } from "@/lib/db";
 import { conSesion, esUuid, json } from "@/lib/api";
 import { ProductoEntrada, primerError } from "@/lib/validar";
 
 /** Edita un producto (precio, fracción, mínimo, datos). El cambio de precio queda en la auditoría (trigger). */
 export const PATCH = conSesion(async (s, req, ctx) => {
+  if (!puede.verCostos(s.rol)) return json({ error: "Solo el dueño o el administrador cambian productos" }, 403); // el permiso se mira antes que los datos
   const { id } = await ctx.params;
   if (!esUuid(id)) return json({ error: "No encontrado" }, 404);
   const body = await req.json().catch(() => null);

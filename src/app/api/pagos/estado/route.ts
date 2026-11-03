@@ -3,10 +3,14 @@ import { sinRLS } from "@/lib/db";
 import { datosQr, estadoWompi, transaccionWompi, wompiActivo } from "@/lib/pagos";
 import { alCambiarPago } from "@/lib/pagos-eventos";
 import { enviarAhora } from "@/lib/correo";
+import { ipCliente, limitador } from "@/lib/api";
+
+const permitido = limitador(60, 60000); // la página de resultado consulta cada pocos segundos; nadie necesita más
 
 /** Estado de una orden por su referencia (solo estado y plan: nada personal). Al volver de Wompi con ?id= se confirma
  *  contra la API de Wompi por si el evento aún no llegó. */
 export async function GET(req: Request) {
+  if (!permitido(ipCliente(req))) return NextResponse.json({ error: "Demasiadas consultas: espera un minuto" }, { status: 429 });
   const sp = new URL(req.url).searchParams;
   const ref = (sp.get("ref") ?? "").slice(0, 80), id = (sp.get("id") ?? "").slice(0, 80);
   if (!/^RG-[A-Z]+-[0-9A-Z]+-[0-9A-F]{8}$/.test(ref)) return NextResponse.json({ error: "Referencia no válida" }, { status: 400 });

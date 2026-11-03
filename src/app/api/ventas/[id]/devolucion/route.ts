@@ -1,3 +1,4 @@
+import { puede } from "@/lib/sesion";
 import { z } from "zod";
 import { comoUsuario, puestoDeTrabajo } from "@/lib/db";
 import { conSesion, esUuid, json } from "@/lib/api";
@@ -13,6 +14,7 @@ const Devolucion = z.object({
 
 /** Devolución parcial (solo dueño o administrador; la base de datos reparte por lotes, devuelve inventario y crea la nota crédito). */
 export const POST = conSesion(async (s, req, ctx) => {
+  if (!puede.anular(s.rol)) return json({ error: "Solo el dueño o el administrador hacen devoluciones" }, 403); // el permiso se mira antes que los datos
   const { id } = await ctx.params;
   if (!esUuid(id)) return json({ error: "No encontrado" }, 404);
   const p = Devolucion.safeParse(await req.json().catch(() => null));

@@ -127,3 +127,5 @@
 - Si un documento se emite en «real» o «simulado» según SU numeración, la nota crédito puede salir simulada aunque el original sea real: la nota hereda el modo del original (guardia en la base).
 - Un envío con timeout no es «no enviado»: tras un intento, anular debe producir nota crédito y enviar el original.
 - Toda cola con estado «enviando» necesita recuperación por tiempo (correos igual que DIAN).
+- Un fallo «intermitente» en las pruebas puede ser real: reproducirlo con registro de red antes de descartarlo (el abono se guardaba pero la pantalla no se refrescaba).
+- Las rutas deben mirar el permiso antes que los datos: un rol sin permiso merece 403, no «falta un dato».

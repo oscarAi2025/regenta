@@ -4,6 +4,7 @@ import { comoUsuario } from "@/lib/db";
 import { leerSesion, puede } from "@/lib/sesion";
 import { Cabecera, Dato, pesos } from "@/components/ui/Cabecera";
 import { Abonar } from "./Abonar";
+import { Valor } from "./Valor";
 
 export const metadata = { title: "Cartera" };
 
@@ -54,8 +55,8 @@ export default async function Cartera({ searchParams }: { searchParams: Promise<
                   {f.saldo > 0 && f.dias_mora > 0 && <p className="text-sm text-alerta mt-1">{f.dias_mora} día{f.dias_mora === 1 ? "" : "s"} de mora</p>}
                 </td>
                 <td className="px-4 py-3 num text-right">{pesos(f.total)}</td>
-                <td className="px-4 py-3 num text-right text-muted">{pesos(f.abonado)}</td>
-                <td className="px-4 py-3 num text-right font-semibold">{pesos(f.saldo)}</td>
+                <td className="px-4 py-3 num text-right text-muted"><Valor venta={f.venta_id} campo="abonado" inicial={f.abonado} /></td>
+                <td className="px-4 py-3 num text-right font-semibold"><Valor venta={f.venta_id} campo="saldo" inicial={f.saldo} /></td>
                 {ver !== "pagadas" && <td className="px-4 py-3"><Abonar venta={f.venta_id} saldo={f.saldo} numero={f.numero} /></td>}
               </tr>
             ))}

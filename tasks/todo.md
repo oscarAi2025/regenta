@@ -238,3 +238,8 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [ ] Producción: aplicar migración 024 y desplegar (necesita Chrome)
 - [ ] Dudas normativas para confirmar con MATIAS/DIAN: contingencia de 72 h, fecha en reenvíos, responsabilidades fiscales del adquirente (tax_level/regime), código de medio de pago para débito/Nequi
 - [ ] Pendientes menores: abonos en efectivo con varias cajas activas; CSP sin 'unsafe-inline' (nonce)
+
+## 2026-11-03 · Contrato de endpoints (tests/e2e/endpoints.mjs, 850 comprobaciones)
+- [x] Las 44 rutas de la API, cada una: sin sesión, desde otro sitio (CSRF), rol sin permiso, 8 cuerpos basura, método inexistente, sin fugas de errores internos; falla si aparece una ruta nueva sin probar
+- [x] Arreglado: /api/sesion devolvía 500 con cuerpo «null»; 6 rutas validaban datos antes que el rol (ahora 403 claro); estado de pago con límite por IP; reportes sin error interno si falla la base
+- [x] Cartera: el saldo a veces no se actualizaba tras un abono (router.refresh no aplicaba); ahora la fila toma el saldo que confirma el servidor

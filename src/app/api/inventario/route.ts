@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { puede } from "@/lib/sesion";
 import { comoUsuario, puestoDeTrabajo } from "@/lib/db";
 import { conSesion, json } from "@/lib/api";
 import { fechaReal } from "@/lib/validar";
@@ -18,6 +19,7 @@ const Entrada = z.object({
 
 /** Recibir mercancía o ajustar inventario (la función de la base de datos valida rol, motivo y negativos). */
 export const POST = conSesion(async (s, req) => {
+  if (!puede.moverInventario(s.rol)) return json({ error: "Solo el dueño, el administrador o la bodega mueven inventario" }, 403); // el permiso se mira antes que los datos
   const p = Entrada.safeParse(await req.json().catch(() => null));
   if (!p.success) return json({ error: p.error.issues[0]?.message ?? "Datos no válidos" }, 400);
   const r = await comoUsuario(s, async (c) => {

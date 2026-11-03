@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { comoUsuario, mensajeError, sinComodines } from "@/lib/db";
 import { conSesion, json } from "@/lib/api";
 import { ProductoEntrada, primerError } from "@/lib/validar";
-import { leerSesion } from "@/lib/sesion";
+import { leerSesion, puede } from "@/lib/sesion";
 
 /** Búsqueda para la caja: por código de barras exacto o por palabras (todas deben aparecer en nombre o laboratorio). */
 export async function GET(req: Request) {
@@ -57,6 +57,7 @@ export async function GET(req: Request) {
 
 /** Crea un producto en la droguería (desde el catálogo maestro o propio). Solo dueño o administrador (lo exige la RLS). */
 export const POST = conSesion(async (s, req) => {
+  if (!puede.verCostos(s.rol)) return json({ error: "Solo el dueño o el administrador crean productos" }, 403); // el permiso se mira antes que los datos
   const p = ProductoEntrada.safeParse(await req.json().catch(() => null));
   if (!p.success) return json({ error: primerError(p.error) }, 400);
   const d = p.data;

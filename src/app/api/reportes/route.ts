@@ -12,7 +12,8 @@ export async function GET(req: Request) {
   const u = new URL(req.url);
   const r = rango(u.searchParams.get("desde"), u.searchParams.get("hasta"));
   const tipo = u.searchParams.get("tipo") ?? "productos";
-  const d = await comoUsuario(s, (c) => datosReporte(c, s.empresa, r, true));
+  const d = await comoUsuario(s, (c) => datosReporte(c, s.empresa, r, true)).catch((e) => { console.error("reportes", e); return null; });
+  if (!d) return NextResponse.json({ error: "No se pudo armar el reporte. Inténtalo de nuevo." }, { status: 503 });
   const tablas: Record<string, [Record<string, unknown>[], [string, string][]]> = {
     productos: [d.productos.map((x) => ({ ...x, ganancia: x.sin_costo ? null : Math.round(x.base - x.costo) })), [["producto", "Producto"], ["unidades", "Unidades"], ["devueltas", "Devueltas"], ["total", "Vendido"], ["ganancia", "Ganancia"]]],
     cajeros: [d.cajeros.map((x) => ({ ...x, cajero: String(x.cajero).split(" (")[0] })), [["cajero", "Cajero"], ["ventas", "Ventas"], ["promedio", "Ticket promedio"], ["total", "Total"]]],

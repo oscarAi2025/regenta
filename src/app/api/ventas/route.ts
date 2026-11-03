@@ -1,3 +1,4 @@
+import { puede } from "@/lib/sesion";
 import { z } from "zod";
 import { comoUsuario, puestoDeTrabajo } from "@/lib/db";
 import { conSesion, json } from "@/lib/api";
@@ -19,6 +20,7 @@ const Venta = z.object({
 
 /** Registra la venta (la base de datos fija precios, lotes, numeración y reglas de crédito) y emite su documento DIAN. */
 export const POST = conSesion(async (s, req) => {
+  if (!puede.vender(s.rol)) return json({ error: "Tu usuario no puede vender" }, 403); // el permiso se mira antes que los datos
   const p = Venta.safeParse(await req.json().catch(() => null));
   if (!p.success) return json({ error: p.error.issues.find((i) => i.code === "custom")?.message ?? p.error.issues.find((i) => i.path.includes("pagos"))?.message ?? "Datos de la venta incompletos" }, 400);
   const r = await comoUsuario(s, async (c) => {
