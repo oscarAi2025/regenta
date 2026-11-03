@@ -31,8 +31,10 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
       from devoluciones d where d.venta_id = $1 order by d.creado`, [id])).rows;
     const pagos = (await c.query(`select medio, valor::float from pagos where venta_id = $1`, [id])).rows;
     const doc = (await c.query(`select estado, cufe, simulado, ultimo_error, intentos from documentos_dian where venta_id = $1 and tipo <> 'nota_credito' order by creado limit 1`, [id])).rows[0];
+    const nota = (await c.query(`select prefijo || numero documento, estado, cufe, simulado, ultimo_error from documentos_dian
+      where venta_id = $1 and tipo = 'nota_credito' and devolucion_id is null order by creado desc limit 1`, [id])).rows[0];
     const abonos = v.condicion === "credito" && puede.cartera(s.rol) ? (await c.query(`select id::text, to_char(creado at time zone 'America/Bogota', 'DD/MM/YYYY') fecha, medio, valor::float, referencia, anulado, anulado_motivo from abonos where venta_id = $1 order by creado`, [id])).rows : [];
-    return { v, lineas, pagos, doc, abonos, devoluciones };
+    return { v, lineas, pagos, doc, nota, abonos, devoluciones };
   });
   if (!d) notFound();
   const { v } = d;
@@ -73,7 +75,22 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
         <Imprimir id={v.id} />
         <div className="tarjeta p-5">
           <h2 className="titulo text-xl">Estado</h2>
-          {v.estado === "anulada" ? <p className="mt-2 text-alerta font-semibold">Venta anulada. Las unidades volvieron a sus lotes.</p> : (
+          {v.estado === "anulada" ? (
+            <div className="mt-2 grid gap-1">
+              <p className="text-alerta font-semibold">Venta anulada. Las unidades volvieron a sus lotes.</p>
+              {d.nota ? (
+                <p>
+                  Nota crédito <span className="num font-semibold">{d.nota.documento}</span>:{" "}
+                  {d.nota.estado === "aceptado" ? <span className="text-cruz font-semibold">aceptada por la DIAN, el documento quedó anulado</span>
+                    : d.nota.estado === "rechazado" ? <span className="text-alerta font-semibold">rechazada por la DIAN: {d.nota.ultimo_error}</span>
+                    : <span className="text-aviso font-semibold">enviándose a la DIAN; la cola la reintenta sola</span>}
+                  {d.nota.simulado && <span className="text-muted"> · emisión simulada</span>}
+                </p>
+              ) : d.doc?.estado === "anulado" ? <p className="text-muted">El documento no había salido a la DIAN: no hizo falta nota crédito.</p> : null}
+              {d.nota?.cufe && <p className="text-[11px] text-muted break-all">CUDE {d.nota.cufe}</p>}
+              {d.nota?.estado === "rechazado" && puede.anular(s.rol) && <Reenviar id={v.id} />}
+            </div>
+          ) : (
             <p className="mt-2">
               {d.doc?.estado === "aceptado" ? <span className="text-cruz font-semibold">Aceptado por la DIAN</span>
                 : d.doc?.estado === "rechazado" ? <span className="text-alerta font-semibold">Rechazado por la DIAN: {d.doc.ultimo_error}</span>
@@ -101,7 +118,7 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
         {v.estado === "cerrada" && puede.anular(s.rol) && d.lineas.some((l) => l.cantidad > l.devuelto) && (
           <Devolver id={v.id} credito={v.condicion === "credito"} lineas={d.lineas.filter((l) => l.cantidad > l.devuelto).map((l) => ({ producto_id: l.producto_id, presentacion: l.presentacion, descripcion: l.descripcion, disponible: l.cantidad - l.devuelto, unitario: l.total / l.cantidad }))} />
         )}
-        {v.estado === "cerrada" && Number(v.devuelto) === 0 && puede.anular(s.rol) && <Anular id={v.id} />}
+        {v.estado === "cerrada" && Number(v.devuelto) === 0 && puede.anular(s.rol) && <Anular id={v.id} emitido={d.doc?.estado === "aceptado" || d.doc?.estado === "enviando"} />}
       </section>
     </main>
   );

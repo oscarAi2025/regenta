@@ -8,7 +8,7 @@
     "start": "next start -p 4500",
     "typecheck": "tsc --noEmit",
     "db:reset": "node scripts/db-reset.mjs",
-    "test": "node --test tests/db.test.mjs && node --experimental-strip-types --test tests/invima.test.mjs tests/pagos.test.mjs tests/matias.test.mjs",
+    "test": "node --test tests/db.test.mjs && node --experimental-strip-types --test tests/invima.test.mjs tests/pagos.test.mjs tests/matias.test.mjs tests/importar.test.mjs",
     "e2e": "node tests/e2e/caja.mjs && node tests/e2e/gestion.mjs && node tests/e2e/ia.mjs && node tests/e2e/facturacion.mjs",
     "auditoria": "node tests/e2e/auditoria.mjs",
     "pagos": "node tests/e2e/pagos.mjs",
@@ -24,6 +24,7 @@
     "qrcode": "^1.5.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "read-excel-file": "^9.3.14",
     "server-only": "^0.0.1",
     "zod": "^3.25.76"
   },

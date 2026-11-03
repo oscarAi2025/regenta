@@ -97,6 +97,21 @@ async function agregar(p, texto) {
   await fila.getByRole("button", { name: "Cancelar" }).click();
   ok(await p.getByText("Vencido").count() >= 1, "Cartera muestra lo vencido");
   if (CAP) await p.screenshot({ path: `${CAP}/cartera.png` });
+
+  // Anular una factura de contado ya aceptada: la nota crédito sale a la DIAN en el mismo momento
+  const cli = (await (await p.request.get(B + "/api/clientes?q=salud")).json()).clientes?.[0];
+  const prod = (await (await p.request.get(B + "/api/productos?q=acetaminofen")).json()).productos.find((x) => x.unidades > 5);
+  const fv = await (await p.request.post(B + "/api/ventas", { headers: { origin: B }, data: { idem_key: crypto.randomUUID(), tipo_doc: "factura", cliente_id: cli?.id, lineas: [{ producto_id: prod.id, presentacion: "unidad", cantidad: 1 }], pagos: [{ medio: "efectivo", valor: 100000 }] } })).json();
+  ok(fv.documento?.estado === "aceptado", "factura de contado aceptada", fv.documento?.estado ?? JSON.stringify(fv).slice(0, 160));
+  await p.goto(B + `/ventas/${fv.venta.venta_id}`);
+  await p.getByRole("button", { name: "Anular y avisar a la DIAN" }).click();
+  ok(await p.getByText(/se envía ahora mismo una nota crédito/).count() === 1, "explica que la anulación va a la DIAN");
+  await p.fill("#motivo", "Error en el producto facturado");
+  await p.getByRole("button", { name: "Confirmar anulación" }).click();
+  await p.waitForSelector("text=Venta anulada", { timeout: 15000 });
+  ok(await p.getByText(/Nota crédito \S+: aceptada por la DIAN, el documento quedó anulado/).count() === 1, "nota crédito de anulación aceptada y visible en la venta");
+  ok(await p.getByText(/^CUDE /).count() === 1, "muestra el CUDE de la nota crédito");
+  await p.screenshot({ path: `${OUT}/factura-anulada.png` });
   await p.goto(B + `/ventas`);
   ok(errs.length === 0, "sin errores en consola (dueño)", errs.join(" | "));
   await ctx.close();

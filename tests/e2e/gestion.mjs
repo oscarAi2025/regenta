@@ -146,7 +146,7 @@ async function entrar(ctx, quien) {
   await p.goto(B + "/productos/importar");
   await p.setInputFiles('input[type="file"]', `${OUT}/e2e-malo.csv`);
   await p.waitForSelector("text=con errores");
-  ok(await p.getByText(/Fila 4: precio de venta/).count() === 1, "la vista previa señala la fila con error");
+  ok(await p.getByText(/Fila 4: falta el precio de venta/).count() === 1, "la vista previa señala la fila con error");
   ok(await p.getByRole("button", { name: /Importar/ }).isDisabled(), "con errores no deja importar");
   await p.setInputFiles('input[type="file"]', `${OUT}/e2e.csv`);
   await p.waitForSelector("text=Se van a crear 2 productos");
@@ -158,6 +158,40 @@ async function entrar(ctx, quien) {
   const busca = await (await p.request.get(B + "/api/productos?q=7709990000017")).json();
   const uno = busca.productos[0];
   ok(uno && uno.unidades === 60 && uno.precio_caja === 24000 && uno.precio_unidad === 1300, "precios y existencias importados", JSON.stringify(uno && { u: uno.unidades, c: uno.precio_caja, pu: uno.precio_unidad }));
+
+  // El mismo archivo otra vez: actualiza, no duplica productos ni vuelve a sumar los lotes
+  await p.goto(B + "/productos/importar");
+  await p.setInputFiles('input[type="file"]', `${OUT}/e2e.csv`);
+  await p.waitForSelector("text=Se van a actualizar 2 productos");
+  await p.getByRole("button", { name: "Importar 2 productos" }).click();
+  await p.waitForSelector("text=Listo: 2 productos actualizados");
+  const otra = (await (await p.request.get(B + "/api/productos?q=7709990000017")).json()).productos;
+  ok(otra.length === 1 && otra[0].unidades === 60, "subir el mismo archivo dos veces no duplica nada", JSON.stringify(otra.map((x) => x.unidades)));
+
+  // Excel (.xlsx) exportado por otro sistema: título arriba, columnas con otros nombres, filas repetidas, existencia negativa y lote vencido
+  await p.goto(B + "/productos/importar");
+  await p.setInputFiles('input[type="file"]', "tests/fixtures/sistema-anterior.xlsx");
+  await p.waitForSelector("text=Se van a crear 4 productos", { timeout: 15000 });
+  ok(await p.getByText(/Columnas reconocidas: 11 de 13/).count() === 1, "reconoce las columnas del otro sistema (ignora «Código» interno y «Valor Total»)");
+  await p.getByRole("button", { name: /ajustes? automáticos?/ }).click();
+  ok(await p.getByText(/existencia negativa/).count() === 1 && await p.getByText(/lote vencido/).count() === 1 && await p.getByText(/se omite/).count() === 1, "explica los ajustes automáticos");
+  await p.screenshot({ path: `${OUT}/importar-xlsx.png` });
+  await p.getByRole("button", { name: "Importar 4 productos" }).click();
+  await p.waitForSelector("text=Listo: 4 productos creados");
+  const lora = (await (await p.request.get(B + "/api/productos?q=7709990000101")).json()).productos;
+  ok(lora.length === 1 && lora[0].unidades === 60 && lora[0].precio_caja === 8500 && lora[0].precio_unidad === 900, "dos lotes del mismo producto: un producto con 60 unidades", JSON.stringify(lora.map((x) => [x.unidades, x.precio_caja, x.precio_unidad])));
+  const sh = (await (await p.request.get(B + "/api/productos?q=7709990000102")).json()).productos;
+  ok(sh.length === 1 && sh[0].unidades === 6 && sh[0].iva === 19, "fila repetida sin existencias no duplica", JSON.stringify(sh.map((x) => [x.unidades, x.iva])));
+  const jv = (await (await p.request.get(B + "/api/productos?q=7709990000104")).json()).productos;
+  ok(jv.length === 1 && jv[0].unidades === 0, "el lote vencido no entra al inventario");
+  // y otra vez el mismo Excel: nada cambia
+  await p.goto(B + "/productos/importar");
+  await p.setInputFiles('input[type="file"]', "tests/fixtures/sistema-anterior.xlsx");
+  await p.waitForSelector("text=Se van a actualizar 4 productos", { timeout: 15000 });
+  await p.getByRole("button", { name: "Importar 4 productos" }).click();
+  await p.waitForSelector("text=Listo: 4 productos actualizados");
+  const lora2 = (await (await p.request.get(B + "/api/productos?q=7709990000101")).json()).productos;
+  ok(lora2.length === 1 && lora2[0].unidades === 60, "el Excel subido dos veces no suma existencias", `${lora2[0]?.unidades}`);
 
   // Recibir mercancía: 2 cajas + 5 sueltas = 45 unidades
   await p.goto(B + "/inventario/recibir");
@@ -188,10 +222,15 @@ async function entrar(ctx, quien) {
   await p.screenshot({ path: `${OUT}/ventas.png` });
   await p.goto(B + `/ventas/${vj.venta.venta_id}`);
   await p.screenshot({ path: `${OUT}/venta-detalle.png` });
-  await p.getByRole("button", { name: "Anular venta" }).click();
+  const emitida = vj.documento?.estado === "aceptado";
+  await p.getByRole("button", { name: emitida ? "Anular y avisar a la DIAN" : "Anular venta" }).click();
   await p.fill("#motivo", "Prueba automática de anulación");
   await p.getByRole("button", { name: "Confirmar anulación" }).click();
   await p.waitForSelector("text=Venta anulada");
+  if (emitida) {
+    ok(await p.getByText(/Nota crédito \S+: aceptada por la DIAN/).count() === 1, "la anulación sale a la DIAN de inmediato como nota crédito aceptada");
+    await p.screenshot({ path: `${OUT}/venta-anulada.png` });
+  } else ok(await p.getByText(/no hizo falta nota crédito/).count() === 1, "documento no emitido: se anula sin nota crédito");
   const fin = (await (await p.request.get(B + "/api/productos?q=7709990000017")).json()).productos[0];
   ok(fin.unidades === 105, "al anular, las unidades vuelven", `${fin.unidades}`);
 
