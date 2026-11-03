@@ -222,7 +222,7 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] Regenta IA: respuesta en flujo palabra por palabra, consultas en paralelo, instrucciones en caché, «Detener»; en celular pantalla completa, «atrás» la cierra, botón pequeño que se esconde al bajar; negritas y listas legibles
 - [x] Velocidad: región de funciones Netlify → São Paulo (junto a Supabase; autorizado por Oscar); arranque de transacción en una sola ida a la base; cabecera con una consulta; seguridad por fila con mis_empresas() (migración 023: 10–20× más rápido en inventario, mismo resultado por rol)
 - [x] Migración 023 aplicada en producción (21 políticas, ninguna con rol_en) · despliegue lanzado 07:51 con región São Paulo
-- [ ] Confirmar que el despliegue terminó y medir de nuevo en vivo (Chrome se desconectó antes de verlo)
+- [x] Despliegue confirmado; en vivo (desde España): primera respuesta 0,3–0,6 s (antes 1,3 s); Inicio 1,1 s (antes 3,8–7,2 s); Inventario 1,1 s (antes 2,4 s); Predicción 0,9 s (antes 2,9 s)
 - [ ] Stripe: Oscar pega STRIPE_SECRET_KEY y STRIPE_WEBHOOK_SECRET (destino de eventos «Snapshot» → https://regenta.pro/api/pagos/stripe)
 
 ## 2026-11-03 · Revisión independiente (3 revisores) — migración 024
@@ -235,7 +235,7 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] Sin conexión: errores pasajeros se reintentan solos; «Reintentar» y «Registrar con el precio de hoy»; no exige turno a ventas ya hechas sin internet
 - [x] Importación: mismo producto con y sin código de barras se une; resolución que aún no empieza no se puede cargar
 - [x] SEO: robots.txt deja leer el noindex de /entrar y /activar y bloquea las rutas internas que faltaban; etiquetas twitter en todas las páginas públicas
-- [ ] Producción: aplicar migración 024 y desplegar (necesita Chrome)
+- [x] Producción 03/11 10:00: migración 024 aplicada (columna suspension, trigger NC, authenticated sin escritura en miembros) y desplegado 4cf07b8
 - [ ] Dudas normativas para confirmar con MATIAS/DIAN: contingencia de 72 h, fecha en reenvíos, responsabilidades fiscales del adquirente (tax_level/regime), código de medio de pago para débito/Nequi
 - [ ] Pendientes menores: abonos en efectivo con varias cajas activas; CSP sin 'unsafe-inline' (nonce)
 
@@ -243,3 +243,4 @@ Regla: en la web solo va lo que funciona y se puede demostrar. «Única» solo s
 - [x] Las 44 rutas de la API, cada una: sin sesión, desde otro sitio (CSRF), rol sin permiso, 8 cuerpos basura, método inexistente, sin fugas de errores internos; falla si aparece una ruta nueva sin probar
 - [x] Arreglado: /api/sesion devolvía 500 con cuerpo «null»; 6 rutas validaban datos antes que el rol (ahora 403 claro); estado de pago con límite por IP; reportes sin error interno si falla la base
 - [x] Cartera: el saldo a veces no se actualizaba tras un abono (router.refresh no aplicaba); ahora la fila toma el saldo que confirma el servidor
+- [x] Producción verificada: 282 comprobaciones de endpoints (sin sesión, sin clave, consola, datos basura, fugas) en 0 fallos; venta + anulación con nota crédito NCSE2 aceptada (demo, simulada) e inventario 380→378→380; la cajera recibe 403 en productos, equipo, reportes y anular
