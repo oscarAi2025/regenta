@@ -317,3 +317,4 @@ Baja: 17 correo al cancelar renovación · 18 plan Socio límites/descuento · 1
 - [x] 027 aplicada en producción; desplegado ea3626f y verificado en vivo (consola: cargos, devoluciones, alerta sin habilitar; /api/activar/nuevo 200; /api/cuenta sin sesión 401; webhook 400)
 - [x] Suite completa: endpoints 1085 · todos los e2e 0 fallos (incluye ingresos.mjs y consola-clave.mjs) · auditoría 160 · unitarias 36 + 22
 - [x] Portada y Tarifas: sección «¿Ya tienes programa? Cámbiate sin detener la caja» (3 pasos reales) + preguntas frecuentes del cambio (con FAQPage)
+- [x] SEO: Search Console verificado (geekxmedia@gmail.com; etiqueta de la otra cuenta también puesta), sitemap enviado (44 URL), indexación pedida de la portada; guía «cambiar-software-drogueria» alineada con la promesa nueva y enlazada desde la sección

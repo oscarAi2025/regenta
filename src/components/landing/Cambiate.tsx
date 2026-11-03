@@ -1,9 +1,10 @@
+import Link from "next/link";
 import { WHATSAPP } from "@/lib/sitio";
 
 /** Para la droguería que ya tiene programa: cómo se cambia a Regenta sin detener la caja. Es una secuencia real (por eso
  *  numerada) y cada paso es lo que de verdad hacemos: importación desde Excel, habilitación acompañada y cambio al final. */
 const PASOS: [string, string][] = [
-  ["Te pasamos tus productos e inventario en un día", "Exporta el Excel de tu programa actual y lo cargamos: productos, precios, existencias, lotes y vencimientos. Sin digitar uno por uno."],
+  ["Te pasamos tus productos e inventario en un día", "Exportas el Excel de tu programa actual y queda cargado: productos, precios, existencias, lotes y vencimientos, sin digitar uno por uno. En el plan Pro lo cargamos nosotros."],
   ["Sigues con tu sistema actual hasta que la DIAN apruebe Regenta", "Mientras tanto ya usas Regenta para inventario, caja y cartera. Te acompañamos en la habilitación ante la DIAN, incluida en tu plan."],
   ["Cambias cuando todo funciona, y no pierdes nada", "Con la primera factura aceptada por la DIAN dejas el programa anterior. Antes te ayudamos a descargar y guardar tus facturas pasadas."],
 ];
@@ -16,7 +17,10 @@ export function Cambiate({ claro = false }: { claro?: boolean }) {
         <div>
           <h2 id="cambiate-t" className="font-cond text-[38px] sm:text-[50px] leading-[0.98]" style={{ fontWeight: 700 }}>¿Ya tienes programa? Cámbiate sin detener la caja.</h2>
           <p className={`mt-4 text-lg leading-relaxed ${claro ? "text-muted" : "text-white/75"}`}>Si tu droguería ya factura con otro programa, el cambio lo hacemos contigo, paso a paso y sin cortes en tus ventas.</p>
-          <a href={wa} target="_blank" rel="noopener" className="btn-primario h-12 mt-6 inline-flex">Quiero cambiarme</a>
+          <div className="mt-6 flex flex-wrap items-center gap-4">
+            <a href={wa} target="_blank" rel="noopener" className="btn-primario h-12 inline-flex">Quiero cambiarme</a>
+            <Link href="/guias/cambiar-software-drogueria" className={`font-semibold underline underline-offset-4 ${claro ? "text-cruz" : "text-teal-300"}`}>Guía paso a paso para cambiar de programa</Link>
+          </div>
         </div>
         <ol className="grid gap-4">
           {PASOS.map(([t, d], i) => (

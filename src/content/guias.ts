@@ -50,33 +50,33 @@ export const GUIAS: Guia[] = [
   {
     slug: "cambiar-software-drogueria",
     titulo: "Cambiar de software de droguería sin perder datos",
-    descripcion: "Cómo pasar de tu programa actual a uno nuevo sin perder productos, existencias por lote ni la numeración DIAN: pasos, qué exportar y en qué orden.",
-    h1: "Cómo cambiar de software de droguería sin perder inventario ni lotes",
-    entradilla: "Cambiar de programa da miedo por una razón: perder el inventario o quedarse un día sin poder facturar. Con un orden claro se hace en un fin de semana. Este es el que recomendamos.",
-    actualizada: "2026-11-01",
+    descripcion: "Cómo pasar de tu programa actual a uno nuevo sin perder productos, lotes ni facturas, y sin dejar de facturar mientras la DIAN habilita el nuevo software.",
+    h1: "Cómo cambiar de software de droguería sin perder inventario ni dejar de facturar",
+    entradilla: "Cambiar de programa da miedo por dos razones: perder el inventario o quedarse sin poder facturar. Con este orden no pasa ninguna de las dos: el programa anterior sigue facturando hasta que el nuevo esté habilitado ante la DIAN.",
+    actualizada: "2026-11-03",
     bloques: [
-      { h2: "Antes de cambiar", pasos: [
+      { h2: "1. Pasa tus productos e inventario", pasos: [
         "Exporta desde tu programa actual la lista de productos con código de barras, precio de venta y unidades por caja (casi todos exportan a Excel).",
         "Exporta las existencias. Si tu programa no lleva lotes, haz un conteo físico por lote y fecha de vencimiento: es el momento de empezar bien.",
-        "Revisa tu resolución de numeración con la DIAN: el programa nuevo debe usar una numeración vigente y no repetir números ya usados.",
-        "Elige un día de poco movimiento para el cambio y avisa al equipo." ] },
-      { h2: "El día del cambio", pasos: [
-        "Carga los productos en el programa nuevo desde el Excel.",
-        "Registra las existencias como inventario inicial, por lote y con su fecha de vencimiento.",
-        "Haz una venta de prueba con POS y otra con factura electrónica, y una anulación, antes de abrir.",
-        "Deja el programa viejo solo para consulta: no vendas en los dos a la vez." ] },
-      { h2: "Después del cambio", lista: [
-        "Revisa en la primera semana que los totales de caja cuadren con los medios de pago.",
-        "Confirma con tu contador cómo guardar la información del programa anterior.",
-        "Capacita a cada auxiliar con su usuario y su rol." ] },
+        "Carga ese Excel en el programa nuevo. En Regenta la importación reconoce las columnas de otros programas y carga lotes y vencimientos; en el plan Pro la hacemos nosotros." ] },
+      { h2: "2. Habilita el nuevo software ante la DIAN sin dejar de facturar", pasos: [
+        "Si ya eres facturador electrónico no te registras de nuevo: en el portal de habilitación de la DIAN asocias el nuevo software y haces su set de pruebas.",
+        "Pide en MUISCA la numeración para el nuevo software, preferiblemente con un prefijo nuevo para no cruzarte con los números ya emitidos.",
+        "Mientras tanto sigues facturando con tu programa actual. El nuevo ya te sirve para inventario, caja y cartera." ] },
+      { h2: "3. Cambia cuando la DIAN acepte la primera factura", pasos: [
+        "Con la primera factura del nuevo software aceptada por la DIAN, dejas de facturar en el programa anterior: no factures en los dos a la vez.",
+        "Antes de cancelar el programa anterior, descarga todas tus facturas electrónicas (XML y PDF) y guárdalas en dos lugares: debes conservarlas.",
+        "En la primera semana revisa que los totales de caja cuadren con los medios de pago y capacita a cada auxiliar con su usuario y su rol." ] },
     ],
     preguntas: [
-      ["¿Pierdo el historial de ventas?", "El historial queda en tu programa anterior y en los documentos electrónicos ya reportados. En el programa nuevo empiezas con productos y existencias; las ventas nuevas se registran desde ese día."],
-      ["¿Regenta me ayuda a pasarme?", "Sí. Puedes cargar tus productos desde Excel y, en el plan Pro, los cargamos nosotros. También te acompañamos en la primera venta."],
+      ["¿Pierdo el historial de ventas?", "No. Tus facturas pasadas quedan en tu programa anterior y en la DIAN; antes de cancelarlo descargas sus XML y PDF. En el programa nuevo empiezas con productos y existencias, y las ventas nuevas se registran desde ese día."],
+      ["¿Me quedo algún día sin poder facturar?", "No, si sigues este orden: el programa anterior factura hasta que la DIAN acepta la primera factura del nuevo."],
+      ["¿Regenta me ayuda a pasarme?", "Sí. La importación desde Excel y el acompañamiento en la habilitación ante la DIAN están incluidos; en el plan Pro, además, cargamos nosotros tus productos."],
     ],
-    fuentes: [["Resolución DIAN 000165 de 2023 (normograma DIAN)", "https://normograma.dian.gov.co/dian/compilacion/docs/resolucion_dian_0165_2023.htm"]],
+    fuentes: [["Resolución DIAN 000165 de 2023 (normograma DIAN)", "https://normograma.dian.gov.co/dian/compilacion/docs/resolucion_dian_0165_2023.htm"],
+      ["Instructivo de registro y habilitación en factura electrónica (DIAN)", "https://micrositios.dian.gov.co/sistema-de-facturacion-electronica/instructivo-de-registro-y-habilitacion-en-factura-electronica-dian/"]],
     relacionadas: ["como-elegir-software-drogueria", "inventario-por-lotes-drogueria"],
-    cta: { titulo: "Te pasamos tus productos", texto: "Carga desde Excel incluida; en el plan Pro lo hacemos nosotros. Certificado digital y habilitación DIAN incluidos." },
+    cta: { titulo: "Cámbiate sin detener la caja", texto: "Importación desde Excel y habilitación DIAN incluidas; en el plan Pro cargamos tus productos nosotros." },
   },
   {
     slug: "kardex-drogueria",
