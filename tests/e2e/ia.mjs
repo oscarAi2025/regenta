@@ -17,7 +17,28 @@ const mock = http.createServer((req, res) => {
     const b = JSON.parse(cuerpo);
     vistos.push({ headers: req.headers, body: b });
     const ultimo = b.messages.at(-1);
-    const responder = (o) => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(o)); };
+    // Como la API real con stream:true: eventos SSE, el texto en pedazos y la llamada a la herramienta con su JSON por partes.
+    const responder = async (o) => {
+      if (!b.stream) { res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(o)); }
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      const ev = (type, data) => res.write(`event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`);
+      ev("message_start", { message: { id: "m", role: "assistant", content: [] } });
+      for (const [i, bl] of o.content.entries()) {
+        if (bl.type === "text") {
+          ev("content_block_start", { index: i, content_block: { type: "text", text: "" } });
+          for (const pedazo of bl.text.match(/.{1,6}/gs)) { ev("content_block_delta", { index: i, delta: { type: "text_delta", text: pedazo } }); await new Promise((r) => setTimeout(r, 15)); }
+        } else {
+          ev("content_block_start", { index: i, content_block: { type: "tool_use", id: bl.id, name: bl.name, input: {} } });
+          const js = JSON.stringify(bl.input);
+          ev("content_block_delta", { index: i, delta: { type: "input_json_delta", partial_json: js.slice(0, 5) } });
+          ev("content_block_delta", { index: i, delta: { type: "input_json_delta", partial_json: js.slice(5) } });
+        }
+        ev("content_block_stop", { index: i });
+      }
+      ev("message_delta", { delta: { stop_reason: o.stop_reason } });
+      ev("message_stop", {});
+      res.end();
+    };
     if (typeof ultimo.content === "string") {
       const herramienta = /vencer/i.test(ultimo.content) ? "riesgo_vencimiento" : "pedido_sugerido";
       return responder({ stop_reason: "tool_use", content: [{ type: "text", text: "Consulto tus datos." }, { type: "tool_use", id: "t1", name: herramienta, input: { limite: 3 } }] });
@@ -47,7 +68,11 @@ const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw
   const r = vistos[0];
   ok(r.headers["x-api-key"] === "prueba-local" && r.headers["anthropic-version"] === "2023-06-01", "encabezados de la API de Anthropic");
   ok(r.body.tools.length >= 7 && r.body.tools.every((t) => t.input_schema?.type === "object"), "envía las herramientas con su esquema", `${r.body.tools.length}`);
-  ok(/Regenta IA/.test(r.body.system) && /No diagnosticas/.test(r.body.system) && /Resolución 1403 de 2007/.test(r.body.system) && /urgencias/.test(r.body.system), "instrucciones del sistema");
+  const sys = r.body.system.map?.((x) => x.text).join("") ?? r.body.system;
+  ok(r.body.stream === true && r.body.system[0]?.cache_control?.type === "ephemeral", "pide la respuesta en flujo y deja las instrucciones en caché");
+  ok(vistos[1].body.messages.at(-2).content.some((x) => x.type === "tool_use" && x.input.limite === 3), "arma la llamada a la herramienta desde el JSON por partes");
+  ok(await p.getByText("Consulto tus datos.").count() === 0, "el texto provisional antes de consultar no queda en pantalla");
+  ok(/Regenta IA/.test(sys) && /No diagnosticas/.test(sys) && /Resolución 1403 de 2007/.test(sys) && /urgencias/.test(sys), "instrucciones del sistema");
   const resultado = JSON.parse(vistos[1].body.messages.at(-1).content[0].content);
   ok(Array.isArray(resultado) && resultado.length > 0 && "sugerido_cajas" in resultado[0], "la herramienta devolvió el pedido sugerido real", resultado[0]?.nombre);
   ok(await p.getByText(`Lo primero: ${resultado[0].nombre}.`).count() === 1, "la respuesta aparece en pantalla");
@@ -71,10 +96,37 @@ const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw
   await p.request.post(B + "/demo", { form: { rol: "cajero" } });
   const r = await p.request.post(B + "/api/ia", { data: { mensajes: [{ role: "user", content: "¿qué se me puede vencer?" }] } });
   ok(r.ok(), "la cajera puede preguntar", `${r.status()}`);
+  const eventos = (await r.text()).split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
+  ok(eventos.at(-1).t === "fin" && /Lo primero:/.test(eventos.at(-1).respuesta) && eventos.some((e) => e.t === "consulta") && eventos.some((e) => e.t === "texto"), "la respuesta llega por partes (consulta, texto y fin)");
   const datos = JSON.parse(vistos.at(-1).body.messages.at(-1).content[0].content);
   ok(datos.length > 0 && !("valor_en_riesgo" in datos[0]), "a la cajera no le llegan costos");
   const malo = await p.request.post(B + "/api/ia", { data: { mensajes: [] } });
   ok(malo.status() === 400, "pregunta vacía rechazada");
+  await ctx.close();
+}
+// Celular: el panel ocupa la pantalla, «atrás» lo cierra sin salir de la página y el botón se esconde al bajar
+{
+  const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const p = await ctx.newPage();
+  await p.goto(B + "/demo"); await p.getByRole("button", { name: /Probar la demo/ }).click(); await p.waitForURL(/inicio/);
+  await p.goto(B + "/productos"); await p.waitForLoadState("networkidle");
+  const boton = p.getByRole("button", { name: "Abrir Regenta IA", exact: true });
+  const caja = await boton.boundingBox();
+  ok(caja && caja.width <= 48 && caja.height <= 48, "botón flotante pequeño en celular", caja && `${caja.width}x${caja.height}`);
+  await p.mouse.wheel(0, 1500); await p.waitForTimeout(350);
+  ok(await boton.evaluate((e) => getComputedStyle(e).opacity) === "0", "al bajar por la página el botón se esconde");
+  await p.waitForTimeout(1500);
+  ok(await boton.evaluate((e) => getComputedStyle(e).opacity) === "1", "quieto, el botón vuelve");
+  await boton.click();
+  const panel = await p.getByRole("dialog", { name: "Regenta IA" }).boundingBox();
+  ok(panel && panel.width === 390 && panel.height >= 840, "el panel ocupa la pantalla completa", panel && `${panel.width}x${panel.height}`);
+  await p.getByRole("button", { name: "¿Qué debo pedir esta semana?" }).click();
+  await p.waitForSelector("text=Lo primero:", { timeout: 20000 });
+  await p.screenshot({ path: "test-results/ia-movil.png" });
+  await p.goBack();
+  await p.waitForTimeout(300);
+  ok(await p.getByRole("dialog", { name: "Regenta IA" }).count() === 0 && new URL(p.url()).pathname === "/productos", "«atrás» cierra el panel y se queda en la página");
+  ok(await p.evaluate(() => document.documentElement.scrollWidth) <= 390, "sin desborde horizontal");
   await ctx.close();
 }
 {

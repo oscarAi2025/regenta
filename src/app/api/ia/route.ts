@@ -27,22 +27,22 @@ export const POST = conSesion(async (s, req) => {
   if (!empresasDemo.has(s.empresa)) empresasDemo.set(s.empresa, !!(await sinRLS(async (c) => (await c.query(`select demo from empresas where id = $1`, [s.empresa])).rows[0]?.demo)));
   if (empresasDemo.get(s.empresa) && (!porIp(ipCliente(req)) || !diario("demo")
     || !(await limiteBD(`ia-demo:ip:${ipCliente(req)}`, 40, "1 day")) || !(await limiteBD("ia-demo:total", 400, "1 day")))) return json({ error: "La demo tiene un límite de preguntas a Regenta IA. Escríbenos por WhatsApp y te la mostramos completa." }, 429);
-  // Respuesta en flujo: mientras la IA consulta herramientas se envía un espacio cada 3 s para que la plataforma no
-  // corte la conexión por inactividad (Netlify la corta a los ~30 s sin datos). Al final va el JSON (los espacios
-  // iniciales son JSON válido). Un error se informa en el mismo JSON con «error».
+  // Respuesta en flujo, una línea JSON por evento: {t:"consulta"} mientras consulta datos, {t:"texto"} con cada pedazo de
+  // la respuesta en cuanto la IA lo escribe, {t:"limpiar"} si descarta un texto provisional y al final {t:"fin"} con la
+  // respuesta completa (o «error»). Una línea vacía cada 3 s mantiene viva la conexión (Netlify la corta a los ~30 s sin datos).
   const mensajes = p.data.mensajes;
   const cod = new TextEncoder();
   const flujo = new ReadableStream({
     async start(ctl) {
-      const latido = setInterval(() => { try { ctl.enqueue(cod.encode(" ")); } catch {} }, 3000);
-      ctl.enqueue(cod.encode(" "));
-      let fin: unknown;
-      try { fin = await responder(s, mensajes); }
+      const enviar = (o: unknown) => { try { ctl.enqueue(cod.encode(JSON.stringify(o) + "\n")); } catch {} };
+      const latido = setInterval(() => { try { ctl.enqueue(cod.encode("\n")); } catch {} }, 3000);
+      let fin: Record<string, unknown>;
+      try { fin = await responder(s, mensajes, enviar); }
       catch (e) { console.error(e); fin = { error: "Regenta IA no pudo responder ahora. Intenta de nuevo." }; }
       clearInterval(latido);
-      ctl.enqueue(cod.encode(JSON.stringify(fin)));
+      enviar({ t: "fin", ...fin });
       ctl.close();
     },
   });
-  return new Response(flujo, { headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-accel-buffering": "no" } });
+  return new Response(flujo, { headers: { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-store", "x-accel-buffering": "no" } });
 });

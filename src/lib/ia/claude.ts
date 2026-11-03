@@ -34,35 +34,79 @@ Cómo trabajas:
 - Cada recomendación de gestión (qué pedir, qué rotar, qué revisar) dice de qué dato sale.`;
 };
 
-async function llamar(cuerpo: unknown) {
+export type Evento = { t: "texto"; d: string } | { t: "limpiar" } | { t: "consulta"; h: string };
+type Respuesta = { content: Bloque[]; stop_reason: string };
+
+/** Lee la respuesta en flujo (SSE) de la API de Anthropic: avisa cada pedazo de texto en cuanto llega y arma los bloques
+ *  completos (texto y llamadas a herramientas) para el siguiente paso. Si el servidor responde JSON (sin flujo), lo usa tal cual. */
+async function llamar(cuerpo: Record<string, unknown>, emitir: (e: Evento) => void): Promise<Respuesta> {
   const r = await fetch(URL_API(), {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY!, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify(cuerpo), signal: AbortSignal.timeout(60000),
+    body: JSON.stringify({ ...cuerpo, stream: true }), signal: AbortSignal.timeout(60000),
   });
   if (!r.ok) throw new Error(`El servicio de IA respondió ${r.status}`);
-  return r.json() as Promise<{ content: Bloque[]; stop_reason: string }>;
+  if (!(r.headers.get("content-type") ?? "").includes("text/event-stream")) {
+    const j = (await r.json()) as Respuesta;
+    for (const b of j.content) if (b.type === "text" && b.text) emitir({ t: "texto", d: b.text });
+    return j;
+  }
+  const bloques: (Bloque & { json?: string })[] = [];
+  let stop = "end_turn", resto = "";
+  const dec = new TextDecoder();
+  const leerEvento = (crudo: string) => {
+    const data = crudo.split("\n").filter((l) => l.startsWith("data:")).map((l) => l.slice(5).trim()).join("");
+    if (!data) return;
+    const e = JSON.parse(data);
+    if (e.type === "content_block_start") {
+      const b = e.content_block;
+      bloques[e.index] = b.type === "tool_use" ? { type: "tool_use", id: b.id, name: b.name, input: {}, json: "" } : { type: "text", text: "" };
+      if (b.type === "tool_use") emitir({ t: "consulta", h: b.name });
+    } else if (e.type === "content_block_delta") {
+      const b = bloques[e.index];
+      if (e.delta.type === "text_delta" && b?.type === "text") { b.text += e.delta.text; emitir({ t: "texto", d: e.delta.text }); }
+      else if (e.delta.type === "input_json_delta" && b?.type === "tool_use") b.json += e.delta.partial_json;
+    } else if (e.type === "message_delta" && e.delta?.stop_reason) stop = e.delta.stop_reason;
+    else if (e.type === "error") throw new Error(e.error?.message ?? "Error del servicio de IA");
+  };
+  for await (const trozo of r.body as unknown as AsyncIterable<Uint8Array>) {
+    resto += dec.decode(trozo, { stream: true });
+    let i;
+    while ((i = resto.indexOf("\n\n")) >= 0) { leerEvento(resto.slice(0, i)); resto = resto.slice(i + 2); }
+  }
+  if (resto.trim()) leerEvento(resto);
+  const content = bloques.filter(Boolean).map((b) => {
+    if (b.type !== "tool_use") return b;
+    let input: Record<string, unknown> = {};
+    try { input = b.json ? JSON.parse(b.json) : {}; } catch {}
+    return { type: "tool_use" as const, id: b.id, name: b.name, input };
+  });
+  return { content, stop_reason: stop };
 }
 
-/** Responde la conversación. Devuelve el texto final y qué herramientas consultó (para mostrarlo en pantalla). */
-export async function responder(s: Sesion, mensajes: Mensaje[]) {
+/** Responde la conversación. El texto llega por «emitir» a medida que se escribe; si la IA decide consultar datos, el
+ *  texto provisional se descarta («limpiar») y se avisa qué consulta. Las consultas de un mismo paso corren en paralelo.
+ *  Devuelve el texto final y qué herramientas consultó. */
+export async function responder(s: Sesion, mensajes: Mensaje[], emitir: (e: Evento) => void = () => {}) {
   const turnos: Turno[] = mensajes.map((m) => ({ role: m.role, content: m.content }));
   const usadas: string[] = [];
+  // Instrucciones y herramientas en caché: a partir de la segunda pregunta la IA empieza a responder antes.
+  const system = [{ type: "text", text: sistema(s), cache_control: { type: "ephemeral" } }];
   for (let paso = 0; paso < 6; paso++) {
-    const r = await llamar({ model: MODELO(), max_tokens: 2000, system: sistema(s), tools: herramientasPara(s.rol), messages: turnos });
+    const r = await llamar({ model: MODELO(), max_tokens: 2000, system, tools: herramientasPara(s.rol), messages: turnos }, emitir);
     const llamadas = r.content.filter((b): b is Extract<Bloque, { type: "tool_use" }> => b.type === "tool_use");
     if (r.stop_reason !== "tool_use" || !llamadas.length) {
       const texto = r.content.filter((b): b is Extract<Bloque, { type: "text" }> => b.type === "text").map((b) => b.text).join("\n").trim();
       return { respuesta: texto || "No tengo una respuesta para eso.", herramientas: usadas };
     }
+    emitir({ t: "limpiar" });
     turnos.push({ role: "assistant", content: r.content });
-    const resultados: Bloque[] = [];
-    for (const ll of llamadas) {
-      usadas.push(ll.name);
+    usadas.push(...llamadas.map((ll) => ll.name));
+    const resultados: Bloque[] = await Promise.all(llamadas.map(async (ll) => {
       let datos: unknown;
       try { datos = await ejecutar(s, ll.name, ll.input ?? {}); } catch { datos = { error: "No se pudo consultar ese dato" }; }
-      resultados.push({ type: "tool_result", tool_use_id: ll.id, content: JSON.stringify(datos).slice(0, 30000) });
-    }
+      return { type: "tool_result" as const, tool_use_id: ll.id, content: JSON.stringify(datos).slice(0, 30000) };
+    }));
     turnos.push({ role: "user", content: resultados });
   }
   return { respuesta: "La pregunta necesitó demasiadas consultas. Hazla más concreta, por favor.", herramientas: usadas };
