@@ -64,7 +64,7 @@ const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw
   await p.screenshot({ path: "test-results/ia-panel.png" });
   await p.locator("#ia-texto").fill("¿Qué debo pedir esta semana?");
   await p.getByRole("button", { name: "Enviar" }).click();
-  await p.waitForSelector("text=Lo primero:", { timeout: 20000 });
+  await p.waitForSelector("text=Consultó:", { timeout: 20000 }); // fin de la respuesta (el texto llega antes, por partes)
   const r = vistos[0];
   ok(r.headers["x-api-key"] === "prueba-local" && r.headers["anthropic-version"] === "2023-06-01", "encabezados de la API de Anthropic");
   ok(r.body.tools.length >= 7 && r.body.tools.every((t) => t.input_schema?.type === "object"), "envía las herramientas con su esquema", `${r.body.tools.length}`);
@@ -121,7 +121,7 @@ const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw
   const panel = await p.getByRole("dialog", { name: "Regenta IA" }).boundingBox();
   ok(panel && panel.width === 390 && panel.height >= 840, "el panel ocupa la pantalla completa", panel && `${panel.width}x${panel.height}`);
   await p.getByRole("button", { name: "¿Qué debo pedir esta semana?" }).click();
-  await p.waitForSelector("text=Lo primero:", { timeout: 20000 });
+  await p.waitForSelector("text=Consultó:", { timeout: 20000 }); // fin de la respuesta (el texto llega antes, por partes)
   await p.screenshot({ path: "test-results/ia-movil.png" });
   await p.goBack();
   await p.waitForTimeout(300);
