@@ -5,7 +5,7 @@ import { enviarPendientes, programarRecordatorios } from "@/lib/correo";
 import { sincronizarInvima } from "@/lib/invima";
 import { sinRLS } from "@/lib/db";
 import { cancelarReemplazadas } from "@/lib/pagos-eventos";
-import { avisarNumeraciones, avisarRechazos, revisarSuscripciones } from "@/lib/operacion";
+import { aplicarBajadas, avisarCupoDocumentos, avisarNumeraciones, avisarRechazos, cobrarDocumentosExtra, revisarSuscripciones } from "@/lib/operacion";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 26;
@@ -31,6 +31,9 @@ export async function POST(req: Request) {
   if (minuto < 15 || new URL(req.url).searchParams.get("operacion") === "1") { // una vez por hora (la tarea corre cada 15 minutos)
     await paso("suscripciones", revisarSuscripciones);
     await paso("stripe_reemplazadas", cancelarReemplazadas);
+    await paso("bajadas", aplicarBajadas);
+    await paso("documentos_extra", cobrarDocumentosExtra);
+    await paso("cupo_documentos", avisarCupoDocumentos);
     await paso("numeraciones", avisarNumeraciones);
     await paso("rechazos", avisarRechazos);
     await paso("correos_avisos", () => enviarPendientes(80));

@@ -5,6 +5,7 @@ import { Accion } from "@/components/admin/Accion";
 import { FacturaPago } from "@/components/admin/FacturaPago";
 import { exigirAdmin, fechaHora, NOMBRE_PLAN } from "@/lib/admin-pagina";
 import { nitSinDv } from "@/lib/validar";
+import { DOC_EXTRA } from "@/lib/planes";
 
 export const metadata = { title: "Pagos" };
 export const dynamic = "force-dynamic";
@@ -25,6 +26,9 @@ export default async function Pagos({ searchParams }: { searchParams: Promise<{ 
   // Pagos aprobados sin droguería cuyo NIT ya es cliente: se ofrece ligarlos (renovación pagada con otro correo).
   const nits = [...new Set(filas.filter((p) => p.estado === "aprobado" && !p.empresa_id && p.nit).map((p) => nitSinDv(p.nit)))];
   const clientes = new Map<string, { id: string; nombre: string }>((nits.length ? (await sinRLS((c) => c.query(`select id, nit, coalesce(nombre_comercial, razon_social) nombre from empresas where nit = any($1) and not demo`, [nits]))).rows : []).map((e) => [e.nit, { id: e.id, nombre: e.nombre }]));
+  const cargos = await sinRLS(async (c) => (await c.query(`select g.*, coalesce(e.nombre_comercial, e.razon_social) cliente, to_char(g.mes, 'MM/YYYY') mes_txt from cargos_documentos g join empresas e on e.id = g.empresa_id
+    order by (g.estado = 'pendiente') desc, g.mes desc limit 100`)).rows);
+  const valor = pesos(DOC_EXTRA);
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
       <Cabecera titulo="Pagos" sub="Pagos de planes desde la web (QR Bancolombia, Stripe y Wompi). Los pagos por QR se confirman aquí al ver el dinero en la cuenta. Un pago aprobado sin atender es un cliente esperando su cuenta." />
@@ -39,7 +43,7 @@ export default async function Pagos({ searchParams }: { searchParams: Promise<{ 
               <tr key={p.referencia} className="align-top">
                 <td className="px-4 py-3 text-sm">{fechaHora(p.creado)}<p className="text-xs text-muted font-mono">{p.referencia}</p></td>
                 <td className="px-4 py-3"><p className="font-semibold">{p.empresa}</p><p className="text-sm text-muted">{p.nombre} · {p.telefono} · {p.email}{p.nit ? ` · NIT ${p.nit}` : ""}</p>{p.cliente && <Link href={`/admin/clientes/${p.empresa_id}`} className="text-sm text-cruz underline">Cliente: {p.cliente}</Link>}</td>
-                <td className="px-4 py-3">{NOMBRE_PLAN[p.plan]} {p.periodo === "anio" ? "anual" : "mensual"}<p className="text-sm text-muted">{p.proveedor === "qr" ? "QR Bancolombia" : p.proveedor === "wompi" ? "Wompi" : "Stripe"}{p.metodo ? ` · ${p.metodo}` : ""}</p></td>
+                <td className="px-4 py-3">{NOMBRE_PLAN[p.plan]} {p.periodo === "anio" ? "anual" : "mensual"}<p className="text-sm text-muted">{({ qr: "QR Bancolombia", wompi: "Wompi", stripe: "Stripe", manual: "Pago manual" } as Record<string, string>)[p.proveedor] ?? p.proveedor}{p.metodo ? ` · ${p.metodo}` : ""}</p></td>
                 <td className="px-4 py-3 num text-right font-semibold">{pesos(p.monto)}</td>
                 <td className="px-4 py-3"><span className={`font-semibold ${ESTADO[p.estado] ?? ""}`}>{p.estado}</span>{p.detalle?.descartado ? <p className="text-sm text-muted">descartada sin pagar</p> : p.atendido && <p className="text-sm text-muted">atendido</p>}
                   {p.detalle?.revisar && <p className="text-sm text-alerta font-semibold">{REVISAR[p.detalle.revisar] ?? p.detalle.revisar}</p>}</td>
@@ -49,7 +53,10 @@ export default async function Pagos({ searchParams }: { searchParams: Promise<{ 
                     <Accion url="/api/admin/pagos" metodo="PATCH" cuerpo={{ referencia: p.referencia, confirmar: "rechazado" }} texto="No llegó" confirmar="¿Marcar como no recibido? Sí" clase="btn-borde h-9 text-sm text-muted" />
                   </>}
                   {p.proveedor !== "qr" && ["pendiente", "error"].includes(p.estado) && <Accion url="/api/admin/pagos" metodo="PATCH" cuerpo={{ referencia: p.referencia, descartar: true }} texto="Descartar orden sin pagar" confirmar="¿Descartar? Se cierra su enlace de pago. Sí" clase="btn-borde h-9 text-sm text-muted" />}
-                  {p.estado === "aprobado" && !p.empresa_id && (() => {
+                  {p.estado === "aprobado" && (p.proveedor === "stripe"
+                    ? <Accion url="/api/admin/pagos" metodo="PATCH" cuerpo={{ referencia: p.referencia, reembolsar: "stripe" }} texto="Devolver en Stripe" confirmar={`¿Devolver ${pesos(p.monto)} a la tarjeta y anular el pago? Sí`} clase="btn-borde h-9 text-sm text-alerta" />
+                    : <Accion url="/api/admin/pagos" metodo="PATCH" cuerpo={{ referencia: p.referencia, reembolsar: "manual" }} texto="Marcar devuelto" confirmar={`¿Ya devolviste ${pesos(p.monto)}? Se anula el pago. Sí`} clase="btn-borde h-9 text-sm text-alerta" />)}
+                  {p.estado === "aprobado" && !p.empresa_id && !p.atendido && (() => {
                     const e = p.nit ? clientes.get(nitSinDv(p.nit)) : undefined;
                     return e
                       ? <Accion url="/api/admin/pagos" metodo="PATCH" cuerpo={{ referencia: p.referencia, empresa_id: e.id }} texto={`Ligar a ${e.nombre}`} confirmar={`¿Es el pago de ${e.nombre}? Sí, ligar`} clase="btn-primario h-9 text-sm" />
@@ -65,6 +72,18 @@ export default async function Pagos({ searchParams }: { searchParams: Promise<{ 
           </tbody>
         </table>
       </div>
+      <section className="tarjeta p-5 grid gap-3" aria-labelledby="cargos-t">
+        <h2 id="cargos-t" className="titulo text-xl">Documentos adicionales</h2>
+        <p className="text-sm text-muted">Cada mes, lo que una droguería emite por encima del cupo de su plan se cobra a {valor} por documento. Se le avisa por correo con la referencia; aquí lo marcas cuando llega el dinero.</p>
+        {cargos.length ? <ul className="divide-y divide-line">{cargos.map((g) => (
+          <li key={g.id} className="py-3 flex flex-wrap items-center justify-between gap-3">
+            <span><Link href={`/admin/clientes/${g.empresa_id}`} className="font-semibold underline">{g.cliente}</Link> · {g.mes_txt} · {g.extra} adicionales · <b>{pesos(g.monto)}</b> <span className="text-sm text-muted font-mono">{g.referencia}</span></span>
+            <span className="flex gap-2">{g.estado === "pendiente" ? <>
+              <Accion url="/api/admin/cargos" metodo="PATCH" cuerpo={{ id: g.id, estado: "pagado" }} texto="Pagado" clase="btn-primario h-9 text-sm" />
+              <Accion url="/api/admin/cargos" metodo="PATCH" cuerpo={{ id: g.id, estado: "condonado" }} texto="Condonar" confirmar="¿Condonar? Sí" clase="btn-borde h-9 text-sm text-muted" />
+            </> : <span className="text-sm text-muted">{g.estado}</span>}</span>
+          </li>))}</ul> : <p className="text-muted">Ninguna droguería ha pasado su cupo.</p>}
+      </section>
     </main>
   );
 }

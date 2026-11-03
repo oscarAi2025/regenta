@@ -37,6 +37,8 @@ export const LIMITES: Record<string, { cajas: number | null; usuarios: number | 
   esencial: { cajas: 1, usuarios: 3 },
   pro: { cajas: 3, usuarios: null },
   cadena: { cajas: null, usuarios: null },
-  socio: { cajas: null, usuarios: null },
+  socio: { cajas: 3, usuarios: null }, // el Socio es un precio, no un plan más grande: lleva los topes de Pro
 };
+/** Documentos electrónicos incluidos al mes por plan (lo publicado en Tarifas); por encima se cobra DOC_EXTRA cada uno. */
+export const CUPO_DOCS: Record<string, number | null> = { esencial: 2000, pro: 5000, socio: 5000, cadena: null };
 export const limite = (plan: string) => LIMITES[plan] ?? LIMITES.esencial;

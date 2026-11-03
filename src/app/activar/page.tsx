@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Marca } from "@/components/Marca";
 import { Activar } from "./Activar";
+import { PedirNuevo } from "./PedirNuevo";
 import { sinRLS } from "@/lib/db";
 import { hashToken } from "@/lib/claves";
 import { CORREO, TELEFONO } from "@/lib/sitio";
@@ -16,7 +17,9 @@ export default async function PaginaActivar({ searchParams }: { searchParams: Pr
       <div className="w-full max-w-md tarjeta p-6 sm:p-8">
         <Marca />
         <h1 className="mt-6 font-cond text-[34px] leading-tight" style={{ fontWeight: 700 }}>Este enlace ya no sirve</h1>
-        <p className="mt-2 text-muted">El enlace venció o ya se usó. Si ya creaste tu contraseña, <a href="/entrar" className="text-cruz underline">entra aquí</a>. Si no, pídenos uno nuevo: {TELEFONO} (WhatsApp) o {CORREO}.</p>
+        <p className="mt-2 text-muted">El enlace venció o ya se usó. Si ya creaste tu contraseña, <a href="/entrar" className="text-cruz underline">entra aquí</a>. Si no, pide uno nuevo: llega al correo de tu cuenta.</p>
+        {/^[\w-]{20,100}$/.test(t) && <PedirNuevo token={t} />}
+        <p className="mt-4 text-sm text-muted">¿No te llega? {TELEFONO} (WhatsApp) o {CORREO}.</p>
       </div>
     </main>
   );

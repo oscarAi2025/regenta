@@ -4,7 +4,7 @@ import { useState } from "react";
 /** Entrar con correo y contraseña (clientes y equipo de Regenta). */
 export function FormAcceso({ consola = false }: { consola?: boolean }) {
   const [email, setEmail] = useState(""), [clave, setClave] = useState("");
-  const [error, setError] = useState(""), [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState(""), [enviando, setEnviando] = useState(false), [renovar, setRenovar] = useState("");
   const [opciones, setOpciones] = useState<{ id: string; nombre: string; rol: string }[] | null>(null);
   async function entrar(e: React.FormEvent | null, empresa?: string) {
     e?.preventDefault();
@@ -13,7 +13,7 @@ export function FormAcceso({ consola = false }: { consola?: boolean }) {
     try {
       const r = await fetch("/api/acceso", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, clave, consola, empresa }) });
       const j = await r.json();
-      if (!r.ok) { setError(j.error ?? "No se pudo entrar"); return; }
+      if (!r.ok) { setError(j.error ?? "No se pudo entrar"); setRenovar(typeof j.renovar === "string" && j.renovar.startsWith("/contratar") ? j.renovar : ""); return; }
       if (j.elegir) { setOpciones(j.elegir); return; }
       location.href = j.destino;
     } catch { setError("Sin conexión con el servidor: revisa internet."); } finally { setEnviando(false); }
@@ -24,6 +24,7 @@ export function FormAcceso({ consola = false }: { consola?: boolean }) {
       <p className="font-semibold">¿A cuál droguería entras?</p>
       {opciones.map((o) => <button key={o.id} onClick={() => entrar(null, o.id)} disabled={enviando} className="btn-borde h-12 justify-between"><span className="truncate">{o.nombre}</span><span className="text-sm text-muted">{ROL[o.rol] ?? o.rol}</span></button>)}
       {error && <p role="alert" className="text-alerta text-sm font-semibold">{error}</p>}
+      {error && renovar && <a href={renovar} className="btn-primario h-12">Renovar mi plan</a>}
     </div>
   );
   return (
@@ -31,6 +32,7 @@ export function FormAcceso({ consola = false }: { consola?: boolean }) {
       <div><label htmlFor="a-email" className="etiqueta">Correo</label><input id="a-email" type="email" required autoComplete="username" className="campo" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
       <div><label htmlFor="a-clave" className="etiqueta">Contraseña</label><input id="a-clave" type="password" required autoComplete="current-password" className="campo" value={clave} onChange={(e) => setClave(e.target.value)} /></div>
       {error && <p role="alert" className="text-alerta text-sm font-semibold">{error}</p>}
+      {error && renovar && <a href={renovar} className="btn-primario h-12">Renovar mi plan</a>}
       <button disabled={enviando} className="btn-oscuro h-12 disabled:opacity-60">{enviando ? "Entrando…" : "Entrar"}</button>
       {!consola && <Olvide email={email} />}
     </form>

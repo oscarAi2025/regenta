@@ -18,6 +18,7 @@ const permitido = (uid: string) => {
 const porIp = limitador(8, 60000);
 const diario = limitador(400, 86400000);
 const empresasDemo = new Map<string, boolean>();
+const IA_DIARIA = 300;
 
 export const POST = conSesion(async (s, req) => {
   if (!iaActiva()) return json({ error: "Regenta IA no está activada en este servidor." }, 503);
@@ -27,6 +28,9 @@ export const POST = conSesion(async (s, req) => {
   if (!empresasDemo.has(s.empresa)) empresasDemo.set(s.empresa, !!(await sinRLS(async (c) => (await c.query(`select demo from empresas where id = $1`, [s.empresa])).rows[0]?.demo)));
   if (empresasDemo.get(s.empresa) && (!porIp(ipCliente(req)) || !diario("demo")
     || !(await limiteBD(`ia-demo:ip:${ipCliente(req)}`, 40, "1 day")) || !(await limiteBD("ia-demo:total", 400, "1 day")))) return json({ error: "La demo tiene un límite de preguntas a Regenta IA. Escríbenos por WhatsApp y te la mostramos completa." }, 429);
+  // Cuentas de pago: tope diario por droguería (costo de la IA acotado; de sobra para el uso normal de un equipo).
+  if (!empresasDemo.get(s.empresa) && !(await limiteBD(`ia:empresa:${s.empresa}`, IA_DIARIA, "1 day")))
+    return json({ error: `Tu droguería llegó a las ${IA_DIARIA} preguntas de hoy a Regenta IA. Mañana sigues; si lo necesitas antes, escríbenos.` }, 429);
   // Respuesta en flujo, una línea JSON por evento: {t:"consulta"} mientras consulta datos, {t:"texto"} con cada pedazo de
   // la respuesta en cuanto la IA lo escribe, {t:"limpiar"} si descarta un texto provisional y al final {t:"fin"} con la
   // respuesta completa (o «error»). Una línea vacía cada 3 s mantiene viva la conexión (Netlify la corta a los ~30 s sin datos).

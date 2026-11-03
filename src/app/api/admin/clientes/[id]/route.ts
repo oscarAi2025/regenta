@@ -6,6 +6,8 @@ import { esUuid } from "@/lib/api";
 import { dvNit, nitSinDv } from "@/lib/validar";
 import { conAdmin, evento } from "@/lib/admin";
 import { encolar, enviarAhora } from "@/lib/correo";
+import { avisarHabilitacion } from "@/lib/operacion";
+import { limite } from "@/lib/planes";
 
 const Fiscal = z.object({ razon_social: z.string().trim().min(3, "Escribe la razón social").max(200), nombre_comercial: z.string().trim().max(160),
   nit: z.string().trim().regex(/^[\d.\s-]{6,15}$/, "El NIT son solo dígitos"), responsable_iva: z.boolean(), direccion: z.string().trim().max(200),
@@ -44,6 +46,7 @@ export const PATCH = conAdmin(async (a, req, ctx) => {
   }
   if (d.matias) {
     const m = d.matias;
+    let habilitado: string[] = [];
     if (!m.cliente && m.resoluciones.some((x) => !x.pruebas))
       return NextResponse.json({ error: "Para pasar a producción la droguería necesita su UUID de cliente en MATIAS (si no, facturaría con el NIT de Regenta)" }, { status: 400 });
     if (m.resoluciones.some((x) => !x.pruebas && !x.numero))
@@ -57,8 +60,10 @@ export const PATCH = conAdmin(async (a, req, ctx) => {
       const q = (await c.query(`select bool_or(tipo in ('pos', 'factura') and not pruebas) ventas_reales, bool_or(tipo = 'nota_credito' and not pruebas) nc_real
         from resoluciones_dian where empresa_id = $1 and activa`, [id])).rows[0];
       if (q.ventas_reales && !q.nc_real) throw Object.assign(new Error("nc"), { nc: true });
+      habilitado = await avisarHabilitacion(c, id);
       return true;
     }).catch((e) => { if ((e as { nc?: boolean }).nc) return "nc" as const; throw e; });
+    for (const k of habilitado) await enviarAhora(k);
     if (ok === "nc") return NextResponse.json({ error: "Para pasar las ventas a producción, la numeración de notas crédito también debe estar en producción (con su resolución): si no, las anulaciones y devoluciones no podrían enviarse a la DIAN" }, { status: 400 });
     if (!ok) return NextResponse.json({ error: "Cliente no encontrado (la demo no se modifica desde aquí)" }, { status: 404 });
     await evento(a, "facturacion_electronica", id, m);
@@ -80,12 +85,24 @@ export const PATCH = conAdmin(async (a, req, ctx) => {
   if (!n.rowCount) return NextResponse.json({ error: "Cliente no encontrado (la demo no se modifica desde aquí)" }, { status: 404 });
   // Suspender desde la consola también corta la renovación automática con tarjeta (si no, Stripe seguiría cobrando).
   let aviso = "";
+  if (d.plan) {
+    // Cambio de plan desde la consola (inmediato): avisa si ya tiene más cajas o usuarios de los que permite el nuevo plan.
+    const x = (await sinRLS((c) => c.query(`select (select count(*) from cajas where empresa_id = $1 and activa)::int cajas, (select count(*) from miembros where empresa_id = $1 and activo)::int usuarios`, [id]))).rows[0];
+    const l = limite(d.plan);
+    if ((l.cajas !== null && x.cajas > l.cajas) || (l.usuarios !== null && x.usuarios > l.usuarios))
+      aviso = `. Ojo: tiene ${x.cajas} caja(s) y ${x.usuarios} usuario(s) activos y el plan permite ${l.cajas ?? "∞"} y ${l.usuarios ?? "∞"}; desactiva lo que sobra`;
+  }
   if (d.estado === "suspendida") {
     const sub = await sinRLS((c) => suscripcionStripe(c, id));
     if (sub) aviso = (await cancelarSuscripcionStripe(sub.suscripcion, false)) ? " y su renovación con tarjeta cancelada" : ". OJO: no se pudo cancelar la suscripción en Stripe; cancélala en el panel de Stripe";
   }
+  if (d.estado === "activa") {
+    const cortada = (await sinRLS((c) => c.query(`select 1 from pagos_suscripcion where empresa_id = $1 and proveedor = 'stripe' and estado = 'aprobado' and coalesce((detalle ->> 'cancelada')::boolean, false)
+      and not exists (select 1 from pagos_suscripcion q where q.empresa_id = $1 and q.proveedor = 'stripe' and q.estado = 'aprobado' and not coalesce((q.detalle ->> 'cancelada')::boolean, false))`, [id]))).rowCount;
+    if (cortada) aviso = ". Su renovación con tarjeta quedó cancelada: al vencer deberá pagar de nuevo (le llegan los recordatorios)";
+  }
   await evento(a, d.estado ? (d.estado === "activa" ? "activar_cliente" : "suspender_cliente") : d.plan ? "cambiar_plan" : "nota_cliente", id, d);
-  return NextResponse.json({ ok: true, mensaje: d.estado === "suspendida" ? "Cliente suspendido" + aviso : d.estado === "activa" ? "Cliente activado" : "Guardado" });
+  return NextResponse.json({ ok: true, mensaje: (d.estado === "suspendida" ? "Cliente suspendido" : d.estado === "activa" ? "Cliente activado" : d.plan ? "Plan cambiado" : "Guardado") + aviso });
 });
 
 /** Eliminar una droguería de PRUEBA (la base exige: no demo, suspendida y sin numeración DIAN en producción). Se confirma

@@ -7,11 +7,12 @@ type Linea = { key: number; p: Prod; lote: string; vence: string; cajas: string;
 const n = (s: string) => Number(String(s).replace(/\D/g, "")) || 0;
 const fmt = (s: string) => (s.replace(/\D/g, "") ? Number(s.replace(/\D/g, "")).toLocaleString("es-CO") : "");
 
-export function Recibir({ verCosto }: { verCosto: boolean }) {
+export function Recibir({ verCosto, proveedores = [] }: { verCosto: boolean; proveedores?: string[] }) {
   const [q, setQ] = useState("");
   const [res, setRes] = useState<Prod[]>([]);
   const [lineas, setLineas] = useState<Linea[]>([]);
   const [proveedor, setProveedor] = useState("");
+  const [factura, setFactura] = useState("");
   const [error, setError] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [hecho, setHecho] = useState<number | null>(null);
@@ -50,13 +51,13 @@ export function Recibir({ verCosto }: { verCosto: boolean }) {
     let r: Response;
     try {
     r = await fetch("/api/inventario", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
-      tipo: "compra", motivo: proveedor.trim() ? `Proveedor: ${proveedor.trim()}` : null, idem_key: idem.current,
+      tipo: "compra", proveedor: proveedor.trim() || null, factura: factura.trim() || null, idem_key: idem.current,
       lineas: lineas.map((l) => ({ producto_id: l.p.id, lote: l.lote.trim(), vence: l.vence || null, unidades: unidades(l),
         ...(verCosto && n(l.costo) ? { costo_unidad: Math.round((n(l.costo) / (n(l.cajas) && !n(l.sueltas) && l.p.unidades_por_caja > 1 ? l.p.unidades_por_caja : 1)) * 10000) / 10000 } : {}) })) }) });
     } catch { setEnviando(false); setError("Sin conexión: revisa internet y vuelve a guardar (no se duplicará)."); return; }
     setEnviando(false);
     if (!r.ok) { setError((await r.json().catch(() => ({}))).error ?? "No se pudo guardar la entrada"); return; }
-    setHecho(lineas.reduce((a, l) => a + unidades(l), 0)); setLineas([]); setProveedor(""); idem.current = crypto.randomUUID();
+    setHecho(lineas.reduce((a, l) => a + unidades(l), 0)); setLineas([]); setProveedor(""); setFactura(""); idem.current = crypto.randomUUID();
     buscar.current?.focus();
   }
 
@@ -65,7 +66,7 @@ export function Recibir({ verCosto }: { verCosto: boolean }) {
   return (
     <div className="grid gap-4 max-w-5xl">
       {hecho !== null && <p role="status" className="rounded-xl bg-cruz-soft text-cruz font-semibold px-4 py-3">Entrada guardada: {hecho.toLocaleString("es-CO")} unidades ya están disponibles para vender.</p>}
-      <section className="tarjeta p-4 sm:p-5 grid sm:grid-cols-[1fr_260px] gap-3">
+      <section className="tarjeta p-4 sm:p-5 grid sm:grid-cols-[1fr_360px] gap-3">
         <div className="relative">
           <label htmlFor="buscar-recibir" className="etiqueta">Producto</label>
           <input id="buscar-recibir" ref={buscar} autoFocus value={q} onChange={(e) => setQ(e.target.value)} className="campo h-12 text-lg" placeholder="Escanea o escribe el nombre" autoComplete="off" />
@@ -76,7 +77,11 @@ export function Recibir({ verCosto }: { verCosto: boolean }) {
           )}
           {q.trim().length >= 2 && res.length === 0 && <p className="text-sm text-muted mt-2">¿No aparece? Créalo primero en <a href="/productos/nuevo" className="underline">Productos → Agregar</a>.</p>}
         </div>
-        <div><label htmlFor="proveedor" className="etiqueta">Proveedor o factura <span className="text-muted font-normal">(opcional)</span></label><input id="proveedor" value={proveedor} onChange={(e) => setProveedor(e.target.value)} className="campo h-12" placeholder="Ej.: factura 4521" /></div>
+        <div className="grid grid-cols-[minmax(0,1fr)_110px] gap-2">
+          <div><label htmlFor="proveedor" className="etiqueta">Proveedor</label><input id="proveedor" list="proveedores-lista" value={proveedor} onChange={(e) => setProveedor(e.target.value)} className="campo h-12" placeholder="Elige o escribe" autoComplete="off" />
+            <datalist id="proveedores-lista">{proveedores.map((x) => <option key={x} value={x} />)}</datalist></div>
+          <div><label htmlFor="factura" className="etiqueta">Factura</label><input id="factura" value={factura} onChange={(e) => setFactura(e.target.value)} className="campo h-12" placeholder="N.º" autoComplete="off" /></div>
+        </div>
       </section>
 
       {lineas.length === 0 ? (

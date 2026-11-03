@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { sinRLS } from "@/lib/db";
 import { esUuid } from "@/lib/api";
 import { conAdmin, evento } from "@/lib/admin";
+import { enviarAhora } from "@/lib/correo";
+import { avisarHabilitacion } from "@/lib/operacion";
 
 const fecha = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha AAAA-MM-DD").nullish().or(z.literal(""));
 const Numeracion = z.object({
@@ -35,14 +37,15 @@ export const POST = conAdmin(async (a, req, ctx) => {
     if (usado && Number(usado) >= n.desde) return { status: 409, error: `Con el prefijo «${n.prefijo}» ya se emitió hasta el ${usado}: la numeración debe empezar después` };
     await c.query(`update resoluciones_dian set activa = false where empresa_id = $1 and tipo = $2 and activa`, [id, n.tipo]);
     await c.query(`insert into resoluciones_dian (empresa_id, tipo, numero_resolucion, prefijo, desde, hasta, actual, vigente_desde, vigente_hasta, pruebas)
-      values ($1, $2, nullif($3, ''), $4, $5, $6, $5 - 1, nullif($7, '')::date, nullif($8, '')::date, $9)`,
+      values ($1, $2, nullif($3, ''), $4, $5::bigint, $6::bigint, $5::bigint - 1, nullif($7, '')::date, nullif($8, '')::date, $9)`,
       [id, n.tipo, n.numero_resolucion, n.prefijo, n.desde, n.hasta, n.vigente_desde ?? "", n.vigente_hasta ?? "", n.pruebas]);
     const q = (await c.query(`select bool_or(tipo in ('pos', 'factura') and not pruebas) ventas_reales, bool_or(tipo = 'nota_credito' and not pruebas) nc_real
       from resoluciones_dian where empresa_id = $1 and activa`, [id])).rows[0];
     if (q.ventas_reales && !q.nc_real) throw Object.assign(new Error("Primero carga la numeración de notas crédito de producción: sin ella las anulaciones y devoluciones de estas ventas no podrían enviarse a la DIAN"), { status: 400 });
     await evento(a, "nueva_numeracion", id, n, c);
-    return { status: 201, ok: true };
+    return { status: 201, ok: true, claves: await avisarHabilitacion(c, id) };
   }).catch((e) => { if ((e as { status?: number }).status) return { status: (e as { status: number }).status, error: (e as Error).message }; throw e; });
   if (r.error) return NextResponse.json({ error: r.error }, { status: r.status });
+  for (const k of ("claves" in r && r.claves) || []) await enviarAhora(k);
   return NextResponse.json({ ok: true, mensaje: "Numeración guardada: la siguiente venta usa la nueva" }, { status: 201 });
 });

@@ -10,6 +10,7 @@ import { Nota } from "./Nota";
 import { Facturacion } from "./Facturacion";
 import { Eliminar } from "./Eliminar";
 import { Fiscal } from "./Fiscal";
+import { PagoManual } from "./PagoManual";
 
 export const metadata = { title: "Cliente" };
 export const dynamic = "force-dynamic";
@@ -78,6 +79,7 @@ export default async function Cliente({ params }: { params: Promise<{ id: string
         <section className="tarjeta p-5">
           <h2 className="titulo text-xl">Pagos</h2>
           {d.pagos.length ? <ul className="mt-3 divide-y divide-line text-sm">{d.pagos.map((p) => <li key={p.referencia} className="py-2 flex justify-between gap-2"><span>{fechaHora(p.creado)} · {NOMBRE_PLAN[p.plan]} {p.periodo === "anio" ? "anual" : "mensual"}</span><span className="num font-semibold">{pesos(p.monto)} · {p.estado}</span></li>)}</ul> : <p className="mt-2 text-muted">Sin pagos vinculados.</p>}
+          {!e.demo && <div className="mt-3"><PagoManual empresa={id} plan={e.plan} /></div>}
         </section>
         <section className="tarjeta p-5">
           <h2 className="titulo text-xl">Lo que se hizo desde la consola</h2>

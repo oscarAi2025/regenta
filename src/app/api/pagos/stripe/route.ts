@@ -84,8 +84,19 @@ export async function POST(req: Request) {
     }
 
     if (ev.type === "customer.subscription.deleted") {
+      const yaAvisado = !!(p.detalle?.cancelar_al_final || p.detalle?.reemplazada || p.detalle?.cancelada);
       await c.query(`update pagos_suscripcion set detalle = coalesce(detalle, '{}'::jsonb) || '{"cancelada":true}'::jsonb, actualizado = now() where suscripcion = $1`, [sub]);
       if (p.estado === "pendiente") await c.query(`update pagos_suscripcion set estado = 'anulado' where referencia = $1`, [p.referencia]);
+      // Cancelada desde Stripe (por el banco, por cobros fallidos o desde el panel): el dueño sabe hasta cuándo va su plan.
+      // Si la canceló el dueño en Regenta, la reemplazó otro pago o la cortó una suspensión, no se repite el aviso.
+      const e = p.empresa_id ? (await c.query(`select estado, plan, coalesce(nombre_comercial, razon_social) nombre, (select to_char(max(vence), 'DD/MM/YYYY') from pagos_suscripcion where empresa_id = empresas.id and estado = 'aprobado') vence from empresas where id = $1`, [p.empresa_id])).rows[0] : null;
+      if (yaAvisado || !e || e.estado !== "activa" || p.estado !== "aprobado") return [];
+      const claves: string[] = [];
+      for (const d of (await c.query(`select cu.email, cu.nombre from miembros m join cuentas cu on cu.id = m.user_id where m.empresa_id = $1 and m.activo and m.rol = 'dueno'`, [p.empresa_id])).rows) {
+        const k = `renovacion-cancelada:${sub}:${d.email}`;
+        if (await encolar(c, { clave: k, para: d.email, plantilla: "renovacion_cancelada", empresa: p.empresa_id, datos: { nombre: d.nombre, empresa: e.nombre, vence: e.vence, plan_id: e.plan } })) claves.push(k);
+      }
+      return claves;
     }
     return [];
   });

@@ -10,6 +10,7 @@ export function Usuarios({ empresa, usuarios }: { empresa: string; usuarios: U[]
   const [f, setF] = useState({ nombre: "", email: "", rol: "cajero" });
   const [enlace, setEnlace] = useState<{ url: string; nombre: string } | null>(null);
   const [error, setError] = useState("");
+  const [correo, setCorreo] = useState<{ id: string; v: string } | null>(null);
   const router = useRouter();
   async function llamar(metodo: string, cuerpo: unknown, nombre: string) {
     setError("");
@@ -32,10 +33,22 @@ export function Usuarios({ empresa, usuarios }: { empresa: string; usuarios: U[]
             {usuarios.map((u) => (
               <tr key={u.user_id} className={u.activo ? "" : "text-muted"}>
                 <td className="py-2.5 pr-3"><p className="font-semibold">{u.nombre}</p><p className="text-sm text-muted">{u.email ?? "sin cuenta (usuario de demo)"}</p></td>
-                <td className="py-2.5 pr-3">{u.rol_nombre}</td>
+                <td className="py-2.5 pr-3">
+                  <label className="sr-only" htmlFor={`rol-${u.user_id}`}>Rol de {u.nombre}</label>
+                  <select id={`rol-${u.user_id}`} className="campo h-9 text-sm w-40" value={u.rol} disabled={!u.email} onChange={(e) => llamar("PATCH", { cuenta_id: u.user_id, rol: e.target.value }, u.nombre)}>
+                    <option value="dueno">Dueño</option><option value="admin">Administrador</option><option value="cajero">Cajera/o</option><option value="bodeguero">Bodega</option>
+                  </select>
+                </td>
                 <td className="py-2.5 pr-3 text-sm">{!u.activo ? "Desactivado" : u.activada ? `Último ingreso: ${u.ultimo}` : "Falta activar (enlace pendiente)"}</td>
                 <td className="py-2.5"><div className="flex flex-wrap gap-2">
                   {u.email && <button onClick={() => llamar("PATCH", { cuenta_id: u.user_id, enlace: true }, u.nombre)} className="btn-borde h-9 text-sm">{u.activada ? "Restablecer contraseña" : "Nuevo enlace"}</button>}
+                  {u.email && (correo?.id === u.user_id
+                    ? <form onSubmit={async (e) => { e.preventDefault(); if (await llamar("PATCH", { cuenta_id: u.user_id, email: correo.v }, u.nombre)) setCorreo(null); }} className="flex gap-2">
+                        <label className="sr-only" htmlFor={`correo-${u.user_id}`}>Correo nuevo de {u.nombre}</label>
+                        <input id={`correo-${u.user_id}`} type="email" required className="campo h-9 text-sm w-56" value={correo.v} onChange={(e) => setCorreo({ id: u.user_id, v: e.target.value })} />
+                        <button className="btn-oscuro h-9 text-sm">Guardar correo</button><button type="button" onClick={() => setCorreo(null)} className="text-sm text-muted">Cancelar</button>
+                      </form>
+                    : <button onClick={() => setCorreo({ id: u.user_id, v: u.email ?? "" })} className="btn-borde h-9 text-sm">Cambiar correo</button>)}
                   <button onClick={() => llamar("PATCH", { cuenta_id: u.user_id, activo: !u.activo }, u.nombre)} className={`${u.activo ? "btn-peligro" : "btn-primario"} h-9 text-sm`}>{u.activo ? "Desactivar" : "Activar"}</button>
                 </div></td>
               </tr>

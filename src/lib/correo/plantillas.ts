@@ -51,7 +51,7 @@ export const PLANTILLAS = {
     previa: "Crea tu contraseña y empieza a facturar.", titulo: `${hola(d.nombre)}, tu cuenta está lista`,
     parrafos: [`Te creamos un usuario en Regenta${d.empresa ? ` para <b>${esc(d.empresa)}</b>` : ""}. Solo falta que crees tu contraseña.`],
     boton: { texto: "Crear mi contraseña", href: enlace(d.enlace) },
-    despues: ["El enlace vence en 7 días y sirve una sola vez. Si vence, pídenos uno nuevo por WhatsApp."] }) }),
+    despues: ["El enlace vence en 7 días y sirve una sola vez. Si vence, ábrelo igual y pide uno nuevo con un clic."] }) }),
 
   restablecer: (d: Datos): Correo => ({ asunto: "Tu enlace para crear una contraseña nueva", ...marco({
     previa: "Crea una contraseña nueva para Regenta.", titulo: hola(d.nombre),
@@ -64,7 +64,7 @@ export const PLANTILLAS = {
     parrafos: [`Tu cuenta${d.empresa ? ` de <b>${esc(d.empresa)}</b>` : ""} ya está activa. Así empiezas hoy mismo:`,
       "<b>1.</b> Carga tus productos desde Excel o búscalos en el catálogo de casi 10.000 productos.",
       "<b>2.</b> Recibe tu inventario por lote y fecha de vencimiento.",
-      "<b>3.</b> Abre la caja y haz tu primera venta con POS o factura electrónica."],
+      "<b>3.</b> Cuando quede lista tu habilitación ante la DIAN (te avisamos por correo), abre la caja y haz tu primera venta con POS o factura electrónica."],
     boton: { texto: "Entrar a Regenta", href: url("/entrar", "bienvenida") },
     despues: ["Si quieres, te acompañamos por WhatsApp en la primera venta."] }) }),
 
@@ -78,7 +78,7 @@ export const PLANTILLAS = {
     previa: d.monto ? `Recibimos tu pago de ${pesos(Number(d.monto))}.` : "Recibimos tu pago.", titulo: "¡Pago aprobado!",
     parrafos: [`${hola(d.nombre)}, recibimos tu pago${d.monto ? ` de <b>${pesos(Number(d.monto))}</b>` : ""} por Regenta${d.plan ? ` <b>${esc(d.plan)}</b>` : ""}${d.periodo ? ` (${esc(PERIODO[String(d.periodo)] ?? d.periodo)})` : ""}.`,
       `${d.referencia ? `Referencia: <b>${esc(d.referencia)}</b>.` : ""}${d.vence ? ` Tu periodo pagado va hasta el <b>${esc(d.vence)}</b>.` : ""}`.trim() || "Guarda este correo como constancia.",
-      "Si aún no tienes tu cuenta, te escribimos por WhatsApp para activarla y cargar tus productos."],
+      "Si es tu primera contratación, te llega otro correo para crear tu contraseña. Mientras terminamos tu habilitación ante la DIAN ya puedes cargar productos e inventario; te avisamos por correo cuando tu caja emita documentos válidos."],
     boton: { texto: "Entrar a Regenta", href: url("/entrar", "pago") } }) }),
 
   pago_qr: (d: Datos): Correo => ({ asunto: `Paga tu plan de Regenta con QR${d.monto ? `: ${pesos(Number(d.monto))}` : ""}`, ...marco({
@@ -115,10 +115,47 @@ export const PLANTILLAS = {
     parrafos: [`${hola(d.nombre)}, el periodo de Regenta${d.plan ? ` ${esc(d.plan)}` : ""}${d.empresa ? ` de <b>${esc(d.empresa)}</b>` : ""} terminó${d.vence ? ` el <b>${esc(d.vence)}</b>` : ""}.`, "Renuévalo hoy para que el servicio no se interrumpa. Si ya pagaste, ignora este correo."],
     boton: { texto: "Renovar ahora", href: url(`/contratar?plan=${encodeURIComponent(String(d.plan_id ?? "pro"))}`, "renovacion_vencida") } }) }),
 
-  cuenta_suspendida: (d: Datos): Correo => ({ asunto: "Tu cuenta de Regenta está suspendida", ...marco({
+  cuenta_suspendida: (d: Datos): Correo => d.impago ? ({ asunto: "Tu cuenta de Regenta está suspendida: renueva y vuelve en minutos", ...marco({
+    previa: "Paga tu plan y la cuenta se reactiva sola.", titulo: "Renueva y sigue vendiendo",
+    parrafos: [`${hola(d.nombre)}, la cuenta de <b>${esc(txt(d.empresa, "tu droguería"))}</b> en Regenta está suspendida porque el plan venció. Tus datos, inventario y ventas siguen guardados.`,
+      "Renueva con tarjeta, PSE, Nequi o QR Bancolombia usando <b>este mismo correo y el NIT de la droguería</b>: al aprobarse el pago la cuenta se reactiva sola, sin esperar a nadie."],
+    boton: { texto: "Renovar y reactivar", href: url(`/contratar?plan=${encodeURIComponent(String(d.plan_id ?? "esencial"))}`, "suspendida") },
+    despues: ["Si prefieres una copia completa de tus datos (productos, ventas, clientes y documentos DIAN), respóndenos este correo y te la enviamos."] }) })
+    : ({ asunto: "Tu cuenta de Regenta está suspendida", ...marco({
     previa: "Escríbenos para reactivarla.", titulo: "Tu cuenta está suspendida",
     parrafos: [`${hola(d.nombre)}, la cuenta de <b>${esc(txt(d.empresa, "tu droguería"))}</b> en Regenta está suspendida. Tus datos siguen guardados.`, "Escríbenos por WhatsApp y la reactivamos. Si prefieres una copia completa de tus datos (productos, ventas, clientes y documentos DIAN), pídela por el mismo medio."],
     boton: { texto: "Escribir por WhatsApp", href: wa(`Hola, quiero reactivar la cuenta de ${txt(d.empresa, "mi droguería")} en Regenta.`) } }) }),
+
+  habilitado: (d: Datos): Correo => ({ asunto: "Ya facturas electrónicamente ante la DIAN con Regenta", ...marco({
+    previa: "Tu habilitación quedó lista: tu caja ya emite documentos válidos.", titulo: "¡Habilitación lista!",
+    parrafos: [`${hola(d.nombre)}, la facturación electrónica de <b>${esc(txt(d.empresa, "tu droguería"))}</b> quedó habilitada ante la DIAN. Desde ya, cada venta sale con su documento electrónico válido (tiquete POS o factura).`,
+      "Abre la caja y haz tu primera venta real. Si quieres, te acompañamos por WhatsApp."],
+    boton: { texto: "Abrir la caja", href: url("/caja", "habilitado") } }) }),
+
+  renovacion_cancelada: (d: Datos): Correo => ({ asunto: "Cancelaste la renovación automática de Regenta", ...marco({
+    previa: d.vence ? `Tu plan sigue activo hasta el ${d.vence}.` : "Tu plan sigue activo hasta el final del periodo pagado.", titulo: "Renovación cancelada",
+    parrafos: [`${hola(d.nombre)}, la renovación automática con tarjeta de <b>${esc(txt(d.empresa, "tu droguería"))}</b> quedó cancelada. No se te cobrará de nuevo.`,
+      `Tu plan sigue activo ${d.vence ? `hasta el <b>${esc(d.vence)}</b>` : "hasta el final del periodo pagado"}. Antes de esa fecha puedes renovar con el medio que prefieras.`],
+    boton: { texto: "Renovar mi plan", href: url(`/contratar?plan=${encodeURIComponent(String(d.plan_id ?? "esencial"))}`, "renovacion_cancelada") } }) }),
+
+  plan_cambiado: (d: Datos): Correo => ({ asunto: `Tu droguería pasó al plan ${d.plan ?? ""} de Regenta`, ...marco({
+    previa: "Terminó el periodo del plan anterior.", titulo: `Ahora estás en ${esc(txt(d.plan, "tu nuevo plan"))}`,
+    parrafos: [`${hola(d.nombre)}, terminó el periodo pagado del plan anterior de <b>${esc(txt(d.empresa, "tu droguería"))}</b> y desde hoy estás en <b>${esc(txt(d.plan, ""))}</b>.`,
+      ...(Number(d.cajas) || Number(d.usuarios) ? [`Para quedar dentro del plan desactivamos ${Number(d.cajas) ? `<b>${esc(String(d.cajas))}</b> caja(s)` : ""}${Number(d.cajas) && Number(d.usuarios) ? " y " : ""}${Number(d.usuarios) ? `<b>${esc(String(d.usuarios))}</b> usuario(s)` : ""}. No se borró nada: vuelven con un clic si pasas a Pro.`] : [])],
+    boton: { texto: "Ver mi droguería", href: url("/equipo", "plan_cambiado") } }) }),
+
+  cupo_documentos: (d: Datos): Correo => ({ asunto: "Vas en el 90 % de tus documentos del mes", ...marco({
+    previa: "Pasa a Pro y no pagues documentos extra.", titulo: "Tu droguería está vendiendo más",
+    parrafos: [`${hola(d.nombre)}, <b>${esc(txt(d.empresa, "tu droguería"))}</b> lleva <b>${esc(String(d.documentos ?? ""))}</b> documentos electrónicos este mes, de <b>${esc(String(d.cupo ?? ""))}</b> que incluye tu plan ${esc(txt(d.plan, ""))}.`,
+      `Los que pasen del cupo se cobran a ${pesos(Number(d.valor ?? 20))} cada uno. Si vendes así cada mes, el plan Pro (5.000 documentos, 3 cajas y usuarios ilimitados) te sale mejor.`],
+    boton: { texto: "Pasar a Pro", href: url("/contratar?plan=pro", "cupo90") } }) }),
+
+  cargo_documentos: (d: Datos): Correo => ({ asunto: `Documentos adicionales de ${d.mes ?? "el mes"}: ${pesos(Number(d.monto ?? 0))}`, ...marco({
+    previa: "Tu droguería superó el cupo de documentos del plan.", titulo: "Documentos adicionales del mes",
+    parrafos: [`${hola(d.nombre)}, en ${esc(txt(d.mes, "el mes pasado"))} <b>${esc(txt(d.empresa, "tu droguería"))}</b> emitió <b>${esc(String(d.documentos ?? ""))}</b> documentos electrónicos; tu plan incluye <b>${esc(String(d.cupo ?? ""))}</b>.`,
+      `Los <b>${esc(String(d.extra ?? ""))}</b> adicionales suman <b>${pesos(Number(d.monto ?? 0))}</b>. Págalos por QR o transferencia a la llave Bre-B <b>${esc(txt(d.llave, ""))}</b>${d.titular ? ` (a nombre de ${esc(d.titular)})` : ""} con la referencia <b>${esc(txt(d.referencia, ""))}</b> y envíanos el comprobante.`,
+      "Si vendes así cada mes, el plan Pro incluye 5.000 documentos y te sale mejor."],
+    boton: { texto: "Enviar el comprobante por WhatsApp", href: wa(`Hola, adjunto el pago de documentos adicionales ${txt(d.referencia, "")} de ${txt(d.empresa, "mi droguería")}.`) } }) }),
 
   cuenta_por_suspender: (d: Datos): Correo => ({ asunto: "Tu plan de Regenta venció: renuévalo para no perder la caja", ...marco({
     previa: "En pocos días la cuenta se suspende.", titulo: "Renueva tu plan",

@@ -57,7 +57,11 @@ export async function alCambiarPago(c: Tx, referencia: string): Promise<string[]
     // (salvo planes especiales de la consola, que no se rebajan).
     await c.query(`update empresas e set estado = case when e.estado = 'suspendida' and e.suspension = 'impago' then 'activa' else e.estado end,
         suspension = case when e.estado = 'suspendida' and e.suspension = 'impago' then null else e.suspension end,
-        plan = case when e.plan in ('esencial', 'pro') then p.plan else e.plan end
+        -- Bajar de Pro a Esencial no quita lo ya pagado: el plan nuevo se aplica al terminar el periodo de Pro (aplicarBajadas).
+        plan = case when e.plan in ('esencial', 'pro') and not (e.plan = 'pro' and p.plan = 'esencial' and exists (select 1 from pagos_suscripcion q
+            where q.empresa_id = e.id and q.estado = 'aprobado' and q.plan = 'pro' and q.referencia <> p.referencia and q.vence >= current_date)) then p.plan else e.plan end,
+        plan_siguiente = case when e.plan = 'pro' and p.plan = 'esencial' and exists (select 1 from pagos_suscripcion q
+            where q.empresa_id = e.id and q.estado = 'aprobado' and q.plan = 'pro' and q.referencia <> p.referencia and q.vence >= current_date) then 'esencial' else null end
       from pagos_suscripcion p where p.referencia = $1 and e.id = p.empresa_id and not e.demo`, [referencia]);
     const empresa = (await c.query(`select empresa_id from pagos_suscripcion where referencia = $1`, [referencia])).rows[0]?.empresa_id ?? null;
     // Una sola renovación automática por droguería: si este pago es de otra suscripción (o de otro medio), la suscripción
@@ -86,7 +90,7 @@ export async function alCambiarPago(c: Tx, referencia: string): Promise<string[]
     const claves: string[] = [];
     for (const d of (await c.query(`select cu.email, cu.nombre from miembros m join cuentas cu on cu.id = m.user_id where m.empresa_id = $1 and m.activo and m.rol = 'dueno'`, [p.empresa_id])).rows) {
       const k = `suspendida-anulado:${referencia}:${d.email}`;
-      if (await encolar(c, { clave: k, para: d.email, plantilla: "cuenta_suspendida", empresa: p.empresa_id, datos: { nombre: d.nombre, empresa: e.nombre } })) claves.push(k);
+      if (await encolar(c, { clave: k, para: d.email, plantilla: "cuenta_suspendida", empresa: p.empresa_id, datos: { nombre: d.nombre, empresa: e.nombre, impago: 1, plan_id: p.plan } })) claves.push(k);
     }
     return claves;
   }

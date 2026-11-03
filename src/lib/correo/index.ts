@@ -172,8 +172,12 @@ export async function programarRecordatorios() {
       const plantilla: Plantilla | null = dias === 5 || dias === 1 ? "renovacion_proxima" : dias === -1 ? "renovacion_vencida" : null;
       if (!plantilla) continue;
       const venceTxt = vence.toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
-      if (await encolar(c, { clave: `renovacion:${f.referencia}:${dias}`, para: f.email, plantilla, empresa: f.empresa_id,
-        datos: { nombre: f.nombre, empresa: f.empresa, plan: f.plan === "pro" ? "Pro" : "Esencial", plan_id: f.plan, vence: venceTxt } })) n++;
+      // A los dueños de hoy (el pago pudo hacerlo otra persona o un dueño anterior) y a quien pagó.
+      const para = new Map<string, string>([[String(f.email).toLowerCase(), f.nombre]]);
+      for (const d of (await c.query(`select cu.email, cu.nombre from miembros m join cuentas cu on cu.id = m.user_id where m.empresa_id = $1 and m.activo and m.rol = 'dueno' and cu.activa`, [f.empresa_id])).rows) para.set(String(d.email).toLowerCase(), d.nombre);
+      for (const [email, nombre] of para)
+        if (await encolar(c, { clave: `renovacion:${f.referencia}:${dias}${email === String(f.email).toLowerCase() ? "" : `:${email}`}`, para: email, plantilla, empresa: f.empresa_id,
+          datos: { nombre, empresa: f.empresa, plan: f.plan === "pro" ? "Pro" : "Esencial", plan_id: f.plan, vence: venceTxt } })) n++;
     }
     // Pagos que se quedaron a medias (pendientes de más de 1 hora y menos de 2 días): un solo correo de ayuda.
     const abandonados = (await c.query(`select referencia, email, nombre, plan from pagos_suscripcion p where estado = 'pendiente' and proveedor <> 'qr' and creado between now() - interval '2 days' and now() - interval '1 hour'

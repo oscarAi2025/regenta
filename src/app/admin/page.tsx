@@ -17,9 +17,15 @@ export default async function Resumen() {
     const dian = (await c.query(`select count(*) filter (where d.estado in ('pendiente', 'enviando'))::int cola, count(*) filter (where d.estado = 'rechazado')::int rechazados from documentos_dian d join empresas e on e.id = d.empresa_id where not e.demo`)).rows[0];
     const ventas = (await c.query(`select count(*)::int n, coalesce(sum(total), 0)::float t from ventas v join empresas e on e.id = v.empresa_id where not e.demo and v.estado = 'cerrada' and (v.creado at time zone 'America/Bogota')::date = (now() at time zone 'America/Bogota')::date`)).rows[0];
     const invima = (await c.query(`select max(creado) u, count(*)::int n from alertas_invima`)).rows[0];
+    // Clientes que ya pagaron y siguen sin facturar en producción: cada día así es un cliente pagando sin usar lo que compró.
+    const sinHabilitar = (await c.query(`select e.id, coalesce(e.nombre_comercial, e.razon_social) nombre, (current_date - min(p.creado)::date)::int dias
+      from empresas e join pagos_suscripcion p on p.empresa_id = e.id and p.estado = 'aprobado'
+      where not e.demo and e.estado = 'activa' and not exists (select 1 from resoluciones_dian r where r.empresa_id = e.id and r.activa and not r.pruebas and r.tipo in ('pos', 'factura'))
+      group by e.id order by min(p.creado) limit 10`)).rows;
+    const cargos = (await c.query(`select count(*)::int n, coalesce(sum(monto), 0)::float t from cargos_documentos where estado = 'pendiente'`)).rows[0];
     const recientes = (await c.query(`select id, coalesce(nombre_comercial, razon_social) nombre, plan, estado, creado from empresas where not demo order by creado desc limit 5`)).rows;
     const nuevas = (await c.query(`select id, nombre, drogueria, ciudad, telefono, creado from solicitudes_demo where estado = 'nueva' order by creado desc limit 5`)).rows;
-    return { empresas, pagos, solicitudes, dian, ventas, invima, recientes, nuevas };
+    return { sinHabilitar, cargos, empresas, pagos, solicitudes, dian, ventas, invima, recientes, nuevas };
   });
   const activas = d.empresas.filter((e) => e.estado === "activa");
   const mrr = activas.reduce((a, e) => a + (PRECIO_PLAN[e.plan] ?? 0) * e.n, 0);
@@ -38,6 +44,8 @@ export default async function Resumen() {
         <Dato titulo="Cola DIAN" valor={d.dian.cola} tono={d.dian.rechazados ? "alerta" : undefined} nota={`${d.dian.rechazados} rechazados para revisar`} />
         <Dato titulo="Alertas INVIMA" valor={d.invima.n} nota={`última cargada: ${fechaHora(d.invima.u)}`} />
         <Dato titulo="Pagos en proceso" valor={d.pagos.pendientes} nota="últimos 2 días" />
+        <Dato titulo="Pagaron y sin habilitar DIAN" valor={d.sinHabilitar.length} tono={d.sinHabilitar.length ? "alerta" : undefined} nota={d.sinHabilitar.length ? d.sinHabilitar.slice(0, 3).map((x: any) => `${x.nombre} (${x.dias} d)`).join(", ") : "todos facturan en producción"} />
+        <Dato titulo="Documentos extra por cobrar" valor={pesos(d.cargos.t)} tono={d.cargos.n ? "aviso" : undefined} nota={`${d.cargos.n} cargo${d.cargos.n === 1 ? "" : "s"} pendiente${d.cargos.n === 1 ? "" : "s"} · en Pagos`} />
       </section>
       <section className="tarjeta p-5 flex flex-wrap items-center gap-3" aria-label="Acciones rápidas">
         <p className="font-semibold mr-2">Acciones rápidas</p>

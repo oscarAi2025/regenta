@@ -102,6 +102,24 @@ export async function expirarSesionStripe(id: string): Promise<"pagada" | "cerra
   return x?.ok ? "cerrada" : null;
 }
 
+/** Devuelve en Stripe el cobro de un pago (sesión de checkout cs_… o factura de renovación in_…). Devuelve el id del
+ *  reembolso, o un error legible si no se pudo (entonces se hace a mano en el panel de Stripe). */
+export async function reembolsarStripe(transaccion: string): Promise<{ id: string } | { error: string }> {
+  if (!process.env.STRIPE_SECRET_KEY) return { error: "Stripe no está configurado" };
+  const h = { authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}` };
+  const get = async (u: string) => { const r = await fetch(`https://api.stripe.com/v1/${u}`, { headers: h }).catch(() => null); return r?.ok ? r.json() as Promise<Record<string, any>> : null; };
+  let factura: Record<string, any> | null = null;
+  if (/^cs_\w+$/.test(transaccion)) { const s = await get(`checkout/sessions/${transaccion}?expand[]=invoice`); factura = s?.invoice && typeof s.invoice === "object" ? s.invoice : null; }
+  else if (/^in_\w+$/.test(transaccion)) factura = await get(`invoices/${transaccion}`);
+  const pi = typeof factura?.payment_intent === "string" ? factura.payment_intent : factura?.payment_intent?.id;
+  const cargo = typeof factura?.charge === "string" ? factura.charge : null;
+  if (!pi && !cargo) return { error: "No encontré el cobro en Stripe: devuélvelo desde el panel de Stripe y luego márcalo aquí como devuelto a mano" };
+  const r = await fetch("https://api.stripe.com/v1/refunds", { method: "POST", headers: { ...h, "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams(pi ? { payment_intent: pi } : { charge: cargo! }) }).catch(() => null);
+  const j = await r?.json().catch(() => null) as { id?: string; error?: { message?: string } } | null;
+  return r?.ok && j?.id ? { id: j.id } : { error: j?.error?.message ?? "Stripe no hizo el reembolso" };
+}
+
 /** Suscripción de Stripe vigente de una droguería (la que se renueva sola), si tiene. */
 export async function suscripcionStripe(c: { query: (q: string, v: unknown[]) => Promise<{ rows: { suscripcion: string; al_final: boolean }[] }> }, empresa: string) {
   return (await c.query(`select suscripcion, coalesce((detalle ->> 'cancelar_al_final')::boolean, false) al_final from pagos_suscripcion

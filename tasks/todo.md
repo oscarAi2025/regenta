@@ -292,3 +292,25 @@ Baja: 17 correo al cancelar renovación · 18 plan Socio límites/descuento · 1
 - [x] En vivo (bd0efdc): orden de prueba «descartada sin pagar»; OSCARIN ya no está en clientes; webhook Stripe 400 firma; /api/exportar sin sesión 401; ficha con «Descargar sus datos» y ZIP 200 (PK); /admin/activar con enlace falso «ya no sirve»
 - [x] Superadmin de Oscar (gerencia@farmagenericoscolombia.com) con contraseña propia vía db/consola/superadmin-enlace.sql
 - [ ] Detalle: un pago aprobado cuya droguería se eliminó aún muestra «Crear su cuenta» (ocultar si está atendido)
+
+## 2026-11-03 · Puntos medios y bajos de la revisión (migración 027)
+- [x] 7 Reintentar correo de contraseña genera enlace nuevo
+- [x] 8 Suspendido por impago: correo y entrada con «Renovar» (se reactiva solo al pagar); cajera ve «avísale al dueño»
+- [x] 9 Bajar de Pro a Esencial se aplica al vencer lo pagado (plan_siguiente) y recorta cajas/usuarios con aviso; consola avisa exceso al cambiar plan
+- [x] 10 Documentos extra: cargo mensual (solo documentos de producción), correo con referencia y llave QR, aviso al 90 %, consola marca pagado/condona, Mi droguería y franja en la app
+- [x] 11 Reembolso: Stripe desde la consola (refund + cancela suscripción) o «Marcar devuelto»; anula y suspende si no hay otro pago
+- [x] 12 Pago manual (transferencia, consignación, efectivo) con plan, vencimiento, reactivación y correo
+- [x] 13 Correo «Ya facturas ante la DIAN» al quedar en producción; textos de pago aprobado y bienvenida corregidos; alerta en consola de pagados sin habilitar
+- [x] 14 Consola: cambiar rol (nunca sin dueño) y correo de usuarios
+- [x] 15 Página Clientes (dueño/admin): buscar, compras, corregir, quitar contacto (Ley 1581)
+- [x] 16 Proveedores al recibir (lista + factura) y «Costos por completar» para dueño/admin
+- [x] 17 Correo al cancelar la renovación (dueño o Stripe)
+- [x] 18 Socio con topes de Pro (el descuento Socio sigue en la factura mensual, no en el pago en línea)
+- [x] 19 Reactivar avisa si la renovación con tarjeta quedó cancelada
+- [x] 20 Recordatorios de renovación a los dueños actuales
+- [x] 21 Franja en la app: plan por vencer/vencido y cargos pendientes
+- [x] 22 Mi cuenta: cambiar contraseña y cerrar las demás sesiones
+- [x] 23 Enlace vencido → «Envíame un enlace nuevo» (al correo de la cuenta)
+- [x] 24 Tope diario de Regenta IA por droguería (300)
+- [x] Detalle: pago aprobado de una droguería eliminada ya no ofrece «Crear su cuenta»
+- [x] BUG previo: cargar numeración DIAN desde la consola daba 500 (integer vs bigint) — corregido y cubierto por ingresos.mjs

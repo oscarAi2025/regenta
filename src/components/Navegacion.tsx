@@ -7,6 +7,7 @@ const ITEMS = [
   { href: "/caja", label: "Caja", roles: ["dueno", "admin", "cajero"], d: "M4 7h16v12H4zM8 7V4h8v3M8 12h3M8 15h5" },
   { href: "/turno", label: "Turno", roles: ["dueno", "admin", "cajero"], d: "M12 7v5l3 2M4 12a8 8 0 1 0 16 0 8 8 0 0 0-16 0" },
   { href: "/ventas", label: "Ventas", roles: ["dueno", "admin", "cajero"], d: "M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h3" },
+  { href: "/clientes", label: "Clientes", roles: ["dueno", "admin"], d: "M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 11a3 3 0 1 0 0-6M18 14c2.2.6 4 2.9 4 6" },
   { href: "/cartera", label: "Cartera", roles: ["dueno", "admin"], d: "M3 7h18v12H3zM3 11h18M7 15h4M16 4l-3 3" },
   { href: "/productos", label: "Productos", roles: ["dueno", "admin", "cajero", "bodeguero"], d: "M7 4h10l3 4v12H4V8zM4 8h16M10 12h4" },
   { href: "/reportes", label: "Reportes", roles: ["dueno", "admin"], d: "M4 20V10M10 20V4M16 20v-7M22 20H2" },
@@ -14,6 +15,7 @@ const ITEMS = [
   { href: "/alertas", label: "Alertas", roles: ["dueno", "admin", "cajero", "bodeguero"], d: "M12 4l9 16H3zM12 10v4M12 17h.01" },
   { href: "/equipo", label: "Mi droguería", roles: ["dueno"], d: "M3 21V9l9-6 9 6v12M9 21v-6h6v6M3 21h18" },
   { href: "/inventario", label: "Inventario", roles: ["dueno", "admin", "cajero", "bodeguero"], d: "M4 8l8-4 8 4-8 4zM4 8v8l8 4 8-4V8M12 12v8" },
+  { href: "/cuenta", label: "Mi cuenta", soloCelular: true, roles: ["dueno", "admin", "cajero", "bodeguero"], d: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" },
 ];
 
 export function Navegacion({ rol, demo = false }: { rol: string; demo?: boolean }) {
@@ -25,7 +27,7 @@ export function Navegacion({ rol, demo = false }: { rol: string; demo?: boolean 
         const on = p.startsWith(i.href);
         return (
           <Link key={i.href} href={i.href} aria-current={on ? "page" : undefined}
-            className={`flex flex-col items-center gap-1 rounded-xl px-2 py-2 min-w-16 text-[12px] font-medium shrink-0 ${on ? "text-white" : "text-white/65 hover:text-white"}`}
+            className={`${"soloCelular" in i ? "lg:hidden " : ""}flex flex-col items-center gap-1 rounded-xl px-2 py-2 min-w-16 text-[12px] font-medium shrink-0 ${on ? "text-white" : "text-white/65 hover:text-white"}`}
             style={on ? { background: "rgba(255,255,255,.12)" } : undefined}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true"><path d={i.d} /></svg>
             {i.label}

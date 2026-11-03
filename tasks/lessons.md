@@ -132,3 +132,7 @@
 
 - Una vista con filtro por usuario (mis_empresas / auth.uid()) no sirve en procesos del servidor (sinRLS): ahí hay que consultar las tablas filtrando por empresa. El error salta solo cuando la conexión del pool tuvo antes claims de un usuario (cadena vacía → JSON inválido), así que puede pasar las pruebas una vez y fallar la siguiente.
 - Al alterar un token en una prueba, garantizar que el valor cambia (sustituir el último carácter por uno distinto al que había).
+
+- Un endpoint solo probado con «basura» (datos rotos) puede estar roto en el camino feliz: cargar numeración DIAN daba 500 siempre ($5 - 1 con tipos deducidos distintos). Cada acción de la consola necesita al menos una prueba con datos válidos.
+- En SQL parametrizado, si un mismo parámetro se usa como valor de columna bigint y en una operación aritmética, castearlo explícito ($5::bigint).
+- Al buscar texto en HTML renderizado por React, quitar los comentarios <!-- --> que separan trozos de texto.

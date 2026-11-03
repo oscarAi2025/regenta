@@ -4,9 +4,9 @@ import { sinRLS } from "@/lib/db";
 import { conAdmin, evento } from "@/lib/admin";
 import { alCambiarPago, cancelarReemplazadas } from "@/lib/pagos-eventos";
 import { enviarAhora } from "@/lib/correo";
-import { expirarSesionStripe } from "@/lib/pagos";
+import { cancelarSuscripcionStripe, expirarSesionStripe, reembolsarStripe } from "@/lib/pagos";
 
-const Cambio = z.object({ referencia: z.string().max(80), atendido: z.boolean().optional(), empresa_id: z.string().uuid().nullish(), confirmar: z.enum(["aprobado", "rechazado"]).optional(), descartar: z.literal(true).optional(),
+const Cambio = z.object({ referencia: z.string().max(80), atendido: z.boolean().optional(), empresa_id: z.string().uuid().nullish(), confirmar: z.enum(["aprobado", "rechazado"]).optional(), descartar: z.literal(true).optional(), reembolsar: z.enum(["stripe", "manual"]).optional(),
   factura: z.string().trim().max(40).regex(/^[A-Za-z0-9 -]*$/, "Número de factura no válido").optional() });
 
 /** Marcar un pago como atendido o vincularlo a un cliente. */
@@ -46,6 +46,31 @@ export const PATCH = conAdmin(async (a, req) => {
     for (const k of clave) await enviarAhora(k);
     await cancelarReemplazadas();
     return NextResponse.json({ ok: true, mensaje: d.confirmar === "aprobado" ? (clave.length > 1 ? "Pago confirmado: cuenta creada y correo de acceso enviado" : "Pago confirmado: le enviamos el correo") : "Marcado como no recibido" });
+  }
+  if (d.reembolsar) {
+    // Garantía o devolución: con Stripe se devuelve el cobro desde aquí; con QR, Wompi o un pago manual se devuelve por fuera
+    // y aquí se registra. El pago queda anulado: si la droguería no tiene otro vigente, se suspende por impago.
+    const o = await sinRLS(async (c) => (await c.query(`select proveedor, estado, transaccion, suscripcion from pagos_suscripcion where referencia = $1`, [d.referencia])).rows[0]);
+    if (!o) return NextResponse.json({ error: "Pago no encontrado" }, { status: 404 });
+    if (o.estado !== "aprobado") return NextResponse.json({ error: "Solo se devuelve un pago aprobado" }, { status: 409 });
+    let reembolso: string | null = null;
+    if (d.reembolsar === "stripe") {
+      if (o.proveedor !== "stripe" || !o.transaccion) return NextResponse.json({ error: "Ese pago no es de Stripe: devuélvelo por fuera y márcalo como devuelto a mano" }, { status: 409 });
+      const r = await reembolsarStripe(o.transaccion);
+      if ("error" in r) return NextResponse.json({ error: r.error }, { status: 502 });
+      reembolso = r.id;
+      if (o.suscripcion) await cancelarSuscripcionStripe(o.suscripcion, false);
+    }
+    const claves = await sinRLS(async (c) => {
+      const r = await c.query(`update pagos_suscripcion set estado = 'anulado', detalle = coalesce(detalle, '{}'::jsonb) || $2::jsonb, actualizado = now() where referencia = $1 and estado = 'aprobado'`,
+        [d.referencia, JSON.stringify({ reembolso: reembolso ?? "manual", reembolsado_por: a.nombre, ...(o.suscripcion && d.reembolsar === "stripe" ? { cancelada: true } : {}) })]);
+      if (!r.rowCount) return null;
+      await evento(a, "reembolsar_pago", null, { referencia: d.referencia, reembolso }, c);
+      return alCambiarPago(c, d.referencia);
+    });
+    if (claves === null) return NextResponse.json({ error: "Ese pago ya cambió: recarga" }, { status: 409 });
+    for (const k of claves) await enviarAhora(k);
+    return NextResponse.json({ ok: true, mensaje: d.reembolsar === "stripe" ? "Dinero devuelto en Stripe y pago anulado" : "Pago marcado como devuelto y anulado" });
   }
   if (d.factura !== undefined) {
     // Número de la factura electrónica del servicio (la ve el dueño en su comprobante).

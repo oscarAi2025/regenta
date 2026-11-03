@@ -37,8 +37,8 @@ export async function POST(req: Request) {
     await x.query(`delete from intentos_acceso where clave = any(array[$1, $2])`, [claves.correo_ip, claves.correo]);
   });
   // Quien pertenece a varias droguerías elige a cuál entra (el formulario vuelve a enviar la contraseña con la elegida).
-  const todas = (await sinRLS((x) => x.query(`select m.empresa_id, m.rol, e.estado, coalesce(e.nombre_comercial, e.razon_social) nombre from miembros m join empresas e on e.id = m.empresa_id
-    where m.user_id = $1 and m.activo order by (e.estado = 'activa') desc, m.creado`, [c.id]))).rows as { empresa_id: string; rol: string; estado: string; nombre: string }[];
+  const todas = (await sinRLS((x) => x.query(`select m.empresa_id, m.rol, e.estado, e.suspension, e.plan, coalesce(e.nombre_comercial, e.razon_social) nombre from miembros m join empresas e on e.id = m.empresa_id
+    where m.user_id = $1 and m.activo order by (e.estado = 'activa') desc, m.creado`, [c.id]))).rows as { empresa_id: string; rol: string; estado: string; suspension: string | null; plan: string; nombre: string }[];
   const activas = todas.filter((x) => x.estado === "activa");
   if (!empresa && activas.length > 1 && !(c.super && consola))
     return NextResponse.json({ elegir: activas.map((x) => ({ id: x.empresa_id, nombre: x.nombre, rol: x.rol })) });
@@ -46,7 +46,12 @@ export async function POST(req: Request) {
   if (empresa && !m) return NextResponse.json({ error: "No perteneces a esa droguería" }, { status: 403 });
   if (c.super && (consola || !m)) { await crearSesionAdmin({ uid: c.id, nombre: c.nombre }); return NextResponse.json({ destino: "/admin" }); }
   if (!m) return NextResponse.json({ error: "Tu usuario no tiene una droguería asignada. Escríbenos por WhatsApp." }, { status: 403 });
-  if (m.estado !== "activa") return NextResponse.json({ error: "La cuenta de tu droguería está suspendida. Escríbenos por WhatsApp para reactivarla." }, { status: 403 });
+  if (m.estado !== "activa") {
+    // Suspendida por falta de pago: el dueño renueva en línea y la cuenta se reactiva sola al aprobarse el pago.
+    if (m.suspension === "impago" && m.rol === "dueno") return NextResponse.json({ error: "El plan de tu droguería venció y la cuenta está suspendida. Renueva con este mismo correo y el NIT de la droguería: se reactiva sola al aprobarse el pago.",
+      renovar: `/contratar?plan=${m.plan === "pro" ? "pro" : "esencial"}` }, { status: 403 });
+    return NextResponse.json({ error: m.suspension === "impago" ? "El plan de la droguería venció y la cuenta está suspendida: avísale al dueño para que lo renueve." : "La cuenta de tu droguería está suspendida. Escríbenos por WhatsApp para reactivarla." }, { status: 403 });
+  }
   await crearSesion({ uid: c.id, empresa: m.empresa_id, nombre: c.nombre, rol: m.rol as Rol });
   return NextResponse.json({ destino: m.rol === "cajero" ? "/caja" : "/inicio" });
 }

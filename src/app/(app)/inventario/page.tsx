@@ -4,6 +4,7 @@ import Link from "next/link";
 import { leerSesion, puede } from "@/lib/sesion";
 import { Cabecera } from "@/components/ui/Cabecera";
 import { pesos } from "@/lib/formato";
+import { CostosPendientes } from "./CostosPendientes";
 
 export const metadata = { title: "Inventario" };
 
@@ -38,7 +39,12 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
       where p.empresa_id = $1 and p.activo ${filtro}
         and (cardinality($2::text[]) = 0 or (select bool_and(lower(p.nombre || ' ' || coalesce(p.laboratorio, '')) like '%' || w || '%') from unnest($2::text[]) w))
       order by st.proximo nulls last, p.nombre limit 200`, [s.empresa, palabras])).rows;
-    return { resumen, agotados, valor, filas };
+    // Lotes con existencias que entraron sin costo (los recibe la bodega): el dueño o el administrador lo completan.
+    const sinCosto = costos ? (await c.query(`select l.lote_id, p.nombre, l.lote, l.unidades, p.unidades_por_caja,
+        (select m.motivo from movimientos m where m.lote_id = l.lote_id and m.tipo = 'compra' order by m.creado desc limit 1) motivo
+      from v_stock_lotes l join productos p on p.id = l.producto_id where l.empresa_id = $1 and l.unidades > 0
+        and not exists (select 1 from lote_costos lc where lc.lote_id = l.lote_id) order by p.nombre limit 60`, [s.empresa])).rows : [];
+    return { resumen, agotados, valor, filas, sinCosto };
   });
   const tabs = [["vencen", "Vencen en 90 días"], ["agotados", "Agotados"], ["todos", "Todo"]] as const;
   return (
@@ -46,6 +52,7 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
       <Cabecera titulo="Inventario" sub="Lotes, vencimientos y lo que se acabó.">
         {puede.moverInventario(s.rol) && <Link href="/inventario/recibir" className="btn-primario">Recibir mercancía</Link>}
       </Cabecera>
+      {datos.sinCosto.length > 0 && <CostosPendientes lotes={datos.sinCosto} />}
       <div className="mt-4 grid grid-cols-2 lg:grid-cols-5 gap-3">
         {[["Lotes vencidos", datos.resumen.vencidos, "text-alerta"], ["Vencen en 30 días", datos.resumen.v30, "text-alerta"], ["Vencen en 31–90 días", datos.resumen.v90, "text-aviso"], ["Productos agotados", datos.agotados, "text-ink"]].map(([t, n, c]) => (
           <div key={t as string} className="bg-surface border border-line rounded-xl px-4 py-3">
