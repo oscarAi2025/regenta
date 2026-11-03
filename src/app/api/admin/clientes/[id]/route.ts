@@ -3,10 +3,15 @@ import { cancelarSuscripcionStripe, suscripcionStripe } from "@/lib/pagos";
 import { NextResponse } from "next/server";
 import { sinRLS } from "@/lib/db";
 import { esUuid } from "@/lib/api";
+import { dvNit, nitSinDv } from "@/lib/validar";
 import { conAdmin, evento } from "@/lib/admin";
 import { encolar, enviarAhora } from "@/lib/correo";
 
-const Cambio = z.object({ estado: z.enum(["activa", "suspendida"]).optional(), plan: z.enum(["esencial", "pro", "cadena", "socio"]).optional(), nota: z.string().trim().max(2000).nullish(),
+const Fiscal = z.object({ razon_social: z.string().trim().min(3, "Escribe la razón social").max(200), nombre_comercial: z.string().trim().max(160),
+  nit: z.string().trim().regex(/^[\d.\s-]{6,15}$/, "El NIT son solo dígitos"), responsable_iva: z.boolean(), direccion: z.string().trim().max(200),
+  ciudad: z.string().trim().max(100), telefono: z.string().trim().max(30), email: z.string().trim().email("Correo no válido").max(160).or(z.literal("")) });
+
+const Cambio = z.object({ fiscal: Fiscal.optional(), estado: z.enum(["activa", "suspendida"]).optional(), plan: z.enum(["esencial", "pro", "cadena", "socio"]).optional(), nota: z.string().trim().max(2000).nullish(),
   // Facturación electrónica: UUID del cliente en la cuenta de casa de software de MATIAS ("" = la propia cuenta) y el número
   // de resolución DIAN de cada numeración (con «pruebas» falso la numeración pasa a producción).
   matias: z.object({ cliente: z.string().trim().uuid("El UUID de MATIAS no es válido").or(z.literal("")),
@@ -19,6 +24,24 @@ export const PATCH = conAdmin(async (a, req, ctx) => {
   const p = Cambio.safeParse(await req.json().catch(() => null));
   if (!p.success) return NextResponse.json({ error: p.error.issues[0]?.message ?? "Datos no válidos" }, { status: 400 });
   const d = p.data;
+  if (d.fiscal) {
+    // Datos fiscales: el DV se calcula del NIT; el NIT no cambia si ya factura en producción (sus documentos lo llevan).
+    const f = d.fiscal, nit = nitSinDv(f.nit);
+    if (nit.length < 6 || nit.length > 10) return NextResponse.json({ error: "Revisa el NIT" }, { status: 400 });
+    const r = await sinRLS(async (c) => {
+      const e = (await c.query(`select nit, demo, exists (select 1 from resoluciones_dian r where r.empresa_id = e.id and not r.pruebas) produccion from empresas e where id = $1 for update`, [id])).rows[0];
+      if (!e || e.demo) return "no";
+      if (e.produccion && e.nit !== nit) return "nit";
+      await c.query(`update empresas set razon_social = $2, nombre_comercial = nullif($3, ''), nit = $4, dv = $5, responsable_iva = $6, direccion = nullif($7, ''), ciudad = nullif($8, ''),
+        telefono = nullif($9, ''), email = nullif($10, '') where id = $1`, [id, f.razon_social, f.nombre_comercial, nit, dvNit(nit), f.responsable_iva, f.direccion, f.ciudad, f.telefono, f.email]);
+      await evento(a, "datos_fiscales", id, { ...f, nit_antes: e.nit }, c);
+      return "ok";
+    }).catch((e) => { if ((e as { code?: string }).code === "23505") return "duplicado"; throw e; });
+    if (r === "no") return NextResponse.json({ error: "Cliente no encontrado (la demo no se modifica desde aquí)" }, { status: 404 });
+    if (r === "nit") return NextResponse.json({ error: "Ya factura en producción con ese NIT: no se cambia" }, { status: 409 });
+    if (r === "duplicado") return NextResponse.json({ error: "Ese NIT ya es de otro cliente" }, { status: 409 });
+    return NextResponse.json({ ok: true, mensaje: "Datos fiscales guardados" });
+  }
   if (d.matias) {
     const m = d.matias;
     if (!m.cliente && m.resoluciones.some((x) => !x.pruebas))

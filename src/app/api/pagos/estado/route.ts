@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { sinRLS } from "@/lib/db";
 import { datosQr, estadoWompi, transaccionWompi, wompiActivo } from "@/lib/pagos";
-import { alCambiarPago } from "@/lib/pagos-eventos";
+import { alCambiarPago, cancelarReemplazadas } from "@/lib/pagos-eventos";
 import { enviarAhora } from "@/lib/correo";
 import { ipCliente, limitador } from "@/lib/api";
 
@@ -25,6 +25,7 @@ export async function GET(req: Request) {
         return n.rowCount && estado !== "pendiente" ? alCambiarPago(c, ref) : null;
       });
       for (const k of clave ?? []) await enviarAhora(k);
+      await cancelarReemplazadas();
       o = { ...o, estado, empresa_id: (await sinRLS((c) => c.query(`select empresa_id from pagos_suscripcion where referencia = $1`, [ref]))).rows[0]?.empresa_id };
     }
   }

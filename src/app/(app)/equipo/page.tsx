@@ -27,7 +27,9 @@ export default async function PaginaEquipo() {
     const stripe = await suscripcionStripe(c, s.empresa);
     const cajas = (await c.query(`select cj.id, cj.nombre, cj.activa, exists (select 1 from turnos t where t.caja_id = cj.id and t.estado = 'abierto') turno_abierto
       from cajas cj where cj.empresa_id = $1 order by cj.activa desc, cj.nombre`, [s.empresa])).rows;
-    return { e, miembros, plan, mes, res, stripe, cajas };
+    const pagos = (await c.query(`select referencia, plan, periodo, monto, proveedor, estado, factura, to_char(creado at time zone 'America/Bogota', 'DD/MM/YYYY') fecha,
+        to_char(vence, 'DD/MM/YYYY') hasta from pagos_suscripcion where empresa_id = $1 and estado in ('aprobado', 'anulado') order by creado desc limit 24`, [s.empresa])).rows;
+    return { e, miembros, plan, mes, res, stripe, cajas, pagos };
   }) as any;
   const cupoDocs = d.e.plan === "esencial" ? 2000 : d.e.plan === "pro" ? 5000 : null;
   const nombrePlan: Record<string, string> = { esencial: "Esencial", pro: "Pro", cadena: "Cadena", socio: "Socio" };
@@ -65,6 +67,26 @@ export default async function PaginaEquipo() {
         email: d.e.email ?? "", descuento_max_cajero: d.e.descuento_max_cajero, egreso_max_cajero: d.e.egreso_max_cajero }} demo={d.e.demo} />
       <Equipo miembros={d.miembros} demo={d.e.demo} tope={limite(d.e.plan).usuarios} plan={d.e.plan} />
       <Cajas cajas={d.cajas} tope={limite(d.e.plan).cajas} plan={d.e.plan} demo={d.e.demo} />
+      {!d.e.demo && (
+        <section className="tarjeta p-5 grid gap-3" aria-labelledby="pagos-t">
+          <h2 id="pagos-t" className="titulo text-xl">Pagos de tu plan</h2>
+          {d.pagos.length ? (
+            <div className="overflow-x-auto"><table className="w-full text-[15px] min-w-[560px]">
+              <thead className="text-left text-sm text-muted border-b border-line"><tr><th className="py-2 pr-3 font-semibold">Fecha</th><th className="py-2 pr-3 font-semibold">Plan</th><th className="py-2 pr-3 font-semibold text-right">Valor</th><th className="py-2 pr-3 font-semibold">Hasta</th><th className="py-2 font-semibold">Comprobante</th></tr></thead>
+              <tbody className="divide-y divide-line">{d.pagos.map((p: any) => (
+                <tr key={p.referencia}><td className="py-2 pr-3">{p.fecha}</td><td className="py-2 pr-3">{nombrePlan[p.plan] ?? p.plan} {p.periodo === "anio" ? "anual" : "mensual"}{p.estado === "anulado" ? <span className="text-alerta"> · anulado</span> : null}</td>
+                  <td className="py-2 pr-3 num text-right">${Number(p.monto).toLocaleString("es-CO")}</td><td className="py-2 pr-3">{p.hasta ?? "—"}</td>
+                  <td className="py-2"><a href={`/recibo/${encodeURIComponent(p.referencia)}`} className="text-cruz underline font-semibold">Ver{p.factura ? ` · Factura ${p.factura}` : ""}</a></td></tr>
+              ))}</tbody>
+            </table></div>
+          ) : <p className="text-muted">Aún no hay pagos registrados. Si tu plan lo gestiona soporte, pídenos el comprobante por WhatsApp.</p>}
+        </section>
+      )}
+      <section className="tarjeta p-5 flex flex-wrap items-center justify-between gap-3" aria-labelledby="copia-t">
+        <div><h2 id="copia-t" className="titulo text-xl">Copia de tus datos</h2>
+          <p className="text-sm text-muted">Productos, inventario por lote, clientes, ventas con su detalle, cartera, documentos DIAN y turnos, en archivos que abren en Excel. Tus datos son tuyos.</p></div>
+        <a href="/api/exportar" className="btn-borde">Descargar copia (ZIP)</a>
+      </section>
     </main>
   );
 }

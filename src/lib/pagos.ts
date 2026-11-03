@@ -10,6 +10,9 @@ import { firmaIntegridadWompi } from "./pagos-firma";
 //   Stripe (tarjeta internacional, suscripción que se renueva sola; requiere la cuenta de la LLC de EE. UU., Stripe no
 //     abre cuentas en Colombia): STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET.
 
+/** Versión de los términos y de la política de datos que acepta quien contrata (fecha de /terminos). */
+export const VERSION_TERMINOS = "2026-11-02";
+
 export type Plan = "esencial" | "pro";
 export type Periodo = "mes" | "anio";
 

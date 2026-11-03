@@ -369,6 +369,50 @@ ok(otraVez.status() === 409, "QR: no se confirma dos veces");
   const idDemo = (await pool.query(`select id, nit from empresas where demo limit 1`)).rows[0];
   ok((await p.request.delete(B + `/api/admin/clientes/${idDemo.id}`, { headers: { origin: B }, data: { nit: idDemo.nit } })).status() === 409, "eliminar: la demo no se elimina");
   ok((await fetch(B + `/api/admin/clientes/${emp.id}`, { method: "DELETE", headers: { origin: B, "content-type": "application/json" }, body: JSON.stringify({ nit: NIT }) })).status === 401, "eliminar: exige sesión de administrador");
+
+  // Ligar a su droguería un pago aprobado con otro correo (nit_existente): reactiva la suspendida por impago, plan y vencimiento.
+  const refL = `RG-ESENCIAL-LIGA${sufijo}`;
+  await pool.query(`update empresas set estado = 'suspendida', suspension = 'impago' where id = $1`, [emp.id]);
+  await pool.query(`insert into pagos_suscripcion (referencia, plan, periodo, monto, proveedor, nombre, empresa, nit, email, telefono, estado, detalle)
+    values ($1, 'pro', 'mes', 139900, 'wompi', 'Contadora', 'Pago de la droguería', $2, $3, '3001112233', 'aprobado', '{"revisar":"nit_existente"}')`, [refL, NIT, `contadora${sufijo}@pago.test`]);
+  await p.goto(B + "/admin/pagos");
+  const filaL = p.locator("tr", { hasText: refL });
+  await filaL.getByRole("button", { name: /^Ligar a / }).click();
+  await filaL.getByRole("button", { name: /Sí, ligar/ }).click();
+  await filaL.getByText("Cliente:").waitFor();
+  const lig = (await pool.query(`select e.estado, e.plan, p.vence is not null vence, p.detalle ? 'revisar' revisar, p.atendido from pagos_suscripcion p join empresas e on e.id = p.empresa_id where p.referencia = $1`, [refL])).rows[0];
+  ok(lig?.estado === "activa" && lig.plan === "pro" && lig.vence && !lig.revisar && lig.atendido, "ligar: reactiva, deja el plan pagado y calcula el vencimiento", JSON.stringify(lig));
+
+  // Número de la factura del servicio en el pago (lo ve el dueño).
+  const fac = await p.request.patch(B + "/api/admin/pagos", { headers: { origin: B }, data: { referencia: refL, factura: "FE 1234" } });
+  ok(fac.status() === 200 && (await pool.query(`select factura from pagos_suscripcion where referencia = $1`, [refL])).rows[0].factura === "FE 1234", "la consola anota la factura del servicio");
+
+  // Datos fiscales desde la consola: razón social e IVA sí; el NIT no si ya factura en producción.
+  const fis = { razon_social: "DROGUERIA CORREGIDA SAS", nombre_comercial: "Droguería Corregida", nit: NIT, responsable_iva: true, direccion: "Calle 10 # 5-20", ciudad: "Ibagué", telefono: "3001112233", email: "" };
+  ok((await p.request.patch(B + `/api/admin/clientes/${emp.id}`, { headers: { origin: B }, data: { fiscal: fis } })).status() === 200, "datos fiscales: la consola los corrige");
+  const ef = (await pool.query(`select razon_social, responsable_iva, ciudad, dv from empresas where id = $1`, [emp.id])).rows[0];
+  ok(ef.razon_social === "DROGUERIA CORREGIDA SAS" && ef.responsable_iva && ef.ciudad === "Ibagué" && /^\d$/.test(ef.dv), "datos fiscales guardados con su DV", JSON.stringify(ef));
+  ok((await p.request.patch(B + `/api/admin/clientes/${emp.id}`, { headers: { origin: B }, data: { fiscal: { ...fis, nit: "800999111" } } })).status() === 409, "datos fiscales: el NIT no cambia si ya factura en producción");
+
+  // Copia de los datos desde la consola (ZIP con los CSV).
+  const zc = await p.request.get(B + `/api/admin/clientes/${emp.id}/exportar`);
+  const zb = await zc.body();
+  ok(zc.status() === 200 && zb.subarray(0, 2).toString() === "PK", "la consola descarga la copia de los datos (ZIP)", String(zc.status()));
+  const { writeFileSync } = await import("node:fs"); writeFileSync("test-results/copia.zip", zb);
+  const lista = execFileSync("unzip", ["-l", "test-results/copia.zip"]).toString();
+  ok(["productos.csv", "ventas.csv", "ventas_detalle.csv", "clientes.csv", "documentos_dian.csv", "cartera.csv", "LEEME.txt"].every((n) => lista.includes(n)), "la copia trae productos, ventas, clientes, cartera y documentos DIAN");
+
+  // El dueño: sus pagos con comprobante y su copia de datos.
+  await p.request.post(B + `/api/admin/clientes/${emp.id}/entrar`, { headers: { origin: B } });
+  await p.goto(B + "/equipo");
+  const pagosDueno = p.getByRole("region", { name: "Pagos de tu plan" });
+  ok(await pagosDueno.getByText("Factura FE 1234").count() === 1, "Mi droguería lista los pagos con su factura");
+  await p.goto(B + `/recibo/${refL}`);
+  ok(await p.getByRole("heading", { name: "Comprobante de pago" }).count() === 1 && await p.getByText("DROGUERIA CORREGIDA SAS").count() === 1 && await p.getByText("FE 1234").count() === 1, "comprobante del pago para el dueño");
+  ok((await p.request.get(B + `/recibo/RG-PRO-${"X".repeat(8)}`)).status() === 404, "comprobante de otro pago: no existe");
+  const zd = await p.request.get(B + "/api/exportar");
+  ok(zd.status() === 200 && (await zd.body()).subarray(0, 2).toString() === "PK", "el dueño descarga su copia de datos", String(zd.status()));
+  await p.goto(B + "/admin");
 }
 
 // ── Móvil y salida

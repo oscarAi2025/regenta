@@ -2,11 +2,12 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { sinRLS } from "@/lib/db";
 import { conAdmin, evento } from "@/lib/admin";
-import { alCambiarPago } from "@/lib/pagos-eventos";
+import { alCambiarPago, cancelarReemplazadas } from "@/lib/pagos-eventos";
 import { enviarAhora } from "@/lib/correo";
 import { expirarSesionStripe } from "@/lib/pagos";
 
-const Cambio = z.object({ referencia: z.string().max(80), atendido: z.boolean().optional(), empresa_id: z.string().uuid().nullish(), confirmar: z.enum(["aprobado", "rechazado"]).optional(), descartar: z.literal(true).optional() });
+const Cambio = z.object({ referencia: z.string().max(80), atendido: z.boolean().optional(), empresa_id: z.string().uuid().nullish(), confirmar: z.enum(["aprobado", "rechazado"]).optional(), descartar: z.literal(true).optional(),
+  factura: z.string().trim().max(40).regex(/^[A-Za-z0-9 -]*$/, "Número de factura no válido").optional() });
 
 /** Marcar un pago como atendido o vincularlo a un cliente. */
 export const PATCH = conAdmin(async (a, req) => {
@@ -43,7 +44,36 @@ export const PATCH = conAdmin(async (a, req) => {
     });
     if (clave === null) return NextResponse.json({ error: "Ese pago ya no está pendiente" }, { status: 409 });
     for (const k of clave) await enviarAhora(k);
+    await cancelarReemplazadas();
     return NextResponse.json({ ok: true, mensaje: d.confirmar === "aprobado" ? (clave.length > 1 ? "Pago confirmado: cuenta creada y correo de acceso enviado" : "Pago confirmado: le enviamos el correo") : "Marcado como no recibido" });
+  }
+  if (d.factura !== undefined) {
+    // Número de la factura electrónica del servicio (la ve el dueño en su comprobante).
+    const n = await sinRLS(async (c) => {
+      const r = await c.query(`update pagos_suscripcion set factura = nullif($2, ''), actualizado = now() where referencia = $1 and estado = 'aprobado'`, [d.referencia, d.factura]);
+      if (r.rowCount) await evento(a, "factura_servicio", null, { referencia: d.referencia, factura: d.factura }, c);
+      return r.rowCount;
+    });
+    return n ? NextResponse.json({ ok: true, mensaje: "Factura anotada" }) : NextResponse.json({ error: "Solo un pago aprobado lleva factura" }, { status: 409 });
+  }
+  if (d.empresa_id) {
+    // Ligar un pago aprobado a una droguería existente (renovación pagada con otro correo): se aplica todo lo que hace un
+    // pago aprobado: reactiva si estaba suspendida por impago, deja el plan pagado y suma el periodo a su vencimiento.
+    const r = await sinRLS(async (c) => {
+      const o = (await c.query(`select estado, empresa_id from pagos_suscripcion where referencia = $1 for update`, [d.referencia])).rows[0];
+      if (!o) return { status: 404, error: "Pago no encontrado" };
+      if (o.estado !== "aprobado") return { status: 409, error: "Solo se liga un pago aprobado" };
+      if (o.empresa_id) return { status: 409, error: "Ese pago ya está ligado a una droguería" };
+      const e = (await c.query(`select 1 from empresas where id = $1 and not demo`, [d.empresa_id])).rowCount;
+      if (!e) return { status: 404, error: "Cliente no encontrado" };
+      await c.query(`update pagos_suscripcion set empresa_id = $2, vence = null, atendido = true, detalle = coalesce(detalle, '{}'::jsonb) - 'revisar', actualizado = now() where referencia = $1`, [d.referencia, d.empresa_id]);
+      await evento(a, "ligar_pago", d.empresa_id!, { referencia: d.referencia }, c);
+      return { claves: await alCambiarPago(c, d.referencia) };
+    });
+    if ("error" in r) return NextResponse.json({ error: r.error }, { status: r.status });
+    for (const k of r.claves) await enviarAhora(k);
+    await cancelarReemplazadas();
+    return NextResponse.json({ ok: true, mensaje: "Pago ligado: plan y vencimiento aplicados" });
   }
   const n = await sinRLS((c) => c.query(`update pagos_suscripcion set atendido = coalesce($2, atendido), empresa_id = case when $3::boolean then $4::uuid else empresa_id end, actualizado = now() where referencia = $1`,
     [d.referencia, d.atendido ?? null, d.empresa_id !== undefined, d.empresa_id ?? null]));

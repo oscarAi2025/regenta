@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { sinRLS } from "@/lib/db";
 import { estadoWompi, transaccionWompi } from "@/lib/pagos";
 import { eventoWompiValido, type EventoWompi } from "@/lib/pagos-firma";
-import { alCambiarPago } from "@/lib/pagos-eventos";
+import { alCambiarPago, cancelarReemplazadas } from "@/lib/pagos-eventos";
 import { enviarAhora } from "@/lib/correo";
 
 /** Eventos de Wompi (transaction.updated). El evento solo avisa: con checksum válido se consulta la transacción en la
@@ -37,5 +37,6 @@ export async function POST(req: Request) {
     return o.estado !== estado ? alCambiarPago(c, t.reference!) : null;
   });
   for (const k of clave ?? []) await enviarAhora(k);
+  await cancelarReemplazadas();
   return NextResponse.json({ ok: true });
 }

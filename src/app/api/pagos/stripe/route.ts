@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { sinRLS } from "@/lib/db";
 import { firmaStripeValida } from "@/lib/pagos-firma";
-import { alCambiarPago } from "@/lib/pagos-eventos";
+import { alCambiarPago, cancelarReemplazadas } from "@/lib/pagos-eventos";
 import { encolar, enviarAhora } from "@/lib/correo";
 
 type Obj = Record<string, any>;
+const detalleCancelada = (p: Obj) => !!p.detalle?.cancelada;
 
 /** Webhook de Stripe.
  *  - checkout.session.completed: aprueba la orden solo si la sesión es la que Regenta creó (id, modo suscripción, COP y
@@ -68,8 +69,18 @@ export async function POST(req: Request) {
         await c.query(`update pagos_suscripcion set estado = 'rechazado', detalle = $2, actualizado = now() where referencia = $1`, [p.referencia, JSON.stringify({ evento: ev.type })]);
         return alCambiarPago(c, p.referencia);
       }
-      const clave = `stripe-fallo:${o.id ?? sub}`;
-      return (await encolar(c, { clave, para: p.email, plantilla: "pago_rechazado", empresa: p.empresa_id, datos: { nombre: p.nombre, plan: p.plan === "pro" ? "Pro" : "Esencial", plan_id: p.plan } })) ? [clave] : [];
+      // Renovación que no se pudo cobrar: el plan sigue hasta su vencimiento y Stripe reintenta solo. Se avisa a quien paga y a
+      // los dueños, con la fecha límite y cómo pagar por otro medio (eso cancela esta renovación: no hay doble cobro).
+      if (detalleCancelada(p)) return [];
+      const vence = (await c.query(`select to_char(max(vence), 'DD/MM/YYYY') v from pagos_suscripcion where estado = 'aprobado' and (suscripcion = $1 or (empresa_id is not null and empresa_id = $2))`, [sub, p.empresa_id])).rows[0]?.v ?? null;
+      const para = new Map<string, string>([[String(p.email).toLowerCase(), p.nombre]]);
+      if (p.empresa_id) for (const d of (await c.query(`select cu.email, cu.nombre from miembros m join cuentas cu on cu.id = m.user_id where m.empresa_id = $1 and m.activo and m.rol = 'dueno'`, [p.empresa_id])).rows) para.set(String(d.email).toLowerCase(), d.nombre);
+      const claves: string[] = [];
+      for (const [email, nombre] of para) {
+        const clave = `stripe-fallo:${o.id ?? sub}:${email}`;
+        if (await encolar(c, { clave, para: email, plantilla: "renovacion_fallida", empresa: p.empresa_id, datos: { nombre, plan: p.plan === "pro" ? "Pro" : "Esencial", plan_id: p.plan, vence } })) claves.push(clave);
+      }
+      return claves;
     }
 
     if (ev.type === "customer.subscription.deleted") {
@@ -79,5 +90,6 @@ export async function POST(req: Request) {
     return [];
   });
   for (const k of claves) await enviarAhora(k);
+  await cancelarReemplazadas();
   return NextResponse.json({ ok: true });
 }

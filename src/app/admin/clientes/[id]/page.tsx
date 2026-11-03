@@ -9,6 +9,7 @@ import { Usuarios } from "./Usuarios";
 import { Nota } from "./Nota";
 import { Facturacion } from "./Facturacion";
 import { Eliminar } from "./Eliminar";
+import { Fiscal } from "./Fiscal";
 
 export const metadata = { title: "Cliente" };
 export const dynamic = "force-dynamic";
@@ -39,6 +40,7 @@ export default async function Cliente({ params }: { params: Promise<{ id: string
       <Link href="/admin/clientes" className="text-sm font-semibold text-cruz">← Clientes</Link>
       <Cabecera titulo={e.nombre_comercial ?? e.razon_social} sub={`${e.razon_social} · NIT ${e.nit}-${e.dv}${e.ciudad ? ` · ${e.ciudad}` : ""}${e.telefono ? ` · ${e.telefono}` : ""}`}>
         <Accion url={`/api/admin/clientes/${id}/entrar`} texto="Entrar como el dueño" clase="btn-oscuro" />
+        <a href={`/api/admin/clientes/${id}/exportar`} className="btn-borde h-10 text-sm inline-flex items-center">Descargar sus datos</a>
         {!e.demo && (e.estado === "activa"
           ? <Accion url={`/api/admin/clientes/${id}`} metodo="PATCH" cuerpo={{ estado: "suspendida" }} texto="Suspender" confirmar="¿Suspender? Sí" clase="btn-peligro" />
           : <Accion url={`/api/admin/clientes/${id}`} metodo="PATCH" cuerpo={{ estado: "activa" }} texto="Activar" clase="btn-primario" />)}
@@ -68,6 +70,8 @@ export default async function Cliente({ params }: { params: Promise<{ id: string
         </section>
         <Nota empresa={id} inicial={e.nota_admin ?? ""} />
       </div>
+      {!e.demo && <Fiscal empresa={id} nitFijo={d.resoluciones.some((r) => !r.pruebas)} inicial={{ razon_social: e.razon_social ?? "", nombre_comercial: e.nombre_comercial ?? "", nit: String(e.nit ?? ""),
+        responsable_iva: !!e.responsable_iva, direccion: e.direccion ?? "", ciudad: e.ciudad ?? "", telefono: e.telefono ?? "", email: e.email ?? "" }} />}
       {!e.demo && <Facturacion empresa={id} cliente={e.matias_cliente ?? ""} emisor={process.env.REGENTA_DIAN ?? "simulado"}
         resoluciones={d.resoluciones.map((r) => ({ tipo: r.tipo, prefijo: r.prefijo, numero: r.numero_resolucion, pruebas: r.pruebas }))} />}
       <div className="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-2 gap-5">

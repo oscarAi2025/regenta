@@ -97,6 +97,20 @@ ok(renov.length === 2 && renov[1].estado === "aprobado" && renov[1].vence > reno
 const fallo = JSON.stringify({ id: "evt_3", type: "invoice.payment_failed", data: { object: { id: "in_fallo01", subscription: "sub_1" } } });
 await post("/api/pagos/stripe", fallo, { "stripe-signature": firmar(fallo) });
 ok(await estadoS() === "aprobado", "Stripe: un cobro fallido no borra el periodo ya pagado");
+const avisoFallo = (await pool.query(`select plantilla, datos from correos where para = 'e@e.co' and clave like 'stripe-fallo:in_fallo01%'`)).rows[0];
+ok(avisoFallo?.plantilla === "renovacion_fallida" && !!avisoFallo.datos?.vence, "Stripe: la renovación fallida avisa con su propio correo y la fecha hasta la que sigue el plan", JSON.stringify(avisoFallo));
+// Una sola renovación automática por droguería: un pago nuevo (otra suscripción) deja marcada la anterior para cancelarla.
+const vecina = "10000000-0000-4000-8000-00000000000b";
+await pool.query(`update pagos_suscripcion set empresa_id = $2 where referencia like $1`, [refS + "%", vecina]);
+const refS2 = `RG-PRO-PRUEBB${Date.now().toString(36).toUpperCase()}-ABCDEF13`;
+await pool.query(`insert into pagos_suscripcion (referencia, plan, periodo, monto, proveedor, nombre, empresa, email, telefono, transaccion, empresa_id) values ($1, 'pro', 'mes', 139900, 'stripe', 'P', 'E', 'e@e.co', '300', 'cs_test_2', $2)`, [refS2, vecina]);
+const segunda = JSON.stringify({ id: "evt_4", type: "checkout.session.completed", data: { object: { id: "cs_test_2", mode: "subscription", currency: "cop", amount_total: 13990000, client_reference_id: refS2, payment_status: "paid", subscription: "sub_2" } } });
+await post("/api/pagos/stripe", segunda, { "stripe-signature": firmar(segunda) });
+const marcas = (await pool.query(`select suscripcion, bool_or(detalle ? 'cancelar_stripe') marcada from pagos_suscripcion where empresa_id = $1 and proveedor = 'stripe' group by 1 order by 1`, [vecina])).rows;
+ok(marcas.length === 2 && marcas[0].marcada && !marcas[1].marcada, "Stripe: al pagar otra suscripción, la anterior queda para cancelar (sin doble cobro)", JSON.stringify(marcas));
+// Constancia de la contratación: aceptación de términos con versión, fecha e IP.
+const acepta = (await pool.query(`select acepta_terminos is not null fecha, version_terminos, ip is not null ip from pagos_suscripcion where referencia = $1`, [j.referencia])).rows[0];
+ok(acepta?.fecha && acepta.version_terminos === "2026-11-02" && acepta.ip, "la orden guarda la aceptación de términos (fecha, versión e IP)", JSON.stringify(acepta));
 await pool.end();
 
 // ── Pantallas

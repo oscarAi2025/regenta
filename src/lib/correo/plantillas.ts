@@ -94,6 +94,12 @@ export const PLANTILLAS = {
     parrafos: [`${hola(d.nombre)}, el banco no aprobó tu pago de Regenta${d.plan ? ` ${esc(d.plan)}` : ""}. No se cobró nada.`, "Puedes intentarlo con otro medio: tarjeta, PSE, Nequi o QR Bancolombia."],
     boton: { texto: "Intentar de nuevo", href: url(`/contratar?plan=${encodeURIComponent(String(d.plan_id ?? "pro"))}`, "pago_rechazado") } }) }),
 
+  renovacion_fallida: (d: Datos): Correo => ({ asunto: "No pudimos cobrar la renovación de tu plan de Regenta", ...marco({
+    previa: "Tu plan sigue activo; revisa tu tarjeta.", titulo: "Revisa tu tarjeta",
+    parrafos: [`${hola(d.nombre)}, el banco no aprobó el cobro de la renovación de tu plan Regenta${d.plan ? ` ${esc(d.plan)}` : ""} con tarjeta. Tu plan sigue activo${d.vence ? ` hasta el <b>${esc(String(d.vence))}</b>` : ""} y Stripe volverá a intentar el cobro en los próximos días.`,
+      "Si la tarjeta venció o prefieres pagar por QR Bancolombia, PSE o Nequi, renueva con otro medio: la renovación con la tarjeta anterior se cancela sola y no se cobra dos veces."],
+    boton: { texto: "Renovar con otro medio", href: url(`/contratar?plan=${encodeURIComponent(String(d.plan_id ?? "pro"))}`, "renovacion_fallida") } }) }),
+
   pago_abandonado: (d: Datos): Correo => ({ asunto: "¿Te ayudamos a terminar tu contratación?", ...marco({
     previa: "Tu plan te está esperando.", titulo: hola(d.nombre),
     parrafos: [`Empezaste a contratar Regenta${d.plan ? ` ${esc(d.plan)}` : ""} pero el pago no se completó. Si tuviste algún problema, respóndenos y lo resolvemos.`],
@@ -111,7 +117,7 @@ export const PLANTILLAS = {
 
   cuenta_suspendida: (d: Datos): Correo => ({ asunto: "Tu cuenta de Regenta está suspendida", ...marco({
     previa: "Escríbenos para reactivarla.", titulo: "Tu cuenta está suspendida",
-    parrafos: [`${hola(d.nombre)}, la cuenta de <b>${esc(txt(d.empresa, "tu droguería"))}</b> en Regenta está suspendida. Tus datos siguen guardados.`, "Escríbenos por WhatsApp y la reactivamos."],
+    parrafos: [`${hola(d.nombre)}, la cuenta de <b>${esc(txt(d.empresa, "tu droguería"))}</b> en Regenta está suspendida. Tus datos siguen guardados.`, "Escríbenos por WhatsApp y la reactivamos. Si prefieres una copia completa de tus datos (productos, ventas, clientes y documentos DIAN), pídela por el mismo medio."],
     boton: { texto: "Escribir por WhatsApp", href: wa(`Hola, quiero reactivar la cuenta de ${txt(d.empresa, "mi droguería")} en Regenta.`) } }) }),
 
   cuenta_por_suspender: (d: Datos): Correo => ({ asunto: "Tu plan de Regenta venció: renuévalo para no perder la caja", ...marco({

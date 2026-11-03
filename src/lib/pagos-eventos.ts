@@ -1,5 +1,6 @@
 import "server-only";
-import type { Tx } from "./db";
+import { sinRLS, type Tx } from "./db";
+import { cancelarSuscripcionStripe } from "./pagos";
 import { encolar } from "./correo";
 import { invitar } from "./admin-datos";
 import { dvNit, nitSinDv } from "./validar";
@@ -59,6 +60,12 @@ export async function alCambiarPago(c: Tx, referencia: string): Promise<string[]
         plan = case when e.plan in ('esencial', 'pro') then p.plan else e.plan end
       from pagos_suscripcion p where p.referencia = $1 and e.id = p.empresa_id and not e.demo`, [referencia]);
     const empresa = (await c.query(`select empresa_id from pagos_suscripcion where referencia = $1`, [referencia])).rows[0]?.empresa_id ?? null;
+    // Una sola renovación automática por droguería: si este pago es de otra suscripción (o de otro medio), la suscripción
+    // de Stripe anterior se cancela (cancelarReemplazadas, fuera de la transacción). Lo ya pagado no se pierde: el periodo
+    // nuevo se suma al vencimiento actual.
+    if (empresa) await c.query(`update pagos_suscripcion set detalle = coalesce(detalle, '{}'::jsonb) || '{"cancelar_stripe":true}'::jsonb
+      where empresa_id = $1 and proveedor = 'stripe' and estado = 'aprobado' and suscripcion is not null and suscripcion is distinct from $2
+        and not coalesce((detalle ->> 'cancelada')::boolean, false)`, [empresa, p.suscripcion ?? null]);
     // El periodo empieza hoy o donde termina el último periodo pagado de la misma empresa o correo (renovación anticipada).
     if (!p.vence) await c.query(`update pagos_suscripcion set vence = greatest(current_date, coalesce((select max(vence) from pagos_suscripcion q where q.referencia <> $1 and q.estado = 'aprobado'
         and (case when $2::uuid is not null then q.empresa_id = $2 else q.empresa_id is null and lower(q.email) = lower($3) end)), current_date)) + case when $4 = 'anio' then interval '1 year' else interval '1 month' end where referencia = $1`, [referencia, empresa, p.email, p.periodo]);
@@ -88,4 +95,15 @@ export async function alCambiarPago(c: Tx, referencia: string): Promise<string[]
     return [`pago:${referencia}:rechazado`];
   }
   return [];
+}
+
+/** Cancela en Stripe las suscripciones reemplazadas por un pago nuevo (marcadas por alCambiarPago). Se llama después de
+ *  cada pago aprobado y en la tarea diaria: si Stripe no responde, se reintenta la próxima vez. */
+export async function cancelarReemplazadas() {
+  const subs = await sinRLS(async (c) => (await c.query(`select distinct suscripcion from pagos_suscripcion
+    where proveedor = 'stripe' and detalle ? 'cancelar_stripe' and not coalesce((detalle ->> 'cancelada')::boolean, false) and suscripcion is not null limit 20`)).rows.map((r) => r.suscripcion as string));
+  for (const sub of subs) {
+    if (!(await cancelarSuscripcionStripe(sub, false))) continue;
+    await sinRLS((c) => c.query(`update pagos_suscripcion set detalle = coalesce(detalle, '{}'::jsonb) || '{"cancelada":true,"reemplazada":true}'::jsonb, actualizado = now() where suscripcion = $1`, [sub]));
+  }
 }

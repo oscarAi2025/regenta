@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sinRLS } from "@/lib/db";
 import { ipCliente, limitador, limiteBD, mismoOrigen } from "@/lib/api";
-import { datosQr, enlaceWompi, nuevaReferencia, precio, qrActivo, sesionStripe, stripeActivo, wompiActivo } from "@/lib/pagos";
+import { VERSION_TERMINOS, datosQr, enlaceWompi, nuevaReferencia, precio, qrActivo, sesionStripe, stripeActivo, wompiActivo } from "@/lib/pagos";
 import { encolar, enviarAhora } from "@/lib/correo";
 import { SITIO } from "@/lib/sitio";
 
@@ -29,8 +29,9 @@ export async function POST(req: Request) {
   if (!(d.proveedor === "qr" ? qrActivo() : d.proveedor === "wompi" ? wompiActivo() : stripeActivo())) return NextResponse.json({ error: "Ese medio de pago aún no está activo. Escríbenos por WhatsApp y te ayudamos." }, { status: 503 });
   const referencia = nuevaReferencia(d.plan), monto = precio(d.plan, d.periodo);
   await sinRLS((c) => c.query(
-    `insert into pagos_suscripcion (referencia, plan, periodo, monto, proveedor, nombre, empresa, nit, email, telefono) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-    [referencia, d.plan, d.periodo, monto, d.proveedor, d.nombre, d.empresa, d.nit || null, d.email, d.telefono]));
+    `insert into pagos_suscripcion (referencia, plan, periodo, monto, proveedor, nombre, empresa, nit, email, telefono, acepta_terminos, version_terminos, ip)
+      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now(), $11, $12)`,
+    [referencia, d.plan, d.periodo, monto, d.proveedor, d.nombre, d.empresa, d.nit || null, d.email, d.telefono, VERSION_TERMINOS, ipCliente(req)]));
   if (d.proveedor === "qr") {
     // Sin pasarela: la orden queda pendiente con las instrucciones (también por correo) hasta que se confirme en la consola.
     const q = datosQr(), clave = `pago:${referencia}:qr`;
