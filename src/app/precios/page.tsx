@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { metaPublica } from "@/lib/seo";
 import Link from "next/link";
+import { Cambiate } from "@/components/landing/Cambiate";
 import { CabeceraPublica } from "@/components/landing/Cabecera";
 import { Pie } from "@/components/landing/Pie";
 import { BarraMovil } from "@/components/landing/BarraMovil";
@@ -41,6 +42,7 @@ const PREGUNTAS: [string, string][] = [
   ["¿Tengo que comprarle a Farmagenéricos para usar Regenta?", "No. Puedes usar Regenta con los precios normales sin comprarnos nada. El Plan Socio es un beneficio adicional para quienes ya nos compran o quieren hacerlo."],
   ["¿Cómo se calcula el precio de socio?", SOCIO.nota],
   ["¿Hay costo de instalación?", "No. Funciona en el navegador y la carga de productos desde Excel está incluida."],
+  ["Ya tengo un programa, ¿cuánto me cuesta cambiarme?", "Nada aparte. Te pasamos tus productos e inventario en un día, sigues con tu sistema actual hasta que la DIAN apruebe Regenta y no pierdes nada: la importación y la habilitación van incluidas en el plan."],
   ["¿Qué pasa si paso de los documentos del plan?", `Cada documento adicional cuesta ${pesos(DOC_EXTRA)}. Te avisamos antes de llegar al tope.`],
   ["¿Puedo cancelar cuando quiera?", "Sí, el plan es mensual. Si pagas el año completo, tienes 2 meses gratis."],
   ["¿El certificado digital tiene costo?", "No. El certificado digital y la habilitación de tu NIT ante la DIAN van incluidos en todos los planes: no pagas nada aparte."],
@@ -148,7 +150,9 @@ export default function Precios() {
           </div>
         </section>
 
-        <section className="max-w-3xl mx-auto px-4 sm:px-6 pb-16">
+        <Cambiate claro />
+
+        <section className="max-w-3xl mx-auto px-4 sm:px-6 py-16">
           <h2 className="font-cond text-[36px] leading-none" style={{ fontWeight: 700 }}>Preguntas sobre tarifas</h2>
           <dl className="mt-5 grid gap-4">{PREGUNTAS.map(([q, a]) => <div key={q} className="tarjeta p-5"><dt className="font-semibold text-lg">{q}</dt><dd className="mt-1 text-muted leading-relaxed">{a}</dd></div>)}</dl>
           <p className="mt-6"><Link href="/guias/cuanto-cuesta-software-drogueria" className="font-semibold text-cruz underline underline-offset-4">¿Cuánto cuesta un software para droguería en Colombia? Comparativa con fuentes</Link></p>

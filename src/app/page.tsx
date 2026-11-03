@@ -14,6 +14,7 @@ import { Sello } from "@/components/landing/Sello";
 import { IncluyeTodo } from "@/components/landing/IncluyeTodo";
 import { Cumplimiento } from "@/components/landing/Cumplimiento";
 import { Oferta } from "@/components/landing/Oferta";
+import { Cambiate } from "@/components/landing/Cambiate";
 import { BarraOferta } from "@/components/landing/BarraOferta";
 import { GARANTIA_DIAS } from "@/lib/oferta";
 import { GUIAS } from "@/content/guias";
@@ -44,6 +45,7 @@ const PREGUNTAS: [string, string][] = [
   ["¿Sirve para distribuidoras farmacéuticas?", "Sí, para facturar a droguerías y empresas con NIT, vender por caja, dar crédito con plazo y llevar la cartera, con la bodega por lote y vencimiento. Hoy no maneja listas de precio por cliente, cupos de crédito ni preventa en ruta: si los necesitas, te lo decimos antes de que pagues."],
   ["¿Puedo vender pastillas sueltas?", "Sí: precio por caja y por unidad; el inventario descuenta unidades exactas del lote que vence antes, y la caja nunca vende un lote vencido."],
   ["¿Cuánto cuesta?", `Esencial ${pesos(PLANES[0].precio!)} al mes y Pro ${pesos(PLANES[1].precio!)}. Con el ${SOCIO.nombre}, si le compras a Farmagenéricos Colombia, puede salirte gratis.`],
+  ["Ya tengo un programa de facturación, ¿cómo me cambio?", "Te pasamos tus productos e inventario en un día desde el Excel de tu programa actual (precios, existencias, lotes y vencimientos). Sigues con tu sistema actual hasta que la DIAN apruebe Regenta, y te acompañamos en esa habilitación, incluida en tu plan. Cambias cuando la primera factura de Regenta es aceptada, y antes te ayudamos a guardar tus facturas pasadas: no pierdes nada."],
   ["¿Hay que instalar algo?", "No. Funciona en el navegador del computador de la caja, en una tableta o en el celular, y cada droguería solo ve sus datos."],
 ];
 
@@ -266,6 +268,9 @@ export default function Portada() {
             <div className="mt-8 flex flex-wrap gap-3"><BotonDemo texto="Ver mis vencimientos en la demo" className="btn-cta h-14 px-7 text-lg" /><Link href="/precios" className="btn-vidrio h-14 px-6 text-lg">Ver planes</Link></div>
           </div>
         </section>
+
+        {/* Quien ya tiene programa: cómo se cambia sin detener la caja (la objeción más común). */}
+        <Cambiate />
 
         {/* Oferta: todo lo que recibes, precio frente a valor y garantía. */}
         <section id="oferta" className="max-w-6xl mx-auto px-4 sm:px-6 py-16 lg:py-20 scroll-mt-20">
