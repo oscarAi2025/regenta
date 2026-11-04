@@ -46,7 +46,22 @@ export async function encolar(c: Tx, e: Encolar) {
   if (comercial && (await c.query(`select 1 from correos_bajas where email = $1`, [para])).rowCount) return false;
   const r = await c.query(`insert into correos (clave, para, plantilla, tipo, datos, programado, empresa_id) values ($1, $2, $3, $4, $5, $6, $7) on conflict (clave) do nothing`,
     [e.clave, para, e.plantilla, comercial ? "comercial" : "transaccional", JSON.stringify(e.datos ?? {}), e.programado ?? new Date(), e.empresa ?? null]);
-  return (r.rowCount ?? 0) > 0;
+  const nuevo = (r.rowCount ?? 0) > 0;
+  // Todo correo transaccional a un cliente es un evento que la gerencia también debe saber.
+  if (nuevo && !comercial && e.plantilla !== "aviso_interno" && para !== correoAvisos())
+    await avisar(c, `aviso:${e.clave}`, e.plantilla, { ...(e.datos ?? {}), para, empresa_id: e.empresa ?? null });
+  return nuevo;
+}
+
+/** Correo de la gerencia que recibe los avisos internos (CORREO_AVISOS; por defecto el de la empresa). */
+export const correoAvisos = () => (process.env.CORREO_AVISOS?.trim() || CORREO).toLowerCase();
+const PRIVADOS = ["enlace", "llave", "baja", "token", "clave", "contrasena"];
+
+/** Aviso interno a la gerencia (demo, registro, pago, DIAN…). Una sola vez por clave; nunca lleva enlaces de acceso. */
+export async function avisar(c: Tx, clave: string, evento: string, datos: Record<string, unknown> = {}) {
+  const limpio = Object.fromEntries(Object.entries(datos).filter(([k, v]) => !PRIVADOS.includes(k) && (v === null || ["string", "number", "boolean"].includes(typeof v))));
+  await c.query(`insert into correos (clave, para, plantilla, tipo, datos, programado, empresa_id) values ($1, $2, 'aviso_interno', 'transaccional', $3, now(), $4) on conflict (clave) do nothing`,
+    [clave, correoAvisos(), JSON.stringify({ evento, ...limpio }), typeof datos.empresa_id === "string" ? datos.empresa_id : null]);
 }
 
 /** Encola el embudo de venta de una solicitud de demo (solo si autorizó correos). */
@@ -147,8 +162,8 @@ export async function enviarPendientes(max = 50, soloId?: number, presupuesto = 
 /** Envía de inmediato un correo recién encolado (sin esperar la tarea). Nunca rompe el flujo que lo llama. */
 export async function enviarAhora(clave: string) {
   try {
-    const id = (await sinRLS((c) => c.query(`select id from correos where clave = $1 and estado = 'pendiente' and programado <= now()`, [clave]))).rows[0]?.id;
-    if (id) await enviarPendientes(1, Number(id));
+    const ids = (await sinRLS((c) => c.query(`select id from correos where clave = any($1) and estado = 'pendiente' and programado <= now() order by id`, [[clave, `aviso:${clave}`]]))).rows;
+    for (const { id } of ids) await enviarPendientes(1, Number(id));
   } catch (e) { console.error("correo", e); }
 }
 

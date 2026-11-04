@@ -318,3 +318,10 @@ Baja: 17 correo al cancelar renovación · 18 plan Socio límites/descuento · 1
 - [x] Suite completa: endpoints 1085 · todos los e2e 0 fallos (incluye ingresos.mjs y consola-clave.mjs) · auditoría 160 · unitarias 36 + 22
 - [x] Portada y Tarifas: sección «¿Ya tienes programa? Cámbiate sin detener la caja» (3 pasos reales) + preguntas frecuentes del cambio (con FAQPage)
 - [x] SEO: Search Console verificado (geekxmedia@gmail.com; etiqueta de la otra cuenta también puesta), sitemap enviado (44 URL), indexación pedida de la portada; guía «cambiar-software-drogueria» alineada con la promesa nueva y enlazada desde la sección
+
+## 04/11/2026 · Avisos internos a la gerencia
+- [x] Plantilla `aviso_interno` (sin enlaces de acceso ni llaves) y `avisar()` en la cola de correos
+- [x] Todo correo transaccional a un cliente genera su aviso a la gerencia (registro, activación, pagos, renovaciones, suspensiones, DIAN…)
+- [x] Aviso de cada solicitud de demo (también sin correo) y de cada intento de compra (QR, Wompi, Stripe), al instante
+- [x] Pruebas: correos 28/28, embudo 38, pagos 33, ingresos 51, endpoints 1085, unitarias 36+22
+- [ ] Oscar: desplegar en Netlify (Deploys → Trigger deploy)

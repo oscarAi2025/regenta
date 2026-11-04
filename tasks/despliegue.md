@@ -72,6 +72,7 @@ en commits sin efecto. Pendiente: dominio propio, Resend, Stripe, Anthropic.
 | `RESEND_API_KEY` | La llave de Resend |
 | `CORREO_REMITENTE` | `Regenta <hola@correo.tudominio.co>` (dominio verificado) |
 | `CORREO_RESPUESTA` | `gerencia@farmagenericoscolombia.com` (opcional; es el valor por defecto) |
+| `CORREO_AVISOS` | correo de la gerencia que recibe los avisos internos (demos, intentos de compra, registros, pagos, DIAN). Opcional: por defecto `gerencia@farmagenericoscolombia.com` |
 | `REGENTA_QR_LLAVE` | No hace falta: ya trae la llave `@iadevinvestiment` y el QR (`public/qr-pago.png`) de la cuenta empresarial, los mismos de Justicia Activa. `off` apaga el QR. |
 | `REGENTA_QR_TITULAR` | Opcional. Titular que ve el cliente (por defecto IA DEV INVESTIMENTS COLOMBIA S.A.S.) |
 | `WOMPI_PUBLIC_KEY`, `WOMPI_INTEGRITY_SECRET`, `WOMPI_EVENTS_SECRET` | No se usan por ahora (sin Wompi). Si algún día se activa, salen del panel de Wompi. |

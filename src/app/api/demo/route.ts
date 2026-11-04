@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sinRLS } from "@/lib/db";
 import { ipCliente, limitador, limiteBD, mismoOrigen } from "@/lib/api";
-import { encolarEmbudo, enviarAhora } from "@/lib/correo";
+import { avisar, encolarEmbudo, enviarAhora } from "@/lib/correo";
 import { TEXTO_CORREOS } from "@/lib/sitio";
 
 const Solicitud = z.object({
@@ -40,9 +40,11 @@ export async function POST(req: Request) {
     const id = Number((await c.query(
       `insert into solicitudes_demo (nombre, drogueria, ciudad, telefono, email, cajas, mensaje, origen, acepta_correos, consentimiento) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning id`,
       [d.nombre, d.drogueria, d.ciudad || null, d.telefono, d.email || null, d.cajas || null, d.mensaje || null, d.origen || null, acepta, consentimiento ? JSON.stringify(consentimiento) : null])).rows[0].id);
+    // Aviso a la gerencia con todos los datos (también si no dejó correo); el del embudo ya no se duplica (misma clave).
+    await avisar(c, `aviso:solicitud:${id}`, "solicitud_recibida", { nombre: d.nombre, drogueria: d.drogueria, ciudad: d.ciudad, telefono: d.telefono, email: d.email || null, cajas: d.cajas, mensaje: d.mensaje, origen: d.origen, acepta_correos: acepta ? "sí" : "no" });
     if (d.email) await encolarEmbudo(c, { id, email: d.email, nombre: d.nombre, drogueria: d.drogueria, acepta });
     return id;
   });
-  if (d.email) await enviarAhora(`solicitud:${id}`);
+  await enviarAhora(`solicitud:${id}`);
   return NextResponse.json({ ok: true }, { status: 201 });
 }

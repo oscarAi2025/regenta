@@ -22,6 +22,7 @@ for (const [nombre, f] of Object.entries(PLANTILLAS)) {
       }
       assert.ok(c.asunto.length <= 90, `asunto largo (${c.asunto.length})`);
       assert.doesNotMatch(c.html, /<La Ñ>/, "HTML sin escapar");
+      if (nombre === "aviso_interno") { assert.ok(!c.html.includes("activar?t=") && !c.texto.includes("activar?t="), "un aviso interno nunca lleva enlaces de acceso"); continue; }
       assert.match(c.html, /NIT 901\.845\.370-5/, "pie legal");
       assert.match(c.html, /\/privacidad/, "política de datos");
       const comercial = COMERCIALES.includes(nombre);

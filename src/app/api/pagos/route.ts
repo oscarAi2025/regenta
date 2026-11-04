@@ -3,7 +3,7 @@ import { z } from "zod";
 import { sinRLS } from "@/lib/db";
 import { ipCliente, limitador, limiteBD, mismoOrigen } from "@/lib/api";
 import { VERSION_TERMINOS, datosQr, enlaceWompi, nuevaReferencia, precio, qrActivo, sesionStripe, stripeActivo, wompiActivo } from "@/lib/pagos";
-import { encolar, enviarAhora } from "@/lib/correo";
+import { avisar, encolar, enviarAhora } from "@/lib/correo";
 import { SITIO } from "@/lib/sitio";
 
 const Contratar = z.object({
@@ -32,6 +32,9 @@ export async function POST(req: Request) {
     `insert into pagos_suscripcion (referencia, plan, periodo, monto, proveedor, nombre, empresa, nit, email, telefono, acepta_terminos, version_terminos, ip)
       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now(), $11, $12)`,
     [referencia, d.plan, d.periodo, monto, d.proveedor, d.nombre, d.empresa, d.nit || null, d.email, d.telefono, VERSION_TERMINOS, ipCliente(req)]));
+  // La gerencia sabe de cada intento de compra al instante (aunque no termine de pagar).
+  await sinRLS((c) => avisar(c, `aviso:pago-inicio:${referencia}`, "pago_iniciado", { nombre: d.nombre, empresa: d.empresa, nit: d.nit, email: d.email, telefono: d.telefono, plan: d.plan === "pro" ? "Pro" : "Esencial", periodo: d.periodo, monto, proveedor: d.proveedor, referencia }));
+  await enviarAhora(`pago-inicio:${referencia}`);
   if (d.proveedor === "qr") {
     // Sin pasarela: la orden queda pendiente con las instrucciones (también por correo) hasta que se confirme en la consola.
     const q = datosQr(), clave = `pago:${referencia}:qr`;

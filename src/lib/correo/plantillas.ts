@@ -45,7 +45,41 @@ Tratamos tus datos según la Ley 1581 de 2012: <a href="${SITIO}/privacidad" sty
   return { html, texto, previa: o.previa };
 }
 
+
+// ── Aviso interno para la gerencia: cada evento de un cliente (demo, registro, pago, DIAN…) llega también a tu correo.
+// Nunca lleva enlaces de acceso ni llaves (se quitan al encolar).
+export const EVENTOS: Record<string, string> = {
+  solicitud_recibida: "Nueva solicitud de demo", pago_iniciado: "Alguien empezó a contratar", invitacion: "Nueva cuenta o usuario invitado",
+  bienvenida: "Cuenta activada: ya creó su contraseña", restablecer: "Pidió restablecer su contraseña", pago_aprobado: "Pago aprobado",
+  pago_qr: "Orden por QR: confirma el pago en la consola", pago_rechazado: "Pago rechazado", renovacion_fallida: "Falló el cobro de una renovación",
+  pago_abandonado: "Pago abandonado: llámalo", renovacion_proxima: "Renovación próxima", renovacion_vencida: "Plan vencido sin renovar",
+  cuenta_suspendida: "Cuenta suspendida", cuenta_por_suspender: "Cuenta por suspender", habilitado: "Habilitado ante la DIAN",
+  renovacion_cancelada: "Canceló la renovación automática", plan_cambiado: "Cambio de plan", cupo_documentos: "Cliente al 90 % de su cupo de documentos",
+  cargo_documentos: "Cargo por documentos adicionales", resolucion_por_vencer: "Numeración DIAN por vencer o agotarse", documento_rechazado: "La DIAN rechazó un documento",
+};
+const ETIQUETAS: Record<string, string> = {
+  nombre: "Nombre", drogueria: "Droguería", empresa: "Empresa", ciudad: "Ciudad", telefono: "Celular", email: "Correo", cajas: "Cajas", mensaje: "Mensaje",
+  origen: "Origen", acepta_correos: "Acepta correos", plan: "Plan", periodo: "Periodo", monto: "Monto", proveedor: "Medio de pago", nit: "NIT",
+  referencia: "Referencia", vence: "Vence", documento: "Documento", prefijo: "Prefijo", motivo: "Motivo", mes: "Mes", documentos: "Documentos",
+  cupo: "Cupo", para: "Correo del cliente", empresa_id: "Id de empresa",
+};
+function avisoInterno(d: Datos): Correo {
+  const titulo = EVENTOS[txt(d.evento)] ?? txt(d.evento, "Evento");
+  const quien = txt(d.empresa) || txt(d.drogueria) || txt(d.nombre) || txt(d.para);
+  const filas = Object.entries(d).filter(([k, v]) => !["evento", "baja", "plan_id", "titular", "enlace", "llave", "token", "clave"].includes(k) && v !== null && v !== undefined && v !== "")
+    .map(([k, v]) => [ETIQUETAS[k] ?? k, k === "monto" && !isNaN(Number(v)) ? pesos(Number(v)) : k === "periodo" ? (PERIODO[String(v)] ?? String(v)) : String(v)]);
+  const tel = String(d.telefono ?? "").replace(/\D/g, "");
+  const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(titulo)}</title></head><body style="margin:0;padding:16px;background:#eef3f2;font:15px/1.5 Arial,Helvetica,sans-serif;color:#1f3442">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#fff;border-radius:12px"><tr><td style="background:#0b1f33;color:#fff;padding:14px 20px;font-weight:bold">Regenta · aviso interno</td></tr>
+<tr><td style="padding:20px"><h1 style="margin:0 0 4px;font-size:22px;color:#0b1f33">${esc(titulo)}</h1><p style="margin:0 0 16px;color:#5b6d75">${esc(quien)}</p>
+<table role="presentation" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse">${filas.map(([k, v]) => `<tr><td style="color:#5b6d75;border-bottom:1px solid #e5ecea;width:40%">${esc(k)}</td><td style="border-bottom:1px solid #e5ecea"><b>${esc(v)}</b></td></tr>`).join("")}</table>
+<p style="margin:20px 0 0"><a href="${SITIO}/admin" style="color:#0f766e;font-weight:bold">Abrir la consola</a>${tel.length >= 10 ? ` · <a href="https://wa.me/${tel.length === 10 ? "57" + tel : tel}" style="color:#0f766e;font-weight:bold">Escribirle por WhatsApp</a>` : ""}</p></td></tr></table></body></html>`;
+  const texto = [titulo, quien, "", ...filas.map(([k, v]) => `${k}: ${v}`), "", `Consola: ${SITIO}/admin`].join("\n");
+  return { asunto: `Regenta · ${titulo}${quien ? `: ${quien}` : ""}`, html, texto, previa: quien || titulo };
+}
+
 export const PLANTILLAS = {
+  aviso_interno: avisoInterno,
   // ── Transaccionales
   invitacion: (d: Datos): Correo => ({ asunto: `Activa tu cuenta de Regenta${d.empresa ? ` para ${d.empresa}` : ""}`, ...marco({
     previa: "Crea tu contraseña y empieza a facturar.", titulo: `${hola(d.nombre)}, tu cuenta está lista`,
