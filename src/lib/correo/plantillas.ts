@@ -56,6 +56,8 @@ export const EVENTOS: Record<string, string> = {
   cuenta_suspendida: "Cuenta suspendida", cuenta_por_suspender: "Cuenta por suspender", habilitado: "Habilitado ante la DIAN",
   renovacion_cancelada: "Canceló la renovación automática", plan_cambiado: "Cambio de plan", cupo_documentos: "Cliente al 90 % de su cupo de documentos",
   cargo_documentos: "Cargo por documentos adicionales", resolucion_por_vencer: "Numeración DIAN por vencer o agotarse", documento_rechazado: "La DIAN rechazó un documento",
+  embudo_1: "Embudo: toca el correo 1 (día 1)", embudo_2: "Embudo: toca el correo 2 (día 3)", embudo_3: "Embudo: toca el correo 3 (día 6)",
+  embudo_4: "Embudo: toca el correo 4 (día 10)", embudo_5: "Embudo: toca el correo 5 (día 15)",
 };
 const ETIQUETAS: Record<string, string> = {
   nombre: "Nombre", drogueria: "Droguería", empresa: "Empresa", ciudad: "Ciudad", telefono: "Celular", email: "Correo", cajas: "Cajas", mensaje: "Mensaje",

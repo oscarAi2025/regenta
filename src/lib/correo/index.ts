@@ -48,8 +48,9 @@ export async function encolar(c: Tx, e: Encolar) {
     [e.clave, para, e.plantilla, comercial ? "comercial" : "transaccional", JSON.stringify(e.datos ?? {}), e.programado ?? new Date(), e.empresa ?? null]);
   const nuevo = (r.rowCount ?? 0) > 0;
   // Todo correo transaccional a un cliente es un evento que la gerencia también debe saber.
-  if (nuevo && !comercial && e.plantilla !== "aviso_interno" && para !== correoAvisos())
-    await avisar(c, `aviso:${e.clave}`, e.plantilla, { ...(e.datos ?? {}), para, empresa_id: e.empresa ?? null });
+  // Absolutamente todo (Oscar, 04/11/2026): también los comerciales del embudo, avisados cuando salen.
+  if (nuevo && e.plantilla !== "aviso_interno" && para !== correoAvisos())
+    await avisar(c, `aviso:${e.clave}`, e.plantilla, { ...(e.datos ?? {}), para, empresa_id: e.empresa ?? null }, e.programado);
   return nuevo;
 }
 
@@ -58,10 +59,10 @@ export const correoAvisos = () => (process.env.CORREO_AVISOS?.trim() || CORREO).
 const PRIVADOS = ["enlace", "llave", "baja", "token", "clave", "contrasena"];
 
 /** Aviso interno a la gerencia (demo, registro, pago, DIAN…). Una sola vez por clave; nunca lleva enlaces de acceso. */
-export async function avisar(c: Tx, clave: string, evento: string, datos: Record<string, unknown> = {}) {
+export async function avisar(c: Tx, clave: string, evento: string, datos: Record<string, unknown> = {}, programado?: Date) {
   const limpio = Object.fromEntries(Object.entries(datos).filter(([k, v]) => !PRIVADOS.includes(k) && (v === null || ["string", "number", "boolean"].includes(typeof v))));
-  await c.query(`insert into correos (clave, para, plantilla, tipo, datos, programado, empresa_id) values ($1, $2, 'aviso_interno', 'transaccional', $3, now(), $4) on conflict (clave) do nothing`,
-    [clave, correoAvisos(), JSON.stringify({ evento, ...limpio }), typeof datos.empresa_id === "string" ? datos.empresa_id : null]);
+  await c.query(`insert into correos (clave, para, plantilla, tipo, datos, programado, empresa_id) values ($1, $2, 'aviso_interno', 'transaccional', $3, $5, $4) on conflict (clave) do nothing`,
+    [clave, correoAvisos(), JSON.stringify({ evento, ...limpio }), typeof datos.empresa_id === "string" ? datos.empresa_id : null, programado ?? new Date()]);
 }
 
 /** Encola el embudo de venta de una solicitud de demo (solo si autorizó correos). */
