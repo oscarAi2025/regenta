@@ -15,6 +15,9 @@ const ITEMS = [
   { href: "/alertas", label: "Alertas", roles: ["dueno", "admin", "cajero", "bodeguero"], d: "M12 4l9 16H3zM12 10v4M12 17h.01" },
   { href: "/equipo", label: "Mi droguería", roles: ["dueno"], d: "M3 21V9l9-6 9 6v12M9 21v-6h6v6M3 21h18" },
   { href: "/inventario", label: "Inventario", roles: ["dueno", "admin", "cajero", "bodeguero"], d: "M4 8l8-4 8 4-8 4zM4 8v8l8 4 8-4V8M12 12v8" },
+  { href: "/documentos", label: "Documentos DIAN", roles: ["dueno", "admin"], d: "M7 3h7l5 5v13H7zM14 3v5h5M10 14l2 2 4-4" },
+  { href: "/temperatura", label: "Temperatura", roles: ["dueno", "admin", "bodeguero"], d: "M10 14V5a2 2 0 1 1 4 0v9a4 4 0 1 1-4 0zM12 9v7" },
+  { href: "/control-especial", label: "Control especial", roles: ["dueno", "admin"], d: "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4" },
   { href: "/cuenta", label: "Mi cuenta", soloCelular: true, roles: ["dueno", "admin", "cajero", "bodeguero"], d: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" },
 ];
 
@@ -23,6 +26,7 @@ const GRUPOS: [string, string[]][] = [
   ["", ["/inicio"]],
   ["Vender", ["/caja", "/turno", "/ventas", "/clientes", "/cartera"]],
   ["Inventario", ["/productos", "/inventario", "/prediccion", "/alertas"]],
+  ["Cumplimiento", ["/documentos", "/temperatura", "/control-especial"]],
   ["Gestión", ["/reportes", "/equipo", "/cuenta"]],
 ];
 
