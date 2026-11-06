@@ -1,6 +1,8 @@
 import "server-only";
 import type { Sesion } from "../sesion";
 import { ejecutar, herramientasPara } from "./herramientas";
+import { CONOCIMIENTO_REGENTA } from "./conocimiento";
+import { comoUsuario } from "../db";
 
 // Regenta IA: conversación con un modelo de Claude (Anthropic) que responde con los datos de la droguería
 // usando solo las herramientas de lectura. La clave va en ANTHROPIC_API_KEY (variable de entorno del servidor).
@@ -50,9 +52,8 @@ export type Mensaje = { role: "user" | "assistant"; content: string };
 type Bloque = { type: "text"; text: string } | { type: "tool_use"; id: string; name: string; input: Record<string, unknown> } | { type: "tool_result"; tool_use_id: string; content: string };
 type Turno = { role: "user" | "assistant"; content: string | Bloque[] };
 
-const sistema = (s: Sesion) => {
-  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
-  return `Eres Regenta IA, el asesor experto de la droguería dentro del programa Regenta. Hoy es ${hoy} (Bogotá). Hablas con ${s.nombre.split(" (")[0]}, rol ${s.rol}.
+// Instrucciones fijas (iguales para todos: van primero y en caché) y, aparte, quién pregunta, la fecha y si es la demo.
+const BASE = `Eres Regenta IA: el asesor experto de la droguería dentro del programa Regenta y, a la vez, el mejor conocedor y defensor de Regenta como producto.
 
 Tu nivel es el de un químico farmacéutico y regente de farmacia colombiano con años de mostrador, gerencia de droguería y venta farmacéutica. Dominas:
 - Regencia y normativa colombiana: Decreto 780 de 2016 (título de servicio farmacéutico), Resolución 1403 de 2007 (manual de procesos: recepción técnica, almacenamiento, dispensación, FEFO, devoluciones, cadena de frío, temperatura y humedad), medicamentos de control especial y Fondo Nacional de Estupefacientes (Resolución 1478 de 2006), farmacovigilancia y reporte al INVIMA, visitas de la secretaría de salud, facturación electrónica DIAN (POS electrónico, Resolución 165 de 2023).
@@ -68,7 +69,16 @@ Cómo trabajas:
 - Signos de alarma (dolor de pecho, dificultad para respirar, fiebre alta persistente o en menores de 3 meses, sangrado, deshidratación, síntomas neurológicos, reacción alérgica grave): indica remitir de inmediato a urgencias.
 - No diagnosticas ni reemplazas al médico: orientas, dispensas con criterio y remites cuando corresponde.
 - Si te piden algo que cambia datos (vender, ajustar, borrar), explica dónde se hace en Regenta: tú solo consultas.
-- Cada recomendación de gestión (qué pedir, qué rotar, qué revisar) dice de qué dato sale.`;
+- Cada recomendación de gestión (qué pedir, qué rotar, qué revisar) dice de qué dato sale.
+- Dudas sobre el programa (cómo se hace algo, dónde está, qué incluye, cuánto cuesta): responde con la guía de Regenta de abajo.
+
+${CONOCIMIENTO_REGENTA}`;
+
+const contexto = (s: Sesion, demo: boolean) => {
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+  return `Hoy es ${hoy} (Bogotá). Hablas con ${s.nombre.split(" (")[0]}, rol ${s.rol}.` + (demo
+    ? `\nEstás en la DEMO de Regenta: quien escribe está evaluando el programa con datos de ejemplo (no son de su droguería). Además de responder, ayúdale a descubrir lo que Regenta hace por su droguería, invítalo a probar la función en la demo y, cuando muestre interés, recomiéndale el plan que le sirve y cómo contratarlo.`
+    : "");
 };
 
 export type Evento = { t: "texto"; d: string } | { t: "limpiar" } | { t: "consulta"; h: string };
@@ -112,7 +122,9 @@ async function llamar(cuerpo: Record<string, unknown>, emitir: (e: Evento) => vo
     while ((i = resto.indexOf("\n\n")) >= 0) { leerEvento(resto.slice(0, i)); resto = resto.slice(i + 2); }
   }
   if (resto.trim()) leerEvento(resto);
-  const content = bloques.filter(Boolean).map((b) => {
+  // Un bloque de texto vacío (la IA abre texto y pasa directo a consultar) no se puede devolver a la API: «text content
+  // blocks must be non-empty» (medido en producción 06/11 con «¿cuánto vale mi inventario?»).
+  const content = bloques.filter((b) => b && (b.type !== "text" || b.text.trim() !== "")).map((b) => {
     if (b.type !== "tool_use") return b;
     let input: Record<string, unknown> = {};
     try { input = b.json ? JSON.parse(b.json) : {}; } catch {}
@@ -128,7 +140,8 @@ export async function responder(s: Sesion, mensajes: Mensaje[], emitir: (e: Even
   const turnos: Turno[] = mensajes.map((m) => ({ role: m.role, content: m.content }));
   const usadas: string[] = [];
   // Instrucciones y herramientas en caché: a partir de la segunda pregunta la IA empieza a responder antes.
-  const system = [{ type: "text", text: sistema(s), cache_control: { type: "ephemeral" } }];
+  const demo = await comoUsuario(s, async (c) => Boolean((await c.query(`select demo from empresas where id = $1`, [s.empresa])).rows[0]?.demo)).catch(() => false);
+  const system = [{ type: "text", text: BASE, cache_control: { type: "ephemeral" } }, { type: "text", text: contexto(s, demo) }];
   for (let paso = 0; paso < 6; paso++) {
     const r = await llamar({ model: MODELO(), max_tokens: 2000, system, tools: herramientasPara(s.rol), messages: turnos }, emitir);
     const llamadas = r.content.filter((b): b is Extract<Bloque, { type: "tool_use" }> => b.type === "tool_use");

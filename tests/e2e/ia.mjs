@@ -18,6 +18,11 @@ const mock = http.createServer((req, res) => {
     const b = JSON.parse(cuerpo);
     vistos.push({ headers: req.headers, body: b });
     const ultimo = b.messages.at(-1);
+    // Como la API real: un bloque de texto vacío en el historial es un 400 (pasó en producción el 06/11).
+    if (b.messages.some((m) => Array.isArray(m.content) && m.content.some((x) => x.type === "text" && !x.text?.trim()))) {
+      res.writeHead(400, { "content-type": "application/json" });
+      return res.end(JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: "messages: text content blocks must be non-empty" } }));
+    }
     // Como la API real con stream:true: eventos SSE, el texto en pedazos y la llamada a la herramienta con su JSON por partes.
     const responder = async (o) => {
       if (!b.stream) { res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(o)); }
@@ -27,7 +32,7 @@ const mock = http.createServer((req, res) => {
       for (const [i, bl] of o.content.entries()) {
         if (bl.type === "text") {
           ev("content_block_start", { index: i, content_block: { type: "text", text: "" } });
-          for (const pedazo of bl.text.match(/.{1,6}/gs)) { ev("content_block_delta", { index: i, delta: { type: "text_delta", text: pedazo } }); await new Promise((r) => setTimeout(r, 15)); }
+          for (const pedazo of bl.text.match(/.{1,6}/gs) ?? []) { ev("content_block_delta", { index: i, delta: { type: "text_delta", text: pedazo } }); await new Promise((r) => setTimeout(r, 15)); }
         } else {
           ev("content_block_start", { index: i, content_block: { type: "tool_use", id: bl.id, name: bl.name, input: {} } });
           const js = JSON.stringify(bl.input);
@@ -44,11 +49,14 @@ const mock = http.createServer((req, res) => {
       const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
       return responder({ stop_reason: "tool_use", content: [{ type: "tool_use", id: "t2", name: "resumen_ventas", input: { desde: hoy, hasta: hoy } }] });
     }
+    if (typeof ultimo.content === "string" && /inventario a costo/i.test(ultimo.content))
+      return responder({ stop_reason: "tool_use", content: [{ type: "text", text: "" }, { type: "tool_use", id: "t3", name: "resumen_inventario", input: {} }] });
     if (typeof ultimo.content === "string") {
       const herramienta = /vencer/i.test(ultimo.content) ? "riesgo_vencimiento" : "pedido_sugerido";
       return responder({ stop_reason: "tool_use", content: [{ type: "text", text: "Consulto tus datos." }, { type: "tool_use", id: "t1", name: herramienta, input: { limite: 3 } }] });
     }
     const datos = JSON.parse(ultimo.content[0].content);
+    if (!Array.isArray(datos) && "productos_activos" in datos) return responder({ stop_reason: "end_turn", content: [{ type: "text", text: `Tienes ${datos.productos_activos} productos; a costo ${datos.valor_inventario_a_costo}.` }] });
     if (!Array.isArray(datos) && "ventas_netas" in datos) return responder({ stop_reason: "end_turn", content: [{ type: "text", text: `Netas: ${datos.ventas_netas}.` }] });
     const primero = datos[0]?.nombre ?? "nada";
     responder({ stop_reason: "end_turn", content: [{ type: "text", text: `Lo primero: ${primero}.` }] });
@@ -79,6 +87,8 @@ const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw
   ok(vistos[1].body.messages.at(-2).content.some((x) => x.type === "tool_use" && x.input.limite === 3), "arma la llamada a la herramienta desde el JSON por partes");
   ok(await p.getByText("Consulto tus datos.").count() === 0, "el texto provisional antes de consultar no queda en pantalla");
   ok(/Regenta IA/.test(sys) && /No diagnosticas/.test(sys) && /Resolución 1403 de 2007/.test(sys) && /urgencias/.test(sys), "instrucciones del sistema");
+  ok(/Planes y precios/.test(sys) && /Confidencialidad/.test(sys) && /Dónde se hace cada cosa/.test(sys) && /89\.900/.test(sys), "conoce Regenta: funciones, dónde se hace cada cosa, planes y reglas de confidencialidad");
+  ok(r.body.system.length === 2 && !/Hoy es/.test(r.body.system[0].text) && /DEMO/.test(r.body.system[1].text), "el conocimiento fijo va en caché y aparte la fecha, el usuario y el modo demo");
   const resultado = JSON.parse(vistos[1].body.messages.at(-1).content[0].content);
   ok(Array.isArray(resultado) && resultado.length > 0 && "sugerido_cajas" in resultado[0], "la herramienta devolvió el pedido sugerido real", resultado[0]?.nombre);
   ok(await p.getByText(`Lo primero: ${resultado[0].nombre}.`).count() === 1, "la respuesta aparece en pantalla");
@@ -92,6 +102,10 @@ const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw
   await p.waitForSelector("text=Consultó: vencimientos", { timeout: 20000 });
   const r2 = JSON.parse(vistos.at(-1).body.messages.at(-1).content[0].content);
   ok("valor_en_riesgo" in r2[0], "el dueño recibe el valor a costo");
+  // La IA abre un texto vacío y pasa a consultar: no se le devuelve a la API (antes daba 400 y «no pudo responder»).
+  const inv = await p.evaluate(async () => (await (await fetch("/api/ia", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mensajes: [{ role: "user", content: "¿Cuántos productos tengo y cuánto vale mi inventario a costo?" }] }) })).text()));
+  const fin = JSON.parse(inv.trim().split("\n").filter(Boolean).at(-1));
+  ok(!fin.error && /Tienes \d+ productos; a costo \d/.test(fin.respuesta ?? ""), "inventario a costo responde aunque la IA abra un texto vacío", JSON.stringify(fin).slice(0, 160));
   ok(errs.length === 0, "sin errores de JavaScript", errs.join(" | "));
   await ctx.close();
 }

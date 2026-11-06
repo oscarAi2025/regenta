@@ -210,3 +210,5 @@
 - Un `sr-only` (position: absolute) dentro de una tabla con desplazamiento lateral toma como referencia un ancestro fuera del contenedor y ensancha toda la página en celulares (/prediccion a 320–412 px): `table { position: relative }` en globals.css.
 - Pantallas de 320 px (iPhone SE de 1.ª generación, plegables): revisar la cabecera pública; con px-5 el botón «Probar gratis» se salía 11 px.
 - Controles de texto (Renombrar, ×, «¿Olvidaste tu contraseña?») de 20 px de alto son difíciles de tocar: mínimo 24 px (WCAG 2.5.8), con py-1.5 -my-1.5 para no mover el diseño.
+- (06/11) La API de Anthropic rechaza un bloque de texto vacío en el historial («text content blocks must be non-empty»): la IA a veces abre un texto y pasa directo a una herramienta. Al armar el turno del asistente se quitan los textos vacíos; el mock de ia.mjs ahora responde 400 como la API real.
+- La suite ia.mjs no se puede repetir dentro del mismo minuto: el límite de la demo (8 preguntas por minuto por IP) vive en memoria del servidor. Entre corridas, esperar 60 s.

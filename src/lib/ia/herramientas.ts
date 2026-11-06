@@ -21,6 +21,8 @@ export const HERRAMIENTAS: Herramienta[] = [
     input_schema: { type: "object", properties: { limite: { type: "number", description: "Máximo de productos (por defecto 20)" } } } },
   { name: "alertas_invima", description: "Alertas sanitarias de medicamentos del INVIMA del último año y su cruce con el inventario (por lote, registro sanitario o nombre) y si ya se revisaron.",
     input_schema: { type: "object", properties: {} } },
+  { name: "resumen_inventario", description: "Foto del inventario de hoy: productos activos, productos con existencias, unidades vendibles, lotes vencidos o bloqueados, lotes que vencen en 30 y 90 días, productos agotados y, para el dueño o el administrador, el valor del inventario a costo y los lotes sin costo (como en Inventario).",
+    input_schema: { type: "object", properties: {} } },
   { name: "patron_semanal", description: "Qué días de la semana vende más o menos la droguería (últimas 8 semanas), como porcentaje frente al promedio.",
     input_schema: { type: "object", properties: {} } },
 ];
@@ -84,6 +86,24 @@ export async function ejecutar(s: Sesion, nombre: string, entrada: Record<string
           where existencias > 0 and (ultima_venta is null or ultima_venta < current_date - 45) order by existencias desc limit $2`, [s.empresa, limite(entrada.limite)])).rows;
       case "alertas_invima":
         return (await c.query(`select numero, tipo, titulo, motivo, fecha::text, url, producto tu_producto, nivel coincidencia, lote, unidades, revisada from alertas_empresa($1) order by fecha desc limit 40`, [s.empresa])).rows;
+      case "resumen_inventario": {
+        // Mismas cifras que la pantalla Inventario: vendible = lotes vigentes y no bloqueados; valor a costo de lo vendible.
+        const r = (await c.query(`select
+            (select count(*) from productos p where p.empresa_id = $1 and p.activo)::int productos_activos,
+            (select count(distinct s.producto_id) from v_stock_vigente s where s.empresa_id = $1 and s.unidades > 0)::int productos_con_existencias,
+            (select coalesce(sum(s.unidades), 0) from v_stock_vigente s where s.empresa_id = $1 and s.unidades > 0)::int unidades_vendibles,
+            (select count(*) from v_stock_lotes s where s.empresa_id = $1 and s.unidades > 0 and s.vence < current_date)::int lotes_vencidos,
+            (select count(*) from v_stock_lotes s where s.empresa_id = $1 and s.unidades > 0 and s.bloqueado)::int lotes_bloqueados,
+            (select count(*) from v_stock_vigente s where s.empresa_id = $1 and s.unidades > 0 and s.vence <= current_date + 30)::int lotes_vencen_30_dias,
+            (select count(*) from v_stock_vigente s where s.empresa_id = $1 and s.unidades > 0 and s.vence <= current_date + 90)::int lotes_vencen_90_dias,
+            (select count(*) from productos p where p.empresa_id = $1 and p.activo
+               and not exists (select 1 from v_stock_vigente s where s.producto_id = p.id and s.unidades > 0))::int productos_agotados`, [s.empresa])).rows[0];
+        if (!costos) return r;
+        const v = (await c.query(`select coalesce(sum(s.unidades * lc.costo_unidad), 0)::float valor,
+            count(*) filter (where lc.lote_id is null)::int lotes_sin_costo
+          from v_stock_vigente s left join lote_costos lc on lc.lote_id = s.lote_id where s.empresa_id = $1 and s.unidades > 0`, [s.empresa])).rows[0];
+        return { ...r, valor_inventario_a_costo: v.valor, lotes_sin_costo: v.lotes_sin_costo, nota: "El valor a costo no incluye los lotes sin costo." };
+      }
       case "patron_semanal":
         return (await c.query(`select * from patron_semanal($1)`, [s.empresa])).rows;
       default:
