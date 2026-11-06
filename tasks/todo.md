@@ -393,5 +393,6 @@ Tres frentes en paralelo (3-A regenta_3a, 3-B regenta_3b, 3-C regenta_3c); integ
 - [x] Regenta IA: ventas netas de devoluciones, como Reportes
 - [x] React 418 intermitente en actas, tirillas e informes: loading.tsx en tiquete, informes y control-especial (0 de 800 visitas)
 - [x] SQL de producción db/produccion/bloque3-034-036a.sql probado de una pieza como rol sin superusuario sobre una copia hasta 033a con demo
+- [x] Producción 06/11: 034–036a aplicadas en Supabase (hash d5c1f65d…, 4 migraciones registradas, 6 tablas nuevas, anon sin permisos, 1293 ventas intactas) y publicado en main
 - [ ] Oscar: aplicar bloque3-034-036a.sql en Supabase y desplegar (un solo despliegue)
 - [ ] Pendiente: activar el envío real de documento soporte y nota débito en MATIAS por droguería (consola) tras probar en su sandbox; la consola (/admin) sigue sin loading.tsx (no se midió 418 allí)
