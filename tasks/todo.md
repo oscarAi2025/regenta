@@ -382,4 +382,4 @@ Tres frentes en paralelo (2-A regenta_2a :4511, 2-B regenta_2b :4512, 2-C regent
 - [x] Pruebas: npm test 96/96 · e2e 24/24 suites sin fallos (1821 comprobaciones de endpoints, 248 pantallas) · suites nuevas 3 veces seguidas
 - [x] 031–033a aplicadas en producción con autorización de Oscar (06/11/2026); un solo despliegue
 - [ ] Bloque 3: resultados y ganancia corregida, gastos, auxiliar de IVA, bitácora; DIAN complementaria (documento soporte, nota débito, XML); precios masivos, códigos alternos, etiquetas y cuarentena
-- [ ] Logo de la droguería en cotizaciones (falta campo)
+- [x] Cotizaciones con las iniciales de la droguería (decisión de Oscar, 06/11/2026: sin logo)
