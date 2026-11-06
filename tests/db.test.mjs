@@ -1065,3 +1065,127 @@ test("cuentas de clientes: aislamiento entre empresas y permisos por rol", async
       - (select coalesce(sum(a.valor), 0) from abonos a join ventas v on v.id = a.venta_id where v.empresa_id = $1 and v.estado = 'cerrada' and not a.anulado)::float libro`, [E.A])).rows[0]);
   assert.equal(r.vista, r.libro);
 });
+
+// ── Mostrador: ventas en espera, domicilios y cotizaciones (migración 032)
+const VENDEDOR = "00000000-0000-4000-8000-0000000000a7";
+const pedido = (lineas, extra = {}) => ({ empresa_id: E.A, sede_id: S.A, caja_id: C.A, tipo: "espera", lineas, ...extra });
+/** Transacción (que se deshace) con un vendedor de prueba en A; fn recibe la conexión y cambia de usuario con comoEn. */
+async function conVendedor(fn) {
+  const c = await pool.connect();
+  try {
+    await c.query("begin");
+    await c.query(`insert into miembros (empresa_id, user_id, nombre, rol) values ($1, $2, 'Vendedor de prueba', 'vendedor')`, [E.A, VENDEDOR]);
+    await c.query("set local role authenticated");
+    return await fn(c);
+  } finally { await c.query("rollback").catch(() => {}); c.release(); }
+}
+
+test("pedidos: la cajera y el vendedor los arman con consecutivo por tipo y precio de la base; la bodega no", async () => {
+  await conVendedor(async (c) => {
+    await comoEn(c, U.cajera);
+    const a = (await c.query("select guardar_pedido($1) r", [pedido([{ producto_id: prod.id, presentacion: "caja", cantidad: 2 }])])).rows[0].r;
+    const b = (await c.query("select guardar_pedido($1) r", [pedido([{ producto_id: prod.id, presentacion: "unidad", cantidad: 3 }])])).rows[0].r;
+    assert.equal(b.numero, a.numero + 1, "consecutivo de las esperas");
+    await comoEn(c, U.carlos);
+    const cot = (await c.query("select guardar_pedido($1) r", [pedido([{ producto_id: prod.id, presentacion: "caja", cantidad: 1 }], { tipo: "cotizacion" })])).rows[0].r;
+    const ya = (await c.query(`select coalesce(max(numero), 0)::int n from pedidos_mostrador where empresa_id = $1 and tipo = 'cotizacion' and id <> $2`, [E.A, cot.id])).rows[0].n;
+    assert.equal(cot.numero, ya + 1, "las cotizaciones llevan su propio consecutivo");
+    const l = (await c.query(`select precio_mostrado::float p, presentacion from pedido_lineas where pedido_id = $1 order by id`, [b.id])).rows[0];
+    assert.deepEqual(l, { p: Number(prod.precio_unidad), presentacion: "unidad" }, "el precio lo pone la base, no el navegador");
+    assert.equal((await c.query(`select vence - current_date d from pedidos_mostrador where id = $1`, [cot.id])).rows[0].d, 8, "validez por defecto de la cotización");
+    await comoEn(c, VENDEDOR);
+    const v = (await c.query("select guardar_pedido($1) r", [pedido([{ producto_id: prod.id, presentacion: "caja", cantidad: 1 }], { tipo: "cotizacion", contacto: "Clínica" })])).rows[0].r;
+    assert.ok(v.id, "el vendedor arma cotizaciones");
+    await c.query("savepoint s");
+    await assert.rejects(c.query("select guardar_pedido($1)", [pedido([{ producto_id: prod.id, presentacion: "caja", cantidad: 1, descuento_pct: 50 }])]), /supera el máximo/);
+    await c.query("rollback to savepoint s");
+    await comoEn(c, U.bodega);
+    await assert.rejects(c.query("select guardar_pedido($1)", [pedido([{ producto_id: prod.id, presentacion: "caja", cantidad: 1 }])]), /permiso/);
+  });
+});
+
+test("pedidos: domicilio exige entrega, cotización con validez de hasta 90 días y no se escriben las tablas directo", async () => {
+  await assert.rejects(como(U.cajera, (c) => c.query("select guardar_pedido($1)", [pedido([{ producto_id: prod.id, presentacion: "caja", cantidad: 1 }], { tipo: "domicilio", contacto: "Ana" })])), /teléfono/);
+  await assert.rejects(como(U.cajera, (c) => c.query("select guardar_pedido($1)", [pedido([{ producto_id: prod.id, presentacion: "caja", cantidad: 1 }], { tipo: "domicilio", contacto: "Ana", telefono: "3001234567" })])), /dirección/);
+  await assert.rejects(como(U.cajera, (c) => c.query("select guardar_pedido($1)", [pedido([{ producto_id: prod.id, presentacion: "caja", cantidad: 1 }], { tipo: "cotizacion", vence: hace(-120) })])), /90 días/);
+  await assert.rejects(como(U.cajera, (c) => c.query("select guardar_pedido($1)", [pedido([{ producto_id: prod.id, presentacion: "caja", cantidad: 0 }])])), /Cantidad no válida/);
+  await assert.rejects(como(U.cajera, (c) => c.query("select guardar_pedido($1)", [pedido([])])), /no tiene productos/);
+  await assert.rejects(como(U.carlos, (c) => c.query(`insert into pedidos_mostrador (empresa_id, sede_id, tipo, numero, creado_por) values ($1, $2, 'espera', 999, $3)`, [E.A, S.A, U.carlos])), /permission denied/);
+  await assert.rejects(como(U.carlos, async (c) => {
+    const p = (await c.query("select guardar_pedido($1) r", [pedido([{ producto_id: prod.id, presentacion: "caja", cantidad: 1 }])])).rows[0].r;
+    await c.query(`update pedidos_mostrador set estado = 'cobrado' where id = $1`, [p.id]);
+  }), /permission denied/);
+});
+
+test("pedidos: otra empresa no los ve, no los cambia ni los cobra", async () => {
+  await como(U.carlos, async (c) => {
+    const p = (await c.query("select guardar_pedido($1) r", [pedido([{ producto_id: prod.id, presentacion: "caja", cantidad: 1 }])])).rows[0].r;
+    await comoEn(c, U.duenoB);
+    assert.equal((await c.query(`select count(*)::int n from pedidos_mostrador where empresa_id = $1`, [E.A])).rows[0].n, 0);
+    assert.equal((await c.query(`select count(*)::int n from pedido_lineas where empresa_id = $1`, [E.A])).rows[0].n, 0);
+    await c.query("savepoint s");
+    await assert.rejects(c.query("select cambiar_estado_pedido($1, 'cancelado', 'Intento ajeno')", [p.id]), /no encontrado/);
+    await c.query("rollback to savepoint s");
+    await assert.rejects(c.query("select guardar_pedido($1)", [pedido([{ producto_id: prod.id, presentacion: "caja", cantidad: 1 }])]), /permiso/);
+  });
+});
+
+test("cobrar_pedido: en la misma transacción de la venta, una sola vez, nunca con una venta vieja ni si está cancelado", async () => {
+  await conVendedor(async (c) => {
+    await comoEn(c, U.cajera);
+    const p = (await c.query("select guardar_pedido($1) r", [pedido([{ producto_id: prod.id, presentacion: "caja", cantidad: 1 }], { tipo: "domicilio", contacto: "Ana", telefono: "3001234567", direccion: "Cra 1 # 2-3" })])).rows[0].r;
+    const antes = Number((await c.query(`select coalesce(sum(cantidad), 0) u from movimientos where producto_id = $1`, [prod.id])).rows[0].u);
+    await c.query("select cambiar_estado_pedido($1, 'en_camino')", [p.id]);
+    assert.equal(antes, Number((await c.query(`select coalesce(sum(cantidad), 0) u from movimientos where producto_id = $1`, [prod.id])).rows[0].u), "en camino no mueve existencias");
+    const idem = crypto.randomUUID();
+    const v = (await c.query("select registrar_venta($1) r", [venta([{ producto_id: prod.id, presentacion: "caja", cantidad: 1 }], { idem_key: idem, pagos: [{ medio: "efectivo", valor: 1000000 }] })])).rows[0].r;
+    assert.equal((await c.query("select cobrar_pedido($1, $2) r", [p.id, v.venta_id])).rows[0].r.estado, "cobrado");
+    const ped = (await c.query(`select estado, venta_id from pedidos_mostrador where id = $1`, [p.id])).rows[0];
+    assert.deepEqual(ped, { estado: "cobrado", venta_id: v.venta_id });
+    assert.equal((await c.query("select cobrar_pedido($1, $2) r", [p.id, v.venta_id])).rows[0].r.repetido, true, "reintento de la misma venta");
+    const v2 = (await c.query("select registrar_venta($1) r", [venta([{ producto_id: prod.id, presentacion: "unidad", cantidad: 1 }], { pagos: [{ medio: "efectivo", valor: 1000000 }] })])).rows[0].r;
+    await c.query("savepoint s");
+    await assert.rejects(c.query("select cobrar_pedido($1, $2)", [p.id, v2.venta_id]), /ya se cobró/);
+    await c.query("rollback to savepoint s");
+    // Una venta vieja no cobra un pedido; uno cancelado no se cobra; el vendedor no cobra.
+    const q = (await c.query("select guardar_pedido($1) r", [pedido([{ producto_id: prod.id, presentacion: "caja", cantidad: 1 }])])).rows[0].r;
+    const vieja = (await c.query(`select id from ventas where empresa_id = $1 and creado < now() - interval '1 day' limit 1`, [E.A])).rows[0].id;
+    await c.query("savepoint s");
+    await assert.rejects(c.query("select cobrar_pedido($1, $2)", [q.id, vieja]), /su propia venta/);
+    await c.query("rollback to savepoint s");
+    await comoEn(c, VENDEDOR);
+    await c.query("savepoint s");
+    await assert.rejects(c.query("select cobrar_pedido($1, $2)", [q.id, v2.venta_id]), /no puede cobrar/);
+    await c.query("rollback to savepoint s");
+    await assert.rejects(c.query("select registrar_venta($1)", [venta([{ producto_id: prod.id, presentacion: "caja", cantidad: 1 }], { pagos: [{ medio: "efectivo", valor: 1000000 }] })]), /permiso/);
+  });
+});
+
+test("cancelar un pedido exige motivo, no mueve existencias y queda en la auditoría", async () => {
+  await como(U.cajera, async (c) => {
+    const p = (await c.query("select guardar_pedido($1) r", [pedido([{ producto_id: prod.id, presentacion: "caja", cantidad: 1 }], { tipo: "domicilio", contacto: "Ana", telefono: "3001234567", direccion: "Cra 1 # 2-3" })])).rows[0].r;
+    const stock = async () => Number((await c.query(`select coalesce(sum(unidades), 0) u from v_stock_lotes where producto_id = $1`, [prod.id])).rows[0].u);
+    const antes = await stock();
+    await c.query("select cambiar_estado_pedido($1, 'en_camino')", [p.id]);
+    await c.query("savepoint s");
+    await assert.rejects(c.query("select cambiar_estado_pedido($1, 'cancelado', ' ')", [p.id]), /motivo/);
+    await c.query("rollback to savepoint s");
+    await c.query("select cambiar_estado_pedido($1, 'cancelado', 'No lo recibió')", [p.id]);
+    assert.equal(await stock(), antes);
+    assert.deepEqual((await c.query(`select estado, motivo from pedidos_mostrador where id = $1`, [p.id])).rows[0], { estado: "cancelado", motivo: "No lo recibió" });
+    await assert.rejects(c.query("select guardar_pedido($1)", [{ ...pedido([{ producto_id: prod.id, presentacion: "caja", cantidad: 1 }], { tipo: "domicilio", contacto: "Ana", telefono: "3001234567", direccion: "Cra 1" }), id: p.id }]), /ya no se puede cambiar/);
+  });
+});
+
+test("cotizaciones vencidas: quedan «vencidas» y se pueden cobrar al precio de hoy", async () => {
+  await como(U.carlos, async (c) => {
+    const p = (await c.query("select guardar_pedido($1) r", [pedido([{ producto_id: prod.id, presentacion: "caja", cantidad: 1 }], { tipo: "cotizacion" })])).rows[0].r;
+    await c.query("reset role");
+    await c.query(`update pedidos_mostrador set vence = current_date - 1 where id = $1`, [p.id]);
+    await c.query("set local role authenticated");
+    assert.ok((await c.query("select vencer_cotizaciones($1) n", [E.A])).rows[0].n >= 1);
+    assert.equal((await c.query(`select estado from pedidos_mostrador where id = $1`, [p.id])).rows[0].estado, "vencido");
+    const v = (await c.query("select registrar_venta($1) r", [venta([{ producto_id: prod.id, presentacion: "caja", cantidad: 1 }], { pagos: [{ medio: "efectivo", valor: 1000000 }] })])).rows[0].r;
+    assert.equal((await c.query("select cobrar_pedido($1, $2) r", [p.id, v.venta_id])).rows[0].r.estado, "cobrado");
+  });
+});
