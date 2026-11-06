@@ -4,7 +4,7 @@ import { chromium } from "playwright-core";
 import { execFileSync } from "node:child_process";
 const B = "http://localhost:4500";
 const sql = "db/consola/superadmin-enlace.sql";
-const link = () => execFileSync("psql", ["-h", "/tmp", "-p", "5433", "-U", "postgres", "regenta", "-Atf", sql]).toString().trim().split("\n").pop().replace("https://regenta.pro", B);
+const link = () => execFileSync("psql", [process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp", "-Atf", sql]).toString().trim().split("\n").pop().replace("https://regenta.pro", B);
 const enlace = link();
 const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const p = await b.newPage();

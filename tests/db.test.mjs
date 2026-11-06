@@ -546,8 +546,8 @@ test("conteo físico: diferencias, lote nuevo, cierre en un ajuste que deja exis
     for (const x of sinContarAntes) assert.equal((await c.query(`select unidades from v_stock_lotes where lote_id = $1`, [x.lote_id])).rows[0].unidades, x.u, "lo no contado no se toca");
     assert.equal((await c.query(`select motivo, conteo_id from ajustes where id = $1`, [r.ajuste_id])).rows[0].motivo, "conteo");
     assert.equal(Number((await c.query(`select count(distinct ref_id) n from movimientos where ref_id = $1`, [r.ajuste_id])).rows[0].n), 1, "un solo ajuste");
-    await falla(c, "select contar_conteo($1)", [{ conteo_id: k.id, lote_id: l1.lote_id, modo: "sumar", cantidad: 1 }], /ya no está abierto/);
-    await falla(c, "select cerrar_conteo($1)", [k.id], /ya no está abierto/);
+    await falla(c, "select contar_conteo($1)", [{ conteo_id: k.id, lote_id: l1.lote_id, modo: "sumar", cantidad: 1 }], /ya está (cerrado|anulado)/);
+    await falla(c, "select cerrar_conteo($1)", [k.id], /ya está (cerrado|anulado)/);
   });
   // Ni siquiera la conexión del servidor puede cambiar un conteo cerrado
   // (se guarda de verdad: un lote contado igual al sistema, así no cambia ninguna existencia de la demo)
@@ -732,8 +732,8 @@ test("conteo: se anula (solo gerencia, con motivo), no toca existencias, libera 
     const r = (await c.query("select anular_conteo($1, $2) r", [k.id, "Se empezó con el filtro equivocado"])).rows[0].r;
     assert.equal(r.estado, "anulado");
     assert.equal(await existencias(c, prod.id), antes, "anular no cambia existencias");
-    await falla(c, "select contar_conteo($1)", [{ conteo_id: k.id, lote_id: l.lote_id, modo: "sumar", cantidad: 1 }], /ya no está abierto/);
-    await falla(c, "select cerrar_conteo($1)", [k.id], /ya no está abierto/);
+    await falla(c, "select contar_conteo($1)", [{ conteo_id: k.id, lote_id: l.lote_id, modo: "sumar", cantidad: 1 }], /ya está (cerrado|anulado)/);
+    await falla(c, "select cerrar_conteo($1)", [k.id], /ya está (cerrado|anulado)/);
     const otro = (await c.query("select iniciar_conteo($1) r", [{ empresa_id: E.A, sede_id: S.A }])).rows[0].r;
     assert.ok(otro.id, "la sede queda libre para otro conteo");
     await c.query("select anular_conteo($1, $2)", [otro.id, "Prueba de anulación"]);

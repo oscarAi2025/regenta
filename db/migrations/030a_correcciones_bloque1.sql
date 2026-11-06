@@ -120,7 +120,7 @@ begin
   if not found or coalesce(rol_en(k.empresa_id), '') not in ('dueno', 'admin', 'bodeguero') then
     raise exception 'No puedes contar en este conteo' using errcode = '42501';
   end if;
-  if k.estado <> 'abierto' then raise exception 'Este conteo ya no está abierto' using errcode = 'P0001'; end if;
+  if k.estado <> 'abierto' then raise exception 'Este conteo ya está %: no se modifica', k.estado using errcode = 'P0001'; end if;
   if v_modo not in ('sumar', 'fijar') then raise exception 'Operación no válida' using errcode = 'P0001'; end if;
   v_cant := (p ->> 'cantidad')::integer;
   if v_cant is null or v_cant < 0 or v_cant > 1000000 or (v_modo = 'sumar' and v_cant = 0) then
@@ -168,7 +168,7 @@ begin
   if not found or coalesce(rol_en(k.empresa_id), '') not in ('dueno', 'admin', 'bodeguero') then
     raise exception 'No puedes cerrar este conteo' using errcode = '42501';
   end if;
-  if k.estado <> 'abierto' then raise exception 'El conteo ya no está abierto' using errcode = 'P0001'; end if;
+  if k.estado <> 'abierto' then raise exception 'El conteo ya está %', k.estado using errcode = 'P0001'; end if;
   if not exists (select 1 from conteo_lineas where conteo_id = k.id and contado is not null) and not coalesce(p_sin_contar_en_cero, false) then
     raise exception 'Todavía no has contado ningún lote' using errcode = 'P0001';
   end if;
