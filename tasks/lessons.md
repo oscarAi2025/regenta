@@ -157,3 +157,9 @@
 - En un trigger, `auth.uid()` falla («invalid input syntax for type json») si la conexión tuvo antes claims locales: tras la transacción `request.jwt.claims` queda en '' y no en NULL. En triggers que pueden correr desde procesos del servidor, comprobar `nullif(current_setting('request.jwt.claims', true), '')` antes de llamar a auth.uid().
 - Para exigir algo «con la venta» sin tocar registrar_venta: función aparte en la misma transacción (que exige `ventas.creado = now()`, así no se completa a posteriori) + restricción diferida (`constraint trigger … initially deferred`) que lo comprueba al confirmar. En pruebas de base: `set constraints all immediate` para dispararla sin confirmar.
 - Repetir una e2e muchas veces sobre la misma base agota las existencias de los productos que usa (caja.mjs con «acetaminofen forte mk»): antes de diagnosticar un fallo «nuevo», reiniciar la base y repetir.
+
+## Navegación del cliente en pantallas de filtros (06/11/2026)
+- Los enlaces que solo cambian los parámetros de la misma página (contadores, limpiar, paginación) a veces no terminaban la navegación del enrutador de Next. En pantallas de filtros: enlaces normales `<a>` (recarga completa), igual que el formulario GET.
+- Tras guardar, la pantalla no debe depender de `router.refresh()` para mostrar lo guardado: la API devuelve los datos ya actualizados y el componente los aplica; el refresco queda solo para el resto de la pantalla.
+- Pruebas e2e: nunca `isVisible()` justo después de `goto` en páginas con `loading.tsx` (el contenido llega por streaming); usar `waitFor`. Hacer clic y esperar la URL con `Promise.all`.
+- La batería completa contra un solo servidor acumula el límite anti-abuso por IP en memoria: pagos va primero o con servidor recién arrancado.
