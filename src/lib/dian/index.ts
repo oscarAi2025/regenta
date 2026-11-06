@@ -1,14 +1,15 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { sinRLS } from "../db";
+import { sinRLS, type Tx } from "../db";
 import { emisorMatias } from "./matias";
+import { xmlSimulado } from "./xml";
 
 // Cola de emisión DIAN. La venta nunca espera a la DIAN: queda «pendiente» y este proceso la envía con reintentos.
 // El proveedor va detrás de una interfaz: hoy «simulado» (desarrollo y demo), mañana MATIAS (al tener cuenta y su
 // documentación técnica). Cambiar de proveedor = escribir otro Emisor, nada más.
 
 export type DocumentoParaEmitir = {
-  id: string; tipo: "pos" | "factura" | "nota_credito"; prefijo: string; numero: number; fecha: string;
+  id: string; tipo: "pos" | "factura" | "nota_credito" | "soporte" | "ajuste_soporte" | "nota_debito"; prefijo: string; numero: number; fecha: string;
   emisor: { nit: string; dv: string | null; razon_social: string; responsable_iva: boolean };
   cliente: { tipo_doc: string; numero_doc: string; dv: string | null; nombre: string; email: string | null } | null;
   lineas: { descripcion: string; codigo?: string | null; cantidad: number; precio: number; iva_pct: number; base: number; iva: number; total: number; descuento?: number /* pesos, IVA incluido */ }[];
@@ -19,16 +20,25 @@ export type DocumentoParaEmitir = {
   /** Número de la resolución DIAN de la numeración usada. */
   resolucion?: string | null;
   /** Documento original de una nota crédito (prefijo, número, fecha, CUFE/CUDE). */
-  referencia?: { tipo: "pos" | "factura"; prefijo: string; numero: number; fecha: string; cufe: string | null } | null;
+  referencia?: { tipo: "pos" | "factura" | "soporte"; prefijo: string; numero: number; fecha: string; cufe: string | null } | null;
+  /** Documento soporte y su nota de ajuste: el proveedor no obligado a facturar. */
+  proveedor?: { tipo_doc: "NIT" | "CC"; numero_doc: string; dv: string | null; nombre: string; email: string | null; direccion: string | null; telefono: string | null } | null;
+  /** Documento soporte semanal (o la fecha de la compra si es por operación). */
+  periodo?: { desde: string; hasta: string } | null;
+  /** Nota de ajuste o nota débito: concepto y motivo. */
+  concepto?: "anulacion" | "correccion" | "mayor_valor" | null;
+  motivo?: string | null;
   /** Punto de venta (POS electrónico): cajero, caja y dirección de la sede. */
   punto?: { cajero: string; caja: string; direccion: string | null } | null;
   /** UUID del cliente en la cuenta de casa de software de MATIAS (null = la propia cuenta). */
   matias_cliente?: string | null;
   /** Nota crédito por una devolución parcial (concepto DIAN 1) en vez de anulación total (concepto 2). */
   parcial?: boolean;
+  /** La consola activó el envío real de documento soporte, nota de ajuste y nota débito para esta droguería. */
+  envio_complementario?: boolean;
 };
 export type ResultadoEmision =
-  | { ok: true; cufe: string; qr: string; simulado: boolean; respuesta: unknown }
+  | { ok: true; cufe: string; qr: string; simulado: boolean; respuesta: unknown; xml?: string | null; pdf?: string | null }
   | { ok: false; definitivo: boolean; error: string; respuesta?: unknown };
 export interface Emisor { nombre: string; emitir(d: DocumentoParaEmitir): Promise<ResultadoEmision> }
 
@@ -37,7 +47,7 @@ const simulado: Emisor = {
   nombre: "simulado",
   async emitir(d) {
     const cufe = createHash("sha384").update(`${d.emisor.nit}|${d.prefijo}${d.numero}|${d.fecha}|${d.totales.total}`).digest("hex");
-    return { ok: true, cufe, qr: `SIMULADO · ${d.prefijo}${d.numero} · ${cufe.slice(0, 16)}`, simulado: true, respuesta: { simulado: true } };
+    return { ok: true, cufe, qr: `SIMULADO · ${d.prefijo}${d.numero} · ${cufe.slice(0, 16)}`, simulado: true, respuesta: { simulado: true }, xml: xmlSimulado(d, cufe) };
   },
 };
 
@@ -56,7 +66,7 @@ const PRESUPUESTO_MS = 20000; // la función del servidor tiene ~26 s: se deja d
 /** Procesa hasta `max` documentos pendientes (o solo los de una venta). Devuelve el resumen.
  *  Un envío que quedó «enviando» más de 5 minutos se reintenta: el proveedor rechaza el mismo prefijo+número dos veces,
  *  así que el reintento no duplica la emisión. */
-export async function procesarCola(max = 20, venta?: string) {
+export async function procesarCola(max = 20, venta?: string, documento?: string) {
   const r = { enviados: 0, aceptados: 0, rechazados: 0, reintentos: 0 };
   const t0 = Date.now();
   for (let i = 0; i < max && Date.now() - t0 < PRESUPUESTO_MS; i++) {
@@ -67,9 +77,9 @@ export async function procesarCola(max = 20, venta?: string) {
          where id = (select id from documentos_dian
                      where ((estado = 'pendiente' and proximo_intento <= now())
                         or (estado = 'enviando' and actualizado < now() - interval '5 minutes'))  -- envío que se cayó a medias
-                       and ($1::uuid is null or venta_id = $1)
+                       and ($1::uuid is null or venta_id = $1) and ($3::uuid is null or id = $3)
                      order by creado limit 1 for update skip locked)
-         returning id, intentos, coalesce(reenviado, creado) < now() - make_interval(hours => $2) vencido`, [venta ?? null, PLAZO_HORAS]);
+         returning id, intentos, coalesce(reenviado, creado) < now() - make_interval(hours => $2) vencido`, [venta ?? null, PLAZO_HORAS, documento ?? null]);
       return rows[0] as { id: string; intentos: number; vencido: boolean } | undefined;
     });
     if (!doc) break;
@@ -102,6 +112,8 @@ export async function procesarCola(max = 20, venta?: string) {
 
 async function armar(id: string): Promise<{ documento: DocumentoParaEmitir; resolucionPruebas: boolean | null; demo: boolean; cerrado?: false; esperar?: false } | { cerrado: true; anulado?: boolean; esperar?: false } | { esperar: true; cerrado?: false }> {
   return sinRLS(async (c) => {
+    const tipo = (await c.query(`select tipo from documentos_dian where id = $1`, [id])).rows[0]?.tipo;
+    if (tipo === "soporte" || tipo === "ajuste_soporte" || tipo === "nota_debito") return armarComplementario(c, id);
     const { rows: [d] } = await c.query(
       `select d.*, v.base, v.iva as iva_total, v.total, v.creado as fecha, v.cliente_id, v.estado as venta_estado, v.condicion, v.vence_pago::text, v.plazo_dias,
               e.nit, e.dv, e.razon_social, e.responsable_iva, e.demo,
@@ -152,8 +164,9 @@ async function armar(id: string): Promise<{ documento: DocumentoParaEmitir; reso
 async function guardar(id: string, res: ResultadoEmision) {
   await sinRLS(async (c) => {
     if (res.ok) {
-      await c.query(`update documentos_dian set estado = 'aceptado', cufe = $2, qr = $3, simulado = $4, respuesta = $5, ultimo_error = null, actualizado = now() where id = $1`,
-        [id, res.cufe, res.qr, res.simulado, JSON.stringify(res.respuesta ?? null)]);
+      await c.query(`update documentos_dian set estado = 'aceptado', cufe = $2, qr = $3, simulado = $4, respuesta = $5, ultimo_error = null, actualizado = now(),
+          xml = coalesce($6, xml), pdf_url = coalesce($7, pdf_url) where id = $1`,
+        [id, res.cufe, res.qr, res.simulado, JSON.stringify(res.respuesta ?? null), res.xml ?? null, res.pdf ?? null]);
     } else if (res.definitivo) {
       await c.query(`update documentos_dian set estado = 'rechazado', ultimo_error = $2, respuesta = $3, actualizado = now() where id = $1`, [id, res.error, JSON.stringify(res.respuesta ?? null)]);
     } else {
@@ -163,4 +176,43 @@ async function guardar(id: string, res: ResultadoEmision) {
         [id, res.error, ESPERA, ESPERA.length]);
     }
   });
+}
+
+type Armado = Awaited<ReturnType<typeof armar>>;
+
+/** Documento soporte, nota de ajuste y nota débito: sus líneas y totales son propios (documento_lineas), no de una venta. */
+async function armarComplementario(c: Tx, id: string): Promise<Armado> {
+  const { rows: [d] } = await c.query(
+    `select d.*, d.creado as fecha, d.periodo_desde::text pdesde, d.periodo_hasta::text phasta,
+            e.nit, e.dv, e.razon_social, e.responsable_iva, e.demo, e.matias_cliente, e.dian_complementario,
+            pr.nombre pr_nombre, pr.nit pr_nit, pr.dv pr_dv, pr.email pr_email, pr.direccion pr_direccion, pr.telefono pr_telefono,
+            o.tipo o_tipo, o.prefijo o_prefijo, o.numero o_numero, o.cufe o_cufe, coalesce(ov.creado, o.creado) o_fecha, ov.cliente_id,
+            (select pruebas from resoluciones_dian r where r.empresa_id = d.empresa_id and r.tipo = d.tipo and r.prefijo = d.prefijo and d.numero between r.desde and r.hasta order by activa desc limit 1) as pruebas,
+            (select numero_resolucion from resoluciones_dian r where r.empresa_id = d.empresa_id and r.tipo = d.tipo and r.prefijo = d.prefijo and d.numero between r.desde and r.hasta order by activa desc limit 1) as resolucion
+     from documentos_dian d join empresas e on e.id = d.empresa_id
+     left join proveedores pr on pr.id = d.proveedor_id
+     left join documentos_dian o on o.id = d.origen_id left join ventas ov on ov.id = o.venta_id
+     where d.id = $1`, [id]);
+  if (!d) return { cerrado: true as const };
+  // La nota (de ajuste o débito) necesita el código del original: si aún no está aceptado, espera (no gasta intentos).
+  if (d.tipo !== "soporte" && !d.o_cufe) return { esperar: true as const };
+  const lineas = (await c.query(`select descripcion, codigo, cantidad::float, precio::float, iva_pct::float, base::float, iva::float, total::float
+    from documento_lineas where documento_id = $1 order by id`, [id])).rows;
+  const cli = d.tipo === "nota_debito" && d.cliente_id ? (await c.query(`select tipo_doc, numero_doc, dv, nombre, email from clientes where id = $1`, [d.cliente_id])).rows[0] : null;
+  const total = Number(d.total);
+  return {
+    resolucionPruebas: d.pruebas, demo: !!d.demo,
+    documento: {
+      id, tipo: d.tipo, prefijo: d.prefijo, numero: Number(d.numero), fecha: new Date(d.fecha).toISOString(),
+      emisor: { nit: d.nit, dv: d.dv, razon_social: d.razon_social, responsable_iva: d.responsable_iva },
+      cliente: cli ?? null, lineas, pagos: [{ medio: "efectivo", valor: total }], forma_pago: { tipo: "contado" },
+      totales: { base: Number(d.base), iva: Number(d.iva), total },
+      resolucion: d.resolucion, matias_cliente: d.matias_cliente, punto: null,
+      proveedor: d.proveedor_id ? { tipo_doc: d.pr_dv ? "NIT" : "CC", numero_doc: d.pr_nit ?? "", dv: d.pr_dv, nombre: d.pr_nombre, email: d.pr_email,
+        direccion: d.pr_direccion, telefono: d.pr_telefono } : null,
+      periodo: d.pdesde ? { desde: d.pdesde, hasta: d.phasta } : null,
+      concepto: d.concepto, motivo: d.motivo, envio_complementario: !!d.dian_complementario,
+      referencia: d.origen_id ? { tipo: d.o_tipo, prefijo: d.o_prefijo, numero: Number(d.o_numero), fecha: new Date(d.o_fecha).toISOString(), cufe: d.o_cufe } : null,
+    },
+  };
 }

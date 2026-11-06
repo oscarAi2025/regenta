@@ -8,6 +8,7 @@ import { ROLES } from "@/lib/admin-datos";
 import { Usuarios } from "./Usuarios";
 import { Nota } from "./Nota";
 import { Facturacion } from "./Facturacion";
+import { NOMBRE_NUMERACION } from "@/lib/dian/tipos";
 import { Eliminar } from "./Eliminar";
 import { Fiscal } from "./Fiscal";
 import { PagoManual } from "./PagoManual";
@@ -65,7 +66,7 @@ export default async function Cliente({ params }: { params: Promise<{ id: string
         <section className="tarjeta p-5">
           <h2 className="titulo text-xl">Numeraciones DIAN</h2>
           {d.resoluciones.length ? <ul className="mt-3 grid gap-2 text-sm">{d.resoluciones.map((r) => (
-            <li key={r.tipo + r.prefijo} className="flex flex-wrap justify-between gap-2"><span className="font-semibold">{r.tipo === "pos" ? "POS" : r.tipo === "factura" ? "Factura" : "Nota crédito"} {r.prefijo}</span>
+            <li key={r.tipo + r.prefijo} className="flex flex-wrap justify-between gap-2"><span className="font-semibold">{NOMBRE_NUMERACION[r.tipo as keyof typeof NOMBRE_NUMERACION] ?? r.tipo} {r.prefijo}</span>
               <span className="num text-muted">{r.desde}–{r.hasta} · usado hasta {r.actual} · {r.vigente_hasta ? `vence ${r.vigente_hasta}` : "sin fecha"}{r.pruebas ? " · pruebas" : ""}{r.activa ? "" : " · inactiva"}</span></li>
           ))}</ul> : <p className="mt-2 text-muted">Sin numeraciones. Sin ellas el cliente no puede facturar.</p>}
         </section>
@@ -73,7 +74,7 @@ export default async function Cliente({ params }: { params: Promise<{ id: string
       </div>
       {!e.demo && <Fiscal empresa={id} nitFijo={d.resoluciones.some((r) => !r.pruebas)} inicial={{ razon_social: e.razon_social ?? "", nombre_comercial: e.nombre_comercial ?? "", nit: String(e.nit ?? ""),
         responsable_iva: !!e.responsable_iva, direccion: e.direccion ?? "", ciudad: e.ciudad ?? "", telefono: e.telefono ?? "", email: e.email ?? "" }} />}
-      {!e.demo && <Facturacion empresa={id} cliente={e.matias_cliente ?? ""} emisor={process.env.REGENTA_DIAN ?? "simulado"}
+      {!e.demo && <Facturacion empresa={id} cliente={e.matias_cliente ?? ""} emisor={process.env.REGENTA_DIAN ?? "simulado"} complementario={!!e.dian_complementario}
         resoluciones={d.resoluciones.map((r) => ({ tipo: r.tipo, prefijo: r.prefijo, numero: r.numero_resolucion, pruebas: r.pruebas }))} />}
       <div className="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-2 gap-5">
         <section className="tarjeta p-5">

@@ -17,7 +17,9 @@ const Cambio = z.object({ fiscal: Fiscal.optional(), estado: z.enum(["activa", "
   // Facturación electrónica: UUID del cliente en la cuenta de casa de software de MATIAS ("" = la propia cuenta) y el número
   // de resolución DIAN de cada numeración (con «pruebas» falso la numeración pasa a producción).
   matias: z.object({ cliente: z.string().trim().uuid("El UUID de MATIAS no es válido").or(z.literal("")),
-    resoluciones: z.array(z.object({ tipo: z.enum(["pos", "factura", "nota_credito"]), prefijo: z.string().max(10), numero: z.string().trim().regex(/^\d{6,20}$/, "El número de resolución son solo dígitos").or(z.literal("")), pruebas: z.boolean() })).max(10) }).optional() });
+    resoluciones: z.array(z.object({ tipo: z.enum(["pos", "factura", "nota_credito", "soporte", "ajuste_soporte", "nota_debito"]), prefijo: z.string().max(10), numero: z.string().trim().regex(/^\d{6,20}$/, "El número de resolución son solo dígitos").or(z.literal("")), pruebas: z.boolean() })).max(10) }).optional(),
+  // Envío real a MATIAS de documento soporte, nota de ajuste y nota débito (apagado por defecto).
+  complementario: z.boolean().optional() });
 
 /** Activar o suspender, cambiar el plan o la nota interna de un cliente. */
 export const PATCH = conAdmin(async (a, req, ctx) => {
@@ -51,7 +53,7 @@ export const PATCH = conAdmin(async (a, req, ctx) => {
       return NextResponse.json({ error: "Para pasar a producción la droguería necesita su UUID de cliente en MATIAS (si no, facturaría con el NIT de Regenta)" }, { status: 400 });
     if (m.resoluciones.some((x) => !x.pruebas && !x.numero))
       return NextResponse.json({ error: "Una numeración en producción necesita su número de resolución DIAN" }, { status: 400 });
-    const ok = await sinRLS<boolean | "nc">(async (c) => {
+    const ok = await sinRLS<boolean | "nc" | "ajuste">(async (c) => {
       const r = await c.query(`update empresas set matias_cliente = nullif($2, '') where id = $1 and not demo`, [id, m.cliente]);
       if (!r.rowCount) return false;
       for (const x of m.resoluciones)
@@ -60,14 +62,33 @@ export const PATCH = conAdmin(async (a, req, ctx) => {
       const q = (await c.query(`select bool_or(tipo in ('pos', 'factura') and not pruebas) ventas_reales, bool_or(tipo = 'nota_credito' and not pruebas) nc_real
         from resoluciones_dian where empresa_id = $1 and activa`, [id])).rows[0];
       if (q.ventas_reales && !q.nc_real) throw Object.assign(new Error("nc"), { nc: true });
+      const sp = (await c.query(`select bool_or(tipo = 'soporte' and not pruebas) soporte_real, bool_or(tipo = 'ajuste_soporte' and not pruebas) ajuste_real
+        from resoluciones_dian where empresa_id = $1 and activa`, [id])).rows[0];
+      if (sp.soporte_real && !sp.ajuste_real) throw Object.assign(new Error("ajuste"), { ajuste: true });
       habilitado = await avisarHabilitacion(c, id);
       return true;
-    }).catch((e) => { if ((e as { nc?: boolean }).nc) return "nc" as const; throw e; });
+    }).catch((e) => { if ((e as { nc?: boolean }).nc) return "nc" as const; if ((e as { ajuste?: boolean }).ajuste) return "ajuste" as const; throw e; });
     for (const k of habilitado) await enviarAhora(k);
+    if (ok === "ajuste") return NextResponse.json({ error: "Para pasar el documento soporte a producción, la numeración de notas de ajuste del documento soporte también debe estar en producción (con su resolución)" }, { status: 400 });
     if (ok === "nc") return NextResponse.json({ error: "Para pasar las ventas a producción, la numeración de notas crédito también debe estar en producción (con su resolución): si no, las anulaciones y devoluciones no podrían enviarse a la DIAN" }, { status: 400 });
     if (!ok) return NextResponse.json({ error: "Cliente no encontrado (la demo no se modifica desde aquí)" }, { status: 404 });
     await evento(a, "facturacion_electronica", id, m);
     return NextResponse.json({ ok: true, mensaje: "Facturación electrónica guardada" });
+  }
+  if (d.complementario !== undefined) {
+    // Solo se activa con numeración de documento soporte de producción y la droguería conectada en MATIAS.
+    const r = await sinRLS(async (c) => {
+      const e = (await c.query(`select demo, matias_cliente, exists (select 1 from resoluciones_dian r where r.empresa_id = e.id and r.tipo = 'soporte' and r.activa and not r.pruebas) soporte
+        from empresas e where id = $1 for update`, [id])).rows[0];
+      if (!e || e.demo) return "no";
+      if (d.complementario && (!e.soporte || !e.matias_cliente)) return "falta";
+      await c.query(`update empresas set dian_complementario = $2 where id = $1`, [id, d.complementario]);
+      await evento(a, d.complementario ? "activar_envio_soporte" : "apagar_envio_soporte", id, { complementario: d.complementario }, c);
+      return "ok";
+    });
+    if (r === "no") return NextResponse.json({ error: "Cliente no encontrado (la demo no se modifica desde aquí)" }, { status: 404 });
+    if (r === "falta") return NextResponse.json({ error: "Para activar el envío real primero carga la numeración de documento soporte de producción y conecta la droguería en MATIAS" }, { status: 400 });
+    return NextResponse.json({ ok: true, mensaje: d.complementario ? "Envío real de documento soporte, nota de ajuste y nota débito activado" : "Envío real de documento soporte, nota de ajuste y nota débito apagado" });
   }
   const claves: string[] = [];
   const n = await sinRLS(async (c) => {

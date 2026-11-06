@@ -3,10 +3,14 @@ import type { Tx } from "./db";
 import { sinComodines } from "./db";
 import { rango, type Rango } from "./reportes";
 
-// Documentos electrónicos ante la DIAN de una droguería (tiquetes POS, facturas y notas crédito): filtros comunes a la
-// pantalla /documentos y a su exportación CSV. Las fechas son de Bogotá; el rango nunca pasa de 366 días.
+// Documentos electrónicos ante la DIAN de una droguería (tiquetes POS, facturas, notas crédito y débito, documento soporte y
+// su nota de ajuste): filtros comunes a la pantalla /documentos, su exportación CSV y la descarga de XML. Las fechas son
+// de Bogotá; el rango nunca pasa de 366 días.
 
-export const TIPOS = { pos: "Tiquete POS", factura: "Factura", nc_anulacion: "Nota crédito · anulación", nc_devolucion: "Nota crédito · devolución" } as const;
+export const TIPOS = {
+  pos: "Tiquete POS", factura: "Factura", nc_anulacion: "Nota crédito · anulación", nc_devolucion: "Nota crédito · devolución",
+  nota_debito: "Nota débito", soporte: "Documento soporte", ajuste_soporte: "Nota de ajuste · soporte",
+} as const;
 export const ESTADOS = { aceptado: "Aceptado", simulado: "Simulado", pendiente: "Enviando", rechazado: "Rechazado", anulado: "No emitido" } as const;
 export type TipoDoc = keyof typeof TIPOS;
 export type EstadoDoc = keyof typeof ESTADOS;
@@ -29,13 +33,13 @@ function condicion(empresa: string, f: Filtro, conEstado: boolean) {
   // d.creado nunca es anterior a la fecha del documento: sirve de cota inferior con índice; la fecha exacta va después.
   const w = [`d.empresa_id = $1`, `d.creado >= ($2::date)::timestamp at time zone 'America/Bogota'`,
     `${FECHA} >= ($2::date)::timestamp at time zone 'America/Bogota'`, `${FECHA} < ($3::date + 1)::timestamp at time zone 'America/Bogota'`];
-  if (f.tipo === "pos" || f.tipo === "factura") { params.push(f.tipo); w.push(`d.tipo = $${params.length}`); }
+  if (f.tipo === "pos" || f.tipo === "factura" || f.tipo === "nota_debito" || f.tipo === "soporte" || f.tipo === "ajuste_soporte") { params.push(f.tipo); w.push(`d.tipo = $${params.length}`); }
   if (f.tipo === "nc_anulacion") w.push(`d.tipo = 'nota_credito' and d.devolucion_id is null`);
   if (f.tipo === "nc_devolucion") w.push(`d.tipo = 'nota_credito' and d.devolucion_id is not null`);
   if (f.q) {
     params.push(`%${sinComodines(f.q)}%`);
     const p = `$${params.length}`;
-    w.push(`((d.prefijo || d.numero) ilike ${p} or (v.prefijo || v.numero) ilike ${p} or c.nombre ilike ${p} or c.numero_doc ilike ${p})`);
+    w.push(`((d.prefijo || d.numero) ilike ${p} or (v.prefijo || v.numero) ilike ${p} or c.nombre ilike ${p} or c.numero_doc ilike ${p} or pr.nombre ilike ${p} or pr.nit ilike ${p})`);
   }
   if (conEstado && f.estado) w.push(({
     aceptado: `d.estado = 'aceptado'`, simulado: `d.estado = 'aceptado' and d.simulado`, pendiente: `d.estado in ('pendiente', 'enviando')`,
@@ -43,14 +47,21 @@ function condicion(empresa: string, f: Filtro, conEstado: boolean) {
   } as const)[f.estado]);
   return { sql: w.join(" and "), params };
 }
-// Fecha del documento: la de la venta para tiquetes y facturas; la propia para las notas crédito (como se emiten).
-const FECHA = `(case when d.tipo = 'nota_credito' then d.creado else v.creado end)`;
-const DESDE = `from documentos_dian d join ventas v on v.id = d.venta_id left join clientes c on c.id = v.cliente_id left join devoluciones dv on dv.id = d.devolucion_id`;
+// Fecha del documento: la de la venta para tiquetes y facturas; la propia para las notas y el documento soporte (como se emiten).
+const FECHA = `(case when d.tipo in ('pos', 'factura') then v.creado else d.creado end)`;
+// La nota débito y la nota de ajuste no tienen venta: llegan a ella (o al proveedor) por su documento de origen.
+const DESDE = `from documentos_dian d left join documentos_dian o on o.id = d.origen_id left join ventas v on v.id = coalesce(d.venta_id, o.venta_id)
+  left join clientes c on c.id = v.cliente_id left join devoluciones dv on dv.id = d.devolucion_id left join proveedores pr on pr.id = d.proveedor_id`;
+
+/** Tipos que restan (se muestran en negativo). */
+export const resta = (t: TipoDoc) => t === "nc_anulacion" || t === "nc_devolucion" || t === "ajuste_soporte";
 
 export type Documento = {
-  id: string; tipo: TipoDoc; numero: string; estado: EstadoDoc; fecha: string; venta_id: string; venta: string; venta_anulada: boolean;
+  id: string; tipo: TipoDoc; numero: string; estado: EstadoDoc; fecha: string; venta_id: string | null; venta: string | null; venta_anulada: boolean;
   devolucion_id: string | null; cliente: string | null; cliente_doc: string | null; total: number; cufe: string | null; simulado: boolean;
   ultimo_error: string | null; intentos: number; pdf: string | null;
+  origen_id: string | null; origen: string | null; proveedor: string | null; proveedor_doc: string | null; motivo: string | null; concepto: string | null;
+  xml: boolean; compras: { id: string; numero: number }[] | null; anulado_por: string | null;
 };
 
 /** Una página de documentos, los más recientes primero. `limite` null = todos (exportación, con tope de seguridad). */
@@ -61,10 +72,15 @@ export async function listarDocumentos(c: Tx, empresa: string, f: Filtro, limite
     select d.id::text, d.prefijo || d.numero numero, d.estado, d.simulado, d.cufe, d.ultimo_error, d.intentos,
            case when d.tipo = 'nota_credito' then case when d.devolucion_id is null then 'nc_anulacion' else 'nc_devolucion' end else d.tipo end tipo,
            to_char(${FECHA} at time zone 'America/Bogota', 'DD/MM/YYYY HH24:MI') fecha,
-           v.id::text venta_id, v.prefijo || v.numero venta, v.estado = 'anulada' venta_anulada, d.devolucion_id::text,
+           v.id::text venta_id, v.prefijo || v.numero venta, coalesce(v.estado = 'anulada', false) venta_anulada, d.devolucion_id::text,
            c.nombre cliente, case when c.id is null then null else c.tipo_doc || ' ' || c.numero_doc || coalesce('-' || c.dv, '') end cliente_doc,
-           (case when d.devolucion_id is not null then dv.total else v.total end)::float total,
-           case when d.respuesta ->> 'pdf' ~ '^https://' then d.respuesta ->> 'pdf' end pdf
+           coalesce(d.total, case when d.devolucion_id is not null then dv.total else v.total end)::float total,
+           coalesce(case when d.pdf_url ~ '^https://' then d.pdf_url end, case when d.respuesta ->> 'pdf' ~ '^https://' then d.respuesta ->> 'pdf' end) pdf,
+           d.origen_id::text, o.prefijo || o.numero origen, pr.nombre proveedor,
+           case when pr.nit is null then null else 'NIT ' || pr.nit || coalesce('-' || pr.dv, '') end proveedor_doc, d.motivo, d.concepto, d.xml is not null xml,
+           case when d.tipo in ('soporte', 'ajuste_soporte') then (select json_agg(json_build_object('id', k.id, 'numero', k.numero) order by k.numero)
+             from soporte_compras s join compras k on k.id = s.compra_id where s.documento_id = coalesce(d.origen_id, d.id)) end compras,
+           case when d.tipo = 'soporte' then (select a.prefijo || a.numero from documentos_dian a where a.origen_id = d.id and a.tipo = 'ajuste_soporte' and a.concepto = 'anulacion' limit 1) end anulado_por
     ${DESDE} where ${sql} order by ${FECHA} desc, d.id desc limit ${lim} offset ${limite === null ? 0 : (f.pagina - 1) * limite}`, params)).rows;
   return rows.map((r) => ({ ...r, estado: r.estado === "enviando" ? "pendiente" : r.estado === "aceptado" && r.simulado ? "simulado" : r.estado }));
 }
@@ -78,10 +94,21 @@ export async function contarDocumentos(c: Tx, empresa: string, f: Filtro) {
   return r as Record<EstadoDoc | "total", number>;
 }
 
-/** Ventas con documentos rechazados dentro del filtro (para «Reenviar todos»). */
-export async function ventasRechazadas(c: Tx, empresa: string, f: Filtro): Promise<string[]> {
+/** Ruta de reenvío de un documento rechazado: los de una venta se reenvían por la venta; los demás, uno por uno. */
+export const rutaReenvio = (d: { id: string; venta_id: string | null; tipo: TipoDoc }) =>
+  d.tipo === "nota_debito" || d.tipo === "soporte" || d.tipo === "ajuste_soporte" || !d.venta_id ? `/api/documentos/${d.id}/reenviar` : `/api/ventas/${d.venta_id}/reenviar`;
+
+/** Reenvíos de los documentos rechazados dentro del filtro (para «Reenviar todos»), sin repetir una venta. */
+export async function reenviosRechazados(c: Tx, empresa: string, f: Filtro): Promise<string[]> {
   const { sql, params } = condicion(empresa, { ...f, estado: "rechazado" }, true);
-  return (await c.query(`select distinct v.id::text ${DESDE} where ${sql} limit 200`, params)).rows.map((r) => r.id);
+  const filas = (await c.query(`select d.id::text, d.tipo, d.venta_id::text ${DESDE} where ${sql} limit 200`, params)).rows as { id: string; tipo: TipoDoc; venta_id: string | null }[];
+  return [...new Set(filas.map(rutaReenvio))];
+}
+
+/** XML de los documentos del filtro (para el ZIP), con tope de seguridad. */
+export async function xmlDocumentos(c: Tx, empresa: string, f: Filtro, tope = 2000): Promise<{ numero: string; tipo: string; xml: string }[]> {
+  const { sql, params } = condicion(empresa, f, true);
+  return (await c.query(`select d.prefijo || d.numero numero, d.tipo, d.xml ${DESDE} where ${sql} and d.xml is not null order by ${FECHA}, d.id limit ${tope}`, params)).rows;
 }
 
 /** Consulta pública del documento en la DIAN (solo documentos reales: los simulados no existen allí). */

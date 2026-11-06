@@ -1369,3 +1369,160 @@ test("gastos: los totales por categoría y del periodo cuadran (anulados fuera) 
     assert.equal((await c.query(`select count(*)::int n from empresas where id = $1`, [E.B])).rows[0].n, 0);
   });
 });
+
+// ───────────── DIAN complementaria (035): documento soporte, nota de ajuste, nota débito
+const hoyBogota = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+/** Numeraciones de prueba de los tipos nuevos (la demo emite en simulado). Se insertan como superusuario. */
+async function numeracionesComplementarias(c, emp, pruebas = true) {
+  await c.query("reset role");
+  for (const [tipo, prefijo] of [["soporte", "DSE"], ["ajuste_soporte", "NAE"], ["nota_debito", "NDE"]])
+    if (!(await c.query(`select 1 from resoluciones_dian where empresa_id = $1 and tipo = $2 and activa`, [emp, tipo])).rowCount)
+      await c.query(`insert into resoluciones_dian (empresa_id, tipo, prefijo, desde, hasta, actual, vigente_hasta, pruebas, numero_resolucion) values ($1, $2, $3, 1, 100000, 0, '2027-12-31', $4, $5)`,
+        [emp, tipo, prefijo, pruebas, pruebas ? null : "18760000000099"]);
+  await c.query("set local role authenticated");
+}
+const compraDe = async (c, prov, costo, extra = {}) => (await c.query("select registrar_compra($1) r", [compra(prov, [{ producto_id: prod.id, lote: "DS-" + crypto.randomUUID().slice(0, 6), vence, unidades: 10, costo, costo_por: "unidad", iva_pct: 0 }], { condicion: "contado", ...extra })])).rows[0].r;
+
+test("documento soporte: por operación y semanal, una compra nunca en dos, proveedor obligado no, nota de ajuste que anula y libera", async () => {
+  await como(U.carlos, async (c) => {
+    await numeracionesComplementarias(c, E.A);
+    const prov = (await c.query(`insert into proveedores (empresa_id, nombre, nit, dv, obligado_facturar) values ($1, 'Campesino prueba BD', '1110456789', '3', false) returning id`, [E.A])).rows[0].id;
+    const [k1, k2, k3] = [await compraDe(c, prov, 1000), await compraDe(c, prov, 2000), await compraDe(c, prov, 3000)];
+    const idem = crypto.randomUUID();
+    const d1 = (await c.query("select generar_soporte($1) r", [{ empresa_id: E.A, compras: [k1.id], idem_key: idem }])).rows[0].r;
+    assert.match(d1.numero, /^DSE\d+$/);
+    const doc = (await c.query(`select tipo, compra_id, proveedor_id, total::float, base::float, iva::float, venta_id, estado from documentos_dian where id = $1`, [d1.id])).rows[0];
+    assert.deepEqual(doc, { tipo: "soporte", compra_id: k1.id, proveedor_id: prov, total: 10000, base: 10000, iva: 0, venta_id: null, estado: "pendiente" });
+    assert.equal((await c.query(`select sum(total)::float t from documento_lineas where documento_id = $1`, [d1.id])).rows[0].t, 10000, "las líneas cuadran con el total");
+    // Idempotencia: el mismo envío no gasta otro número.
+    const rep = (await c.query("select generar_soporte($1) r", [{ empresa_id: E.A, compras: [k1.id], idem_key: idem }])).rows[0].r;
+    assert.deepEqual([rep.id, rep.repetido], [d1.id, true]);
+    // Una compra no se incluye dos veces (ni por operación ni en el semanal).
+    await falla(c, "select generar_soporte($1)", [{ empresa_id: E.A, compras: [k1.id] }], /ya está en el documento soporte/);
+    await falla(c, "select generar_soporte($1)", [{ empresa_id: E.A, compras: [k1.id, k2.id, k3.id], semanal: true }], /ya está en el documento soporte/);
+    await falla(c, "select generar_soporte($1)", [{ empresa_id: E.A, compras: [k2.id, k3.id] }], /una sola compra/);
+    const sem = (await c.query("select generar_soporte($1) r", [{ empresa_id: E.A, compras: [k2.id, k3.id], semanal: true }])).rows[0].r;
+    const ds = (await c.query(`select compra_id, total::float, periodo_desde::text, periodo_hasta::text, extract(isodow from periodo_desde)::int dia from documentos_dian where id = $1`, [sem.id])).rows[0];
+    assert.equal(ds.compra_id, null); assert.equal(ds.total, 50000); assert.equal(ds.dia, 1, "el periodo empieza el lunes");
+    assert.equal((await c.query(`select ($1::date - $2::date)::int n`, [ds.periodo_hasta, ds.periodo_desde])).rows[0].n, 6);
+    assert.equal((await c.query(`select count(*)::int n from soporte_compras where documento_id = $1`, [sem.id])).rows[0].n, 2);
+    // Proveedor obligado a facturar: no lleva documento soporte.
+    const obligado = await proveedorDe(c, E.A, "Proveedor obligado BD");
+    const k4 = await compraDe(c, obligado, 500);
+    await falla(c, "select generar_soporte($1)", [{ empresa_id: E.A, compras: [k4.id] }], /obligado a facturar/);
+    // Compras de semanas distintas no van en un mismo semanal.
+    const k5 = await compraDe(c, prov, 100, { fecha_factura: (await c.query(`select (current_date - 7)::text d`)).rows[0].d });
+    await falla(c, "select generar_soporte($1)", [{ empresa_id: E.A, compras: [k5.id, (await compraDe(c, prov, 100)).id], semanal: true }], /misma semana/);
+    // Nota de ajuste: corrección por tarifa (no más de lo que hay), luego anulación del saldo, que libera la compra.
+    await falla(c, "select ajustar_soporte($1)", [{ documento_id: d1.id, concepto: "correccion", motivo: "Precio mal liquidado", descripcion: "Precio", valor: 100, iva_pct: 19 }], /IVA del 19/);
+    await falla(c, "select ajustar_soporte($1)", [{ documento_id: d1.id, concepto: "correccion", motivo: "Precio mal liquidado", descripcion: "Precio", valor: 20000, iva_pct: 0 }], /no puede ser mayor|supera/);
+    const cor = (await c.query("select ajustar_soporte($1) r", [{ documento_id: d1.id, concepto: "correccion", motivo: "Precio mal liquidado", descripcion: "Precio", valor: 1500, iva_pct: 0 }])).rows[0].r;
+    assert.equal(cor.total, 1500);
+    const an = (await c.query("select ajustar_soporte($1) r", [{ documento_id: d1.id, concepto: "anulacion", motivo: "La compra se registró dos veces" }])).rows[0].r;
+    assert.equal(Number(an.total), 8500, "la anulación es por el saldo");
+    assert.equal((await c.query(`select origen_id, tipo, concepto from documentos_dian where id = $1`, [an.id])).rows[0].origen_id, d1.id);
+    await falla(c, "select ajustar_soporte($1)", [{ documento_id: d1.id, concepto: "anulacion", motivo: "Otra vez" }], /ya está anulado/);
+    const d2 = (await c.query("select generar_soporte($1) r", [{ empresa_id: E.A, compras: [k1.id] }])).rows[0].r;
+    assert.notEqual(d2.id, d1.id, "la compra liberada se puede volver a soportar");
+    // Inmutable: líneas y compras soportadas no se borran ni se cambian (ni siquiera como superusuario).
+    await c.query("reset role");
+    await falla(c, `delete from documento_lineas where documento_id = $1`, [d1.id], /no se modifican/);
+    await falla(c, `update soporte_compras set compra_id = $2 where documento_id = $1`, [sem.id, k1.id], /no se modifican/);
+    await c.query("set local role authenticated");
+    await falla(c, `insert into documento_lineas (empresa_id, documento_id, descripcion, cantidad, precio, iva_pct, base, iva, total) values ($1, $2, 'x', 1, 1, 0, 1, 0, 1)`, [E.A, d1.id], /permission denied/);
+  });
+});
+
+test("documento soporte y notas: la cajera, la bodega y el dueño de otra droguería no pueden; sin numeración o en pruebas, mensaje claro", async () => {
+  const ids = await como(U.carlos, async (c) => {
+    await numeracionesComplementarias(c, E.A);
+    const prov = (await c.query(`insert into proveedores (empresa_id, nombre, nit, obligado_facturar) values ($1, 'Campesino permisos ' || $2, '1110456700', false) returning id`, [E.A, crypto.randomUUID().slice(0, 8)])).rows[0].id;
+    const k = await compraDe(c, prov, 1000);
+    const d = (await c.query("select generar_soporte($1) r", [{ empresa_id: E.A, compras: [k.id] }])).rows[0].r;
+    const f = (await c.query(`select d.id from documentos_dian d join ventas v on v.id = d.venta_id where d.empresa_id = $1 and d.tipo = 'factura' and v.estado = 'cerrada' and d.estado <> 'rechazado' limit 1`, [E.A])).rows[0];
+    return { compra: k.id, doc: d.id, factura: f?.id };
+  }, { commit: true });
+  assert.ok(ids.factura, "la demo tiene una factura para la nota débito");
+  for (const u of [U.cajera, U.bodega, U.duenoB]) {
+    await assert.rejects(como(u, (c) => c.query("select generar_soporte($1)", [{ empresa_id: E.A, compras: [ids.compra], semanal: true }])), /Solo el dueño o el administrador/);
+    await assert.rejects(como(u, (c) => c.query("select ajustar_soporte($1)", [{ documento_id: ids.doc, concepto: "anulacion", motivo: "Intento ajeno" }])), /Solo el dueño o el administrador/);
+    await assert.rejects(como(u, (c) => c.query("select nota_debito($1)", [{ documento_id: ids.factura, motivo: "Intento ajeno", lineas: [{ descripcion: "Flete", valor: 1000 }] }])), /Solo el dueño o el administrador/);
+  }
+  // Nadie de otra droguería lee sus líneas ni sus compras soportadas.
+  const ajenas = await como(U.duenoB, async (c) => (await c.query(`select (select count(*) from documento_lineas)::int l, (select count(*) from soporte_compras)::int s`)).rows[0]);
+  assert.deepEqual(ajenas, { l: 0, s: 0 });
+  const cajera = await como(U.cajera, async (c) => (await c.query(`select count(*)::int n from documento_lineas`)).rows[0].n);
+  assert.equal(cajera, 0, "la cajera no ve las líneas (son de la gerencia)");
+  // Se deja la demo como estaba: el documento de prueba se anula con su nota de ajuste (libera la compra).
+  await como(U.carlos, (c) => c.query("select ajustar_soporte($1)", [{ documento_id: ids.doc, concepto: "anulacion", motivo: "Limpieza de la prueba" }]), { commit: true });
+  // B (no demo) sin numeración, y con numeración de pruebas: mensajes claros.
+  await como(U.duenoB, async (c) => {
+    const sede = (await c.query(`select id from sedes where empresa_id = $1 limit 1`, [E.B])).rows[0].id;
+    const p = (await c.query(`select id from productos where empresa_id = $1 limit 1`, [E.B])).rows[0]?.id
+      ?? (await (async () => { await c.query("reset role"); const x = (await c.query(`insert into productos (empresa_id, nombre, precio_caja) values ($1, 'Producto soporte B', 1000) returning id`, [E.B])).rows[0].id; await c.query("set local role authenticated"); return x; })());
+    const prov = (await c.query(`insert into proveedores (empresa_id, nombre, nit, obligado_facturar) values ($1, 'Campesino B', '1110456701', false) returning id`, [E.B])).rows[0].id;
+    const k = (await c.query("select registrar_compra($1) r", [{ empresa_id: E.B, sede_id: sede, proveedor_id: prov, numero_factura: "B-DS-1", fecha_factura: hoyBogota(), condicion: "contado",
+      lineas: [{ producto_id: p, lote: "BDS1", vence, unidades: 5, costo: 100, costo_por: "unidad", iva_pct: 0 }] }])).rows[0].r;
+    await falla(c, "select generar_soporte($1)", [{ empresa_id: E.B, compras: [k.id] }], /aún no tiene numeración de documento soporte/);
+    await numeracionesComplementarias(c, E.B, true);
+    await falla(c, "select generar_soporte($1)", [{ empresa_id: E.B, compras: [k.id] }], /es de pruebas/);
+    // Un id de A no pasa por la empresa de B.
+    await falla(c, "select generar_soporte($1)", [{ empresa_id: E.B, compras: [ids.compra] }], /no es de tu droguería/);
+  });
+});
+
+test("nota débito: mayor valor con líneas e IVA al centavo, no sobre facturas de ventas anuladas, hereda el modo", async () => {
+  await como(U.carlos, async (c) => {
+    await numeracionesComplementarias(c, E.A);
+    const f = (await c.query(`select d.id, d.venta_id from documentos_dian d join ventas v on v.id = d.venta_id where d.empresa_id = $1 and d.tipo = 'factura' and v.estado = 'cerrada' and d.estado <> 'rechazado' limit 1`, [E.A])).rows[0];
+    const nd = (await c.query("select nota_debito($1) r", [{ documento_id: f.id, motivo: "Intereses de mora", lineas: [{ descripcion: "Intereses", cantidad: 1, valor: 1000.01, iva_pct: 19 }, { descripcion: "Flete", cantidad: 3, valor: 333.33, iva_pct: 0 }] }])).rows[0].r;
+    const d = (await c.query(`select tipo, origen_id, venta_id, concepto, base::float, iva::float, total::float from documentos_dian where id = $1`, [nd.id])).rows[0];
+    assert.deepEqual(d, { tipo: "nota_debito", origen_id: f.id, venta_id: null, concepto: "mayor_valor", base: 2000, iva: 190, total: 2190 });
+    await falla(c, "select nota_debito($1)", [{ documento_id: f.id, motivo: "Sin líneas", lineas: [] }], /al menos un concepto/);
+    await falla(c, "select nota_debito($1)", [{ documento_id: f.id, motivo: "IVA raro", lineas: [{ descripcion: "Xx", valor: 10, iva_pct: 7 }] }], /0, 5 o 19/);
+    // Un tiquete POS no es una factura: no admite nota débito por esta vía.
+    const pos = (await c.query(`select id from documentos_dian where empresa_id = $1 and tipo = 'pos' limit 1`, [E.A])).rows[0].id;
+    await falla(c, "select nota_debito($1)", [{ documento_id: pos, motivo: "No es factura", lineas: [{ descripcion: "Xx", valor: 10 }] }], /Solo el dueño o el administrador/);
+    // Si la factura está en producción, la nota no puede salir con numeración de pruebas.
+    await c.query("reset role");
+    await c.query(`update resoluciones_dian set pruebas = false, numero_resolucion = '18760000000001' where empresa_id = $1 and tipo = 'factura'`, [E.A]);
+    await c.query("set local role authenticated");
+    await falla(c, "select nota_debito($1)", [{ documento_id: f.id, motivo: "Modo heredado", lineas: [{ descripcion: "Xx", valor: 10 }] }], /sigue en pruebas/);
+  });
+});
+
+test("la consola elimina una droguería de prueba con documentos soporte, notas de ajuste y notas débito", async () => {
+  await como(U.duenoB, async (c) => {
+    const sede = (await c.query(`select id from sedes where empresa_id = $1 limit 1`, [E.B])).rows[0].id;
+    const caja = (await c.query(`select id from cajas where empresa_id = $1 and activa limit 1`, [E.B])).rows[0].id;
+    await c.query("reset role");
+    const p = (await c.query(`insert into productos (empresa_id, nombre, precio_caja) values ($1, 'Producto DIAN B', 1000) returning id`, [E.B])).rows[0].id;
+    await c.query(`insert into resoluciones_dian (empresa_id, tipo, prefijo, desde, hasta, actual, vigente_hasta, pruebas) values ($1, 'factura', 'FB', 1, 1000, 0, '2027-12-31', true)`, [E.B]);
+    await numeracionesComplementarias(c, E.B, false);
+    await c.query("reset role");
+    await c.query(`update resoluciones_dian set pruebas = false, numero_resolucion = '18760000000001' where empresa_id = $1`, [E.B]);
+    await c.query("set local role authenticated");
+    const prov = (await c.query(`insert into proveedores (empresa_id, nombre, nit, obligado_facturar) values ($1, 'Campesino eliminar B', '1110456702', false) returning id`, [E.B])).rows[0].id;
+    const k = (await c.query("select registrar_compra($1) r", [{ empresa_id: E.B, sede_id: sede, proveedor_id: prov, numero_factura: "B-DS-2", fecha_factura: hoyBogota(), condicion: "contado",
+      lineas: [{ producto_id: p, lote: "BDS2", vence, unidades: 40, costo: 100, costo_por: "unidad", iva_pct: 0 }] }])).rows[0].r;
+    const ds = (await c.query("select generar_soporte($1) r", [{ empresa_id: E.B, compras: [k.id] }])).rows[0].r;
+    await c.query("select ajustar_soporte($1)", [{ documento_id: ds.id, concepto: "anulacion", motivo: "Prueba de eliminación" }]);
+    const cli = (await c.query(`insert into clientes (empresa_id, tipo_doc, numero_doc, nombre, email) values ($1, 'NIT', '900777888', 'Cliente ND B', 'nd.b@prueba.example') returning id`, [E.B])).rows[0].id;
+    const v = (await c.query("select registrar_venta($1) r", [{ empresa_id: E.B, sede_id: sede, caja_id: caja, idem_key: crypto.randomUUID(), tipo_doc: "factura", cliente_id: cli,
+      lineas: [{ producto_id: p, presentacion: "caja", cantidad: 1 }], pagos: [{ medio: "efectivo", valor: 1000 }] }])).rows[0].r;
+    await c.query("reset role");
+    await c.query(`update documentos_dian set estado = 'aceptado', cufe = 'x' where id = $1`, [v.documento_id]);
+    await c.query("set local role authenticated");
+    await c.query("select nota_debito($1)", [{ documento_id: v.documento_id, motivo: "Flete", lineas: [{ descripcion: "Flete", valor: 500 }] }]);
+    await c.query("reset role");
+    const TABLAS = ["documento_lineas", "soporte_compras"];
+    const cuenta = async () => (await c.query(`select ${TABLAS.map((t) => `(select count(*)::int from ${t} where empresa_id = $1) ${t}`).join(", ")},
+      (select count(*)::int from documentos_dian where empresa_id = $1 and tipo in ('soporte', 'ajuste_soporte', 'nota_debito')) docs`, [E.B])).rows[0];
+    const antes = await cuenta();
+    assert.ok(antes.documento_lineas >= 3 && antes.soporte_compras === 1 && antes.docs === 3, JSON.stringify(antes));
+    await c.query(`update resoluciones_dian set pruebas = true where empresa_id = $1`, [E.B]);
+    await c.query(`update empresas set estado = 'suspendida' where id = $1`, [E.B]);
+    await c.query("select eliminar_empresa_prueba($1)", [E.B]);
+    assert.deepEqual(await cuenta(), { documento_lineas: 0, soporte_compras: 0, docs: 0 });
+  });
+});
