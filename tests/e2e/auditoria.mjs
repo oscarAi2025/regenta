@@ -2,10 +2,12 @@
 //  · Web pública: rastrea desde la portada todos los enlaces internos y revisa en cada página estado, título, descripción,
 //    H1 único, canonical absoluto, Open Graph, lang, JSON-LD válido, imágenes con alt y que cargan, enlaces rotos,
 //    títulos/descripciones duplicados, errores de consola y desborde en móvil. Cruza con sitemap.xml y robots.txt.
-//  · App interna: cada pantalla con cada rol (dueño, cajera, bodega): carga sin errores, sin desborde en móvil,
+//  · App interna: cada pantalla con cada rol (dueño, cajera, bodega y vendedor): carga sin errores, sin desborde en móvil,
 //    con H1, y las pantallas prohibidas para el rol redirigen.
 // Uso: servidor en :4500 (REGENTA_DEMO=1) → node tests/e2e/auditoria.mjs
 import { chromium, devices } from "playwright-core";
+import { SignJWT } from "jose";
+import pg from "pg";
 
 const B = process.env.BASE ?? "http://localhost:4500";
 let fallos = 0, revisadas = 0;
@@ -81,15 +83,37 @@ console.log(`enlaces externos distintos: ${enlaces.size}`);
 
 // ── App interna por rol
 const PANTALLAS = ["/inicio", "/caja", "/ventas", "/productos", "/productos/nuevo", "/productos/importar", "/inventario", "/inventario?ver=agotados", "/inventario?ver=todos",
-  "/inventario/recibir", "/prediccion", "/prediccion?ver=vencimiento", "/prediccion?ver=quietos", "/alertas", "/cartera", "/cartera?ver=pagadas", "/reportes", "/turno", "/demo/gracias"];
-const PROHIBIDAS = { cajero: { "/reportes": "/inicio", "/productos/nuevo": "/productos", "/productos/importar": "/productos", "/inventario/recibir": "/caja", "/prediccion": "/caja", "/cartera": "/inicio", "/cartera?ver=pagadas": "/inicio" }, bodega: { "/reportes": "/inicio", "/turno": "/inicio", "/caja": "/inventario", "/ventas": null, "/cartera": "/inicio", "/cartera?ver=pagadas": "/inicio" } , dueno: {} };
-for (const rol of ["dueno", "cajero", "bodega"]) {
+  "/inventario/recibir", "/prediccion", "/prediccion?ver=vencimiento", "/prediccion?ver=quietos", "/alertas", "/cartera", "/cartera?ver=pagadas", "/reportes", "/turno", "/demo/gracias",
+  // Bloque 2: compras, proveedores, cuentas por pagar, pedidos del mostrador y cartera por cliente
+  "/compras", "/compras/nueva", "/proveedores", "/cuentas-por-pagar", "/pedidos", "/pedidos/nuevo", "/pedidos?tipo=cotizacion&estado=todos", "/cartera?ver=clientes"];
+const COMPRAS = { "/compras": "/caja", "/compras/nueva": "/caja", "/proveedores": "/caja", "/cuentas-por-pagar": "/inicio" };
+const PROHIBIDAS = { cajero: { "/reportes": "/inicio", "/productos/nuevo": "/productos", "/productos/importar": "/productos", "/inventario/recibir": "/caja", "/prediccion": "/caja", "/cartera": "/inicio", "/cartera?ver=pagadas": "/inicio", ...COMPRAS },
+  bodega: { "/reportes": "/inicio", "/turno": "/inicio", "/caja": "/inventario", "/ventas": null, "/cartera": "/inicio", "/cartera?ver=pagadas": "/inicio", "/cuentas-por-pagar": "/compras", "/pedidos": "/inicio", "/pedidos/nuevo": "/inicio" },
+  // El vendedor arma pedidos y cotizaciones: no cobra, no ve la caja, ni el dinero, ni compras.
+  vendedor: { "/caja": "/pedidos", "/turno": null, "/ventas": null, "/reportes": null, "/cartera": null, "/compras": null, "/compras/nueva": null, "/proveedores": null, "/cuentas-por-pagar": null,
+    "/inventario/recibir": null, "/productos/nuevo": null, "/productos/importar": null, "/prediccion": null },
+  dueno: {} };
+const PANTALLAS_VENDEDOR = ["/inicio", "/pedidos", "/pedidos/nuevo", "/pedidos?tipo=cotizacion&estado=todos", "/cuenta", ...Object.keys(PROHIBIDAS.vendedor)];
+// Sesión del vendedor (la demo no trae uno): miembro de la droguería demo con sesión firmada como la de /api/acceso.
+const VEND = "00000000-0000-4000-8000-0000000000e9";
+let sesionVendedor = null;
+{
+  const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp" });
+  const emp = (await pool.query(`select id from empresas where demo limit 1`)).rows[0].id;
+  await pool.query(`insert into miembros (empresa_id, user_id, nombre, rol) values ($1, $2, 'Vendedor auditoría', 'vendedor')
+    on conflict (empresa_id, user_id) do update set activo = true, rol = 'vendedor'`, [emp, VEND]);
+  await pool.end();
+  sesionVendedor = await new SignJWT({ uid: VEND, empresa: emp, nombre: "Vendedor auditoría", rol: "vendedor", v: 0 }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("1h")
+    .sign(new TextEncoder().encode(process.env.REGENTA_SESSION_SECRET ?? "prueba-local-0123456789abcdef0123456789abcdef"));
+}
+for (const rol of ["dueno", "cajero", "bodega", "vendedor"]) {
   for (const [nombre, opts] of [["escritorio", { viewport: { width: 1440, height: 900 } }], ["móvil", devices["iPhone 13"]]]) {
     const c = await b.newContext(opts);
     const p = await c.newPage();
     const errs = []; p.on("pageerror", (e) => errs.push(e.message)); p.on("console", (m) => m.type() === "error" && errs.push(m.text()));
-    await p.request.post(B + "/demo", { form: { rol } });
-    const pantallas = [...PANTALLAS];
+    if (rol === "vendedor") await c.addCookies([{ name: "regenta_sesion", value: sesionVendedor, url: B }]);
+    else await p.request.post(B + "/demo", { form: { rol } });
+    const pantallas = rol === "vendedor" ? [...PANTALLAS_VENDEDOR] : [...PANTALLAS];
     const venta = (await (await p.request.get(B + "/api/productos?q=a")).json()).productos?.[0];
     if (venta && rol === "dueno") pantallas.push(`/productos/${venta.id}`);
     const unaVenta = await p.evaluate(() => null);
@@ -109,7 +133,7 @@ for (const rol of ["dueno", "cajero", "bodega"]) {
       ok((robots ?? "").includes("noindex"), `${rol}: ${ruta} la app debe ser noindex`);
     }
     // detalle de una venta
-    if (rol !== "bodega") {
+    if (rol !== "bodega" && rol !== "vendedor") {
       await p.goto(B + "/ventas");
       const enlace = p.locator('a[href^="/ventas/"]').first();
       if (await enlace.count()) { await enlace.click(); await p.waitForLoadState("networkidle"); revisadas++; ok(await p.locator("h1, [aria-label='Tiquete']").count() >= 1 && errs.length === 0, `${rol} ${nombre}: detalle de venta`, errs.join(" | ")); }

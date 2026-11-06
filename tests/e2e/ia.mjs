@@ -47,7 +47,7 @@ const mock = http.createServer((req, res) => {
     const primero = datos[0]?.nombre ?? "nada";
     responder({ stop_reason: "end_turn", content: [{ type: "text", text: `Lo primero: ${primero}.` }] });
   });
-}).listen(4601);
+}).listen(Number(process.env.IA_MOCK_PUERTO ?? 4601)); // el servidor apunta REGENTA_IA_URL aquí
 
 const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw-browsers/chromium" });
 

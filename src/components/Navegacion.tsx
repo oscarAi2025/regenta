@@ -3,8 +3,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const ITEMS = [
-  { href: "/inicio", label: "Inicio", roles: ["dueno", "admin", "cajero", "bodeguero"], d: "M4 11l8-7 8 7v9h-5v-6H9v6H4z" },
+  { href: "/inicio", label: "Inicio", roles: ["dueno", "admin", "cajero", "bodeguero", "vendedor"], d: "M4 11l8-7 8 7v9h-5v-6H9v6H4z" },
   { href: "/caja", label: "Caja", roles: ["dueno", "admin", "cajero"], d: "M4 7h16v12H4zM8 7V4h8v3M8 12h3M8 15h5" },
+  { href: "/pedidos", label: "Pedidos", roles: ["dueno", "admin", "cajero", "vendedor"], d: "M9 4h6v3H9zM6 5.5H5v15h14v-15h-1M8.5 12l2 2 4-4M8.5 17h7" },
   { href: "/turno", label: "Turno", roles: ["dueno", "admin", "cajero"], d: "M12 7v5l3 2M4 12a8 8 0 1 0 16 0 8 8 0 0 0-16 0" },
   { href: "/ventas", label: "Ventas", roles: ["dueno", "admin", "cajero"], d: "M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h3" },
   { href: "/clientes", label: "Clientes", roles: ["dueno", "admin"], d: "M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 11a3 3 0 1 0 0-6M18 14c2.2.6 4 2.9 4 6" },
@@ -14,18 +15,21 @@ const ITEMS = [
   { href: "/prediccion", label: "Predicción", roles: ["dueno", "admin", "bodeguero"], d: "M4 19h16M6 16l4-5 3 3 5-7M15 7h3v3" },
   { href: "/alertas", label: "Alertas", roles: ["dueno", "admin", "cajero", "bodeguero"], d: "M12 4l9 16H3zM12 10v4M12 17h.01" },
   { href: "/equipo", label: "Mi droguería", roles: ["dueno"], d: "M3 21V9l9-6 9 6v12M9 21v-6h6v6M3 21h18" },
+  { href: "/compras", label: "Compras", roles: ["dueno", "admin", "bodeguero"], d: "M3 6h11v10H3zM14 9h4l3 3v4h-7M7 19a2 2 0 1 0 0-.01M17 19a2 2 0 1 0 0-.01" },
+  { href: "/cuentas-por-pagar", label: "Cuentas por pagar", roles: ["dueno", "admin"], d: "M4 6h16v14H4zM4 10h16M8 3v4M16 3v4M12 12.5v6M10.5 14h2.8a1.2 1.2 0 0 1 0 2.4h-1.6a1.2 1.2 0 0 0 0 2.4h2.8" },
   { href: "/inventario", label: "Inventario", roles: ["dueno", "admin", "cajero", "bodeguero"], d: "M4 8l8-4 8 4-8 4zM4 8v8l8 4 8-4V8M12 12v8" },
   { href: "/documentos", label: "Documentos DIAN", roles: ["dueno", "admin"], d: "M7 3h7l5 5v13H7zM14 3v5h5M10 14l2 2 4-4" },
   { href: "/temperatura", label: "Temperatura", roles: ["dueno", "admin", "bodeguero"], d: "M10 14V5a2 2 0 1 1 4 0v9a4 4 0 1 1-4 0zM12 9v7" },
   { href: "/control-especial", label: "Control especial", roles: ["dueno", "admin"], d: "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4" },
-  { href: "/cuenta", label: "Mi cuenta", soloCelular: true, roles: ["dueno", "admin", "cajero", "bodeguero"], d: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" },
+  { href: "/cuenta", label: "Mi cuenta", soloCelular: true, roles: ["dueno", "admin", "cajero", "bodeguero", "vendedor"], d: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" },
 ];
 
 // Grupos del menú lateral en escritorio (en el celular la barra es horizontal y sin títulos).
 const GRUPOS: [string, string[]][] = [
   ["", ["/inicio"]],
-  ["Vender", ["/caja", "/turno", "/ventas", "/clientes", "/cartera"]],
+  ["Vender", ["/caja", "/pedidos", "/turno", "/ventas", "/clientes", "/cartera"]],
   ["Inventario", ["/productos", "/inventario", "/prediccion", "/alertas"]],
+  ["Compras", ["/compras", "/cuentas-por-pagar"]],
   ["Cumplimiento", ["/documentos", "/temperatura", "/control-especial"]],
   ["Gestión", ["/reportes", "/equipo", "/cuenta"]],
 ];

@@ -2,11 +2,11 @@
 // el enlace pone la contraseña y entra a la consola; no se reutiliza; /activar (clientes) no acepta enlaces de superadmin.
 import { chromium } from "playwright-core";
 import { execFileSync } from "node:child_process";
-const B = "http://localhost:4500";
+const B = process.env.BASE ?? "http://localhost:4500";
 const sql = "db/consola/superadmin-enlace.sql";
 const link = () => execFileSync("psql", [process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp", "-Atf", sql]).toString().trim().split("\n").pop().replace("https://regenta.pro", B);
 const enlace = link();
-const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
+const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw-browsers/chromium" });
 const p = await b.newPage();
 const out = [];
 await p.goto(enlace);

@@ -43,6 +43,45 @@ const HOJAS: { archivo: string; sql: string; columnas: [string, string][] }[] = 
       ["formula_numero", "N.º de fórmula"], ["formula_fecha", "Fecha de la fórmula"], ["venta", "Venta"], ["motivo", "Observación"]] },
   { archivo: "turnos_de_caja.csv", sql: `select cj.nombre caja, to_char(t.abierto at time zone 'America/Bogota', 'YYYY-MM-DD HH24:MI') abierto, to_char(t.cerrado at time zone 'America/Bogota', 'YYYY-MM-DD HH24:MI') cerrado, t.base, t.efectivo_esperado, t.efectivo_contado, t.diferencia, t.observaciones from turnos t join cajas cj on cj.id = t.caja_id where t.empresa_id = $1 order by t.abierto`,
     columnas: [["caja", "Caja"], ["abierto", "Abierto"], ["cerrado", "Cerrado"], ["base", "Base"], ["efectivo_esperado", "Efectivo esperado"], ["efectivo_contado", "Efectivo contado"], ["diferencia", "Diferencia"], ["observaciones", "Observaciones"]] },
+  // Bloque 2: recibos de caja de clientes, compras y proveedores, cuentas por pagar y pedidos del mostrador.
+  { archivo: "recibos_caja.csv", sql: `select r.numero, to_char(r.creado at time zone 'America/Bogota', 'YYYY-MM-DD HH24:MI') fecha, c.nombre cliente, c.tipo_doc || ' ' || c.numero_doc documento, r.medio, r.valor, r.referencia, cj.nombre caja, r.saldo_anterior,
+      (select string_agg(x ->> 'factura', ', ') from jsonb_array_elements(r.aplicado) x) facturas, case when r.anulado then 'sí' else 'no' end anulado, r.motivo
+      from recibos_caja r join clientes c on c.id = r.cliente_id left join cajas cj on cj.id = r.caja_id where r.empresa_id = $1 order by r.numero`,
+    columnas: [["numero", "Recibo"], ["fecha", "Fecha"], ["cliente", "Cliente"], ["documento", "Documento"], ["medio", "Medio"], ["valor", "Valor"], ["referencia", "Referencia"], ["caja", "Caja"],
+      ["saldo_anterior", "Saldo anterior"], ["facturas", "Facturas abonadas"], ["anulado", "Anulado"], ["motivo", "Motivo de anulación"]] },
+  { archivo: "proveedores.csv", sql: `select nombre, nit, dv, telefono, email, contacto, direccion, ciudad, plazo_dias, case when responsable_iva then 'sí' else 'no' end responsable_iva, case when activo then 'sí' else 'no' end activo from proveedores where empresa_id = $1 order by nombre`,
+    columnas: [["nombre", "Proveedor"], ["nit", "NIT"], ["dv", "DV"], ["telefono", "Teléfono"], ["email", "Correo"], ["contacto", "Contacto"], ["direccion", "Dirección"], ["ciudad", "Ciudad"],
+      ["plazo_dias", "Plazo (días)"], ["responsable_iva", "Responsable de IVA"], ["activo", "Activo"]] },
+  { archivo: "compras.csv", sql: `select c.numero, to_char(c.fecha_factura, 'YYYY-MM-DD') fecha_factura, p.nombre proveedor, p.nit, c.numero_factura, c.condicion, to_char(c.vence_pago, 'YYYY-MM-DD') vence_pago,
+      c.subtotal, c.descuento, c.iva, c.total, c.total_papel, c.estado, c.motivo_anulacion, to_char(c.creado at time zone 'America/Bogota', 'YYYY-MM-DD HH24:MI') registrada
+      from compras c join proveedores p on p.id = c.proveedor_id where c.empresa_id = $1 order by c.numero`,
+    columnas: [["numero", "Compra"], ["fecha_factura", "Fecha de la factura"], ["proveedor", "Proveedor"], ["nit", "NIT"], ["numero_factura", "Factura del proveedor"], ["condicion", "Condición"],
+      ["vence_pago", "Vence el pago"], ["subtotal", "Subtotal"], ["descuento", "Descuento"], ["iva", "IVA"], ["total", "Total"], ["total_papel", "Total en la factura"], ["estado", "Estado"],
+      ["motivo_anulacion", "Motivo de anulación"], ["registrada", "Registrada"]] },
+  { archivo: "compras_detalle.csv", sql: `select c.numero, c.numero_factura, pr.nombre producto, lo.lote, to_char(lo.vence, 'YYYY-MM-DD') vence, l.unidades, l.bonificadas, l.costo, l.costo_por, l.descuento_pct, l.iva_pct, l.base, l.iva, l.total, l.costo_lote
+      from compra_lineas l join compras c on c.id = l.compra_id join productos pr on pr.id = l.producto_id join lotes lo on lo.id = l.lote_id where l.empresa_id = $1 order by c.numero, l.id`,
+    columnas: [["numero", "Compra"], ["numero_factura", "Factura del proveedor"], ["producto", "Producto"], ["lote", "Lote"], ["vence", "Vence"], ["unidades", "Unidades pagadas"], ["bonificadas", "Bonificadas"],
+      ["costo", "Costo sin IVA"], ["costo_por", "Costo por"], ["descuento_pct", "Descuento %"], ["iva_pct", "IVA %"], ["base", "Base"], ["iva", "IVA"], ["total", "Total"], ["costo_lote", "Costo por unidad del lote"]] },
+  { archivo: "pagos_proveedores.csv", sql: `select to_char(g.creado at time zone 'America/Bogota', 'YYYY-MM-DD HH24:MI') fecha, p.nombre proveedor, p.nit, g.medio, g.valor, g.referencia, cj.nombre caja,
+      (select string_agg(c.numero_factura || ' (' || a.valor || ')', ', ' order by a.id) from pago_aplicaciones a join compras c on c.id = a.compra_id where a.pago_id = g.id) facturas,
+      case when g.anulado then 'sí' else 'no' end anulado, g.motivo
+      from pagos_proveedor g join proveedores p on p.id = g.proveedor_id left join cajas cj on cj.id = g.caja_id where g.empresa_id = $1 order by g.creado`,
+    columnas: [["fecha", "Fecha"], ["proveedor", "Proveedor"], ["nit", "NIT"], ["medio", "Medio"], ["valor", "Valor"], ["referencia", "Referencia"], ["caja", "Salió de la caja"],
+      ["facturas", "Facturas pagadas"], ["anulado", "Anulado"], ["motivo", "Motivo de anulación"]] },
+  { archivo: "devoluciones_proveedores.csv", sql: `select d.numero, to_char(d.creado at time zone 'America/Bogota', 'YYYY-MM-DD HH24:MI') fecha, p.nombre proveedor, c.numero_factura, d.motivo, d.valor, d.estado, d.nc_proveedor, d.valor_nc
+      from devoluciones_proveedor d join proveedores p on p.id = d.proveedor_id join compras c on c.id = d.compra_id where d.empresa_id = $1 order by d.numero`,
+    columnas: [["numero", "Devolución"], ["fecha", "Fecha"], ["proveedor", "Proveedor"], ["numero_factura", "Factura del proveedor"], ["motivo", "Motivo"], ["valor", "Valor"], ["estado", "Estado"],
+      ["nc_proveedor", "Nota crédito del proveedor"], ["valor_nc", "Valor de la nota crédito"]] },
+  { archivo: "cuentas_por_pagar.csv", sql: `select proveedor, nit, numero, numero_factura, to_char(fecha_factura, 'YYYY-MM-DD') fecha_factura, to_char(vence_pago, 'YYYY-MM-DD') vence_pago, total, pagado, notas_credito, saldo, dias_vencida
+      from v_cuentas_por_pagar where empresa_id = $1 and saldo > 0 order by vence_pago, proveedor`,
+    columnas: [["proveedor", "Proveedor"], ["nit", "NIT"], ["numero", "Compra"], ["numero_factura", "Factura del proveedor"], ["fecha_factura", "Fecha de la factura"], ["vence_pago", "Vence"],
+      ["total", "Total"], ["pagado", "Pagado"], ["notas_credito", "Notas crédito"], ["saldo", "Saldo"], ["dias_vencida", "Días vencida"]] },
+  { archivo: "pedidos.csv", sql: `select case pm.tipo when 'espera' then 'Venta en espera' when 'domicilio' then 'Domicilio' else 'Cotización' end tipo, pm.numero, pm.estado,
+      to_char(pm.creado at time zone 'America/Bogota', 'YYYY-MM-DD HH24:MI') fecha, coalesce(cl.nombre, pm.contacto) cliente, pm.telefono, pm.direccion, pm.nota, to_char(pm.vence, 'YYYY-MM-DD') vence,
+      v.prefijo || v.numero venta, pm.motivo, (select count(*) from pedido_lineas pl where pl.pedido_id = pm.id) lineas
+      from pedidos_mostrador pm left join clientes cl on cl.id = pm.cliente_id left join ventas v on v.id = pm.venta_id where pm.empresa_id = $1 order by pm.creado`,
+    columnas: [["tipo", "Tipo"], ["numero", "Número"], ["estado", "Estado"], ["fecha", "Fecha"], ["cliente", "Cliente"], ["telefono", "Teléfono"], ["direccion", "Dirección"], ["nota", "Nota"],
+      ["vence", "Válida hasta"], ["venta", "Venta"], ["motivo", "Motivo de cancelación"], ["lineas", "Productos"]] },
 ];
 
 /** ZIP con todos los datos de la droguería y el nombre sugerido del archivo. */

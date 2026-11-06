@@ -12,7 +12,7 @@ const mock = createServer((req, res) => {
   const id = decodeURIComponent((req.url ?? "").split("/transactions/")[1] ?? "");
   const t = WOMPI.get(id);
   res.writeHead(t ? 200 : 404, { "content-type": "application/json" }).end(JSON.stringify(t ? { data: t } : { error: { type: "NOT_FOUND_ERROR" } }));
-}).listen(4602);
+}).listen(Number(process.env.WOMPI_MOCK_PUERTO ?? 4602)); // el servidor apunta WOMPI_API_URL aquí
 
 const B = process.env.BASE ?? "http://localhost:4500";
 let fallos = 0;

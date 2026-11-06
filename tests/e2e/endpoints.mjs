@@ -5,6 +5,8 @@
 import { execFileSync } from "node:child_process";
 import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { SignJWT } from "jose";
+import pg from "pg";
 
 const B = process.env.BASE ?? "http://localhost:4500";
 const DB = process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp";
@@ -24,6 +26,18 @@ const ADMIN = { email: `ep${Date.now().toString().slice(-7)}@regenta.test`, clav
 execFileSync("node", ["scripts/crear-superadmin.mjs", ADMIN.email, "Admin Endpoints"], { env: { ...process.env, REGENTA_CLAVE_PRUEBA: ADMIN.clave, DATABASE_URL: DB } });
 const ra = await fetch(B + "/api/acceso", { method: "POST", headers: { origin: B, "content-type": "application/json", "x-real-ip": IP }, body: JSON.stringify({ ...ADMIN, consola: true }) });
 S.admin = ra.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
+// Vendedor (rol del mostrador; la demo no lo trae): miembro de la droguería demo con sesión firmada como la de /api/acceso.
+{
+  const pool = new pg.Pool({ connectionString: DB });
+  const VEND = "00000000-0000-4000-8000-0000000000e8";
+  const emp = (await pool.query(`select id from empresas where demo limit 1`)).rows[0].id;
+  await pool.query(`insert into miembros (empresa_id, user_id, nombre, rol) values ($1, $2, 'Vendedor endpoints', 'vendedor')
+    on conflict (empresa_id, user_id) do update set activo = true, rol = 'vendedor'`, [emp, VEND]);
+  await pool.end();
+  const jwt = await new SignJWT({ uid: VEND, empresa: emp, nombre: "Vendedor endpoints", rol: "vendedor", v: 0 }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("1h")
+    .sign(new TextEncoder().encode(process.env.REGENTA_SESSION_SECRET ?? "prueba-local-0123456789abcdef0123456789abcdef"));
+  S.vendedor = `regenta_sesion=${jwt}`;
+}
 ok(ra.ok && S.admin.includes("="), "el superadministrador entra a la consola", String(ra.status));
 
 async function pedir(metodo, ruta, { cookie = "", origen = B, cuerpo, crudo, cabeceras = {} } = {}) {
@@ -124,6 +138,43 @@ const R = [
   { m: "GET", p: "/api/control-especial?formato=csv&desde=x&hasta=y", acceso: "sesion", rol: ["bodega", 403] },
   { m: "GET", p: "/api/control-especial?producto=x", acceso: "sesion", espera: 400 },
   { m: "PATCH", p: "/api/control-especial", acceso: "sesion", basura: true, rol: ["cajero", 403] },
+  // Bloque 2-A · compras, proveedores y cuentas por pagar (dueño/admin/bodega; dinero solo dueño/admin)
+  { m: "GET", p: "/api/compras", acceso: "sesion", rol: ["cajero", 403], vendedor: 403 },
+  { m: "POST", p: "/api/compras", acceso: "sesion", basura: true, rol: ["cajero", 403] },
+  { m: "GET", p: `/api/compras/${U}`, acceso: "sesion", rol: ["cajero", 403], espera: 404 },
+  { m: "GET", p: "/api/compras/no-es-uuid", acceso: "sesion", espera: 400 },
+  { m: "PATCH", p: `/api/compras/${U}`, acceso: "sesion", basura: true, rol: ["bodega", 403] },
+  { m: "DELETE", p: `/api/compras/${U}`, acceso: "sesion", basura: true, rol: ["bodega", 403] },
+  { m: "POST", p: "/api/compras/pagos", acceso: "sesion", basura: true, rol: ["bodega", 403] },
+  { m: "DELETE", p: "/api/compras/pagos", acceso: "sesion", basura: true, rol: ["bodega", 403] },
+  { m: "POST", p: "/api/compras/devoluciones", acceso: "sesion", basura: true, rol: ["bodega", 403] },
+  { m: "PATCH", p: "/api/compras/devoluciones", acceso: "sesion", basura: true, rol: ["bodega", 403] },
+  { m: "GET", p: "/api/proveedores", acceso: "sesion", rol: ["cajero", 403], vendedor: 403 },
+  { m: "GET", p: `/api/proveedores?id=${U}`, acceso: "sesion", espera: 404 },
+  { m: "GET", p: "/api/proveedores?id=x", acceso: "sesion", espera: 400 },
+  { m: "POST", p: "/api/proveedores", acceso: "sesion", basura: true, rol: ["cajero", 403] },
+  { m: "PATCH", p: "/api/proveedores", acceso: "sesion", basura: true, rol: ["bodega", 403] },
+  { m: "GET", p: "/api/cuentas-por-pagar", acceso: "sesion", rol: ["bodega", 403] },
+  { m: "GET", p: "/api/cuentas-por-pagar?formato=csv", acceso: "sesion", rol: ["cajero", 403] },
+  // Bloque 2-B · mostrador: pedidos (dueño/admin/cajera/vendedor; la bodega no) y cobrar (el vendedor tampoco)
+  { m: "GET", p: "/api/pedidos", acceso: "sesion", rol: ["bodega", 403] },
+  { m: "POST", p: "/api/pedidos", acceso: "sesion", basura: true, rol: ["bodega", 403] },
+  { m: "GET", p: `/api/pedidos/${U}`, acceso: "sesion", rol: ["bodega", 403], espera: 404 },
+  { m: "GET", p: "/api/pedidos/no-es-uuid", acceso: "sesion", espera: 404 },
+  { m: "PATCH", p: `/api/pedidos/${U}`, acceso: "sesion", basura: true, rol: ["bodega", 403] },
+  { m: "POST", p: `/api/pedidos/${U}/cobrar`, acceso: "sesion", basura: true, rol: ["bodega", 403], vendedor: 403 },
+  // Bloque 2-C · cuentas de clientes: crédito, recibos de caja y cartera por cliente
+  { m: "GET", p: `/api/clientes/${U}/credito?valor=1000`, acceso: "sesion", rol: ["bodega", 403], espera: 404, vendedor: 403 },
+  { m: "GET", p: `/api/clientes/${U}/credito?valor=abc`, acceso: "sesion", espera: 400 },
+  { m: "PATCH", p: `/api/clientes/${U}/credito`, acceso: "sesion", basura: true, rol: ["cajero", 403] },
+  { m: "GET", p: "/api/recibos?q=a", acceso: "sesion", rol: ["bodega", 403], vendedor: 403 },
+  { m: "POST", p: "/api/recibos", acceso: "sesion", basura: true, rol: ["bodega", 403] },
+  { m: "DELETE", p: "/api/recibos/999999999", acceso: "sesion", basura: true, rol: ["cajero", 403] },
+  { m: "DELETE", p: "/api/recibos/no-es-uuid", acceso: "sesion", espera: 404 },
+  { m: "GET", p: "/api/cartera", acceso: "sesion", rol: ["cajero", 403] },
+  { m: "GET", p: "/api/cartera?formato=csv&edad=e0&q=a", acceso: "sesion", rol: ["cajero", 403] },
+  { m: "GET", p: "/api/cartera?edad=nada", acceso: "sesion", espera: 400 },
+  { m: "PATCH", p: "/api/cartera", acceso: "sesion", basura: true, rol: ["cajero", 403] },
   // consola de superadministración
   { m: "POST", p: `/api/admin/clientes/${U}/entrar`, acceso: "admin" },
   { m: "POST", p: `/api/admin/clientes/${U}/numeraciones`, acceso: "admin", basura: true },
@@ -152,7 +203,7 @@ function rutas(dir, base = "") {
   return out;
 }
 const existentes = rutas("src/app/api").map((r) => "/api" + r.replace(/\[[^\]]+\]/g, "*"));
-const probadas = new Set(R.map((x) => x.p.split("?")[0].replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|no-es-uuid/g, "*")));
+const probadas = new Set(R.map((x) => x.p.split("?")[0].replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|no-es-uuid|(?<=\/)\d+(?=\/|$)/g, "*")));
 const sinProbar = existentes.filter((e) => !probadas.has(e));
 ok(sinProbar.length === 0, "todas las rutas de la API están en el contrato", sinProbar.join(", "));
 
@@ -181,6 +232,10 @@ for (const e of R) {
   if (e.rol) {
     const r = await pedir(e.m, e.p, { cookie: S[e.rol[0]], cuerpo: ESCRITURA(e.m) ? {} : undefined });
     ok(r.s === e.rol[1] || (e.rol[1] === 403 && r.s === 400 && /permiso|solo el|solo la/i.test(r.texto)), `${n}: ${e.rol[0]} no tiene permiso`, `${r.s} ${r.texto.slice(0, 100)}`);
+  }
+  if (e.vendedor) {
+    const r = await pedir(e.m, e.p, { cookie: S.vendedor, cuerpo: ESCRITURA(e.m) ? {} : undefined });
+    ok(r.s === e.vendedor, `${n}: el vendedor no tiene permiso`, `${r.s} ${r.texto.slice(0, 100)}`);
   }
   // 4. Petición normal (con sesión): responde algo coherente, nunca 500
   {
@@ -213,6 +268,15 @@ for (const e of R) {
   ok(bien.s === 200 && /recordatorios/.test(bien.texto), "la tarea programada funciona con su clave", String(bien.s));
   const casi = await pedir("POST", "/api/tareas", { cabeceras: { authorization: `Bearer ${CRON.slice(0, -1)}x` } });
   ok(casi.s === 401, "una clave casi igual no sirve");
+}
+// ── El vendedor sí arma pedidos (su sesión sirve) pero no cobra ni vende: 403 aunque el cuerpo sea válido
+{
+  ok((await pedir("GET", "/api/pedidos", { cookie: S.vendedor })).s === 200, "el vendedor lista los pedidos");
+  const venta = { idem_key: crypto.randomUUID(), tipo_doc: "pos", lineas: [{ producto_id: U, presentacion: "caja", cantidad: 1 }], pagos: [{ medio: "efectivo", valor: 1000 }] };
+  ok((await pedir("POST", "/api/ventas", { cookie: S.vendedor, cuerpo: venta })).s === 403, "el vendedor no vende en la caja (403)");
+  ok((await pedir("POST", `/api/pedidos/${U}/cobrar`, { cookie: S.vendedor, cuerpo: venta })).s === 403, "el vendedor no cobra pedidos (403)");
+  // Con un cuerpo válido, un pedido que no es de la droguería es 404 (no 400 ni 500).
+  ok((await pedir("POST", `/api/pedidos/${U}/cobrar`, { cookie: S.dueno, cuerpo: venta })).s === 404, "cobrar un pedido ajeno o inexistente: 404");
 }
 // ── Una sesión falsificada no entra
 {

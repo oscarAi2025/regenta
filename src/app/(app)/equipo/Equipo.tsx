@@ -82,7 +82,7 @@ export function Equipo({ miembros, demo, tope, plan }: { miembros: Miembro[]; de
           <div><label htmlFor="eq-email" className="etiqueta">Correo</label><input id="eq-email" type="email" required className="campo" value={n.email} onChange={(e) => setN({ ...n, email: e.target.value })} /></div>
           <div><label htmlFor="eq-rol" className="etiqueta">Rol</label>
             <select id="eq-rol" className="campo" value={n.rol} onChange={(e) => setN({ ...n, rol: e.target.value })}>
-              <option value="cajero">Cajera/o</option><option value="admin">Administrador</option><option value="bodeguero">Bodega</option>
+              <option value="cajero">Cajera/o</option><option value="admin">Administrador</option><option value="bodeguero">Bodega</option><option value="vendedor">Vendedor</option>
             </select></div>
           <button disabled={enviando} className="btn-primario">{enviando ? "Enviando…" : "Invitar"}</button>
         </form>
@@ -103,7 +103,7 @@ export function Equipo({ miembros, demo, tope, plan }: { miembros: Miembro[]; de
             {!demo && m.rol !== "dueno" && (
               <div className="flex flex-wrap gap-2">
                 {m.activo && <select aria-label={`Rol de ${m.nombre}`} className="campo h-10 w-auto" value={m.rol} onChange={(e) => cambiar(m.user_id, { rol: e.target.value })}>
-                  <option value="cajero">Cajera/o</option><option value="admin">Administrador</option><option value="bodeguero">Bodega</option>
+                  <option value="cajero">Cajera/o</option><option value="admin">Administrador</option><option value="bodeguero">Bodega</option><option value="vendedor">Vendedor</option>
                 </select>}
                 {m.activo && <button onClick={() => cambiar(m.user_id, { enlace: true })} className="btn-borde">Enviar enlace de acceso</button>}
                 <button onClick={() => cambiar(m.user_id, { activo: !m.activo })} className={m.activo ? "btn-peligro" : "btn-borde"}>{m.activo ? "Desactivar" : "Reactivar"}</button>
