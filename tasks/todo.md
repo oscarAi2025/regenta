@@ -325,3 +325,10 @@ Baja: 17 correo al cancelar renovación · 18 plan Socio límites/descuento · 1
 - [x] Aviso de cada solicitud de demo (también sin correo) y de cada intento de compra (QR, Wompi, Stripe), al instante
 - [x] Pruebas: correos 28/28, embudo 38, pagos 33, ingresos 51, endpoints 1085, unitarias 36+22
 - [ ] Oscar: desplegar en Netlify (Deploys → Trigger deploy)
+
+## 06/11/2026 · Bloque 1 de la auditoría del droguista (cumplimiento y control)
+Reparto en 3 frentes paralelos (cada uno en su rama, su base local y su puerto); el menú y el despliegue los integra el hilo principal.
+- [ ] A · Inventario (migración 028): ajustes y bajas con motivo + acta de baja imprimible; kardex por producto; conteo físico (toma de inventario) con diferencias y ajuste en un clic — base local regenta_a, puerto 4501
+- [ ] B · Cumplimiento (migración 029): pantalla Documentos electrónicos (facturas, POS y notas crédito con estado DIAN, filtros, reenvío, XML/PDF); planilla de temperatura y humedad (registro diario, fuera de rango, informe mensual imprimible) — regenta_b, 4502
+- [ ] C · Control especial (migración 030): marca de control especial / venta con fórmula en el producto; la caja pide paciente, médico y fórmula; libro de control especial exportable — regenta_c, 4503
+- [ ] Integración: menú (Navegacion), inicio con tareas, typecheck, npm test, e2e completos y auditoría de pantallas en local; migraciones 028–030 a producción con autorización de Oscar; un solo despliegue; verificación en vivo
