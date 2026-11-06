@@ -8,6 +8,8 @@ import { procesarCola } from "@/lib/dian";
 const Devolucion = z.object({
   motivo: z.string().trim().min(4, "Escribe el motivo de la devolución").max(200),
   medio: z.enum(["efectivo", "transferencia", "nequi", "daviplata", "tarjeta", "bre_b"]).default("efectivo"),
+  // A dónde vuelve lo devuelto: a la venta o a cuarentena (sin enviar: lo que configuró la droguería).
+  destino: z.enum(["vendible", "cuarentena"]).optional(),
   lineas: z.array(z.object({
     producto_id: z.string().uuid(), presentacion: z.enum(["caja", "unidad"]), cantidad: z.number().positive().max(100000),
   })).min(1, "Elige qué productos devuelve el cliente").max(200),
@@ -32,4 +34,11 @@ export const POST = conSesion(async (s, req, ctx) => {
   if (r.rechazada) return json({ error: "La DIAN rechazó el documento de esta venta: corrígelo y reenvíalo antes de hacer la devolución." }, 409);
   await procesarCola(3, id).catch((e) => console.error("cola DIAN", e));
   return json({ devolucion: r });
+});
+
+/** Destino por defecto de las devoluciones de esta droguería (para preseleccionarlo en la pantalla). */
+export const GET = conSesion(async (s) => {
+  if (!puede.anular(s.rol)) return json({ error: "Solo el dueño o el administrador hacen devoluciones" }, 403);
+  const destino = await comoUsuario(s, async (c) => (await c.query(`select devolucion_destino d from empresas where id = $1`, [s.empresa])).rows[0]?.d ?? "vendible");
+  return json({ destino });
 });

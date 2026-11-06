@@ -21,5 +21,11 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
     return { d, soporte: d && dinero ? await estadoSoporte(c, s.empresa, id) : null }; // documento soporte: solo la gerencia
   });
   if (!d) notFound();
-  return <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5"><Compra inicial={JSON.parse(JSON.stringify(d))} dinero={dinero} />{soporte && <Soporte compraId={id} inicial={soporte} />}</main>;
+  return (
+    <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
+      <Compra inicial={JSON.parse(JSON.stringify(d))} dinero={dinero} />
+      {d.compra.estado !== "anulada" && <a href={`/etiquetas?compra=${d.compra.numero}`} className="btn-borde w-fit">Imprimir etiquetas de lo recibido</a>}
+      {soporte && <Soporte compraId={id} inicial={soporte} />}
+    </main>
+  );
 }

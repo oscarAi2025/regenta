@@ -42,6 +42,12 @@ export const POST = conSesion(async (s, req) => {
       const k = claveNombre(e.nombre, e.laboratorio ?? "");
       if (!porNombre.has(k) || e.activo) porNombre.set(k, e);
     }
+    // Códigos alternos: una fila con uno de ellos va a su producto (sin cambiarle el código principal).
+    const alternos = new Map<string, Existente>();
+    for (const r of (await c.query(`select pc.codigo, pc.producto_id from producto_codigos pc where pc.empresa_id = $1`, [s.empresa])).rows) {
+      const e = ex.find((x) => x.id === r.producto_id);
+      if (e) alternos.set(r.codigo, e);
+    }
     const maestrosUsados = new Set(ex.map((e) => e.maestro_id).filter(Boolean));
     const eans = lec.productos.map((x) => x.ean).filter(Boolean);
     const maestro = new Map<string, string>((await c.query(`select ean, id from productos_maestro where ean = any($1)`, [eans])).rows.map((r) => [r.ean, r.id]));
@@ -51,7 +57,9 @@ export const POST = conSesion(async (s, req) => {
     const tomados = new Map<string, Producto>();
     const unicos: Producto[] = [];
     for (const x of lec.productos) {
-      const e = (x.ean && porEan.get(x.ean)) || porNombre.get(claveNombre(x.nombre, x.laboratorio)) || null;
+      const alterno = x.ean && !porEan.has(x.ean) ? alternos.get(x.ean.replace(/\s/g, "").toUpperCase()) : undefined;
+      if (alterno) x.ean = alterno.ean ?? ""; // llegó por un código alterno: el principal se conserva
+      const e = alterno || (x.ean && porEan.get(x.ean)) || porNombre.get(claveNombre(x.nombre, x.laboratorio)) || null;
       if (e && tomados.has(e.id)) {
         const otro = tomados.get(e.id)!;
         avisos.push({ fila: x.fila, texto: `es el mismo producto de la fila ${otro.fila} («${e.nombre}» ya está en tu droguería): se unen` });

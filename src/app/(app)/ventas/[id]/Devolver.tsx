@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { pesos } from "@/lib/formato";
 import { imprimirRuta } from "@/lib/impresion";
 
@@ -15,13 +15,20 @@ export function Devolver({ id, lineas, credito }: { id: string; lineas: Linea[];
   const [medio, setMedio] = useState("efectivo");
   const [error, setError] = useState("");
   const [enviando, setEnviando] = useState(false);
+  // A dónde vuelve lo devuelto: a la venta o a cuarentena (se revisa antes de venderlo). Arranca con lo que configuró la droguería.
+  const [destino, setDestino] = useState<"vendible" | "cuarentena">("vendible");
+  const [destinoListo, setDestinoListo] = useState(false);
+  useEffect(() => {
+    if (!abierto || destinoListo) return;
+    fetch(`/api/ventas/${id}/devolucion`).then((r) => (r.ok ? r.json() : null)).then((j) => { if (j?.destino === "cuarentena") setDestino("cuarentena"); }).catch(() => {}).finally(() => setDestinoListo(true));
+  }, [abierto, destinoListo, id]);
   const total = lineas.reduce((s, l, i) => s + Math.round((cant[i] ?? 0) * l.unitario), 0);
   const elegidas = lineas.map((l, i) => ({ l, q: cant[i] ?? 0 })).filter((x) => x.q > 0);
 
   async function devolver() {
     setEnviando(true); setError("");
     const r = await fetch(`/api/ventas/${id}/devolucion`, { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ motivo, medio, lineas: elegidas.map(({ l, q }) => ({ producto_id: l.producto_id, presentacion: l.presentacion, cantidad: q })) }) }).catch(() => null);
+      body: JSON.stringify({ motivo, medio, destino, lineas: elegidas.map(({ l, q }) => ({ producto_id: l.producto_id, presentacion: l.presentacion, cantidad: q })) }) }).catch(() => null);
     if (!r) { setError("Sin conexión: revisa internet e intenta de nuevo."); setEnviando(false); return; }
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { setError(j.error ?? "No se pudo registrar la devolución"); setEnviando(false); return; }
@@ -34,7 +41,7 @@ export function Devolver({ id, lineas, credito }: { id: string; lineas: Linea[];
     <div className="tarjeta p-5 grid gap-4" aria-label="Devolución">
       <div>
         <h2 className="titulo text-xl">Devolver productos</h2>
-        <p className="text-sm text-muted mt-1">Elige cuánto devuelve el cliente. Las unidades vuelven a su lote y, si la venta ya tiene documento electrónico, se genera la nota crédito por lo devuelto.</p>
+        <p className="text-sm text-muted mt-1">Elige cuánto devuelve el cliente. Las unidades vuelven a su lote (a la venta o a cuarentena) y, si la venta ya tiene documento electrónico, se genera la nota crédito por lo devuelto.</p>
       </div>
       <ul className="grid gap-3">
         {lineas.map((l, i) => (
@@ -51,6 +58,18 @@ export function Devolver({ id, lineas, credito }: { id: string; lineas: Linea[];
         <div><label htmlFor="dev-medio" className="etiqueta">{credito ? "Si ya había abonado, se reembolsa en" : "Se reembolsa en"}</label>
           <select id="dev-medio" className="campo" value={medio} onChange={(e) => setMedio(e.target.value)}>{MEDIOS.map(([k, t]) => <option key={k} value={k}>{t}</option>)}</select></div>
       </div>
+      <fieldset className="grid gap-2">
+        <legend className="etiqueta">¿A dónde va lo devuelto?</legend>
+        <div className="grid sm:grid-cols-2 gap-2">
+          {([["vendible", "Vuelve a la venta", "Está en buen estado: se puede vender de nuevo."], ["cuarentena", "A cuarentena", "Se revisa antes: el lote no se vende hasta liberarlo o darlo de baja."]] as const).map(([k, t, d]) => (
+            <label key={k} className={`rounded-xl border-2 px-3.5 py-2.5 cursor-pointer ${destino === k ? "border-ink bg-paper" : "border-line"}`}>
+              <span className="flex items-center gap-2 font-semibold"><input type="radio" name="dev-destino" value={k} checked={destino === k} onChange={() => setDestino(k)} />{t}</span>
+              <span className="block text-sm text-muted mt-0.5">{d}</span>
+            </label>
+          ))}
+        </div>
+        {destino === "cuarentena" && <p className="text-sm text-aviso font-semibold">Todo el lote al que vuelven estas unidades queda separado de la venta hasta que lo revises en Inventario › Cuarentena.</p>}
+      </fieldset>
       {credito && <p className="text-sm text-muted">Venta a crédito: lo devuelto se descuenta primero del saldo pendiente.</p>}
       <p className="flex justify-between items-baseline"><span>Total a devolver</span><span className="num titulo text-3xl">{pesos(total)}</span></p>
       {error && <p role="alert" className="text-sm text-alerta font-semibold">{error}</p>}
