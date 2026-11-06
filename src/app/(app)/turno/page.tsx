@@ -8,6 +8,7 @@ import { estadoTurno } from "@/lib/turnos";
 import { cajaElegida } from "@/lib/caja-elegida";
 import { ElegirCaja } from "@/components/app/ElegirCaja";
 import { Turno } from "./Turno";
+import { RecibirAbono } from "../clientes/RecibirAbono";
 
 export const metadata = { title: "Turno de caja" };
 
@@ -35,6 +36,12 @@ export default async function PaginaTurno() {
       <Cabecera titulo="Turno de caja" sub="Abre la caja con la base, registra entradas y salidas de efectivo y ciérrala contando el dinero." />
       {cajas.length > 1 && <ElegirCaja cajas={cajas} actual={estado.caja?.id ?? null} />}
       <Turno estado={JSON.parse(JSON.stringify(estado))} dueno={s.rol === "dueno"} />
+      {estado.caja && (estado.turno || gerencia) && (
+        <div className="grid gap-2 justify-items-start [&>section]:w-full [&>section]:max-w-2xl">
+          {!estado.turno && <p className="text-sm text-muted">Sin turno abierto, el pago no entra al efectivo de ninguna caja.</p>}
+          <RecibirAbono />
+        </div>
+      )}
       <section className="tarjeta overflow-x-auto" aria-label="Turnos cerrados">
         <h2 className="titulo text-xl px-4 pt-4">Turnos cerrados</h2>
         {historial.length === 0 ? <p className="px-4 py-4 text-muted">Aún no hay turnos cerrados.</p> : (

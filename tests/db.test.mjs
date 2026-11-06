@@ -913,3 +913,155 @@ test("devolución al proveedor: el stock baja ya, el saldo baja con la nota cré
     await c.query("set constraints all immediate");
   });
 });
+
+// ───────────── 033 · Clientes con cuenta (fiado controlado), recibos de caja y abonos por turno
+/** Una sola transacción (que se deshace) en la que se cambia de usuario: `quien(uid)` pasa a ese usuario y `raiz()` vuelve
+ *  a la conexión del servidor para preparar datos (cajas, turnos). */
+async function escena(fn) {
+  const c = await pool.connect();
+  try {
+    await c.query("begin");
+    const quien = async (uid) => { await c.query("reset role"); await c.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: uid, role: "authenticated" })]); await c.query("set local role authenticated"); };
+    const raiz = async () => { await c.query("reset role"); await c.query("select set_config('request.jwt.claims', '', true)"); };
+    const falla = async (sql, params) => { await c.query("savepoint f"); try { await c.query(sql, params); await c.query("release savepoint f"); return null; } catch (e) { await c.query("rollback to savepoint f"); return e; } };
+    return await fn(c, { quien, raiz, falla });
+  } finally { await c.query("rollback").catch(() => {}); c.release(); }
+}
+const unidadesPara = (valor) => Math.max(1, Math.round(valor / Number(prod.precio_unidad)));
+const fiado = (cli, cantidad, extra = {}) => venta([{ producto_id: prod.id, presentacion: "unidad", cantidad }], { tipo_doc: "factura", cliente_id: cli, condicion: "credito", pagos: [], ...extra });
+
+test("cupo: la cajera fía dentro del cupo; pasarse lo bloquea; el dueño lo autoriza con motivo y queda en la auditoría", async () => {
+  await escena(async (c, { quien, falla }) => {
+    await quien(U.carlos);
+    const cli = (await c.query(`insert into clientes (empresa_id, tipo_doc, numero_doc, nombre, email) values ($1, 'CC', '99000111', 'Cliente cupo prueba', 'cupo@prueba.example') returning id`, [E.A])).rows[0].id;
+    const u1 = unidadesPara(30000), precio = Number(prod.precio_unidad);
+    const cupo = Math.ceil((u1 * precio + precio) / 1000) * 1000; // cabe la primera venta, no una segunda igual
+    await c.query("select configurar_credito_cliente($1, $2, 15, false, 'Paga los viernes')", [cli, cupo]);
+    await quien(U.cajera);
+    const v1 = (await c.query("select registrar_venta($1) r", [fiado(cli, u1)])).rows[0].r;
+    assert.equal(v1.credito, true); assert.equal(v1.autorizado, false);
+    assert.equal((await c.query("select plazo_dias from ventas where id = $1", [v1.venta_id])).rows[0].plazo_dias, 15, "toma el plazo por defecto del cliente");
+    const est = (await c.query("select estado_credito($1, $2) e", [cli, u1 * precio])).rows[0].e;
+    assert.equal(est.puede_fiar, false); assert.match(est.motivo, /supera el cupo disponible/); assert.equal(Number(est.cupo_disponible), cupo - Number(v1.total));
+    const e1 = await falla("select registrar_venta($1)", [fiado(cli, u1)]);
+    assert.match(e1?.message ?? "", /supera el cupo disponible.*solo el dueño o el administrador/);
+    assert.equal(e1.code, "P0001");
+    await quien(U.carlos);
+    const e2 = await falla("select registrar_venta($1)", [fiado(cli, u1)]);
+    assert.match(e2?.message ?? "", /escribe el motivo/);
+    const v2 = (await c.query("select registrar_venta($1) r", [fiado(cli, u1, { motivo_credito: "Cliente de años, paga el lunes" })])).rows[0].r;
+    assert.equal(v2.autorizado, true);
+    const aud = (await c.query(`select datos from auditoria where accion = 'credito_autorizado' and entidad_id = $1`, [v2.venta_id])).rows[0];
+    assert.equal(aud?.datos.motivo, "Cliente de años, paga el lunes");
+    assert.match(aud.datos.razon, /supera el cupo/);
+    // Bloqueado: ni la cajera ni el dueño sin motivo.
+    await c.query("select configurar_credito_cliente($1, $2, 15, true, null)", [cli, cupo * 10]);
+    await quien(U.cajera);
+    assert.match((await falla("select registrar_venta($1)", [fiado(cli, 1)]))?.message ?? "", /bloqueado/);
+    assert.equal((await c.query("select estado_credito($1) e", [cli])).rows[0].e.motivo, "El crédito de este cliente está bloqueado");
+  });
+});
+
+test("mora mayor al límite bloquea el fiado; sin cupo la cajera no fía y la gerencia sí (como antes)", async () => {
+  await escena(async (c, { quien, raiz, falla }) => {
+    await quien(U.carlos);
+    const cli = (await c.query(`insert into clientes (empresa_id, tipo_doc, numero_doc, nombre, email) values ($1, 'CC', '99000222', 'Cliente mora prueba', 'mora@prueba.example') returning id`, [E.A])).rows[0].id;
+    const v = (await c.query("select registrar_venta($1) r", [fiado(cli, 1, { plazo_dias: 1 })])).rows[0].r; // sin cupo: la gerencia fía
+    assert.equal(v.autorizado, false);
+    await quien(U.cajera);
+    const sin = await falla("select registrar_venta($1)", [fiado(cli, 1, { plazo_dias: 30 })]);
+    assert.match(sin?.message ?? "", /Sin cupo de crédito asignado.*dueño o el administrador/);
+    await raiz();
+    await c.query("set constraints all immediate");
+    await c.query("alter table ventas disable trigger ventas_inmutables");
+    await c.query("update ventas set vence_pago = current_date - 40 where id = $1", [v.venta_id]);
+    await c.query("alter table ventas enable trigger ventas_inmutables");
+    await c.query("set constraints all deferred");
+    await c.query("update empresas set dias_mora_bloqueo = 30 where id = $1", [E.A]);
+    await quien(U.carlos);
+    await c.query("select configurar_credito_cliente($1, 10000000, 30, false, null)", [cli]);
+    const est = (await c.query("select estado_credito($1, 1000) e", [cli])).rows[0].e;
+    assert.equal(est.puede_fiar, false); assert.equal(est.requiere_motivo, true); assert.match(est.motivo, /Mora de 40 días/);
+    assert.match((await falla("select registrar_venta($1)", [fiado(cli, 1)]))?.message ?? "", /Mora de 40 días/);
+    await quien(U.cajera);
+    assert.match((await falla("select registrar_venta($1)", [fiado(cli, 1)]))?.message ?? "", /Mora de 40 días/);
+    assert.equal((await c.query("select estado_credito($1) e", [cli])).rows[0].e.requiere_motivo, false, "la cajera no puede autorizar");
+  });
+});
+
+test("recibo de caja: reparte a la factura que vence antes, no recibe más que el saldo, y anularlo restituye", async () => {
+  await escena(async (c, { quien, raiz, falla }) => {
+    await quien(U.carlos);
+    const cli = (await c.query(`insert into clientes (empresa_id, tipo_doc, numero_doc, nombre, email) values ($1, 'CC', '99000333', 'Cliente recibo prueba', 'rc@prueba.example') returning id`, [E.A])).rows[0].id;
+    const nueva = (await c.query("select registrar_venta($1) r", [fiado(cli, 3, { plazo_dias: 60 })])).rows[0].r;
+    const vieja = (await c.query("select registrar_venta($1) r", [fiado(cli, 2, { plazo_dias: 10 })])).rows[0].r;
+    const deuda = Number(nueva.total) + Number(vieja.total);
+    const pago = Number(vieja.total) + 100;
+    assert.match((await falla("select registrar_recibo($1, 'efectivo', $2, null, $3)", [cli, deuda + 1, C.A]))?.message ?? "", /supera lo que debe/);
+    const r = (await c.query("select registrar_recibo($1, 'nequi', $2, 'ref 77', $3) r", [cli, pago, C.A])).rows[0].r;
+    assert.deepEqual(r.aplicado.map((a) => [a.venta_id, Number(a.valor)]), [[vieja.venta_id, Number(vieja.total)], [nueva.venta_id, 100]]);
+    const saldos = async () => Object.fromEntries((await c.query("select venta_id, saldo::float s from v_cartera where cliente_id = $1", [cli])).rows.map((x) => [x.venta_id, x.s]));
+    assert.deepEqual(await saldos(), { [vieja.venta_id]: 0, [nueva.venta_id]: Number(nueva.total) - 100 });
+    assert.equal(Number(r.saldo), deuda - pago);
+    // Un abono del recibo no se anula suelto; el recibo, sí, y los saldos vuelven.
+    const ab = (await c.query("select id from abonos where recibo_id = $1 limit 1", [r.id])).rows[0].id;
+    assert.match((await falla("select anular_abono($1, 'prueba')", [ab]))?.message ?? "", /anula el recibo completo/);
+    await quien(U.cajera);
+    assert.match((await falla("select anular_recibo($1, 'prueba de cajera')", [r.id]))?.message ?? "", /dueño o el administrador/);
+    await quien(U.carlos);
+    await c.query("select anular_recibo($1, 'Pago devuelto por el banco')", [r.id]);
+    assert.deepEqual(await saldos(), { [vieja.venta_id]: Number(vieja.total), [nueva.venta_id]: Number(nueva.total) });
+    assert.match((await falla("update recibos_caja set valor = 1 where id = $1", [r.id]))?.message ?? "", /permission denied/);
+    await raiz();
+    assert.match((await falla("update recibos_caja set valor = 1 where id = $1", [r.id]))?.message ?? "", /solo puede anularse/);
+    assert.match((await falla("delete from recibos_caja where id = $1", [r.id]))?.message ?? "", /no se borran/);
+  });
+});
+
+test("abonos por turno: con dos cajas, el efectivo de la caja 2 cuenta solo en su turno; la cajera sin turno no recibe", async () => {
+  await escena(async (c, { quien, raiz, falla }) => {
+    await raiz();
+    const c2 = (await c.query(`insert into cajas (empresa_id, sede_id, nombre) values ($1, $2, 'Caja prueba 2') returning id`, [E.A, S.A])).rows[0].id;
+    await quien(U.carlos);
+    const cli = (await c.query(`insert into clientes (empresa_id, tipo_doc, numero_doc, nombre, email) values ($1, 'CC', '99000444', 'Cliente turno prueba', 't@prueba.example') returning id`, [E.A])).rows[0].id;
+    await c.query("select registrar_venta($1) r", [fiado(cli, 4, { plazo_dias: 30 })]);
+    await quien(U.cajera);
+    assert.match((await falla("select registrar_recibo($1, 'efectivo', 1000, null, $2)", [cli, c2]))?.message ?? "", /Abre el turno/);
+    assert.match((await falla("select registrar_recibo($1, 'efectivo', 1000, null, null)", [cli]))?.message ?? "", /Abre el turno/);
+    const t1 = (await c.query("select abrir_turno($1, 0) t", [C.A])).rows[0].t;
+    const t2 = (await c.query("select abrir_turno($1, 0) t", [c2])).rows[0].t;
+    const r = (await c.query("select registrar_recibo($1, 'efectivo', 1000, null, $2) r", [cli, c2])).rows[0].r;
+    assert.equal(r.turno_id, t2);
+    const res = async (t) => (await c.query("select resumen_turno($1) r", [t])).rows[0].r;
+    assert.equal(Number((await res(t2)).abonos_efectivo), 1000);
+    assert.equal(Number((await res(t2)).n_recibos), 1);
+    assert.equal(Number((await res(t1)).abonos_efectivo), 0, "no se duplica en la caja 1");
+    // Abono suelto de la cajera a una factura, en su caja con turno.
+    const vid = (await c.query("select id from ventas where cliente_id = $1", [cli])).rows[0].id;
+    await c.query("select registrar_abono($1, 'nequi', 500, null, $2)", [vid, C.A]);
+    assert.equal(Number((await res(t1)).abonos_medios.nequi), 500);
+    assert.equal(Number((await res(t1)).abonos_efectivo), 0);
+  });
+});
+
+test("cuentas de clientes: aislamiento entre empresas y permisos por rol", async () => {
+  const cli = (await pool.query(`select id from clientes where empresa_id = $1 limit 1`, [E.A])).rows[0].id;
+  await assert.rejects(como(U.duenoB, (c) => c.query("select estado_credito($1)", [cli])), /permiso/);
+  await assert.rejects(como(U.duenoB, (c) => c.query("select registrar_recibo($1, 'efectivo', 1000)", [cli])), /permiso/);
+  await assert.rejects(como(U.duenoB, (c) => c.query("select configurar_credito_cliente($1, 1000, 30, false, null)", [cli])), /dueño o el administrador/);
+  await assert.rejects(como(U.duenoB, (c) => c.query("select * from deudores($1)", [E.A])), /permiso/);
+  await assert.rejects(como(U.bodega, (c) => c.query("select estado_credito($1)", [cli])), /permiso/);
+  await assert.rejects(como(U.cajera, (c) => c.query("select configurar_credito_cliente($1, 1000, 30, false, null)", [cli])), /dueño o el administrador/);
+  await assert.rejects(como(U.cajera, (c) => c.query("update clientes set cupo_credito = 99999999 where id = $1", [cli])), /permission denied/);
+  await assert.rejects(como(U.cajera, (c) => c.query("insert into clientes (empresa_id, tipo_doc, numero_doc, nombre, cupo_credito) values ($1, 'CC', '1234567', 'X', 5000000)", [E.A])), /permission denied/);
+  await assert.rejects(como(U.carlos, (c) => c.query("select configurar_mora($1, 30)", [E.A])), /demostración/);
+  const vistos = await como(U.duenoB, async (c) => (await c.query("select count(*)::int n from recibos_caja")).rows[0].n);
+  assert.equal(vistos, 0);
+  // El estado de cuenta cuadra: la suma de saldos de v_cartera = cargos − devuelto a saldo − abonos vigentes.
+  const r = await como(U.carlos, async (c) => (await c.query(`select
+      (select coalesce(sum(saldo), 0) from v_cartera where empresa_id = $1)::float vista,
+      (select coalesce(sum(v.total), 0) from ventas v where v.empresa_id = $1 and v.condicion = 'credito' and v.estado = 'cerrada')::float
+      - (select coalesce(sum(d.a_saldo), 0) from devoluciones d join ventas v on v.id = d.venta_id where v.empresa_id = $1 and v.condicion = 'credito' and v.estado = 'cerrada')::float
+      - (select coalesce(sum(a.valor), 0) from abonos a join ventas v on v.id = a.venta_id where v.empresa_id = $1 and v.estado = 'cerrada' and not a.anulado)::float libro`, [E.A])).rows[0]);
+  assert.equal(r.vista, r.libro);
+});

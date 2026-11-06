@@ -168,3 +168,9 @@
 - `scripts/db-reset.mjs` usa la base `regenta` por defecto: un reinicio sin DATABASE_URL borra la base de otro. Cada frente y el integrador usan su propia base (regenta_2a…, regenta_int) y pasan DATABASE_URL en la misma línea de cada comando.
 - Si una suite falla con «terminating connection due to administrator command» o le faltan datos de la demo, primero sospechar de un reinicio ajeno, no del código.
 - Detener solo el servidor propio (`fuser -k 4500/tcp`), nunca `pkill -f "next start"`: mataría los servidores de los demás frentes.
+
+## 06/11/2026 · Frente 2-C (cuentas de clientes)
+- Un `<span class="sr-only">` (posición absoluta) dentro de una tabla con `overflow-x-auto` se ubica respecto al primer ancestro posicionado, no al contenedor desplazable: en el celular ensanchaba la página (/clientes llegó a 766 px). Los contenedores desplazables de tablas llevan `relative`. La prueba `cortados` no lo ve (excluye lo que está dentro de un desplazable): mirar también `desborde`.
+- `set constraints all immediate` en una prueba deja inmediatas las FK diferidas para el resto de la transacción: una venta posterior (líneas antes que la venta) falla por FK. Tras alterar triggers, volver con `set constraints all deferred`.
+- `fetch().text()` quita el BOM: para comprobar el BOM de un CSV, leer los bytes (`arrayBuffer`).
+- Con `loading.tsx`, `notFound()` llega por streaming con estado 200: las pruebas comprueban el contenido («404») y que no salga el dato ajeno, no el código HTTP.
