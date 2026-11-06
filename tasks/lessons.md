@@ -181,3 +181,8 @@
 - Cada tabla nueva con llave hacia empresas por un camino RESTRICT/NO ACTION (pagos_proveedor → movimientos_caja) rompe eliminar_empresa_prueba sin que ninguna prueba del frente lo note: cada bloque añade una prueba de base que llena TODAS sus tablas en la empresa B y la elimina.
 - No poner `update` de datos en una migración para rellenar una columna nueva: crear la columna con el valor de las filas viejas (`default true`) y cambiar luego el default; no reescribe la tabla y no vuelve a marcar nada si la migración se repite.
 - Los servidores simulados de las pruebas (IA, Wompi) toman su puerto de una variable: con puertos fijos dos hilos no pueden correr la batería a la vez.
+
+## Navegaciones colgadas del enrutador de Next.js 15 (06/11/2026)
+- Síntoma medido: clic en un enlace interno (sobre todo desde /inventario hacia /inventario/ajustes o /conteos) → la respuesta RSC llega entera (Resource Timing: ~5 KB en 30 ms) pero la dirección nunca cambia; hasta 5 de 20 clics. Esperar a que la página cargue no lo evita. No hay error en servidor ni consola. Es un problema conocido del App Router sin arreglo oficial.
+- Solución: `src/components/GuardiaNavegacion.tsx` en el layout raíz. Tras un clic interno, si la respuesta de esa pantalla ya llegó (PerformanceObserver, petición iniciada después del clic) y en 2,5 s la dirección no cambió, carga la pantalla de forma normal. Si el servidor tarda, no actúa. Medido después: 0 de 120.
+- Para reproducir: scratchpad nav3.mjs (clic + waitForURL en bucle, por origen y destino). Un fallo intermitente de navegación en e2e es un fallo real hasta demostrar lo contrario.

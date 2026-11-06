@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { SITIO } from "@/lib/sitio";
+import { GuardiaNavegacion } from "@/components/GuardiaNavegacion";
 
 export const metadata: Metadata = {
   title: { default: "Regenta", template: "%s · Regenta" },
@@ -12,5 +13,5 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { themeColor: "#102a43" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return <html lang="es-CO"><body>{children}</body></html>;
+  return <html lang="es-CO"><body>{children}<GuardiaNavegacion /></body></html>;
 }
