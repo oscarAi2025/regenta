@@ -7,8 +7,8 @@ import { limite } from "@/lib/planes";
 
 // El dueño administra su equipo: invita, desactiva y reenvía enlaces. No crea otros dueños (eso pasa por soporte).
 const Nuevo = z.object({ nombre: z.string().trim().min(3, "Escribe el nombre").max(120), email: z.string().trim().toLowerCase().email("Correo no válido").max(160),
-  rol: z.enum(["admin", "cajero", "bodeguero"]) });
-const Cambio = z.object({ cuenta_id: z.string().uuid(), activo: z.boolean().optional(), enlace: z.literal(true).optional(), rol: z.enum(["admin", "cajero", "bodeguero"]).optional() });
+  rol: z.enum(["admin", "cajero", "bodeguero", "vendedor"]) });
+const Cambio = z.object({ cuenta_id: z.string().uuid(), activo: z.boolean().optional(), enlace: z.literal(true).optional(), rol: z.enum(["admin", "cajero", "bodeguero", "vendedor"]).optional() });
 const negar = (m: string, status = 400) => Object.assign(new Error(m), { status });
 
 async function base(c: Parameters<Parameters<typeof sinRLS>[0]>[0], empresa: string) {

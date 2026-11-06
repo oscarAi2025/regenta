@@ -3,7 +3,7 @@ import { nuevoToken, hashToken } from "./claves";
 import { SITIO } from "./sitio";
 import type { Tx } from "./db";
 
-export const ROLES = { dueno: "Dueño", admin: "Administrador", cajero: "Cajera/o", bodeguero: "Bodega" } as const;
+export const ROLES = { dueno: "Dueño", admin: "Administrador", cajero: "Cajera/o", bodeguero: "Bodega", vendedor: "Vendedor" } as const;
 
 /** Crea (o reutiliza por correo) una cuenta, la vuelve miembro de la empresa y genera su enlace de invitación (7 días). */
 const negar = (m: string) => Object.assign(new Error(m), { code: "P0001" });
