@@ -30,6 +30,7 @@ async function entrar(ctx, quien) {
   const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
   const { p, errs } = await entrar(ctx, "Laura");
   ok(p.url().endsWith("/caja"), "la cajera entra directo a la caja");
+  await p.waitForLoadState("networkidle"); // lección 02/11: escribir antes de hidratar pierde teclas
   await p.screenshot({ path: `${OUT}/caja-vacia.png` });
   await p.keyboard.type("acetaminofen forte mk"); // uno con cajas de sobra (la prueba vende una caja)
   await p.waitForSelector('[aria-label="Resultados"] [role="option"]');

@@ -28,7 +28,7 @@ const venta = (lineas, extra = {}) => ({ empresa_id: E.A, sede_id: S.A, caja_id:
 let prod; // un producto con dos lotes y existencias
 before(async () => {
   const { rows } = await pool.query(`select p.id, p.precio_caja, p.unidades_por_caja, p.precio_unidad from productos p
-    where p.empresa_id = $1 and p.unidades_por_caja > 1 and p.precio_unidad is not null
+    where p.empresa_id = $1 and p.unidades_por_caja > 1 and p.precio_unidad is not null and not p.requiere_formula
       and (select count(*) from v_stock_lotes s where s.producto_id = p.id and s.unidades > 0) = 2 limit 1`, [E.A]);
   prod = rows[0];
   assert.ok(prod, "hay un producto fraccionable con dos lotes en la demo");
@@ -442,4 +442,102 @@ test("anular una venta cuyo envío quedó en duda (ya se intentó) genera nota c
 
 test("los usuarios no escriben la tabla de miembros directamente", async () => {
   await assert.rejects(como(U.carlos, (c) => c.query(`insert into miembros (empresa_id, user_id, nombre, rol) values ($1, $2, 'x', 'dueno')`, [E.A, U.duenoB])), /permission denied/);
+});
+
+// ── Control especial y venta con fórmula (migración 030)
+const FORMULA = { verificada: true, paciente_tipo_doc: "CC", paciente_doc: "1012345678", paciente_nombre: "Paciente de Prueba", medico_nombre: "Médica de Prueba", medico_registro: "RM 12345", formula_numero: "F-1" };
+const hace = (n) => new Date(Date.now() - n * 864e5).toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+const comoEn = (c, uid) => c.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: uid, role: "authenticated" })]);
+async function productoControlado(c, control = true) {
+  const id = (await c.query(`insert into productos (empresa_id, nombre, iva, unidades_por_caja, precio_caja, control_especial) values ($1, 'Prueba controlado', 0, 1, 1000, $2) returning id`, [E.A, control])).rows[0].id;
+  if (!control) await c.query(`update productos set requiere_formula = true where id = $1`, [id]);
+  await c.query(`select registrar_entrada(jsonb_build_object('empresa_id', $1::uuid, 'sede_id', $2::uuid, 'tipo', 'compra', 'lineas', jsonb_build_array(
+    jsonb_build_object('producto_id', $3::uuid, 'lote', 'CE1', 'vence', (current_date + 300)::text, 'unidades', 10))))`, [E.A, S.A, id]);
+  return id;
+}
+
+test("control especial implica fórmula y el cambio de marca queda en la auditoría", async () => {
+  await como(U.carlos, async (c) => {
+    const id = (await c.query(`insert into productos (empresa_id, nombre, iva, unidades_por_caja, precio_caja, control_especial) values ($1, 'Prueba marca', 0, 1, 1000, true) returning id`, [E.A])).rows[0].id;
+    assert.equal((await c.query(`select requiere_formula from productos where id = $1`, [id])).rows[0].requiere_formula, true);
+    await c.query(`update productos set control_especial = false, requiere_formula = false where id = $1`, [id]);
+    const a = (await c.query(`select datos from auditoria where entidad_id = $1 and accion = 'cambio_formula'`, [id])).rows;
+    assert.equal(a.length, 1);
+    assert.deepEqual(a[0].datos.despues, { formula: false, control: false });
+  });
+});
+
+test("control especial: sin fórmula la venta no se confirma (aunque se llame directo a la base)", async () => {
+  await assert.rejects(como(U.carlos, async (c) => {
+    const id = await productoControlado(c);
+    await c.query("select registrar_venta($1)", [venta([{ producto_id: id, presentacion: "caja", cantidad: 1 }], { pagos: [{ medio: "efectivo", valor: 1000 }] })]);
+    await c.query("set constraints all immediate"); // lo que pasaría al confirmar la transacción
+  }), /fórmula médica/);
+});
+
+test("control especial: datos obligatorios, fecha no futura y vigencia de la droguería", async () => {
+  const intento = (datos) => como(U.carlos, async (c) => {
+    const id = await productoControlado(c);
+    const v = (await c.query("select registrar_venta($1) r", [venta([{ producto_id: id, presentacion: "caja", cantidad: 1 }], { pagos: [{ medio: "efectivo", valor: 1000 }] })])).rows[0].r;
+    return (await c.query("select registrar_formulas_venta($1, $2) n", [v.venta_id, datos])).rows[0].n;
+  });
+  await assert.rejects(intento({ ...FORMULA, paciente_nombre: "" }), /nombre completo del paciente/);
+  await assert.rejects(intento({ ...FORMULA, medico_registro: "", formula_fecha: hace(1) }), /registro profesional/);
+  await assert.rejects(intento({ ...FORMULA, formula_fecha: hace(-1) }), /posterior a hoy/);
+  await assert.rejects(intento({ ...FORMULA, formula_fecha: hace(31) }), /ya no está vigente: tiene más de 30 días/);
+  assert.equal(await intento({ ...FORMULA, formula_fecha: hace(30) }), 1);
+});
+
+test("control especial: el libro tiene la dispensación con su lote; la anulación es un reintegro y nada se borra", async () => {
+  await como(U.carlos, async (c) => {
+    const id = await productoControlado(c);
+    await comoEn(c, U.cajera);
+    const v = (await c.query("select registrar_venta($1) r", [venta([{ producto_id: id, presentacion: "caja", cantidad: 3 }], { pagos: [{ medio: "efectivo", valor: 3000 }] })])).rows[0].r;
+    assert.equal((await c.query("select registrar_formulas_venta($1, $2) n", [v.venta_id, { ...FORMULA, formula_fecha: hace(2) }])).rows[0].n, 1);
+    assert.equal((await c.query("select registrar_formulas_venta($1, $2) n", [v.venta_id, { ...FORMULA, formula_fecha: hace(2) }])).rows[0].n, 0, "un reintento no duplica");
+    await c.query("set constraints all immediate");
+    assert.equal((await c.query("select count(*)::int n from venta_formulas")).rows[0].n, 0, "la cajera no lee los datos de pacientes");
+    assert.equal((await c.query("select count(*)::int n from v_libro_control")).rows[0].n, 0, "ni el libro");
+    await comoEn(c, U.carlos);
+    const d = (await c.query(`select l.tipo, l.salida, lo.lote, l.paciente_doc, l.prefijo || l.numero venta from v_libro_control l join lotes lo on lo.id = l.lote_id where l.venta_id = $1`, [v.venta_id])).rows;
+    assert.deepEqual(d, [{ tipo: "dispensacion", salida: 3, lote: "CE1", paciente_doc: "1012345678", venta: v.prefijo + v.numero }]);
+    await c.query("select anular_venta($1, 'Error de digitación')", [v.venta_id]);
+    const l = (await c.query(`select tipo, salida, reintegro, motivo from v_libro_control where venta_id = $1 order by tipo`, [v.venta_id])).rows;
+    assert.deepEqual(l.map((x) => [x.tipo, x.salida, x.reintegro]), [["dispensacion", 3, 0], ["reintegro", 0, 3]]);
+    assert.match(l[1].motivo, /Anulación de la venta: Error de digitación/);
+    await c.query("reset role");
+    await assert.rejects(c.query(`update venta_formulas set paciente_nombre = 'Otro' where venta_id = $1`, [v.venta_id]), /no se modifican ni se borran/);
+  });
+});
+
+test("control especial: la fórmula no se agrega después de la venta, ni la registra otro usuario ni otra empresa", async () => {
+  const c = await pool.connect();
+  try {
+    await c.query("begin");
+    await comoEn(c, U.carlos); await c.query("set local role authenticated");
+    const id = await productoControlado(c, false); // venta con fórmula sin control: basta confirmar
+    const v = (await c.query("select registrar_venta($1) r", [venta([{ producto_id: id, presentacion: "caja", cantidad: 1 }], { pagos: [{ medio: "efectivo", valor: 1000 }] })])).rows[0].r;
+    await c.query("savepoint s");
+    await comoEn(c, U.duenoB);
+    await assert.rejects(c.query("select registrar_formulas_venta($1, $2)", [v.venta_id, { verificada: true }]), /permiso/);
+    await c.query("rollback to savepoint s");
+    await c.query("savepoint s");
+    await comoEn(c, U.carlos);
+    await assert.rejects(c.query("select registrar_formulas_venta($1, $2)", [v.venta_id, { verificada: false }]), /confirma que la verificaste/);
+    await c.query("rollback to savepoint s");
+    assert.equal((await c.query("select registrar_formulas_venta($1, $2) n", [v.venta_id, { verificada: true }])).rows[0].n, 1);
+    const f = (await c.query("select control, verificada, paciente_doc from venta_formulas where venta_id = $1", [v.venta_id])).rows[0];
+    assert.deepEqual(f, { control: false, verificada: true, paciente_doc: null });
+    // Una venta vieja (otra transacción) no recibe fórmula a posteriori.
+    const vieja = (await c.query(`select id from ventas where empresa_id = $1 and creado < now() - interval '1 day' limit 1`, [E.A])).rows[0].id;
+    await assert.rejects(c.query("select registrar_formulas_venta($1, $2)", [vieja, FORMULA]), /momento de la venta/);
+  } finally { await c.query("rollback").catch(() => {}); c.release(); }
+});
+
+test("vigencia configurable solo por dueño o administrador, nunca en la demo", async () => {
+  await assert.rejects(como(U.cajera, (c) => c.query("select configurar_formulas($1, 15, false)", [E.A])), /dueño o el administrador/);
+  await assert.rejects(como(U.carlos, (c) => c.query("select configurar_formulas($1, 15, false)", [E.A])), /demostración/);
+  await assert.rejects(como(U.duenoB, (c) => c.query("select configurar_formulas($1, 0, false)", [E.B])), /entre 1 y 365/);
+  const r = await como(U.duenoB, async (c) => { await c.query("select configurar_formulas($1, 15, true)", [E.B]); return (await c.query("select formula_vigencia_dias, formula_exige_datos from empresas where id = $1", [E.B])).rows[0]; });
+  assert.deepEqual(r, { formula_vigencia_dias: 15, formula_exige_datos: true });
 });

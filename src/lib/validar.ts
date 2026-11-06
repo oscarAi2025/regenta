@@ -14,6 +14,9 @@ export const ProductoEntrada = z.object({
   precio_unidad: z.number().int("El precio va en pesos, sin centavos").positive().max(100_000_000).nullish(),
   stock_minimo: z.number().int().min(0).max(100000).default(0),
   registro_sanitario: z.string().trim().max(60).nullish(),
+  // Marcas de dispensación (sin enviar = no se cambian). Control especial implica fórmula.
+  requiere_formula: z.boolean().optional(),
+  control_especial: z.boolean().optional(),
 }).refine((p) => !p.precio_unidad || p.precio_unidad <= p.precio_caja, { message: "El precio por unidad no puede ser mayor que el de la caja completa", path: ["precio_unidad"] });
 export type ProductoEntrada = z.infer<typeof ProductoEntrada>;
 

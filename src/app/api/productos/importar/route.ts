@@ -88,11 +88,12 @@ export const POST = conSesion(async (s, req) => {
       const m = x.ean ? maestro.get(x.ean) : undefined;
       const maestro_id = m && !maestrosUsados.has(m) ? (maestrosUsados.add(m), m) : null;
       return { id, maestro_id, nombre: x.nombre, laboratorio: x.laboratorio || null, ean: x.ean || null, iva: x.iva, unidades_por_caja: x.unidades_por_caja,
-        precio_caja: x.precio_caja, precio_unidad: x.precio_unidad, stock_minimo: x.stock_minimo, registro_sanitario: x.registro_sanitario || null };
+        precio_caja: x.precio_caja, precio_unidad: x.precio_unidad, stock_minimo: x.stock_minimo, registro_sanitario: x.registro_sanitario || null,
+        requiere_formula: !!(x.requiere_formula || x.control_especial), control_especial: !!x.control_especial };
     });
-    if (nuevos.length) await c.query(`insert into productos (id, empresa_id, maestro_id, nombre, laboratorio, ean, iva, unidades_por_caja, precio_caja, precio_unidad, stock_minimo, registro_sanitario)
-      select id, $1, maestro_id, nombre, laboratorio, ean, iva, unidades_por_caja, precio_caja, precio_unidad, stock_minimo, registro_sanitario
-      from jsonb_to_recordset($2) as x(id uuid, maestro_id uuid, nombre text, laboratorio text, ean text, iva numeric, unidades_por_caja int, precio_caja numeric, precio_unidad numeric, stock_minimo int, registro_sanitario text)`,
+    if (nuevos.length) await c.query(`insert into productos (id, empresa_id, maestro_id, nombre, laboratorio, ean, iva, unidades_por_caja, precio_caja, precio_unidad, stock_minimo, registro_sanitario, requiere_formula, control_especial)
+      select id, $1, maestro_id, nombre, laboratorio, ean, iva, unidades_por_caja, precio_caja, precio_unidad, stock_minimo, registro_sanitario, requiere_formula, control_especial
+      from jsonb_to_recordset($2) as x(id uuid, maestro_id uuid, nombre text, laboratorio text, ean text, iva numeric, unidades_por_caja int, precio_caja numeric, precio_unidad numeric, stock_minimo int, registro_sanitario text, requiere_formula boolean, control_especial boolean)`,
       [s.empresa, JSON.stringify(nuevos)]);
 
     // Existentes: solo se cambian las columnas que trae el archivo (si no trae IVA, el IVA de cada producto se respeta).
@@ -108,11 +109,15 @@ export const POST = conSesion(async (s, req) => {
       tiene("unidades_por_caja") ? "precio_unidad = x.precio_unidad"
         : tiene("precio_unidad") && "precio_unidad = case when p.unidades_por_caja > 1 then coalesce(x.pu_archivo, p.precio_unidad) end",
       tiene("stock_minimo") && "stock_minimo = x.stock_minimo",
-      tiene("registro_sanitario") && "registro_sanitario = coalesce(nullif(x.registro_sanitario, ''), p.registro_sanitario)"].filter(Boolean);
+      tiene("registro_sanitario") && "registro_sanitario = coalesce(nullif(x.registro_sanitario, ''), p.registro_sanitario)",
+      // Marcas de dispensación: solo si la fila las trae (control especial implica fórmula; lo completa la base).
+      (tiene("control_especial") || tiene("requiere_formula")) && "control_especial = coalesce(x.control_especial, p.control_especial)",
+      (tiene("control_especial") || tiene("requiere_formula")) && "requiere_formula = coalesce(x.requiere_formula, p.requiere_formula) or coalesce(x.control_especial, p.control_especial)"].filter(Boolean);
     const viejos = unicos.filter((x) => destino.get(x) && !nuevos.some((n) => n.id === destino.get(x)!.id)).map((x) => ({ id: destino.get(x)!.id, nombre: x.nombre, laboratorio: x.laboratorio, ean: x.ean,
-      iva: x.iva, unidades_por_caja: x.unidades_por_caja, precio_caja: x.precio_caja, precio_unidad: x.precio_unidad, pu_archivo: x.pu_archivo, stock_minimo: x.stock_minimo, registro_sanitario: x.registro_sanitario }));
+      iva: x.iva, unidades_por_caja: x.unidades_por_caja, precio_caja: x.precio_caja, precio_unidad: x.precio_unidad, pu_archivo: x.pu_archivo, stock_minimo: x.stock_minimo, registro_sanitario: x.registro_sanitario,
+      requiere_formula: x.requiere_formula ?? null, control_especial: x.control_especial ?? null }));
     if (viejos.length) await c.query(`update productos p set ${sets.join(", ")}
-      from jsonb_to_recordset($2) as x(id uuid, nombre text, laboratorio text, ean text, iva numeric, unidades_por_caja int, precio_caja numeric, precio_unidad numeric, pu_archivo numeric, stock_minimo int, registro_sanitario text)
+      from jsonb_to_recordset($2) as x(id uuid, nombre text, laboratorio text, ean text, iva numeric, unidades_por_caja int, precio_caja numeric, precio_unidad numeric, pu_archivo numeric, stock_minimo int, registro_sanitario text, requiere_formula boolean, control_especial boolean)
       where p.id = x.id and p.empresa_id = $1`, [s.empresa, JSON.stringify(viejos)]);
 
     const lineas = unicos.flatMap((x) => x.lotes.map((l) => ({ producto_id: destino.get(x)!.id, lote: l.lote, vence: l.vence, unidades: l.unidades, ...(l.costo !== undefined ? { costo_unidad: l.costo } : {}) })));

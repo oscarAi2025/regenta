@@ -100,6 +100,10 @@ const R = [
   { m: "POST", p: `/api/ventas/${U}/reenviar`, acceso: "sesion", rol: ["cajero", 403] },
   { m: "DELETE", p: `/api/ventas/${U}`, acceso: "sesion", basura: true },
   { m: "POST", p: "/api/ventas", acceso: "sesion", basura: true, rol: ["bodega", 403] },
+  { m: "GET", p: "/api/control-especial", acceso: "sesion", rol: ["cajero", 403] },
+  { m: "GET", p: "/api/control-especial?formato=csv&desde=x&hasta=y", acceso: "sesion", rol: ["bodega", 403] },
+  { m: "GET", p: "/api/control-especial?producto=x", acceso: "sesion", espera: 400 },
+  { m: "PATCH", p: "/api/control-especial", acceso: "sesion", basura: true, rol: ["cajero", 403] },
   // consola de superadministración
   { m: "POST", p: `/api/admin/clientes/${U}/entrar`, acceso: "admin" },
   { m: "POST", p: `/api/admin/clientes/${U}/numeraciones`, acceso: "admin", basura: true },

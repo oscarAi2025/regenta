@@ -330,5 +330,11 @@ Baja: 17 correo al cancelar renovación · 18 plan Socio límites/descuento · 1
 Reparto en 3 frentes paralelos (cada uno en su rama, su base local y su puerto); el menú y el despliegue los integra el hilo principal.
 - [ ] A · Inventario (migración 028): ajustes y bajas con motivo + acta de baja imprimible; kardex por producto; conteo físico (toma de inventario) con diferencias y ajuste en un clic — base local regenta_a, puerto 4501
 - [ ] B · Cumplimiento (migración 029): pantalla Documentos electrónicos (facturas, POS y notas crédito con estado DIAN, filtros, reenvío, XML/PDF); planilla de temperatura y humedad (registro diario, fuera de rango, informe mensual imprimible) — regenta_b, 4502
-- [ ] C · Control especial (migración 030): marca de control especial / venta con fórmula en el producto; la caja pide paciente, médico y fórmula; libro de control especial exportable — regenta_c, 4503
+- [x] C · Control especial (migración 030): marca de control especial / venta con fórmula en el producto; la caja pide paciente, médico y fórmula; libro de control especial exportable — regenta_c, 4503
+  - [x] Marcas en ficha, alta, listado e importación Excel (sí/no/x/1, «condición de venta»); auditoría del cambio de marca
+  - [x] Caja: panel de fórmula (control: paciente, médico, registro, n.º y fecha vigente según el plazo de la droguería; con fórmula: confirmación), F9 lleva al dato que falta, sin internet se bloquean los que exigen datos (catálogo local v2 con marcas)
+  - [x] Servidor: API valida (400) y la base exige el registro al confirmar (restricción diferida); la fórmula solo entra con su venta; venta_formulas inmutable y visible solo a gerencia
+  - [x] /control-especial: dispensaciones y reintegros (anulación/devolución), saldo por producto, filtros, CSV, informe imprimible (/control-especial/informe), ajustes (vigencia, exigir datos); enlaces desde Productos y Reportes; ZIP de datos con el libro
+  - [x] Pruebas: db 42/42 · unitarias 25/25 · e2e control-especial 0 fallos · caja, descuentos, devoluciones, sin-conexion, facturacion 0 fallos (build de producción) · endpoints 1124 (1 fallo ajeno: sin REGENTA_CRON_KEY)
+  - [ ] Integración: enlace en el menú (Navegacion) y migración 030 en Supabase (con autorización de Oscar)
 - [ ] Integración: menú (Navegacion), inicio con tareas, typecheck, npm test, e2e completos y auditoría de pantallas en local; migraciones 028–030 a producción con autorización de Oscar; un solo despliegue; verificación en vivo

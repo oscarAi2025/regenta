@@ -4,13 +4,14 @@
 // servidor (todo lo demás), y se prueba sin red en tests/importar.test.mjs.
 
 export const CAMPOS = ["nombre", "codigo_barras", "laboratorio", "iva", "unidades_por_caja", "precio_caja", "precio_unidad",
-  "stock_minimo", "lote", "vence", "cantidad_unidades", "costo_unidad", "registro_sanitario"] as const;
+  "stock_minimo", "lote", "vence", "cantidad_unidades", "costo_unidad", "registro_sanitario", "requiere_formula", "control_especial"] as const;
 export type Campo = (typeof CAMPOS)[number];
 
 export const ETIQUETAS: Record<Campo, string> = {
   nombre: "Nombre", codigo_barras: "Código de barras", laboratorio: "Laboratorio", iva: "IVA", unidades_por_caja: "Unidades por caja",
   precio_caja: "Precio de venta (caja)", precio_unidad: "Precio por unidad", stock_minimo: "Stock mínimo", lote: "Lote",
   vence: "Vencimiento", cantidad_unidades: "Existencias (unidades)", costo_unidad: "Costo por unidad", registro_sanitario: "Registro sanitario",
+  requiere_formula: "Venta con fórmula médica", control_especial: "Control especial",
 };
 
 /** Nombres con que otros programas llaman a cada columna (ya normalizados: minúsculas, sin tildes, «_» entre palabras). */
@@ -28,10 +29,15 @@ const SINONIMOS: Record<Campo, string[]> = {
   cantidad_unidades: ["cantidad_unidades", "cantidad", "existencias", "existencia", "stock", "saldo", "inventario", "unidades", "cant", "stock_actual", "cantidad_actual", "disponible"],
   costo_unidad: ["costo_unidad", "costo", "costo_unitario", "precio_compra", "valor_compra", "costo_promedio", "precio_costo", "valor_costo"],
   registro_sanitario: ["registro_sanitario", "invima", "registro_invima", "reg_sanitario", "reg_invima", "rs", "registro"],
+  requiere_formula: ["requiere_formula", "formula", "venta_con_formula", "con_formula", "formula_medica", "venta_con_formula_medica", "requiere_formula_medica",
+    "bajo_formula", "venta_bajo_formula", "venta_bajo_formula_medica", "rx", "receta", "requiere_receta", "venta_bajo_receta", "condicion_de_venta", "condicion_venta", "tipo_de_venta", "tipo_venta"],
+  control_especial: ["control_especial", "controlado", "medicamento_controlado", "medicamento_de_control_especial", "medicamento_control_especial", "control",
+    "es_controlado", "de_control_especial", "control_esp"],
 };
 
 // Palabras demasiado generales para reconocer una columna por prefijo («valor_total» no es el precio de venta).
-const SIN_PREFIJO = new Set(["valor", "precio", "registro", "item", "detalle", "lab", "cb", "rs", "cant", "unidades", "producto", "marca", "minimo", "factor", "contenido", "upc", "titular"]);
+const SIN_PREFIJO = new Set(["valor", "precio", "registro", "item", "detalle", "lab", "cb", "rs", "cant", "unidades", "producto", "marca", "minimo", "factor", "contenido", "upc", "titular",
+  "formula", "rx", "receta", "control", "controlado", "tipo_venta", "tipo_de_venta"]);
 
 export const normalizarCabecera = (s: unknown) => String(s ?? "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
   .replace(/%/g, " porcentaje ").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").replace(/porcentaje/g, "").replace(/__+/g, "_").replace(/^_+|_+$/g, "");
@@ -125,6 +131,40 @@ export function codigoBarras(v: unknown): { ean: string; aviso?: string } {
   return { ean: "", aviso: `«${s.slice(0, 20)}» no es un código de barras (8 a 14 dígitos): se carga sin código` };
 }
 
+const sinTildes = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+/** Marca sí/no de una celda: sí · si · x · 1 · verdadero · true · s · yes (true); no · 0 · n · falso · false · vacío (false).
+ *  undefined = celda vacía; null = no se entiende. */
+export function siNo(v: unknown): boolean | null | undefined {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v === 1 ? true : v === 0 ? false : null;
+  const s = sinTildes(texto(v));
+  if (!s) return undefined;
+  if (/^(si|s|x|1|true|verdadero|yes|y|ok|✓|✔)$/.test(s)) return true;
+  if (/^(no|n|0|false|falso|-|na|n\/a)$/.test(s)) return false;
+  return null;
+}
+/** Venta con fórmula y control especial a partir de las dos columnas (cualquiera puede faltar). La columna de fórmula
+ *  también acepta la «condición de venta» de otros sistemas: «Venta libre», «Con fórmula médica», «Control especial». */
+export function marcasDispensacion(formula: unknown, control: unknown): { requiere_formula?: boolean; control_especial?: boolean; error?: string } {
+  const r: { requiere_formula?: boolean; control_especial?: boolean; error?: string } = {};
+  const tf = sinTildes(texto(formula)), tc = sinTildes(texto(control));
+  const negado = (t: string) => /^no\b|\bsin (formula|receta|control)|no requiere|libre|\botc\b/.test(t);
+  if (tf) {
+    const b = siNo(formula);
+    if (b !== null && b !== undefined) r.requiere_formula = b;
+    else if (negado(tf)) r.requiere_formula = false;
+    else if (/control/.test(tf)) { r.requiere_formula = true; r.control_especial = true; }
+    else if (/formula|receta|\brx\b|prescripcion/.test(tf)) r.requiere_formula = true;
+    else r.error = `«${texto(formula).slice(0, 30)}» en venta con fórmula no se entiende: usa sí o no`;
+  }
+  if (tc) {
+    const b = siNo(control) ?? (negado(tc) ? false : /control/.test(tc) ? true : null);
+    if (b === null) r.error ??= `«${texto(control).slice(0, 30)}» en control especial no se entiende: usa sí o no`;
+    else { r.control_especial = b; if (b) r.requiere_formula = true; }
+  }
+  return r;
+}
+
 export const claveNombre = (nombre: string, lab: string) =>
   `${nombre}|${lab}`.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9|]+/g, " ").replace(/\s+/g, " ").trim();
 
@@ -134,6 +174,8 @@ export type Lote = { lote: string; vence: string | null; unidades: number; costo
 export type Producto = {
   clave: string; fila: number; nombre: string; ean: string; laboratorio: string; iva: number; unidades_por_caja: number;
   precio_caja: number; precio_unidad: number | null; pu_archivo: number | null; stock_minimo: number; registro_sanitario: string; lotes: Lote[];
+  /** undefined = el archivo no lo dice (al actualizar no se cambia). */
+  requiere_formula?: boolean; control_especial?: boolean;
 };
 export type Nota = { fila: number; texto: string };
 export type Lectura = { productos: Producto[]; errores: Nota[]; avisos: Nota[]; columnas: Set<Campo> };
@@ -187,12 +229,17 @@ export function leerFilas(filas: Fila[], hoy: string, primeraFila = 2): Lectura 
     const costo = numero(f.costo_unidad);
     if (costo !== undefined && (Number.isNaN(costo) || costo < 0)) return err(`costo «${texto(f.costo_unidad)}» no válido`);
 
+    const marcas = marcasDispensacion(f.requiere_formula, f.control_especial);
+    if (marcas.error) return err(marcas.error);
+
     const clave = ean ? `e:${ean}` : `n:${claveNombre(nombre, laboratorio)}`;
     let p = porClave.get(clave);
     if (!p) {
       p = { clave, fila: n, nombre, ean, laboratorio, iva: t, unidades_por_caja: upc, precio_caja: precioCaja, precio_unidad: precioUnidad, pu_archivo: puArchivo,
         stock_minimo: minimo !== undefined && !Number.isNaN(minimo) && minimo > 0 ? Math.min(100000, Math.round(minimo)) : 0,
-        registro_sanitario: texto(f.registro_sanitario).toUpperCase().slice(0, 60), lotes: [] };
+        registro_sanitario: texto(f.registro_sanitario).toUpperCase().slice(0, 60), lotes: [],
+        ...(marcas.requiere_formula !== undefined ? { requiere_formula: marcas.requiere_formula } : {}),
+        ...(marcas.control_especial !== undefined ? { control_especial: marcas.control_especial } : {}) };
       porClave.set(clave, p); productos.push(p);
     } else if (!(cant && cant > 0)) {
       avisos.push({ fila: n, texto: `repite el producto de la fila ${p.fila}: se omite` });

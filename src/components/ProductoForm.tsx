@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 
-type Datos = { maestro_id?: string | null; nombre: string; laboratorio: string; ean: string; iva: 0 | 5 | 19; categoria?: string | null; unidades_por_caja: number; precio_caja: string; precio_unidad: string; stock_minimo: number; registro_sanitario?: string };
+type Datos = { maestro_id?: string | null; nombre: string; laboratorio: string; ean: string; iva: 0 | 5 | 19; categoria?: string | null; unidades_por_caja: number; precio_caja: string; precio_unidad: string; stock_minimo: number; registro_sanitario?: string; requiere_formula?: boolean; control_especial?: boolean };
 type Maestro = { id: string; nombre: string; laboratorio: string | null; ean: string | null; iva: number; categoria: string | null };
 
-const vacio: Datos = { nombre: "", laboratorio: "", ean: "", iva: 0, unidades_por_caja: 1, precio_caja: "", precio_unidad: "", stock_minimo: 0 };
+const vacio: Datos = { nombre: "", laboratorio: "", ean: "", iva: 0, unidades_por_caja: 1, precio_caja: "", precio_unidad: "", stock_minimo: 0, requiere_formula: false, control_especial: false };
 // Pesos sin centavos: «2.500», «2500» y «1,500» son miles; una coma con 1 o 2 cifras al final son centavos y se descartan
 // («2500,50» → 2.500), en vez de pegarlos al número.
 const sinCentavos = (s: string) => String(s).replace(/,\d{1,2}$/, "");
@@ -41,7 +41,8 @@ export function ProductoForm({ id, inicial }: { id?: string; inicial?: Datos }) 
     e.preventDefault();
     setEnviando(true); setError("");
     const cuerpo = { maestro_id: d.maestro_id ?? null, nombre: d.nombre, laboratorio: d.laboratorio || null, ean: d.ean || "", iva: d.iva, categoria: d.categoria ?? null,
-      unidades_por_caja: d.unidades_por_caja, precio_caja: num(d.precio_caja), precio_unidad: d.unidades_por_caja > 1 && num(d.precio_unidad) ? num(d.precio_unidad) : null, stock_minimo: d.stock_minimo, registro_sanitario: d.registro_sanitario || null };
+      unidades_por_caja: d.unidades_por_caja, precio_caja: num(d.precio_caja), precio_unidad: d.unidades_por_caja > 1 && num(d.precio_unidad) ? num(d.precio_unidad) : null, stock_minimo: d.stock_minimo, registro_sanitario: d.registro_sanitario || null,
+      requiere_formula: !!(d.requiere_formula || d.control_especial), control_especial: !!d.control_especial };
     const r = await fetch(id ? `/api/productos/${id}` : "/api/productos", { method: id ? "PATCH" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(cuerpo) }).catch(() => null);
     if (!r) { setError("Sin conexión: revisa internet e intenta de nuevo."); setEnviando(false); return; }
     if (r.ok) { location.href = id ? "/productos" : "/productos?q=" + encodeURIComponent(d.ean || d.nombre); return; }
@@ -98,6 +99,21 @@ export function ProductoForm({ id, inicial }: { id?: string; inicial?: Datos }) 
           )}
           <div><label htmlFor="minimo" className="etiqueta">Mínimo en {d.unidades_por_caja > 1 ? "cajas" : "unidades"} <span className="text-muted font-normal">(aviso para pedir)</span></label><input id="minimo" type="number" min={0} className="campo num" value={d.stock_minimo} onChange={(e) => set("stock_minimo", Math.max(0, Number(e.target.value) || 0))} /></div>
           <div><label htmlFor="registro" className="etiqueta">Registro sanitario INVIMA <span className="text-muted font-normal">(para cruzar alertas)</span></label><input id="registro" className="campo" value={d.registro_sanitario ?? ""} onChange={(e) => set("registro_sanitario", e.target.value.toUpperCase())} placeholder="INVIMA 2020M-0012345-R1" /></div>
+          <fieldset className="sm:col-span-2 rounded-xl border-2 border-line p-4 grid gap-3">
+            <legend className="px-1 text-sm font-semibold">Dispensación</legend>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input id="requiere_formula" type="checkbox" className="mt-1 size-5 accent-[var(--cruz)]" checked={!!(d.requiere_formula || d.control_especial)} disabled={!!d.control_especial}
+                onChange={(e) => set("requiere_formula", e.target.checked)} />
+              <span><span className="font-semibold">Venta con fórmula médica</span>
+                <span className="block text-sm text-muted">La caja avisa «requiere fórmula médica» y pide confirmar que se verificó antes de cobrar.</span></span>
+            </label>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input id="control_especial" type="checkbox" className="mt-1 size-5 accent-[var(--cruz)]" checked={!!d.control_especial}
+                onChange={(e) => setD((x) => ({ ...x, control_especial: e.target.checked, requiere_formula: e.target.checked ? true : x.requiere_formula }))} />
+              <span><span className="font-semibold">Medicamento de control especial</span>
+                <span className="block text-sm text-muted">Siempre con fórmula. La caja pide paciente, médico y fórmula vigente, y cada venta queda en el libro de control especial.</span></span>
+            </label>
+          </fieldset>
           {error && <p role="alert" className="sm:col-span-2 text-alerta">{error}</p>}
           <div className="sm:col-span-2 flex flex-wrap gap-2 pt-1">
             <button disabled={enviando} className="btn-primario">{enviando ? "Guardando…" : id ? "Guardar cambios" : "Agregar a mi droguería"}</button>

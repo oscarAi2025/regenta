@@ -234,6 +234,39 @@ for (const [k, [ci, dia, plazo, fr]] of creditos.entries()) {
   ventasDemo.push({ id: r.venta_id, dia, minuto: 600 + k * 37 });
   creditosDemo.push(r.venta_id);
 }
+// Venta con fórmula y control especial (migración 030): un analgésico con codeína marcado de control especial y dos
+// antibióticos que se venden con fórmula. Se marcan después de la historia (antes se vendían sin marca) y se registran
+// unas dispensaciones con su fórmula por la misma ruta que la caja, para que el libro de la demo no esté vacío.
+const controlado = prods.find((p) => /^Winadeine f tabletas 325mg\/30mg/i.test(p.nombre ?? ""));
+const conFormula = prods.filter((p) => /^(Amoxicilina tableta 875 mg caja x 14|Cefalexina genfar capsulas 500 mg caja x 10)/i.test(p.nombre ?? ""));
+if (controlado) {
+  await db.query(`update productos set requiere_formula = true, control_especial = true where id = $1`, [controlado.id]);
+  await db.query(`update productos set requiere_formula = true where id = any($1)`, [conFormula.map((p) => p.id)]);
+  await db.query("begin");
+  await db.query(`select set_config('request.jwt.claims', $1, true)`, [JSON.stringify({ sub: U.carlos, role: "authenticated" })]);
+  await db.query("set local role authenticated");
+  await db.query(`select registrar_entrada($1::jsonb)`, [JSON.stringify({ empresa_id: E.A, sede_id: S.A, tipo: "compra", motivo: "Proveedor: compra de control especial",
+    lineas: [{ producto_id: controlado.id, lote: "W2611", vence: fecha(540), unidades: 60, costo_unidad: 5200 }] })]);
+  await db.query("commit");
+  const DISPENSA = [
+    [18, 4, "CC", "52345678", "Gloria Inés Martínez", "Jorge Restrepo Gómez", "RM 73-1458", "F-10234"],
+    [9, 6, "CC", "93412987", "Luis Alberto Cárdenas", "Ana María Ospina", "RM 73-2290", "F-10511"],
+    [2, 10, "TI", "1105678234", "Valentina Rojas Díaz", "Jorge Restrepo Gómez", "RM 73-1458", "F-10687"],
+  ];
+  for (const [dia, unidades, tdoc, doc, paciente, medico, registro, numero] of DISPENSA) {
+    await db.query("begin");
+    await db.query(`select set_config('request.jwt.claims', $1, true)`, [JSON.stringify({ sub: U.cajeraA, role: "authenticated" })]);
+    await db.query("set local role authenticated");
+    const r = (await db.query(`select registrar_venta($1::jsonb) r`, [JSON.stringify({ empresa_id: E.A, sede_id: S.A, caja_id: C.A, idem_key: crypto.randomUUID(), tipo_doc: "pos",
+      lineas: [{ producto_id: controlado.id, presentacion: "unidad", cantidad: unidades }], pagos: [{ medio: "efectivo", valor: 100000 }] })])).rows[0].r;
+    await db.query(`select registrar_formulas_venta($1, $2::jsonb)`, [r.venta_id, JSON.stringify({ verificada: true, paciente_tipo_doc: tdoc, paciente_doc: doc, paciente_nombre: paciente,
+      medico_nombre: medico, medico_registro: registro, formula_numero: numero, formula_fecha: fecha(-(dia + 1)) })]);
+    await db.query("commit");
+    ventasDemo.push({ id: r.venta_id, dia, minuto: 610 + dia * 13 });
+  }
+  console.log("demo: control especial", controlado.nombre, "· con fórmula", conFormula.length);
+}
+
 // Reparto en el tiempo: ventas, sus movimientos y documentos; la compra hace 57 días y el inventario inicial hace 60.
 // Los triggers que protegen ventas, movimientos, abonos y documentos se apagan solo dentro de esta transacción. Se hace
 // con ALTER TABLE (basta ser dueño de la tabla), así funciona igual en Supabase, que no da superusuario.

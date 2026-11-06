@@ -13,7 +13,7 @@ export default async function PaginaCaja() {
   if (!puede.vender(s.rol)) redirect("/inventario?aviso=permiso");
   const elegida = await cajaElegida();
   const { e, cajas, actual } = await comoUsuario(s, async (c) => ({
-    e: (await c.query(`select coalesce(e.nombre_comercial, e.razon_social) n,
+    e: (await c.query(`select coalesce(e.nombre_comercial, e.razon_social) n, e.formula_vigencia_dias, e.formula_exige_datos,
       not e.demo and not exists (select 1 from resoluciones_dian r where r.empresa_id = e.id and r.activa and r.tipo = 'pos' and not r.pruebas) sin_habilitar
     from empresas e where e.id = $1`, [s.empresa])).rows[0],
     cajas: (await c.query(`select id, nombre from cajas where empresa_id = $1 and activa order by nombre`, [s.empresa])).rows as { id: string; nombre: string }[],
@@ -29,7 +29,8 @@ export default async function PaginaCaja() {
         </div>
       )}
       {cajas.length > 1 && <div className="mx-4 mt-3 flex justify-end"><ElegirCaja cajas={cajas} actual={actual} /></div>}
-      <Caja fiar={puede.fiar(s.rol)} empresa={s.empresa} nombreEmpresa={e?.n ?? ""} />
+      <Caja fiar={puede.fiar(s.rol)} empresa={s.empresa} nombreEmpresa={e?.n ?? ""}
+        formulas={{ vigencia_dias: Number(e?.formula_vigencia_dias ?? 30), exige_datos: !!e?.formula_exige_datos }} />
     </main>
   );
 }

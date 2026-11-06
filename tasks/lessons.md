@@ -140,3 +140,8 @@
 ## 06/11/2026 · Regenta IA caída en producción
 - El asistente respondía siempre «no pudo responder» y el registro solo decía «El servicio de IA respondió 400»: la causa real (saldo de créditos de Anthropic agotado) no se veía. Regla: todo error de un servicio externo se registra con su código Y su mensaje, y la consola tiene un botón para probar cada servicio (MATIAS, correo, IA).
 - Los mensajes al usuario no prometen acciones que el sistema no hace («ya avisamos al equipo» sin aviso real).
+
+## 06/11/2026 · Control especial (frente C)
+- En un trigger, `auth.uid()` falla («invalid input syntax for type json») si la conexión tuvo antes claims locales: tras la transacción `request.jwt.claims` queda en '' y no en NULL. En triggers que pueden correr desde procesos del servidor, comprobar `nullif(current_setting('request.jwt.claims', true), '')` antes de llamar a auth.uid().
+- Para exigir algo «con la venta» sin tocar registrar_venta: función aparte en la misma transacción (que exige `ventas.creado = now()`, así no se completa a posteriori) + restricción diferida (`constraint trigger … initially deferred`) que lo comprueba al confirmar. En pruebas de base: `set constraints all immediate` para dispararla sin confirmar.
+- Repetir una e2e muchas veces sobre la misma base agota las existencias de los productos que usa (caja.mjs con «acetaminofen forte mk»): antes de diagnosticar un fallo «nuevo», reiniciar la base y repetir.

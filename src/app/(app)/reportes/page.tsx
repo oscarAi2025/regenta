@@ -39,6 +39,7 @@ export default async function Reportes({ searchParams }: { searchParams: Promise
       <nav className="flex flex-wrap gap-2" aria-label="Rangos rápidos">
         {atajos.map(([t, a, b]) => <Link key={t} href={`/reportes?desde=${a}&hasta=${b}`} aria-current={a === r.desde && b === r.hasta ? "true" : undefined}
           className={`pastilla border ${a === r.desde && b === r.hasta ? "bg-ink text-white border-ink" : "bg-surface border-line hover:border-ink"}`}>{t}</Link>)}
+        <Link href={`/control-especial?desde=${r.desde}&hasta=${r.hasta}`} className="pastilla border bg-surface border-line hover:border-ink sm:ml-auto">Libro de control especial</Link>
       </nav>
 
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3" aria-label="Resumen">
