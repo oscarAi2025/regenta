@@ -85,14 +85,14 @@ const docDe = async (venta, nc = false) => (await pool.query(`select prefijo || 
 
   // Filtro por tipo
   await p.locator('select[name="tipo"]').selectOption("factura");
-  await p.getByRole("button", { name: "Buscar", exact: true }).click();
-  await p.waitForURL(/tipo=factura/);
+  await Promise.all([p.waitForURL(/tipo=factura/, { waitUntil: "commit" }), p.getByRole("button", { name: "Buscar", exact: true }).click()]);
+  await p.waitForLoadState("networkidle");
   const tipos = await p.locator("tbody tr").allInnerTexts();
   ok(tipos.length > 0 && tipos.every((x) => /Factura/.test(x) && !/Tiquete POS/.test(x)), "filtro por tipo: solo facturas", String(tipos.length));
   // Contador como filtro
-  await p.goto(B + `/documentos?desde=${hoy}&hasta=${hoy}`);
-  await p.getByRole("region", { name: "Por estado" }).getByRole("link", { name: /^Rechazados/ }).click();
-  await p.waitForURL(/estado=rechazado/);
+  await p.goto(B + `/documentos?desde=${hoy}&hasta=${hoy}`); await p.waitForLoadState("networkidle");
+  await Promise.all([p.waitForURL(/estado=rechazado/, { waitUntil: "commit" }), p.getByRole("region", { name: "Por estado" }).getByRole("link", { name: /^Rechazados/ }).click()]);
+  await p.waitForLoadState("networkidle");
   const rech = await p.locator("tbody tr").allInnerTexts();
   ok(rech.length === cuenta.r && rech.every((x) => /Rechazado/.test(x)), "el contador de rechazados filtra", `${rech.length}`);
   // Búsqueda por número y por cliente
