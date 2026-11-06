@@ -59,7 +59,7 @@ async function entrar(ctx, quien) {
   await p.screenshot({ path: `${OUT}/portada-demo.png` });
   const bot = await p.request.post(B + "/api/demo", { data: { nombre: "Bot Trampa", drogueria: "Bot", telefono: "3210000000", web: "spam" } });
   const { execSync } = await import("node:child_process");
-  const guardado = execSync(`psql -h /tmp -p 5433 -U postgres regenta -Atc "select count(*) from solicitudes_demo where nombre = 'Bot Trampa'"`).toString().trim();
+  const guardado = execSync(`psql "${process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp"}" -Atc "select count(*) from solicitudes_demo where nombre = 'Bot Trampa'"`).toString().trim();
   ok(bot.status() === 201 && guardado === "0", "la trampa anti-bots responde normal pero no guarda nada", `${bot.status()} / ${guardado}`);
   ok((await p.request.get(B + "/sitemap.xml")).ok() && (await (await p.request.get(B + "/robots.txt")).text()).includes("Disallow: /caja"), "sitemap.xml y robots.txt");
   const app = await (await p.request.get(B + "/entrar")).text();

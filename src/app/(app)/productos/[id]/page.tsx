@@ -1,24 +1,38 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { comoUsuario } from "@/lib/db";
-import { leerSesion } from "@/lib/sesion";
-import { Cabecera } from "@/components/ui/Cabecera";
+import { leerSesion, puede } from "@/lib/sesion";
+import { Cabecera, existenciasTexto } from "@/components/ui/Cabecera";
 import { ProductoForm } from "@/components/ProductoForm";
+import { Kardex } from "./Kardex";
 
-export const metadata = { title: "Editar producto" };
+export const metadata = { title: "Producto" };
 
-export default async function Editar({ params }: { params: Promise<{ id: string }> }) {
+/** Ficha del producto: datos (dueño y administrador) y kardex (también la bodega). */
+export default async function Editar({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ desde?: string; hasta?: string; lote?: string }> }) {
   const s = await leerSesion();
   if (!s) redirect("/entrar");
-  if (s.rol !== "dueno" && s.rol !== "admin") redirect("/productos?aviso=permiso");
+  const gestiona = s.rol === "dueno" || s.rol === "admin";
+  if (!gestiona && !puede.moverInventario(s.rol)) redirect("/productos?aviso=permiso");
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
-  const p = await comoUsuario(s, async (c) => (await c.query(`select * from productos where id = $1 and empresa_id = $2 and activo`, [id, s.empresa])).rows[0]);
-  if (!p) notFound();
+  const filtros = await searchParams;
+  const d = await comoUsuario(s, async (c) => {
+    const p = (await c.query(`select p.*, coalesce((select sum(unidades) from v_stock_vigente v where v.producto_id = p.id), 0)::int vigentes
+      from productos p where p.id = $1 and p.empresa_id = $2 and p.activo`, [id, s.empresa])).rows[0];
+    return p ? { p, kardex: await Kardex({ c, producto: p, filtros }) } : null;
+  });
+  if (!d) notFound();
+  const { p } = d;
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
-      <Cabecera titulo="Editar producto" sub={p.nombre} />
-      <ProductoForm id={p.id} inicial={{ nombre: p.nombre, laboratorio: p.laboratorio ?? "", ean: p.ean ?? "", iva: Number(p.iva) as 0 | 5 | 19, categoria: p.categoria ?? null, unidades_por_caja: p.unidades_por_caja,
-        precio_caja: String(Math.round(p.precio_caja)), precio_unidad: p.precio_unidad ? String(Math.round(p.precio_unidad)) : "", stock_minimo: p.stock_minimo, registro_sanitario: p.registro_sanitario ?? "" }} />
+      <Cabecera titulo={gestiona ? "Editar producto" : "Producto"} sub={<>{p.nombre} · <span className="num">{existenciasTexto(p.vigentes, p.unidades_por_caja)}</span> para vender</>}>
+        <a href="#kardex" className="btn-borde">Ver kardex</a>
+        {puede.moverInventario(s.rol) && <Link href="/inventario/ajustes" className="btn-borde">Ajustar o dar de baja</Link>}
+      </Cabecera>
+      {gestiona && <ProductoForm id={p.id} inicial={{ nombre: p.nombre, laboratorio: p.laboratorio ?? "", ean: p.ean ?? "", iva: Number(p.iva) as 0 | 5 | 19, categoria: p.categoria ?? null, unidades_por_caja: p.unidades_por_caja,
+        precio_caja: String(Math.round(p.precio_caja)), precio_unidad: p.precio_unidad ? String(Math.round(p.precio_unidad)) : "", stock_minimo: p.stock_minimo, registro_sanitario: p.registro_sanitario ?? "" }} />}
+      {d.kardex}
     </main>
   );
 }

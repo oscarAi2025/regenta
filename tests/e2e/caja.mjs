@@ -22,6 +22,7 @@ async function entrar(ctx, quien) {
   await p.goto(B + "/entrar");
   await p.getByRole("button", { name: new RegExp(quien) }).click();
   await p.waitForURL(/\/(caja|inicio)/);
+  await p.waitForLoadState("networkidle"); // sin esto, con el servidor recién arrancado se pierden las primeras teclas (hidratación)
   return { p, errs };
 }
 

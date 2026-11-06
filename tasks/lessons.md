@@ -140,3 +140,11 @@
 ## 06/11/2026 · Regenta IA caída en producción
 - El asistente respondía siempre «no pudo responder» y el registro solo decía «El servicio de IA respondió 400»: la causa real (saldo de créditos de Anthropic agotado) no se veía. Regla: todo error de un servicio externo se registra con su código Y su mensaje, y la consola tiene un botón para probar cada servicio (MATIAS, correo, IA).
 - Los mensajes al usuario no prometen acciones que el sistema no hace («ya avisamos al equipo» sin aviso real).
+
+## 06/11/2026 · Bloque 1-A (ajustes, kardex, conteo físico)
+- La emulación de celular de Playwright (isMobile) agranda el viewport de diseño cuando algo se sale (innerWidth pasó de 390 a 716): `scrollWidth - innerWidth` da 0 aunque la página desborde. Medir contra `screen.width` y buscar elementos que salen de la pantalla fuera de una tabla desplazable (tests/e2e/inventario-control.mjs, `desborde` y `cortados`). Ojo: «portada sin desborde» de gestion.mjs usa la medida vieja.
+- `justify-items-start` en una grilla deja a cada hijo con su ancho de contenido: el acta se salía de la pantalla del celular. En pantallas del panel, `grid-cols-[minmax(0,1fr)]`.
+- `router.refresh()` no re-renderizó en el build de producción al cerrar el conteo (ya había pasado en Cartera). Si la pantalla cambia de estado (abierto → cerrado), navegar con `location.assign`; y probar las e2e contra `next build && next start`.
+- Una prueba de base de datos que confirma (commit) «dejar en cero lo no contado» sobre todo el inventario vació la demo y tumbó las demás pruebas: lo que una prueba guarda de verdad debe ser neutro (contar igual al sistema).
+- `pkill -f "next start"` no detiene el servidor (el proceso pasa a llamarse `next-server`): detenerlo por su carpeta de trabajo o su puerto. `next start` exige REGENTA_SESSION_SECRET aunque sea local.
+- La carpeta de capturas del scratchpad la comparten los hilos paralelos: cada frente escribe en su propia subcarpeta.

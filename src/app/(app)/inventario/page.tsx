@@ -44,13 +44,19 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
         (select m.motivo from movimientos m where m.lote_id = l.lote_id and m.tipo = 'compra' order by m.creado desc limit 1) motivo
       from v_stock_lotes l join productos p on p.id = l.producto_id where l.empresa_id = $1 and l.unidades > 0
         and not exists (select 1 from lote_costos lc where lc.lote_id = l.lote_id) order by p.nombre limit 60`, [s.empresa])).rows : [];
-    return { resumen, agotados, valor, filas, sinCosto };
+    const conteo = puede.moverInventario(s.rol) ? ((await c.query(`select numero from conteos where empresa_id = $1 and estado = 'abierto' order by creado limit 1`, [s.empresa])).rows[0]?.numero as number | undefined) ?? null : null;
+    return { resumen, agotados, valor, filas, sinCosto, conteo };
   });
+  const kardex = puede.moverInventario(s.rol);
   const tabs = [["vencen", "Vencen en 90 días"], ["agotados", "Agotados"], ["todos", "Todo"]] as const;
   return (
     <main className="p-4 sm:p-6">
-      <Cabecera titulo="Inventario" sub="Lotes, vencimientos y lo que se acabó.">
-        {puede.moverInventario(s.rol) && <Link href="/inventario/recibir" className="btn-primario">Recibir mercancía</Link>}
+      <Cabecera titulo="Inventario" sub={kardex ? "Lotes, vencimientos y lo que se acabó. Toca un producto para ver su kardex." : "Lotes, vencimientos y lo que se acabó."}>
+        {puede.moverInventario(s.rol) && <>
+          <Link href="/inventario/recibir" className="btn-primario">Recibir mercancía</Link>
+          <Link href="/inventario/ajustes" className="btn-borde">Ajustar o dar de baja</Link>
+          <Link href="/inventario/conteos" className="btn-borde">{datos.conteo ? `Conteo N.º ${datos.conteo} en curso` : "Conteo físico"}</Link>
+        </>}
       </Cabecera>
       {datos.sinCosto.length > 0 && <CostosPendientes lotes={datos.sinCosto} />}
       <div className="mt-4 grid grid-cols-2 lg:grid-cols-5 gap-3">
@@ -84,7 +90,7 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
           <tbody className="divide-y divide-line">
             {datos.filas.map((f) => (
               <tr key={f.id} className="align-top">
-                <td className="px-4 py-3"><p className="font-semibold">{f.nombre}</p><p className="text-muted">{f.laboratorio ?? "Genérico"}</p></td>
+                <td className="px-4 py-3">{kardex ? <Link href={`/productos/${f.id}#kardex`} className="font-semibold hover:underline" title="Ver kardex">{f.nombre}</Link> : <p className="font-semibold">{f.nombre}</p>}<p className="text-muted">{f.laboratorio ?? "Genérico"}</p></td>
                 <td className={`px-4 py-3 num ${f.unidades <= 0 ? "text-alerta font-semibold" : ""}`}>
                   {f.unidades <= 0 ? "Agotado" : f.unidades_por_caja > 1 ? `${Math.floor(f.unidades / f.unidades_por_caja)} cajas${f.unidades % f.unidades_por_caja ? ` + ${f.unidades % f.unidades_por_caja} und` : ""}` : `${f.unidades} und`}
                 </td>
