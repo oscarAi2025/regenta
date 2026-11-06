@@ -6,6 +6,7 @@ import { lineasConteo } from "@/lib/conteos";
 import { Cabecera, Dato } from "@/components/ui/Cabecera";
 import { pesosConSigno as pesos } from "@/lib/ajustes";
 import { Contar } from "./Contar";
+import { AnularConteo } from "./Anular";
 
 export const metadata = { title: "Conteo físico" };
 
@@ -31,8 +32,21 @@ export default async function Conteo({ params }: { params: Promise<{ id: string 
         <Cabecera titulo={`Conteo N.º ${k.numero}`} sub={`${alcance} · empezó ${k.inicio}. Puedes contar desde varios celulares a la vez.`}>
           <Link href={`/inventario/conteos/${id}/informe`} className="btn-borde">Informe</Link>
           <Link href="/inventario/conteos" className="btn-borde">Conteos</Link>
+          {(s.rol === "dueno" || s.rol === "admin") && <AnularConteo id={id} numero={k.numero} />}
         </Cabecera>
+        <p className="text-sm text-muted max-w-3xl">Mientras cuentas puedes seguir vendiendo: cada lote se compara con las existencias del momento en que lo cuentas, así lo vendido después no aparece como faltante.</p>
         <Contar conteo={{ id, numero: k.numero }} inicial={lineas} verCosto={costos} />
+      </main>
+    );
+  }
+  if (k.estado === "anulado") {
+    return (
+      <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
+        <Cabecera titulo={`Conteo N.º ${k.numero} · anulado`} sub={`${alcance} · ${k.inicio} → ${k.fin}. Un conteo anulado no cambió ninguna existencia.`}>
+          <Link href="/inventario/conteos" className="btn-borde">Conteos</Link>
+        </Cabecera>
+        <p className="text-[15px]"><b>Motivo de la anulación:</b> {k.motivo_anulacion}</p>
+        <p className="text-sm text-muted">Se habían contado {lineas.filter((l) => l.contado !== null).length.toLocaleString("es-CO")} de {lineas.length.toLocaleString("es-CO")} lotes.</p>
       </main>
     );
   }

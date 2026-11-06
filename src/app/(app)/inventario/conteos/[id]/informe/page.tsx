@@ -48,7 +48,7 @@ export default async function Informe({ params, searchParams }: { params: Promis
           <div className="text-right">
             <h1 className="titulo text-xl leading-tight">Informe de conteo físico</h1>
             <p className="num text-lg font-semibold">N.º {String(k.numero).padStart(4, "0")}</p>
-            <p className={`text-sm font-semibold ${k.estado === "abierto" ? "text-aviso" : ""}`}>{k.estado === "abierto" ? "Borrador: conteo abierto" : "Cerrado"}</p>
+            <p className={`text-sm font-semibold ${k.estado === "abierto" ? "text-aviso" : ""}`}>{k.estado === "abierto" ? "Borrador: conteo abierto" : k.estado === "anulado" ? "Anulado: no cambió el inventario" : "Cerrado"}</p>
           </div>
         </header>
         <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 py-4 text-[15px]">
@@ -63,7 +63,8 @@ export default async function Informe({ params, searchParams }: { params: Promis
             : <div><dt className="text-sm text-muted">Ajuste</dt><dd className="font-semibold">{k.ajuste_numero ? `N.º ${k.ajuste_numero}` : "—"}</dd></div>}
         </dl>
         <p className="text-[15px] pb-3">
-          {k.estado === "abierto" ? "Las diferencias se calculan contra las existencias de este momento; el conteo aún no ajusta el inventario."
+          {k.estado === "abierto" ? "Cada lote contado se compara con las existencias del momento en que se contó (los demás, con las de ahora); el conteo aún no ajusta el inventario."
+            : k.estado === "anulado" ? `Conteo anulado: no cambió ninguna existencia. Motivo: ${k.motivo_anulacion ?? ""}.`
             : k.ajuste_numero ? `Al cerrar, las existencias quedaron iguales a lo contado con el ajuste N.º ${k.ajuste_numero} («Diferencia de conteo»).` : "Al cerrar, todo cuadró: no hizo falta ajuste."}
           {k.sin_contar_en_cero ? " Los lotes que no se contaron quedaron en cero." : lineas.length > contadas.length && k.estado === "cerrado" ? ` ${lineas.length - contadas.length} lotes no se contaron y quedaron como estaban.` : ""}
         </p>

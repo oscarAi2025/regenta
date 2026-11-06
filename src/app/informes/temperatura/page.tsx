@@ -35,8 +35,13 @@ export default async function InformeTemperatura({ searchParams }: { searchParam
   const generado = new Date().toLocaleString("es-CO", { timeZone: "America/Bogota", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
   const celda = (c: Celda) => {
     const v = c.vigente;
-    if (v) return { t: dec(v.temperatura), h: v.humedad === null ? "—" : dec(v.humedad), quien: nombreCorto(v.responsable), fuera: v.fuera_rango, corr: c.historial.length > 1 };
-    return { t: c.estado === "falta" ? "Falta" : "—", h: "", quien: "", fuera: false, corr: false, falta: c.estado === "falta" };
+    if (v) {
+      // Cuándo se hizo de verdad: la hora, y la fecha si se registró otro día (lectura atrasada).
+      const [y, m, d] = v.fecha.split("-"), otroDia = v.creado.slice(0, 10) !== `${d}/${m}/${y}`;
+      return { t: dec(v.temperatura), h: v.humedad === null ? "—" : dec(v.humedad), quien: `${nombreCorto(v.responsable)} · ${otroDia ? v.creado.slice(0, 5) + " " : ""}${v.hora}${otroDia ? "‡" : ""}`,
+        fuera: v.fuera_rango, corr: c.historial.length > 1, tarde: otroDia };
+    }
+    return { t: c.estado === "falta" ? "Falta" : "—", h: "", quien: "", fuera: false, corr: false, tarde: false, falta: c.estado === "falta" };
   };
 
   return (
@@ -67,7 +72,7 @@ export default async function InformeTemperatura({ searchParams }: { searchParam
       <section className="text-sm grid gap-1">
         <p className="font-semibold">Rangos configurados por la droguería</p>
         {rangos.filter((r) => areas.includes(r.area)).map((r) => <p key={r.area}>{AREAS[r.area]}: temperatura {rangoTexto(r.temp_min, r.temp_max, "°C")} · humedad relativa {rangoTexto(r.hum_min, r.hum_max, "%")}</p>)}
-        <p className="text-muted">Dos registros al día (mañana y tarde). Los valores fuera de rango van en rojo y con asterisco (*); «Falta» = jornada sin registro.</p>
+        <p className="text-muted">Dos registros al día (mañana y tarde). Los valores fuera de rango van en rojo y con asterisco (*); «Falta» = jornada sin registro. Junto al responsable va la hora real del registro.</p>
       </section>
 
       {areas.map((a) => {
@@ -100,6 +105,8 @@ export default async function InformeTemperatura({ searchParams }: { searchParam
         );
       })}
       {correcciones.length > 0 && <p className="text-xs text-muted -mt-3">† Valor corregido: el registro anterior se conserva (ver «Correcciones»).</p>}
+      {areas.some((a) => Object.values(celdas(mes, a, registros, inicio[a] ?? null, hoy)).some((js) => Object.values(js).some((c) => celda(c).tarde))) &&
+        <p className="text-xs text-muted -mt-3">Junto al responsable va la hora en que se hizo el registro; ‡ = registrado un día posterior a la jornada (con su fecha).</p>}
 
       <section aria-label="Fuera de rango">
         <h2 className="titulo text-lg mb-1">Fuera de rango y acciones correctivas</h2>

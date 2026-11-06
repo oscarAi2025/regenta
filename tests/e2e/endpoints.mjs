@@ -108,6 +108,7 @@ const R = [
   { m: "GET", p: "/api/inventario/conteos/no-es-uuid", acceso: "sesion", espera: 404 },
   { m: "PATCH", p: `/api/inventario/conteos/${U}`, acceso: "sesion", basura: true, rol: ["cajero", 403] },
   { m: "POST", p: `/api/inventario/conteos/${U}/cerrar`, acceso: "sesion", basura: true, rol: ["cajero", 403], espera: 404 },
+  { m: "DELETE", p: `/api/inventario/conteos/${U}`, acceso: "sesion", basura: true, rol: ["bodega", 403] },
   { m: "GET", p: "/api/turnos", acceso: "sesion" },
   { m: "POST", p: "/api/turnos", acceso: "sesion", basura: true, rol: ["bodega", 403] },
   { m: "POST", p: `/api/ventas/${U}/devolucion`, acceso: "sesion", basura: true, rol: ["cajero", 403] },

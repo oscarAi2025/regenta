@@ -28,6 +28,9 @@ export function Ajustar({ verCosto }: { verCosto: boolean }) {
   const clave = useRef(0);
   const idem = useRef(crypto.randomUUID());
   const sumaPermitida = motivo === "conteo";
+  // Una clave por contenido: si tras una falla de red cambian las líneas o el motivo, el reintento es un ajuste nuevo
+  // (con la misma clave el servidor devolvería el anterior e ignoraría los cambios).
+  useEffect(() => { idem.current = crypto.randomUUID(); }, [lineas, motivo, detalle]);
 
   useEffect(() => {
     if (q.trim().length < 2) { setRes([]); return; }

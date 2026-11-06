@@ -295,6 +295,22 @@ const D = await entrar("Carlos");
   ok(sinProvocados(p, errs).length === 0, "sin errores de consola (celular)", sinProvocados(p, errs).join(" | "));
   await ctx.close();
 }
+// Anular un conteo abierto desde la pantalla (dueño): no cambia existencias y libera la sede
+{
+  const k = await api(D.p, "/api/inventario/conteos", "POST", { alcance: "todo" });
+  ok(k.status === 201, "conteo para anular", String(k.status));
+  const antes = Number((await q1(`select coalesce(sum(unidades), 0) u from v_stock_lotes where empresa_id = $1`, [EMP.id])).u);
+  await ir(D.p, `/inventario/conteos/${k.j.id}`);
+  await D.p.getByRole("button", { name: "Anular conteo" }).click();
+  await D.p.fill("#anular-motivo", "Se empezó con el filtro equivocado");
+  await Promise.all([D.p.waitForURL(new RegExp(`/inventario/conteos/${k.j.id}$`), { waitUntil: "load" }), D.p.getByRole("form", { name: "Anular conteo" }).getByRole("button", { name: "Anular conteo" }).click()]);
+  ok(await D.p.getByRole("heading", { name: new RegExp(`Conteo N.º ${k.j.numero} · anulado`) }).waitFor({ timeout: 10000 }).then(() => true, () => false), "el conteo queda anulado en pantalla");
+  ok(Number((await q1(`select coalesce(sum(unidades), 0) u from v_stock_lotes where empresa_id = $1`, [EMP.id])).u) === antes, "anular no cambia existencias");
+  const otro = await api(D.p, "/api/inventario/conteos", "POST", { alcance: "todo" });
+  ok(otro.status === 201, "la sede queda libre para un conteo nuevo", String(otro.status));
+  const an2 = await api(D.p, `/api/inventario/conteos/${otro.j.id}`, "DELETE", { motivo: "Prueba automática" });
+  ok(an2.status === 200 && an2.j.estado === "anulado", "anular por la API", JSON.stringify(an2.j));
+}
 ok(sinProvocados(D.p, D.errs).length === 0, "sin errores de consola (dueño)", sinProvocados(D.p, D.errs).join(" | "));
 await D.ctx.close();
 await b.close(); await pool.end();

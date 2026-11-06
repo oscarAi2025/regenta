@@ -54,7 +54,7 @@ export default async function Conteos() {
             {d.conteos.map((k) => (
               <li key={k.id} className="px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-1">
                 <div className="flex-1 min-w-[200px]">
-                  <p className="font-semibold">Conteo N.º {k.numero} · <span className={k.estado === "abierto" ? "text-aviso" : "text-cruz"}>{k.estado === "abierto" ? "abierto" : "cerrado"}</span></p>
+                  <p className="font-semibold">Conteo N.º {k.numero} · <span className={k.estado === "abierto" ? "text-aviso" : k.estado === "anulado" ? "text-muted" : "text-cruz"}>{k.estado}</span></p>
                   <p className="text-sm text-muted num">{k.alcance === "todo" ? ALCANCE.todo : `${ALCANCE[k.alcance]}: ${k.filtro}`} · {k.inicio}{k.fin ? ` → ${k.fin}` : ""} · {String(k.responsable ?? "").split(" (")[0]}</p>
                 </div>
                 <p className="text-sm num">{k.estado === "cerrado"

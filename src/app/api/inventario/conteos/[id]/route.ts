@@ -40,3 +40,19 @@ export const PATCH = conSesion(async (s, req, ctx) => {
   });
   return r ? json(r) : json({ error: "Ese conteo no existe en tu droguería" }, 404);
 });
+
+const Anular = z.object({ motivo: z.string().trim().min(4, "Escribe el motivo de la anulación").max(300, "El motivo admite máximo 300 caracteres") });
+
+/** Anula un conteo abierto sin tocar el inventario (dueño o administrador): libera la sede para empezar otro. */
+export const DELETE = conSesion(async (s, req, ctx) => {
+  if (s.rol !== "dueno" && s.rol !== "admin") return json({ error: "Solo el dueño o el administrador anulan un conteo" }, 403);
+  const { id } = await ctx.params;
+  if (!esUuid(id)) return json({ error: "No encontrado" }, 404);
+  const p = Anular.safeParse(await req.json().catch(() => null));
+  if (!p.success) return json({ error: p.error.issues[0]?.message ?? "Datos no válidos" }, 400);
+  const r = await comoUsuario(s, async (c) => {
+    if (!(await c.query(`select 1 from conteos where id = $1 and empresa_id = $2`, [id, s.empresa])).rowCount) return null;
+    return (await c.query(`select anular_conteo($1, $2) r`, [id, p.data.motivo])).rows[0].r;
+  });
+  return r ? json(r) : json({ error: "Ese conteo no existe en tu droguería" }, 404);
+});

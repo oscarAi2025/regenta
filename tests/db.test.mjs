@@ -452,7 +452,12 @@ const existencias = async (c, producto) => Number((await c.query(`select coalesc
 
 test("baja por vencido: resta del lote, numera el acta, guarda lo que había y queda inmutable", async () => {
   await como(U.bodega, async (c) => {
-    const [l] = await lotesDe(c, prod.id);
+    // Un lote vencido con existencias (la demo no los tiene: se crea dentro de esta transacción, que se deshace).
+    await c.query("reset role");
+    const lv = (await c.query(`insert into lotes (empresa_id, sede_id, producto_id, lote, vence) values ($1, $2, $3, 'VENCIDO-T', current_date - 10) returning id`, [E.A, S.A, prod.id])).rows[0].id;
+    await c.query(`insert into movimientos (empresa_id, sede_id, producto_id, lote_id, cantidad, tipo, motivo) values ($1, $2, $3, $4, 6, 'inicial', 'Prueba')`, [E.A, S.A, prod.id, lv]);
+    await c.query("set local role authenticated");
+    const l = { lote_id: lv, unidades: 6 };
     const r = (await c.query("select registrar_ajuste($1) r", [{ empresa_id: E.A, motivo: "vencido", lineas: [{ lote_id: l.lote_id, unidades: -2 }] }])).rows[0].r;
     assert.ok(r.numero >= 1 && !r.repetida);
     assert.equal((await c.query(`select unidades from v_stock_lotes where lote_id = $1`, [l.lote_id])).rows[0].unidades, l.unidades - 2);
@@ -529,15 +534,20 @@ test("conteo físico: diferencias, lote nuevo, cierre en un ajuste que deja exis
     await c.query("select registrar_venta($1)", [venta([{ producto_id: prod.id, presentacion: "unidad", cantidad: 1 }], { pagos: [{ medio: "efectivo", valor: 100000 }] })]);
     await c.query(`select set_config('request.jwt.claims', $1, true)`, [JSON.stringify({ sub: U.bodega, role: "authenticated" })]);
     const sinContarAntes = (await c.query(`select lote_id, (select unidades from v_stock_lotes s where s.lote_id = cl.lote_id) u from conteo_lineas cl where conteo_id = $1 and contado is null`, [k.id])).rows;
+    // Lo vendido después de contar cada lote (existencias al contar − existencias al cerrar) no vuelve al inventario.
+    const antesCierre = (await c.query(`select cl.lote_id, cl.contado, cl.sistema_al_contar, coalesce((select unidades from v_stock_lotes s where s.lote_id = cl.lote_id), 0) u
+      from conteo_lineas cl where cl.conteo_id = $1 and cl.contado is not null`, [k.id])).rows;
     const r = (await c.query("select cerrar_conteo($1) r", [k.id])).rows[0].r;
     assert.ok(r.ajuste_numero >= 1 && r.con_diferencia >= 2);
-    const lineas = (await c.query(`select cl.lote_id, cl.contado, cl.sistema, s.unidades from conteo_lineas cl join v_stock_lotes s on s.lote_id = cl.lote_id where cl.conteo_id = $1 and cl.contado is not null`, [k.id])).rows;
-    for (const x of lineas) assert.equal(x.unidades, x.contado, "existencias = contado");
+    for (const x of antesCierre) {
+      const ahora = Number((await c.query(`select coalesce((select unidades from v_stock_lotes where lote_id = $1), 0) u`, [x.lote_id])).rows[0].u);
+      assert.equal(ahora, x.contado - (x.sistema_al_contar - x.u), "existencias = contado − lo vendido después de contar");
+    }
     for (const x of sinContarAntes) assert.equal((await c.query(`select unidades from v_stock_lotes where lote_id = $1`, [x.lote_id])).rows[0].unidades, x.u, "lo no contado no se toca");
     assert.equal((await c.query(`select motivo, conteo_id from ajustes where id = $1`, [r.ajuste_id])).rows[0].motivo, "conteo");
     assert.equal(Number((await c.query(`select count(distinct ref_id) n from movimientos where ref_id = $1`, [r.ajuste_id])).rows[0].n), 1, "un solo ajuste");
-    await falla(c, "select contar_conteo($1)", [{ conteo_id: k.id, lote_id: l1.lote_id, modo: "sumar", cantidad: 1 }], /cerrado/);
-    await falla(c, "select cerrar_conteo($1)", [k.id], /ya está cerrado/);
+    await falla(c, "select contar_conteo($1)", [{ conteo_id: k.id, lote_id: l1.lote_id, modo: "sumar", cantidad: 1 }], /ya no está abierto/);
+    await falla(c, "select cerrar_conteo($1)", [k.id], /ya no está abierto/);
   });
   // Ni siquiera la conexión del servidor puede cambiar un conteo cerrado
   // (se guarda de verdad: un lote contado igual al sistema, así no cambia ninguna existencia de la demo)
@@ -695,4 +705,87 @@ test("vigencia configurable solo por dueño o administrador, nunca en la demo", 
   await assert.rejects(como(U.duenoB, (c) => c.query("select configurar_formulas($1, 0, false)", [E.B])), /entre 1 y 365/);
   const r = await como(U.duenoB, async (c) => { await c.query("select configurar_formulas($1, 15, true)", [E.B]); return (await c.query("select formula_vigencia_dias, formula_exige_datos from empresas where id = $1", [E.B])).rows[0]; });
   assert.deepEqual(r, { formula_vigencia_dias: 15, formula_exige_datos: true });
+});
+
+// ── Correcciones del Bloque 1 (migración 030a)
+test("conteo: una venta hecha tras contar un lote no se devuelve al inventario al cerrar", async () => {
+  await como(U.carlos, async (c) => {
+    const lab = (await c.query(`select laboratorio from productos where id = $1`, [prod.id])).rows[0].laboratorio;
+    const k = (await c.query("select iniciar_conteo($1) r", [{ empresa_id: E.A, sede_id: S.A, alcance: "laboratorio", filtro: lab }])).rows[0].r;
+    const lotes = await lotesDe(c, prod.id);
+    for (const l of lotes) await c.query("select contar_conteo($1)", [{ conteo_id: k.id, lote_id: l.lote_id, modo: "fijar", cantidad: l.unidades }]);
+    const antes = await existencias(c, prod.id);
+    await c.query("select registrar_venta($1)", [venta([{ producto_id: prod.id, presentacion: "unidad", cantidad: 3 }], { pagos: [{ medio: "efectivo", valor: 100000 }] })]);
+    const r = (await c.query("select cerrar_conteo($1) r", [k.id])).rows[0].r;
+    assert.equal(await existencias(c, prod.id), antes - 3, "las 3 vendidas siguen descontadas");
+    assert.equal(r.con_diferencia, 0, "contado igual a lo que había al contar: sin diferencia");
+  });
+});
+
+test("conteo: se anula (solo gerencia, con motivo), no toca existencias, libera la sede y queda inmodificable", async () => {
+  const id = await como(U.carlos, async (c) => {
+    const k = (await c.query("select iniciar_conteo($1) r", [{ empresa_id: E.A, sede_id: S.A }])).rows[0].r;
+    const [l] = await lotesDe(c, prod.id);
+    await c.query("select contar_conteo($1)", [{ conteo_id: k.id, lote_id: l.lote_id, modo: "fijar", cantidad: l.unidades + 50 }]);
+    const antes = await existencias(c, prod.id);
+    await falla(c, "select anular_conteo($1, $2)", [k.id, "no"], /motivo/);
+    const r = (await c.query("select anular_conteo($1, $2) r", [k.id, "Se empezó con el filtro equivocado"])).rows[0].r;
+    assert.equal(r.estado, "anulado");
+    assert.equal(await existencias(c, prod.id), antes, "anular no cambia existencias");
+    await falla(c, "select contar_conteo($1)", [{ conteo_id: k.id, lote_id: l.lote_id, modo: "sumar", cantidad: 1 }], /ya no está abierto/);
+    await falla(c, "select cerrar_conteo($1)", [k.id], /ya no está abierto/);
+    const otro = (await c.query("select iniciar_conteo($1) r", [{ empresa_id: E.A, sede_id: S.A }])).rows[0].r;
+    assert.ok(otro.id, "la sede queda libre para otro conteo");
+    await c.query("select anular_conteo($1, $2)", [otro.id, "Prueba de anulación"]);
+    return k.id;
+  }, { commit: true });
+  await assert.rejects(pool.query(`update conteos set motivo_anulacion = 'x' where id = $1`, [id]), /no se modifica/);
+  await como(U.bodega, async (c) => {
+    const k = (await c.query("select iniciar_conteo($1) r", [{ empresa_id: E.A, sede_id: S.A }])).rows[0].r;
+    await falla(c, "select anular_conteo($1, $2)", [k.id, "La bodega no anula"], /dueño o el administrador/);
+  });
+  await assert.rejects(como(U.duenoB, (c) => c.query("select anular_conteo($1, $2)", [id, "Otra empresa"])), /dueño o el administrador/);
+});
+
+test("conteo: el cierre no tiene tope de lotes; la pantalla de ajustes sí (2.000)", async () => {
+  await como(U.carlos, async (c) => {
+    const [l] = await lotesDe(c, prod.id);
+    const muchas = Array.from({ length: 2001 }, () => ({ lote_id: l.lote_id, unidades: -1 }));
+    await falla(c, "select registrar_ajuste($1)", [{ empresa_id: E.A, motivo: "perdida", lineas: muchas }], /Máximo 2\.000 lotes/);
+  });
+  const def = (await pool.query(`select pg_get_functiondef('cerrar_conteo'::regproc) d`)).rows[0].d;
+  assert.match(def, /aplicar_ajuste\([^)]*, null, null\)/, "cerrar_conteo llama a aplicar_ajuste sin tope");
+});
+
+test("baja «Vencido» solo para lotes vencidos", async () => {
+  await como(U.carlos, async (c) => {
+    const l = (await c.query(`select s.lote_id, l.lote from v_stock_lotes s join lotes l on l.id = s.lote_id where s.producto_id = $1 and s.unidades > 0 and l.vence >= current_date + 1 limit 1`, [prod.id])).rows[0];
+    await falla(c, "select registrar_ajuste($1)", [{ empresa_id: E.A, motivo: "vencido", lineas: [{ lote_id: l.lote_id, unidades: -1 }] }], /todavía no está vencido/);
+  });
+});
+
+test("la consola elimina una droguería de prueba con ajustes, conteos y planilla de temperatura", async () => {
+  await como(U.duenoB, async (c) => {
+    await c.query("reset role");
+    const sede = (await c.query(`select id from sedes where empresa_id = $1 limit 1`, [E.B])).rows[0].id;
+    const p = (await c.query(`insert into productos (empresa_id, nombre, precio_caja) values ($1, 'Producto de prueba B', 1000) returning id`, [E.B])).rows[0].id;
+    await c.query("set local role authenticated");
+    await c.query("select registrar_entrada($1)", [{ empresa_id: E.B, sede_id: sede, tipo: "compra", motivo: "Compra de prueba", lineas: [{ producto_id: p, lote: "LB1", vence: "2030-12-31", unidades: 10 }] }]);
+    const l = (await c.query(`select lote_id from v_stock_lotes where producto_id = $1`, [p])).rows[0].lote_id;
+    await c.query("select registrar_ajuste($1)", [{ empresa_id: E.B, motivo: "averia", lineas: [{ lote_id: l, unidades: -1 }] }]);
+    const k = (await c.query("select iniciar_conteo($1) r", [{ empresa_id: E.B, sede_id: sede }])).rows[0].r;
+    await c.query("select contar_conteo($1)", [{ conteo_id: k.id, lote_id: l, modo: "fijar", cantidad: 7 }]);
+    await c.query("select cerrar_conteo($1)", [k.id]);
+    await c.query("select registrar_temperatura($1)", [{ empresa_id: E.B, sede_id: sede, jornada: "manana", area: "general", temperatura: 20, humedad: 50, fecha: (await c.query("select (now() at time zone 'America/Bogota')::date::text d")).rows[0].d }]);
+    await c.query("reset role");
+    await c.query(`update empresas set estado = 'suspendida' where id = $1`, [E.B]);
+    await c.query("select eliminar_empresa_prueba($1)", [E.B]);
+    assert.equal((await c.query(`select count(*)::int n from empresas where id = $1`, [E.B])).rows[0].n, 0);
+    assert.equal((await c.query(`select count(*)::int n from ajustes where empresa_id = $1`, [E.B])).rows[0].n, 0);
+  });
+});
+
+test("el kardex filtra por la empresa del producto (no recorre el índice de todas las droguerías)", async () => {
+  const def = (await pool.query(`select pg_get_functiondef('kardex'::regproc) d`)).rows[0].d;
+  assert.match(def, /m\.empresa_id = \(select pr\.empresa_id from productos pr where pr\.id = p_producto\)/);
 });

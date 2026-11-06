@@ -95,7 +95,7 @@ export function Planilla({ mes, hoy, jornada, registros: deServidor, rangos, ini
             <p className="text-sm text-muted">{etiquetaSlot} · {AREAS[slot.area]}</p>
             {corrigiendo ? (
               <p className="mt-3 rounded-xl bg-aviso-soft px-3 py-2 text-sm">
-                Se guarda un registro nuevo que reemplaza a <b className="num">{dec(corrigiendo.temperatura)} °C{corrigiendo.humedad !== null ? ` · ${dec(corrigiendo.humedad)} %` : ""}</b> ({nombreCorto(corrigiendo.responsable)}, {corrigiendo.hora}). El anterior no se borra: queda en el historial con el motivo.
+                Se guarda un registro nuevo que reemplaza a <b className="num">{dec(corrigiendo.temperatura)} °C{corrigiendo.humedad !== null ? ` · ${dec(corrigiendo.humedad)} %` : ""}</b> ({nombreCorto(corrigiendo.responsable)}, {corrigiendo.creado}). El anterior no se borra: queda en el historial con el motivo.
               </p>
             ) : (
               <>
@@ -111,7 +111,7 @@ export function Planilla({ mes, hoy, jornada, registros: deServidor, rangos, ini
 
             {yaRegistrado ? (
               <div className="mt-4 rounded-xl border border-line bg-paper/60 p-3 grid gap-2">
-                <p className="text-[15px]"><b>Esta jornada ya está registrada:</b> <span className={`num font-semibold ${yaRegistrado.fuera_rango ? "text-alerta" : ""}`}>{dec(yaRegistrado.temperatura)} °C{yaRegistrado.humedad !== null ? ` · ${dec(yaRegistrado.humedad)} %` : ""}</span>, por {nombreCorto(yaRegistrado.responsable)} a las {yaRegistrado.hora}.</p>
+                <p className="text-[15px]"><b>Esta jornada ya está registrada:</b> <span className={`num font-semibold ${yaRegistrado.fuera_rango ? "text-alerta" : ""}`}>{dec(yaRegistrado.temperatura)} °C{yaRegistrado.humedad !== null ? ` · ${dec(yaRegistrado.humedad)} %` : ""}</span>, por {nombreCorto(yaRegistrado.responsable)} el {yaRegistrado.creado}.</p>
                 <button type="button" onClick={() => irAlFormulario(slot, yaRegistrado)} className="btn-borde justify-self-start h-10">Corregir</button>
               </div>
             ) : (

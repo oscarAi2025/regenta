@@ -19,6 +19,7 @@ export function PanelFormula({ ex, cfg, datos, onCambio, falta, sinRed }: {
         <h3 id="formula-titulo" className="font-semibold leading-tight">{ex.datos ? "Datos de la fórmula médica" : "Requiere fórmula médica"}</h3>
       </div>
       <p className="mt-1 text-sm text-muted">{nombres.length === 1 ? nombres[0] : `${nombres.length} productos: ${nombres.join(" · ")}`}</p>
+      {ex.datos && nombres.length > 1 && <p className="mt-1 text-[13px] text-muted">Los datos se registran para todos estos productos: si vienen en fórmulas distintas, haz una venta por fórmula.</p>}
 
       {ex.datos ? (
         <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5">

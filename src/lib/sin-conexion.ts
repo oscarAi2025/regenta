@@ -96,7 +96,11 @@ export async function sincronizar(empresa: string | null): Promise<{ enviadas: n
       if (/turno|existencias|suspendida|habilitada|resoluci[oó]n|numeraci[oó]n/i.test(String(j.error ?? ""))) {
         escribir(K_COLA, cola().map((x) => (x.idem_key === v.idem_key ? { ...x, aviso: j.error } : x))); avisar(); continue;
       }
-      escribir(K_COLA, cola().map((x) => (x.idem_key === v.idem_key ? { ...x, error: j.error ?? `No se pudo registrar (${r.status})` } : x))); avisar();
+      // Un producto que se marcó con fórmula después de guardar el catálogo: la venta no se puede registrar sin esos datos.
+      const msg = /f[oó]rmula/i.test(String(j.error ?? ""))
+        ? `${j.error}. Registra esta venta de nuevo en la caja con los datos de la fórmula y luego marca «Ya la registré a mano»`
+        : j.error ?? `No se pudo registrar (${r.status})`;
+      escribir(K_COLA, cola().map((x) => (x.idem_key === v.idem_key ? { ...x, error: msg } : x))); avisar();
     }
   } finally { enCurso = false; }
   return { enviadas, sesion, pendientes: cola().filter((x) => !x.error).length };
