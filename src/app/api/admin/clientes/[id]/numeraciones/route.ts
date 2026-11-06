@@ -8,7 +8,7 @@ import { avisarHabilitacion } from "@/lib/operacion";
 
 const fecha = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha AAAA-MM-DD").nullish().or(z.literal(""));
 const Numeracion = z.object({
-  tipo: z.enum(["pos", "factura", "nota_credito"]),
+  tipo: z.enum(["pos", "factura", "nota_credito", "soporte", "ajuste_soporte", "nota_debito"]),
   prefijo: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{0,4}$/, "El prefijo DIAN tiene hasta 4 letras o números"),
   desde: z.number().int().positive().max(1e12), hasta: z.number().int().positive().max(1e12),
   numero_resolucion: z.string().trim().regex(/^\d{6,20}$/, "El número de resolución son solo dígitos").or(z.literal("")),
@@ -42,6 +42,10 @@ export const POST = conAdmin(async (a, req, ctx) => {
     const q = (await c.query(`select bool_or(tipo in ('pos', 'factura') and not pruebas) ventas_reales, bool_or(tipo = 'nota_credito' and not pruebas) nc_real
       from resoluciones_dian where empresa_id = $1 and activa`, [id])).rows[0];
     if (q.ventas_reales && !q.nc_real) throw Object.assign(new Error("Primero carga la numeración de notas crédito de producción: sin ella las anulaciones y devoluciones de estas ventas no podrían enviarse a la DIAN"), { status: 400 });
+    // Igual con el documento soporte: en producción necesita su nota de ajuste en producción (es como se anula o corrige).
+    const sp = (await c.query(`select bool_or(tipo = 'soporte' and not pruebas) soporte_real, bool_or(tipo = 'ajuste_soporte' and not pruebas) ajuste_real
+      from resoluciones_dian where empresa_id = $1 and activa`, [id])).rows[0];
+    if (sp.soporte_real && !sp.ajuste_real) throw Object.assign(new Error("Primero carga la numeración de notas de ajuste del documento soporte de producción: sin ella un documento soporte no podría anularse ni corregirse ante la DIAN"), { status: 400 });
     await evento(a, "nueva_numeracion", id, n, c);
     return { status: 201, ok: true, claves: await avisarHabilitacion(c, id) };
   }).catch((e) => { if ((e as { status?: number }).status) return { status: (e as { status: number }).status, error: (e as Error).message }; throw e; });

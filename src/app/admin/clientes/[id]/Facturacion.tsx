@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
+import { NOMBRE_NUMERACION as NOMBRE, type TipoNumeracion } from "@/lib/dian/tipos";
 
-type Res = { tipo: "pos" | "factura" | "nota_credito"; prefijo: string; numero: string; pruebas: boolean };
-const NOMBRE = { pos: "POS electrónico", factura: "Factura electrónica", nota_credito: "Nota crédito" } as const;
+type Res = { tipo: TipoNumeracion; prefijo: string; numero: string; pruebas: boolean };
 
 /** Conexión del cliente con MATIAS: su UUID en la casa de software y el número de resolución DIAN de cada numeración. */
 /** Cargar la numeración que autorizó la DIAN (reemplaza la vigente del mismo tipo). */
@@ -25,11 +25,11 @@ function NuevaNumeracion({ empresa }: { empresa: string }) {
   return (
     <details className="rounded-xl border border-line p-4">
       <summary className="cursor-pointer font-semibold">Cargar numeración autorizada por la DIAN</summary>
-      <p className="text-sm text-muted mt-2">Los datos de la resolución de numeración (MUISCA). Reemplaza la numeración vigente de ese tipo; la siguiente venta usa la nueva.</p>
+      <p className="text-sm text-muted mt-2">Los datos de la resolución de numeración (MUISCA). Reemplaza la numeración vigente de ese tipo; el siguiente documento usa la nueva. El documento soporte (compras a proveedores no obligados a facturar) y su nota de ajuste tienen numeración propia.</p>
       <div className="mt-3 grid sm:grid-cols-4 gap-3">
         <label className="grid text-sm"><span className="etiqueta">Documento</span>
           <select className="campo" value={f.tipo} onChange={(e) => setF({ ...f, tipo: e.target.value })} aria-label="Tipo de documento">
-            <option value="pos">POS electrónico</option><option value="factura">Factura electrónica</option><option value="nota_credito">Nota crédito</option>
+            {Object.entries(NOMBRE).map(([k, t]) => <option key={k} value={k}>{t}</option>)}
           </select></label>
         {campo("prefijo", "Prefijo", { placeholder: "POS1", maxLength: 4 })}
         {campo("desde", "Desde", { inputMode: "numeric", placeholder: "1" })}
@@ -47,7 +47,34 @@ function NuevaNumeracion({ empresa }: { empresa: string }) {
   );
 }
 
-export function Facturacion({ empresa, cliente, resoluciones, emisor }: { empresa: string; cliente: string; resoluciones: Res[]; emisor: string }) {
+/** Envío real a MATIAS de documento soporte, nota de ajuste y nota débito: apagado hasta validar en el sandbox. */
+function EnvioComplementario({ empresa, activo, listo }: { empresa: string; activo: boolean; listo: boolean }) {
+  const [on, setOn] = useState(activo);
+  const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  async function cambiar() {
+    setEnviando(true); setMsg(null);
+    const r = await fetch(`/api/admin/clientes/${empresa}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ complementario: !on }) }).catch(() => null);
+    const j = await r?.json().catch(() => ({}));
+    setEnviando(false);
+    if (r?.ok) { setOn(!on); setMsg({ ok: true, t: j.mensaje }); } else setMsg({ ok: false, t: j?.error ?? "No se pudo guardar" });
+  }
+  return (
+    <div className="rounded-xl border border-line p-4 grid gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="font-semibold">Documento soporte, nota de ajuste y nota débito</p>
+        <span className={`pastilla h-8 text-[13px] ${on ? "bg-cruz-soft text-cruz" : "bg-paper text-muted"}`}>{on ? "Envío real activado" : "Envío real apagado"}</span>
+      </div>
+      <p className="text-sm text-muted">Tipos de MATIAS confirmados por su soporte (06/11/2026): valídalos en el sandbox antes de activar. Mientras esté apagado, estos documentos de una numeración de producción no salen a la DIAN.{!listo && !on ? " Para activarlo hace falta la numeración de documento soporte de producción y el UUID de MATIAS." : ""}</p>
+      <div className="flex flex-wrap items-center gap-3">
+        <button onClick={cambiar} disabled={enviando || (!on && !listo)} className={on ? "btn-borde h-10 text-sm" : "btn-oscuro h-10 text-sm"}>{enviando ? "Guardando…" : on ? "Apagar envío real" : "Activar envío real"}</button>
+        {msg && <span role="status" className={`text-sm font-semibold ${msg.ok ? "text-cruz" : "text-alerta"}`}>{msg.t}</span>}
+      </div>
+    </div>
+  );
+}
+
+export function Facturacion({ empresa, cliente, resoluciones, emisor, complementario = false }: { empresa: string; cliente: string; resoluciones: Res[]; emisor: string; complementario?: boolean }) {
   const [uuid, setUuid] = useState(cliente);
   const [res, setRes] = useState(resoluciones);
   const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
@@ -87,6 +114,7 @@ export function Facturacion({ empresa, cliente, resoluciones, emisor }: { empres
         {msg && <span role="status" className={`text-sm font-semibold ${msg.ok ? "text-cruz" : "text-alerta"}`}>{msg.t}</span>}
       </div>
       <NuevaNumeracion empresa={empresa} />
+      <EnvioComplementario empresa={empresa} activo={complementario} listo={!!cliente && resoluciones.some((r) => r.tipo === "soporte" && !r.pruebas)} />
     </section>
   );
 }

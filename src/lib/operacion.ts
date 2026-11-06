@@ -74,7 +74,7 @@ export async function avisarRechazos() {
     for (const f of filas)
       for (const d of await duenos(c, f.empresa_id))
         if (await encolar(c, { clave: `rechazado:${f.id}:${f.marca}:${d.email}`, para: d.email, plantilla: "documento_rechazado", empresa: f.empresa_id,
-          datos: { nombre: d.nombre, empresa: f.nombre, documento: f.doc, error: String(f.ultimo_error ?? "").slice(0, 300), ruta: `/ventas/${f.venta_id}` } })) avisos++;
+          datos: { nombre: d.nombre, empresa: f.nombre, documento: f.doc, error: String(f.ultimo_error ?? "").slice(0, 300), ruta: f.venta_id ? `/ventas/${f.venta_id}` : "/documentos?estado=rechazado" } })) avisos++;
     return { rechazados: filas.length, avisos };
   });
 }
