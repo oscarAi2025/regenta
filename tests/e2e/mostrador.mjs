@@ -362,8 +362,10 @@ let cot;
   ok((await api(p, `/api/pedidos/${domi.id}`, "PATCH", { estado: "cancelado", motivo: "Intento ajeno" })).status === 404, "cancelar un pedido ajeno → 404");
   ok((await api(p, `/api/pedidos/${domi.id}/cobrar`, "POST", { idem_key: crypto.randomUUID(), tipo_doc: "pos", lineas: [{ producto_id: PD.id, presentacion: "unidad", cantidad: 1 }], pagos: [{ medio: "efectivo", valor: 100000 }] })).status === 404, "cobrar un pedido ajeno → 404");
   ok((await api(p, "/api/pedidos", "POST", { tipo: "espera", lineas: [{ producto_id: PD.id, presentacion: "unidad", cantidad: 1 }] })).status === 422, "no se arma un pedido con productos ajenos");
-  const ajeno = await p.goto(`${B}/tiquete/cotizacion/${cot.id}`);
-  ok(ajeno.status() === 404, "la cotización de otra droguería no se abre", String(ajeno.status()));
+  // /tiquete tiene loading.tsx (límite de Suspense contra el React 418): notFound() llega por streaming con estado 200.
+  await p.goto(`${B}/tiquete/cotizacion/${cot.id}`); await p.waitForLoadState("networkidle");
+  const ajeno = await p.locator("body").innerText();
+  ok(/404|no (existe|se encontr)/i.test(ajeno) && !ajeno.includes("Cotización N.º"), "la cotización de otra droguería no se abre", ajeno.slice(0, 80).replace(/\s+/g, " "));
   await DB.ctx.close();
 
   // El vendedor invitado entra: ve Pedidos y no la Caja

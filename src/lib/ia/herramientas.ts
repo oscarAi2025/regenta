@@ -9,7 +9,7 @@ type Esquema = { type: "object"; properties: Record<string, { type: string; desc
 export type Herramienta = { name: string; description: string; input_schema: Esquema };
 
 export const HERRAMIENTAS: Herramienta[] = [
-  { name: "resumen_ventas", description: "Ventas cerradas de la droguería entre dos fechas (AAAA-MM-DD, zona Bogotá): total, número de ventas, ticket promedio, ventas por día, medios de pago y los productos más vendidos.",
+  { name: "resumen_ventas", description: "Ventas de la droguería entre dos fechas (AAAA-MM-DD, zona Bogotá), netas de devoluciones como en Reportes: ventas brutas, devoluciones del periodo (por la fecha en que se hicieron), ventas netas (bruto menos devoluciones; usa esta cifra como «lo que vendió»), número de ventas, ticket promedio, ventas netas por día, lo cobrado por medio de pago y los productos más vendidos (netos de lo devuelto).",
     input_schema: { type: "object", properties: { desde: { type: "string", description: "Fecha inicial AAAA-MM-DD" }, hasta: { type: "string", description: "Fecha final AAAA-MM-DD (incluida)" } }, required: ["desde", "hasta"] } },
   { name: "buscar_producto", description: "Busca productos por nombre, laboratorio o código de barras. Devuelve precios, existencias vigentes, lotes con vencimiento, ritmo de venta y días de cobertura.",
     input_schema: { type: "object", properties: { texto: { type: "string", description: "Palabras del nombre o código de barras" } }, required: ["texto"] } },
@@ -41,12 +41,26 @@ export async function ejecutar(s: Sesion, nombre: string, entrada: Record<string
       case "resumen_ventas": {
         const desde = fechaOk(entrada.desde), hasta = fechaOk(entrada.hasta);
         if (!desde || !hasta) return { error: "Fechas no válidas: usa AAAA-MM-DD" };
-        const rango = `v.empresa_id = $1 and v.estado = 'cerrada' and (v.creado at time zone 'America/Bogota')::date between $2 and $3`;
-        const total = (await c.query(`select count(*)::int ventas, coalesce(sum(total), 0)::float total, coalesce(round(avg(total)), 0)::float promedio from ventas v where ${rango}`, [s.empresa, desde, hasta])).rows[0];
-        const dias = (await c.query(`select (v.creado at time zone 'America/Bogota')::date::text dia, count(*)::int ventas, sum(total)::float total from ventas v where ${rango} group by 1 order by 1`, [s.empresa, desde, hasta])).rows;
-        const medios = (await c.query(`select p.medio, sum(p.valor - case when p.medio = 'efectivo' and p.primero then v.cambio else 0 end)::float valor from (select *, row_number() over (partition by venta_id, medio order by id) = 1 primero from pagos) p join ventas v on v.id = p.venta_id where ${rango} group by 1 order by 2 desc`, [s.empresa, desde, hasta])).rows;
-        const top = (await c.query(`select l.descripcion producto, sum(l.unidades)::int unidades, sum(l.total)::float total from venta_lineas l join ventas v on v.id = l.venta_id where ${rango} group by 1 order by 3 desc limit 10`, [s.empresa, desde, hasta])).rows;
-        return { desde, hasta, ...total, por_dia: dias.slice(-62), medios_de_pago: medios, mas_vendidos: top };
+        // Igual que Reportes (src/lib/reportes.ts, datosReporte): las ventas cerradas por su fecha y las devoluciones restan
+        // el día en que se hacen (como su nota crédito). Antes la IA daba las ventas brutas sin restar devoluciones.
+        const p = [s.empresa, desde, hasta];
+        const rango = `v.empresa_id = $1 and v.estado = 'cerrada' and (v.creado at time zone 'America/Bogota')::date between $2::date and $3::date`;
+        const rangoD = `d.empresa_id = $1 and (d.creado at time zone 'America/Bogota')::date between $2::date and $3::date`;
+        const t = (await c.query(`select count(*)::int ventas, coalesce(sum(total), 0)::float bruto from ventas v where ${rango}`, p)).rows[0] as { ventas: number; bruto: number };
+        const dev = (await c.query(`select count(*)::int cantidad, coalesce(sum(total), 0)::float total from devoluciones d where ${rangoD}`, p)).rows[0] as { cantidad: number; total: number };
+        const cent = (n: number) => Math.round(n * 100) / 100;
+        const dias = (await c.query(`select dia::text, coalesce(v.ventas, 0)::int ventas, coalesce(v.bruto, 0)::float bruto, coalesce(d.devoluciones, 0)::float devoluciones,
+            (coalesce(v.bruto, 0) - coalesce(d.devoluciones, 0))::float netas
+          from (select (v.creado at time zone 'America/Bogota')::date dia, count(*) ventas, sum(total) bruto from ventas v where ${rango} group by 1) v
+          full join (select (d.creado at time zone 'America/Bogota')::date dia, sum(total) devoluciones from devoluciones d where ${rangoD} group by 1) d using (dia)
+          order by dia`, p)).rows;
+        const medios = (await c.query(`select p.medio, sum(p.valor - case when p.medio = 'efectivo' and p.primero then v.cambio else 0 end)::float valor from (select *, row_number() over (partition by venta_id, medio order by id) = 1 primero from pagos) p join ventas v on v.id = p.venta_id where ${rango} group by 1 order by 2 desc`, p)).rows;
+        const top = (await c.query(`select l.descripcion producto, (sum(l.unidades) - coalesce(sum(dv.unidades), 0))::int unidades, (sum(l.total) - coalesce(sum(dv.total), 0))::float total
+          from venta_lineas l join ventas v on v.id = l.venta_id
+          left join lateral (select sum(dl.unidades) unidades, sum(dl.total) total from devolucion_lineas dl where dl.venta_linea_id = l.id) dv on true
+          where ${rango} group by l.producto_id, l.descripcion order by 3 desc limit 10`, p)).rows;
+        return { desde, hasta, ventas: t.ventas, ventas_brutas: cent(t.bruto), devoluciones: { cantidad: dev.cantidad, total: cent(dev.total) }, ventas_netas: cent(t.bruto - dev.total),
+          promedio: t.ventas ? Math.round(t.bruto / t.ventas) : 0, por_dia: dias.slice(-62), cobrado_por_medio_de_pago: medios, mas_vendidos: top };
       }
       case "buscar_producto": {
         const t = String(entrada.texto ?? "").trim().toLowerCase().slice(0, 80);

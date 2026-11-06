@@ -12,6 +12,11 @@ const ITEMS = [
   { href: "/cartera", label: "Cartera", roles: ["dueno", "admin"], d: "M3 7h18v12H3zM3 11h18M7 15h4M16 4l-3 3" },
   { href: "/productos", label: "Productos", roles: ["dueno", "admin", "cajero", "bodeguero"], d: "M7 4h10l3 4v12H4V8zM4 8h16M10 12h4" },
   { href: "/reportes", label: "Reportes", roles: ["dueno", "admin"], d: "M4 20V10M10 20V4M16 20v-7M22 20H2" },
+  { href: "/gastos", label: "Gastos", roles: ["dueno", "admin"], d: "M4 6h16v12H4zM4 10h16M8 15h3" },
+  { href: "/bitacora", label: "Bitácora", roles: ["dueno", "admin"], d: "M6 3h12v18H6zM9 7h6M9 11h6M9 15h4" },
+  { href: "/productos/precios", label: "Precios en bloque", roles: ["dueno", "admin"], d: "M3 12V4h8l10 10-8 8zM7.5 7.5h.01" },
+  { href: "/etiquetas", label: "Etiquetas", roles: ["dueno", "admin", "bodeguero"], d: "M3 5h18v14H3zM7 9v6M10 9v6M13 9v6M16 9v6" },
+  { href: "/inventario/cuarentena", label: "Cuarentena", roles: ["dueno", "admin", "bodeguero"], d: "M4 8l8-4 8 4v8l-8 4-8-4zM9.5 10.5l5 5M14.5 10.5l-5 5" },
   { href: "/prediccion", label: "Predicción", roles: ["dueno", "admin", "bodeguero"], d: "M4 19h16M6 16l4-5 3 3 5-7M15 7h3v3" },
   { href: "/alertas", label: "Alertas", roles: ["dueno", "admin", "cajero", "bodeguero"], d: "M12 4l9 16H3zM12 10v4M12 17h.01" },
   { href: "/equipo", label: "Mi droguería", roles: ["dueno"], d: "M3 21V9l9-6 9 6v12M9 21v-6h6v6M3 21h18" },
@@ -28,16 +33,19 @@ const ITEMS = [
 const GRUPOS: [string, string[]][] = [
   ["", ["/inicio"]],
   ["Vender", ["/caja", "/pedidos", "/turno", "/ventas", "/clientes", "/cartera"]],
-  ["Inventario", ["/productos", "/inventario", "/prediccion", "/alertas"]],
+  ["Inventario", ["/productos", "/productos/precios", "/etiquetas", "/inventario", "/inventario/cuarentena", "/prediccion", "/alertas"]],
   ["Compras", ["/compras", "/cuentas-por-pagar"]],
   ["Cumplimiento", ["/documentos", "/temperatura", "/control-especial"]],
-  ["Gestión", ["/reportes", "/equipo", "/cuenta"]],
+  ["Gestión", ["/reportes", "/gastos", "/bitacora", "/equipo", "/cuenta"]],
 ];
 
 export function Navegacion({ rol, demo = false }: { rol: string; demo?: boolean }) {
   const p = usePathname();
   async function salir() { await fetch("/api/sesion", { method: "DELETE" }); location.href = demo ? "/demo/gracias" : "/entrar"; } // la demo termina en la oferta, no en la pantalla de entrar
   const visibles = ITEMS.filter((i) => i.roles.includes(rol));
+  // Marca solo la entrada más específica: en /productos/precios, «Precios en bloque» y no también «Productos»; y
+  // /cuentas-por-pagar no enciende «Mi cuenta» (antes se comparaba con startsWith sin límite de segmento).
+  const activa = visibles.filter((i) => p === i.href || p.startsWith(i.href + "/")).sort((a, b) => b.href.length - a.href.length)[0]?.href;
   const icono = (d: string) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true" className="shrink-0"><path d={d} /></svg>;
   return (
     <nav className="flex lg:flex-col items-center lg:items-stretch gap-1 lg:gap-0 lg:mt-4 flex-1 w-full min-h-0 overflow-x-auto lg:overflow-x-hidden lg:overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(90deg,#000_85%,transparent)] lg:[mask-image:none]" aria-label="Principal">
@@ -48,7 +56,7 @@ export function Navegacion({ rol, demo = false }: { rol: string; demo?: boolean 
           <div key={titulo || "inicio"} className="contents lg:block lg:mb-2">
             {titulo && !items.every((i) => "soloCelular" in i) && <p className="hidden lg:block px-3 pt-1.5 pb-1 text-[11.5px] font-semibold text-white/45">{titulo}</p>}
             {items.map((i) => {
-              const on = p.startsWith(i.href);
+              const on = i.href === activa;
               return (
                 <Link key={i.href} href={i.href} aria-current={on ? "page" : undefined}
                   className={`${"soloCelular" in i ? "lg:hidden " : ""}relative flex flex-col lg:flex-row items-center gap-1 lg:gap-3 rounded-xl lg:rounded-lg px-2 lg:px-3 py-2 lg:py-[6px] min-w-16 lg:min-w-0 lg:w-full text-[12px] lg:text-[14.5px] font-medium shrink-0 transition-colors ${on ? "text-white bg-white/12 lg:before:absolute lg:before:left-0 lg:before:top-1.5 lg:before:bottom-1.5 lg:before:w-[3px] lg:before:rounded-full lg:before:bg-teal-300" : "text-white/70 hover:text-white hover:bg-white/6"}`}>

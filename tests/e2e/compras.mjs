@@ -337,8 +337,11 @@ let C1, C2, CB, L1, L3;
   ok(dv.status === 422 && /Compra no válida/.test(dv.j.error), "B no devuelve mercancía de A", dv.j.error);
   const ed = await api(p, "/api/proveedores", "PATCH", { id: C1.proveedor_id, nombre: "Hackeado" });
   ok(ed.status === 404 && (await q1(`select nombre from proveedores where id = $1`, [C1.proveedor_id])).nombre === PROV, "B no edita un proveedor de A");
-  const r = await p.goto(B + `/tiquete/recepcion/${C1.id}`);
-  ok(r.status() === 404, "B no abre el acta de A (404)", String(r.status()));
+  // /tiquete tiene loading.tsx (límite de Suspense contra el React 418): notFound() llega por streaming con estado 200, como
+  // en el panel. Se comprueba el contenido: página no encontrada y ningún dato de A.
+  await p.goto(B + `/tiquete/recepcion/${C1.id}`); await p.waitForLoadState("networkidle");
+  const actaAjena = await p.locator("body").innerText();
+  ok(/404|no (existe|se encontr)/i.test(actaAjena) && !actaAjena.includes(PROV) && !actaAjena.includes(FACT), "B no abre el acta de A (no encontrada)", actaAjena.slice(0, 80).replace(/\s+/g, " "));
   ok(sinProvocados(p, errs).filter((e) => !/status of 404/.test(e)).length === 0, "sin errores de consola (dueño B)", sinProvocados(p, errs).join(" | "));
   await ctx.close();
 }

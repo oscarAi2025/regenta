@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { comoUsuario, sinComodines } from "@/lib/db";
 import Link from "next/link";
 import { leerSesion, puede } from "@/lib/sesion";
+import { puedePrecios } from "@/lib/precios";
 import { Cabecera } from "@/components/ui/Cabecera";
 import { pesos } from "@/lib/formato";
 import { CostosPendientes } from "./CostosPendientes";
@@ -61,6 +62,7 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
           <Link href="/compras" className="btn-borde">Compras</Link>
           <Link href="/inventario/ajustes" className="btn-borde">Ajustar o dar de baja</Link>
           <Link href="/inventario/conteos" className="btn-borde">{datos.conteo ? `Conteo N.º ${datos.conteo} en curso` : "Conteo físico"}</Link>
+          {puedePrecios.cuarentena(s.rol) && <Link href="/inventario/cuarentena" className="btn-borde">Cuarentena</Link>}
           <Link href="/temperatura" className="btn-borde">Temperatura y humedad</Link>
         </>}
       </Cabecera>

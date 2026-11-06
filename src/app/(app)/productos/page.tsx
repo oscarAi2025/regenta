@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { comoUsuario, sinComodines } from "@/lib/db";
 import { leerSesion } from "@/lib/sesion";
+import { puedePrecios } from "@/lib/precios";
 import { Cabecera, existenciasTexto, pesos } from "@/components/ui/Cabecera";
 
 export const metadata = { title: "Productos" };
@@ -29,7 +30,10 @@ export default async function Productos({ searchParams }: { searchParams: Promis
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
       <Cabecera titulo="Productos" sub={`${total.toLocaleString("es-CO")} productos en tu droguería`}>
-        {gestiona && <><Link href="/productos/nuevo" className="btn-primario">Agregar producto</Link><Link href="/productos/importar" className="btn-borde">Cargar desde Excel</Link><Link href="/control-especial" className="btn-borde">Libro de control especial</Link></>}
+        {gestiona && <><Link href="/productos/nuevo" className="btn-primario">Agregar producto</Link><Link href="/productos/importar" className="btn-borde">Cargar desde Excel</Link></>}
+        {puedePrecios.cambiar(s.rol) && <Link href="/productos/precios" className="btn-borde">Precios en bloque</Link>}
+        {puedePrecios.etiquetas(s.rol) && <Link href="/etiquetas" className="btn-borde">Etiquetas</Link>}
+        {gestiona && <Link href="/control-especial" className="btn-borde">Libro de control especial</Link>}
       </Cabecera>
       <form className="flex flex-wrap gap-2" role="search">
         <label htmlFor="q" className="sr-only">Buscar producto</label>
