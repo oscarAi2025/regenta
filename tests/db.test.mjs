@@ -789,3 +789,127 @@ test("el kardex filtra por la empresa del producto (no recorre el índice de tod
   const def = (await pool.query(`select pg_get_functiondef('kardex'::regproc) d`)).rows[0].d;
   assert.match(def, /m\.empresa_id = \(select pr\.empresa_id from productos pr where pr\.id = p_producto\)/);
 });
+
+// ───────────── Compras, proveedores y cuentas por pagar (031)
+const proveedorDe = async (c, emp, nombre) => (await c.query(`insert into proveedores (empresa_id, nombre, plazo_dias) values ($1, $2, 30)
+  on conflict (empresa_id, lower(trim(nombre))) do update set nombre = excluded.nombre returning id`, [emp, nombre])).rows[0].id;
+const compra = (prov, lineas, extra = {}) => ({ empresa_id: E.A, sede_id: S.A, proveedor_id: prov, numero_factura: "FV-" + crypto.randomUUID().slice(0, 8),
+  fecha_factura: new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" }), condicion: "credito", lineas, ...extra });
+const vence = "2031-06-30";
+
+test("compra: totales al centavo, costo del lote sin IVA, bonificadas prorratean, promedio ponderado al repetir lote", async () => {
+  await como(U.carlos, async (c) => {
+    const prov = await proveedorDe(c, E.A, "Proveedor prueba BD");
+    const upc = prod.unidades_por_caja, s0 = await existencias(c, prod.id);
+    const r = (await c.query("select registrar_compra($1) r", [compra(prov, [
+      { producto_id: prod.id, lote: "CMP-A", vence, unidades: 2 * upc, costo: 10000.5, costo_por: "caja", iva_pct: 0 },
+      { producto_id: prod.id, lote: "CMP-B", vence, unidades: 10, costo: 1234.56, costo_por: "unidad", descuento_pct: 5, iva_pct: 19 },
+      { producto_id: prod.id, lote: "CMP-C", vence, unidades: 5, bonificadas: 1, costo: 3000, costo_por: "unidad", iva_pct: 0 },
+    ], { total_papel: 48957.7 })])).rows[0].r;
+    assert.equal(r.estado, "registrada");
+    const k = (await c.query(`select subtotal::float, descuento::float, iva::float, total::float, diferencia::float from compras where id = $1`, [r.id])).rows[0];
+    assert.deepEqual(k, { subtotal: 47346.6, descuento: 617.28, iva: 2228.38, total: 48957.7, diferencia: 0 });
+    assert.equal(await existencias(c, prod.id), s0 + 2 * upc + 10 + 6);
+    const costo = async (lote) => Number((await c.query(`select lc.costo_unidad from lote_costos lc join lotes l on l.id = lc.lote_id where l.producto_id = $1 and l.lote = $2`, [prod.id, lote])).rows[0].costo_unidad);
+    assert.equal(await costo("CMP-A"), Math.round(10000.5 / upc * 10000) / 10000);
+    assert.equal(await costo("CMP-B"), 1172.832, "sin IVA y con descuento");
+    assert.equal(await costo("CMP-C"), 2500, "las bonificadas prorratean el costo");
+    const m = (await c.query(`select tipo, motivo from movimientos where ref_id = $1`, [r.id])).rows;
+    assert.equal(m.length, 3); assert.ok(m.every((x) => x.tipo === "compra" && /Compra N\.º \d+ · Proveedor prueba BD · factura FV-/.test(x.motivo)));
+    // El mismo lote vuelve a llegar: promedio ponderado (6 × 2.500 + 4 × 3.500) / 10 = 2.900
+    await c.query("select registrar_compra($1)", [compra(prov, [{ producto_id: prod.id, lote: "cmp-c", vence, unidades: 4, costo: 3500, costo_por: "unidad", iva_pct: 0 }])]);
+    assert.equal(await costo("CMP-C"), 2900);
+    assert.equal((await c.query(`select heredado from lote_costos lc join lotes l on l.id = lc.lote_id where l.lote = 'CMP-C'`)).rows[0].heredado, false);
+    // Factura repetida del mismo proveedor
+    const f = (await c.query(`select numero_factura from compras where id = $1`, [r.id])).rows[0].numero_factura;
+    await falla(c, "select registrar_compra($1)", [compra(prov, [{ producto_id: prod.id, lote: "X1", vence, unidades: 1, costo: 1, costo_por: "unidad" }], { numero_factura: f.toLowerCase() })], /ya está registrada/);
+    await falla(c, "select registrar_compra($1)", [compra(prov, [{ producto_id: prod.id, lote: "X1", vence, unidades: 1, costo: 1, costo_por: "unidad" }, { producto_id: prod.id, lote: "X2", vence, unidades: 1 }])], /Falta el costo/);
+    // Inmutable
+    await falla(c, `update compras set total = 1 where id = $1`, [r.id], /permission denied/);
+    await c.query("set constraints all immediate");
+    await c.query("reset role");
+    await falla(c, `update compras set total = 1, subtotal = 1 where id = $1`, [r.id], /no se cambian/);
+    await falla(c, `delete from compra_lineas where compra_id = $1`, [r.id], /no se borran/);
+  });
+});
+
+test("compra: la bodega registra sin costos (por costear, sin ver dinero) y el dueño completa; la cajera y otra empresa no", async () => {
+  const prov = await como(U.carlos, (c) => proveedorDe(c, E.A, "Proveedor bodega BD"), { commit: true });
+  const r = await como(U.bodega, async (c) => {
+    const r = (await c.query("select registrar_compra($1) r", [compra(prov, [{ producto_id: prod.id, lote: "BOD-1", vence, unidades: 8, costo: 999, costo_por: "unidad" }], { condicion: "contado" })])).rows[0].r;
+    assert.equal(r.estado, "por_costear");
+    assert.equal((await c.query(`select count(*)::int n from compras`)).rows[0].n, 0, "la bodega no lee la tabla con dinero");
+    const v = (await c.query(`select estado, lineas, unidades from v_recepciones where id = $1`, [r.id])).rows[0];
+    assert.deepEqual(v, { estado: "por_costear", lineas: 1, unidades: 8 });
+    assert.equal((await c.query(`select count(*)::int n from v_cuentas_por_pagar`)).rows[0].n, 0);
+    await falla(c, "select completar_costos_compra($1, '{}')", [r.id], /dueño o el administrador/);
+    return r;
+  }, { commit: true });
+  await assert.rejects(como(U.cajera, (c) => c.query("select registrar_compra($1)", [compra(prov, [{ producto_id: prod.id, lote: "Z", vence, unidades: 1 }])])), /registran compras/);
+  assert.equal(await como(U.cajera, async (c) => (await c.query(`select count(*)::int n from v_recepciones`)).rows[0].n), 0);
+  assert.equal(await como(U.duenoB, async (c) => (await c.query(`select (select count(*) from compras) + (select count(*) from v_recepciones) + (select count(*) from v_cuentas_por_pagar) n`)).rows[0].n), "0");
+  await assert.rejects(como(U.duenoB, (c) => c.query("select registrar_compra($1)", [{ ...compra(prov, [{ producto_id: prod.id, lote: "Z", vence, unidades: 1 }]), empresa_id: E.B, sede_id: S.A }])), /Sede no válida|proveedor/);
+  await assert.rejects(como(U.duenoB, (c) => c.query("select completar_costos_compra($1, '{}')", [r.id])), /dueño o el administrador/);
+  await como(U.carlos, async (c) => {
+    const l = (await c.query(`select id from compra_lineas where compra_id = $1`, [r.id])).rows[0];
+    const k = (await c.query("select completar_costos_compra($1, $2) r", [r.id, { condicion: "credito", vence_pago: vence.replace("2031", "2027"), lineas: [{ linea_id: l.id, costo: 1500, costo_por: "unidad", iva_pct: 19 }] }])).rows[0].r;
+    assert.equal(Number(k.total), 14280);
+    const cp = (await c.query(`select saldo::float, condicion from v_cuentas_por_pagar where compra_id = $1`, [r.id])).rows[0];
+    assert.deepEqual(cp, { saldo: 14280, condicion: "credito" });
+    assert.equal(Number((await c.query(`select lc.costo_unidad from lote_costos lc join lotes l on l.id = lc.lote_id where l.lote = 'BOD-1'`)).rows[0].costo_unidad), 1500);
+    await falla(c, "select completar_costos_compra($1, $2)", [r.id, { lineas: [] }], /ya tiene sus costos/);
+    // Limpieza: se anula (sin pagos, el stock alcanza)
+    await c.query("select anular_compra($1, 'Limpieza de la prueba')", [r.id]);
+  }, { commit: true });
+});
+
+test("pagos a proveedores: parcial y total (saldo 0), del más antiguo al más nuevo, efectivo exige turno, anular con motivo", async () => {
+  await como(U.carlos, async (c) => {
+    const prov = await proveedorDe(c, E.A, "Proveedor pagos BD");
+    const nueva = async (costo, dias) => (await c.query("select registrar_compra($1) r", [compra(prov, [{ producto_id: prod.id, lote: "PAG-" + costo, vence, unidades: 1, costo, costo_por: "unidad", iva_pct: 0 }],
+      { fecha_factura: new Date(Date.now() - dias * 864e5).toLocaleDateString("en-CA", { timeZone: "America/Bogota" }) })])).rows[0].r.id;
+    const vieja = await nueva(1000, 20), reciente = await nueva(3000, 2);
+    const saldo = async (id) => Number((await c.query(`select saldo from v_cuentas_por_pagar where compra_id = $1`, [id])).rows[0].saldo);
+    const p1 = (await c.query("select registrar_pago_proveedor($1) r", [{ empresa_id: E.A, proveedor_id: prov, medio: "transferencia", valor: 1500 }])).rows[0].r;
+    assert.equal(await saldo(vieja), 0, "primero la más antigua"); assert.equal(await saldo(reciente), 2500);
+    await falla(c, "select registrar_pago_proveedor($1)", [{ empresa_id: E.A, proveedor_id: prov, medio: "transferencia", valor: 2600 }], /supera/);
+    await falla(c, "select registrar_pago_proveedor($1)", [{ empresa_id: E.A, proveedor_id: prov, medio: "efectivo", valor: 100, caja_id: C.A }], /abre primero el turno/);
+    await falla(c, "select anular_compra($1, 'No se puede')", [vieja], /tiene pagos/);
+    const t = (await c.query(`select id from turnos where caja_id = $1 and estado = 'abierto'`, [C.A])).rows[0]?.id ?? (await c.query(`select abrir_turno($1, 0) id`, [C.A])).rows[0].id;
+    const antes = Number((await c.query("select resumen_turno($1) r", [t])).rows[0].r.egresos);
+    await c.query("select registrar_pago_proveedor($1)", [{ empresa_id: E.A, proveedor_id: prov, medio: "efectivo", valor: 2500, caja_id: C.A, compras: [reciente] }]);
+    assert.equal(await saldo(reciente), 0);
+    assert.equal(Number((await c.query("select resumen_turno($1) r", [t])).rows[0].r.egresos), antes + 2500, "el egreso sale en el turno");
+    await falla(c, "select anular_pago_proveedor($1, '')", [p1.id], /motivo/);
+    await c.query("select anular_pago_proveedor($1, 'Transferencia rechazada')", [p1.id]);
+    assert.equal(await saldo(vieja), 1000);
+    await c.query("set constraints all immediate");
+  });
+  await assert.rejects(como(U.bodega, (c) => c.query("select registrar_pago_proveedor($1)", [{ empresa_id: E.A, proveedor_id: prod.id, medio: "transferencia", valor: 1 }])), /dueño o el administrador/);
+});
+
+test("devolución al proveedor: el stock baja ya, el saldo baja con la nota crédito; anular revierte el stock", async () => {
+  await como(U.carlos, async (c) => {
+    const prov = await proveedorDe(c, E.A, "Proveedor devoluciones BD");
+    const r = (await c.query("select registrar_compra($1) r", [compra(prov, [{ producto_id: prod.id, lote: "DEV-1", vence, unidades: 10, costo: 1000, costo_por: "unidad", iva_pct: 19 }])])).rows[0].r;
+    const l = (await c.query(`select id, lote_id from compra_lineas where compra_id = $1`, [r.id])).rows[0];
+    const stock = async () => (await c.query(`select unidades from v_stock_lotes where lote_id = $1`, [l.lote_id])).rows[0].unidades;
+    const d = (await c.query("select registrar_devolucion_proveedor($1) r", [{ empresa_id: E.A, compra_id: r.id, motivo: "Empaque roto", lineas: [{ compra_linea_id: l.id, unidades: 3 }] }])).rows[0].r;
+    assert.equal(Number(d.valor), 3570); assert.equal(await stock(), 7);
+    const saldo = async () => Number((await c.query(`select saldo from v_cuentas_por_pagar where compra_id = $1`, [r.id])).rows[0].saldo);
+    assert.equal(await saldo(), 11900, "sin nota crédito el saldo no cambia");
+    await falla(c, "select registrar_devolucion_proveedor($1)", [{ empresa_id: E.A, compra_id: r.id, motivo: "Otra vez", lineas: [{ compra_linea_id: l.id, unidades: 8 }] }], /ya se devolvieron 3/);
+    await c.query("select aplicar_nc_proveedor($1, 'nc-77')", [d.id]);
+    assert.equal(await saldo(), 8330);
+    await falla(c, "select aplicar_nc_proveedor($1, 'nc-78')", [d.id], /ya tiene su nota/);
+    await falla(c, "select anular_compra($1, 'Con devolución')", [r.id], /devoluciones/);
+    // Anular una compra sin pagos ni devoluciones revierte el stock; si ya se vendió parte, no deja.
+    const r2 = (await c.query("select registrar_compra($1) r", [compra(prov, [{ producto_id: prod.id, lote: "ANU-1", vence, unidades: 4, costo: 100, costo_por: "unidad" }])])).rows[0].r;
+    const s0 = await existencias(c, prod.id);
+    await c.query("select anular_compra($1, 'Factura equivocada')", [r2.id]);
+    assert.equal(await existencias(c, prod.id), s0 - 4);
+    assert.equal((await c.query(`select estado from compras where id = $1`, [r2.id])).rows[0].estado, "anulada");
+    assert.ok((await c.query(`select 1 from auditoria where entidad_id = $1 and accion = 'anular_compra'`, [r2.id])).rowCount === 1);
+    await c.query("set constraints all immediate");
+  });
+});

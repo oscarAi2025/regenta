@@ -41,11 +41,15 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
       order by st.proximo nulls last, p.nombre limit 200`, [s.empresa, palabras])).rows;
     // Lotes con existencias que entraron sin costo (los recibe la bodega): el dueño o el administrador lo completan.
     const sinCosto = costos ? (await c.query(`select l.lote_id, p.nombre, l.lote, l.unidades, p.unidades_por_caja,
-        (select m.motivo from movimientos m where m.lote_id = l.lote_id and m.tipo = 'compra' order by m.creado desc limit 1) motivo
+        (select m.motivo from movimientos m where m.lote_id = l.lote_id and m.tipo = 'compra' order by m.creado desc limit 1) motivo,
+        (select k.id from compra_lineas cl join compras k on k.id = cl.compra_id where cl.lote_id = l.lote_id and k.estado = 'por_costear' limit 1) compra_id
       from v_stock_lotes l join productos p on p.id = l.producto_id where l.empresa_id = $1 and l.unidades > 0
         and not exists (select 1 from lote_costos lc where lc.lote_id = l.lote_id) order by p.nombre limit 60`, [s.empresa])).rows : [];
+    // Compras que la bodega recibió sin costos: se costean en la compra (ahí nace la cuenta por pagar).
+    const porCostear = costos ? (await c.query(`select c.id, c.numero, c.numero_factura, p.nombre proveedor from compras c join proveedores p on p.id = c.proveedor_id
+      where c.empresa_id = $1 and c.estado = 'por_costear' order by c.creado limit 30`, [s.empresa])).rows as { id: string; numero: number; numero_factura: string; proveedor: string }[] : [];
     const conteo = puede.moverInventario(s.rol) ? ((await c.query(`select numero from conteos where empresa_id = $1 and estado = 'abierto' order by creado limit 1`, [s.empresa])).rows[0]?.numero as number | undefined) ?? null : null;
-    return { resumen, agotados, valor, filas, sinCosto, conteo };
+    return { resumen, agotados, valor, filas, sinCosto, conteo, porCostear };
   });
   const kardex = puede.moverInventario(s.rol);
   const tabs = [["vencen", "Vencen en 90 días"], ["agotados", "Agotados"], ["todos", "Todo"]] as const;
@@ -53,13 +57,14 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
     <main className="p-4 sm:p-6">
       <Cabecera titulo="Inventario" sub={kardex ? "Lotes, vencimientos y lo que se acabó. Toca un producto para ver su kardex." : "Lotes, vencimientos y lo que se acabó."}>
         {puede.moverInventario(s.rol) && <>
-          <Link href="/inventario/recibir" className="btn-primario">Recibir mercancía</Link>
+          <Link href="/compras/nueva" className="btn-primario">Recibir mercancía</Link>
+          <Link href="/compras" className="btn-borde">Compras</Link>
           <Link href="/inventario/ajustes" className="btn-borde">Ajustar o dar de baja</Link>
           <Link href="/inventario/conteos" className="btn-borde">{datos.conteo ? `Conteo N.º ${datos.conteo} en curso` : "Conteo físico"}</Link>
           <Link href="/temperatura" className="btn-borde">Temperatura y humedad</Link>
         </>}
       </Cabecera>
-      {datos.sinCosto.length > 0 && <CostosPendientes lotes={datos.sinCosto} />}
+      {(datos.sinCosto.length > 0 || datos.porCostear.length > 0) && <CostosPendientes lotes={datos.sinCosto.filter((l) => !l.compra_id)} compras={datos.porCostear} />}
       <div className="mt-4 grid grid-cols-2 lg:grid-cols-5 gap-3">
         {[["Lotes vencidos", datos.resumen.vencidos, "text-alerta"], ["Vencen en 30 días", datos.resumen.v30, "text-alerta"], ["Vencen en 31–90 días", datos.resumen.v90, "text-aviso"], ["Productos agotados", datos.agotados, "text-ink"]].map(([t, n, c]) => (
           <div key={t as string} className="bg-surface border border-line rounded-xl px-4 py-3">
