@@ -193,8 +193,9 @@ async function entrar(ctx, quien) {
   const lora2 = (await (await p.request.get(B + "/api/productos?q=7709990000101")).json()).productos;
   ok(lora2.length === 1 && lora2[0].unidades === 60, "el Excel subido dos veces no suma existencias", `${lora2[0]?.unidades}`);
 
-  // Recibir mercancía: 2 cajas + 5 sueltas = 45 unidades
+  // Recibir mercancía (ahora es la compra): 2 cajas + 5 sueltas = 45 unidades
   await p.goto(B + "/inventario/recibir");
+  await p.waitForURL(/\/compras\/nueva$/); await p.waitForLoadState("networkidle");
   await p.fill("#buscar-recibir", "7709990000017");
   await p.waitForSelector("text=Producto E2E Uno");
   const k = (await p.locator('input[id^="lote-"]').first().getAttribute("id")).slice(5);
@@ -203,11 +204,12 @@ async function entrar(ctx, quien) {
   await p.fill(`#cajas-${k}`, "2");
   await p.fill(`#sueltas-${k}`, "5");
   await p.fill(`#costo-${k}`, "650");
-  await p.fill("#proveedor", "Factura E2E-1");
+  await p.fill("#proveedor", "Proveedor E2E gestión");
+  await p.fill("#factura", `E2E-${Date.now()}`);
   ok(await p.getByText("Entran 45 unidades").count() === 1, "calcula cajas + sueltas");
   await p.screenshot({ path: `${OUT}/recibir.png` });
-  await p.getByRole("button", { name: "Guardar entrada" }).click();
-  await p.waitForSelector("text=Entrada guardada");
+  await p.getByRole("button", { name: "Guardar compra" }).click();
+  await p.getByRole("status").filter({ hasText: /Compra N\.º \d+ guardada/ }).waitFor({ timeout: 15000 });
   const tras = (await (await p.request.get(B + "/api/productos?q=7709990000017")).json()).productos[0];
   ok(tras.unidades === 105, "las existencias suben con la entrada", `${tras.unidades}`);
   await p.goto(B + "/inventario?ver=todos&q=E2E Uno");
@@ -303,7 +305,8 @@ async function entrar(ctx, quien) {
   const { p } = await entrar(ctx, "Andrés");
   ok(p.url().endsWith("/inicio"), "bodega entra al inicio");
   await p.goto(B + "/inventario/recibir");
-  ok(p.url().endsWith("/inventario/recibir"), "bodega puede recibir mercancía");
+  await p.waitForURL(/\/compras\/nueva$/, { timeout: 10000 }).catch(() => {});
+  ok(p.url().endsWith("/compras/nueva"), "bodega puede recibir mercancía (la entrada lleva a la compra)");
   await p.fill("#buscar-recibir", "7709990000017");
   await p.waitForSelector('input[id^="lote-"]');
   ok(await p.locator('input[id^="costo-"]').count() === 0, "bodega no ve el campo de costo");
