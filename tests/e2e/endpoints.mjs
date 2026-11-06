@@ -210,7 +210,7 @@ const R = [
   { m: "GET", p: `/api/productos/${U}/codigos`, acceso: "sesion", rol: ["cajero", 403], espera: 404 },
   { m: "POST", p: `/api/productos/${U}/codigos`, acceso: "sesion", basura: true, rol: ["cajero", 403] },
   { m: "DELETE", p: `/api/productos/${U}/codigos`, acceso: "sesion", basura: true, rol: ["cajero", 403] },
-  { m: "GET", p: `/api/ventas/${U}/devolucion`, acceso: "sesion", rol: ["cajero", 403], espera: 404 },
+  { m: "GET", p: `/api/ventas/${U}/devolucion`, acceso: "sesion", rol: ["cajero", 403] }, // devuelve el destino por defecto de la droguería (no lee la venta)
   // consola de superadministración
   { m: "POST", p: `/api/admin/clientes/${U}/entrar`, acceso: "admin" },
   { m: "POST", p: `/api/admin/clientes/${U}/numeraciones`, acceso: "admin", basura: true },

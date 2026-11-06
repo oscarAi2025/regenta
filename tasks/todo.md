@@ -381,5 +381,17 @@ Tres frentes en paralelo (2-A regenta_2a :4511, 2-B regenta_2b :4512, 2-C regent
 - [x] Guardia de navegación (clics que el enrutador dejaba colgados) y /favicon.ico
 - [x] Pruebas: npm test 96/96 · e2e 24/24 suites sin fallos (1821 comprobaciones de endpoints, 248 pantallas) · suites nuevas 3 veces seguidas
 - [x] 031–033a aplicadas en producción con autorización de Oscar (06/11/2026); un solo despliegue
-- [ ] Bloque 3: resultados y ganancia corregida, gastos, auxiliar de IVA, bitácora; DIAN complementaria (documento soporte, nota débito, XML); precios masivos, códigos alternos, etiquetas y cuarentena
+- [x] Bloque 3: resultados y ganancia corregida, gastos, auxiliar de IVA, bitácora; DIAN complementaria (documento soporte, nota débito, XML); precios masivos, códigos alternos, etiquetas y cuarentena (ver «06/11/2026 · Bloque 3»)
 - [x] Cotizaciones con las iniciales de la droguería (decisión de Oscar, 06/11/2026: sin logo)
+
+## 06/11/2026 · Bloque 3
+Tres frentes en paralelo (3-A regenta_3a, 3-B regenta_3b, 3-C regenta_3c); integración en `bloque3-integracion` (regenta_3int, :4540).
+- [x] A · Resultados (034): gastos G-n inmutables (anular con motivo; en efectivo salen del turno), utilidad sin IVA y neta de devoluciones (lotes sin costo aparte, costo heredado marcado) en Reportes, Resultados e Inicio; /reportes/resultados, /reportes/iva, /reportes/cierre, /gastos, /bitacora
+- [x] B · DIAN complementaria (035): documento soporte por operación o semanal, nota de ajuste, nota débito, XML guardado (uno o ZIP), /documentos con los tipos nuevos; envío real apagado por droguería hasta activarlo en la consola
+- [x] C · Precios y lotes (036): códigos alternos (caja, búsqueda, sin internet v3, importación), cambios de precio en bloque con vista previa firmada y reversión, etiquetas EAN-13/Code 128 (A4 y rollo), cuarentena (poner, liberar, baja) y destino de las devoluciones
+- [x] Integración: 036a (eliminar droguerías de prueba con todo el bloque; arregla el orden de devoluciones que fallaba desde 033a; numeraciones de prueba DSSE/NASE/NDSE para la demo), menú (Gastos, Bitácora, Precios en bloque, Etiquetas, Cuarentena; marca activa sin duplicados), exportar, robots, siembra, endpoints y auditoría
+- [x] Regenta IA: ventas netas de devoluciones, como Reportes
+- [x] React 418 intermitente en actas, tirillas e informes: loading.tsx en tiquete, informes y control-especial (0 de 800 visitas)
+- [x] SQL de producción db/produccion/bloque3-034-036a.sql probado de una pieza como rol sin superusuario sobre una copia hasta 033a con demo
+- [ ] Oscar: aplicar bloque3-034-036a.sql en Supabase y desplegar (un solo despliegue)
+- [ ] Pendiente: activar el envío real de documento soporte y nota débito en MATIAS por droguería (consola) tras probar en su sandbox; la consola (/admin) sigue sin loading.tsx (no se midió 418 allí)

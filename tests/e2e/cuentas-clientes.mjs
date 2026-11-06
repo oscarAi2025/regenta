@@ -207,7 +207,7 @@ let rc;
   await p.screenshot({ path: `${OUT}/ficha-1440.png`, fullPage: true });
   const ec = await p.context().newPage();
   await ec.goto(`${B}/tiquete/estado-cuenta/${cli}`); await ec.waitForLoadState("networkidle");
-  ok(await ec.getByText("ESTADO DE CUENTA").count() === 1 && await ec.getByText(`Saldo${$(ficha)}`).count() + await ec.locator(".fila.fuerte", { hasText: $(ficha) }).count() >= 1, "estado de cuenta imprimible con el saldo");
+  ok(await ec.getByText("ESTADO DE CUENTA", { exact: true }).count() === 1 && await ec.title() === "Estado de cuenta · Regenta" && await ec.getByText(`Saldo${$(ficha)}`).count() + await ec.locator(".fila.fuerte", { hasText: $(ficha) }).count() >= 1, "estado de cuenta imprimible con el saldo");
   await ec.screenshot({ path: `${OUT}/estado-cuenta-tirilla.png`, fullPage: true });
   await ec.close();
   const tAntes = Number((await api(L2.p, "/api/turnos")).j.turno.resumen.efectivo_esperado);
