@@ -7,6 +7,7 @@ import { EstadoDian } from "@/components/ui/EstadoDian";
 import { Isotipo } from "@/components/Marca";
 import { PreguntarIA } from "@/components/app/PreguntarIA";
 import { MEDIO } from "@/lib/formato";
+import { hoyBogota, resultados } from "@/lib/reportes";
 
 export const metadata = { title: "Inicio" };
 
@@ -31,10 +32,8 @@ export default async function Inicio() {
       from generate_series((now() at time zone 'America/Bogota')::date - 6, (now() at time zone 'America/Bogota')::date, '1 day') d
       left join ventas v on v.empresa_id = $1 and v.estado = 'cerrada' and (v.creado at time zone 'America/Bogota')::date = d
       group by d order by d`, [s.empresa])).rows as { dia: string; total: number }[];
-    const margen = costos ? (await c.query(`
-      select coalesce(sum(l.base), 0)::float base, coalesce(sum(l.unidades * lc.costo_unidad), 0)::float costo
-      from venta_lineas l join ventas v on v.id = l.venta_id left join lote_costos lc on lc.lote_id = l.lote_id
-      where v.empresa_id = $1 and v.estado = 'cerrada' and v.creado >= date_trunc('day', now() at time zone 'America/Bogota') at time zone 'America/Bogota'`, [s.empresa])).rows[0] : null;
+    // Utilidad de hoy con las mismas reglas del estado de resultados: neta de devoluciones y sin los lotes sin costo.
+    const margen = costos ? await resultados(c, s.empresa, { desde: hoyBogota(), hasta: hoyBogota() }) : null;
     const alertas = (await c.query(`
       select
         (select count(distinct producto_id) from v_stock_lotes where empresa_id = $1 and unidades > 0 and vence between current_date and current_date + 30)::int vencen,
@@ -73,7 +72,7 @@ export default async function Inicio() {
   const max = Math.max(1, ...d.semana.map((x) => x.total));
   const hora = Number(new Date().toLocaleString("en-US", { timeZone: "America/Bogota", hour: "numeric", hour12: false }));
   const saludo = hora < 5 ? "Buenas noches" : hora < 12 ? "Buenos días" : hora < 19 ? "Buenas tardes" : "Buenas noches";
-  const ganancia = d.margen ? d.margen.base - d.margen.costo : null;
+  const ganancia = d.margen ? d.margen.utilidad_bruta : null;
 
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
@@ -104,7 +103,8 @@ export default async function Inicio() {
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3" aria-label="Hoy">
         <Dato titulo="Vendido hoy" valor={pesos(d.hoy.total)} tono="cruz" nota={`${d.hoy.ventas} venta${d.hoy.ventas === 1 ? "" : "s"}`} />
         <Dato titulo="Ticket promedio" valor={pesos(d.hoy.promedio)} />
-        {ganancia !== null ? <Dato titulo="Ganancia bruta hoy" valor={pesos(ganancia)} nota={d.margen!.base > 0 ? `Margen ${Math.round((ganancia / d.margen!.base) * 100)} % sobre la venta sin IVA` : "Sin ventas todavía"} />
+        {ganancia !== null ? <Dato titulo="Ganancia bruta hoy" valor={pesos(ganancia)} nota={<>{d.margen!.margen !== null ? `Margen ${Math.round(d.margen!.margen)} % sobre la venta sin IVA` : "Sin ventas con costo todavía"}
+            {d.margen!.sin_costo.netas > 0 && <span className="block text-aviso">{pesos(d.margen!.sin_costo.netas)} vendidos sin costo registrado</span>}</>} />
           : <Dato titulo="Ventas de hoy" valor={d.hoy.ventas} />}
         <Dato titulo="Por vencer en 30 días" valor={d.alertas.vencen} tono={d.alertas.vencen ? "alerta" : undefined} nota={<Link className="underline" href="/inventario">Ver lotes</Link>} />
       </section>

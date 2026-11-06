@@ -1253,3 +1253,119 @@ test("la consola elimina una droguería de prueba con compras, pagos y devolucio
     assert.deepEqual(await cuenta(), Object.fromEntries(TABLAS.map((t) => [t, 0])), "no queda nada de compras, pedidos ni recibos");
   });
 });
+
+// ───────────── 034 · Gastos (resultados), bitácora
+const gasto = (extra = {}) => ({ empresa_id: E.A, sede_id: S.A, fecha: new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" }), categoria: "servicios",
+  descripcion: "Recibo de la luz", medio: "transferencia", valor: 85000, ...extra });
+
+test("gastos: consecutivo, efectivo desde la caja exige turno y sale como egreso; anular devuelve el efectivo al turno", async () => {
+  await escena(async (c, { quien, raiz, falla }) => {
+    await raiz();
+    await c.query(`update turnos set estado = 'cerrado', cerrado = now() where caja_id = $1 and estado = 'abierto'`, [C.A]);
+    await quien(U.carlos);
+    const g1 = (await c.query("select registrar_gasto($1) r", [gasto()])).rows[0].r;
+    const g2 = (await c.query("select registrar_gasto($1) r", [gasto({ categoria: "nomina", descripcion: "Nómina de octubre", valor: 1200000.5 })])).rows[0].r;
+    assert.equal(g2.numero, g1.numero + 1, "consecutivo por droguería");
+    assert.equal(g1.egreso_caja, false, "por transferencia no toca la caja");
+    // Idempotencia: el mismo envío dos veces es un solo gasto.
+    const k = crypto.randomUUID();
+    const a = (await c.query("select registrar_gasto($1) r", [gasto({ idem_key: k })])).rows[0].r, b = (await c.query("select registrar_gasto($1) r", [gasto({ idem_key: k })])).rows[0].r;
+    assert.equal(a.id, b.id); assert.equal(b.repetido, true);
+    // Validaciones
+    let e = await falla("select registrar_gasto($1)", [gasto({ medio: "efectivo", caja_id: C.A, valor: 5000 })]);
+    assert.match(e?.message ?? "", /abre primero el turno/);
+    e = await falla("select registrar_gasto($1)", [gasto({ categoria: "regalos" })]); assert.match(e?.message ?? "", /categoría/);
+    e = await falla("select registrar_gasto($1)", [gasto({ descripcion: " x " })]); assert.match(e?.message ?? "", /en qué se gastó/);
+    e = await falla("select registrar_gasto($1)", [gasto({ fecha: "2099-01-01" })]); assert.match(e?.message ?? "", /futura/);
+    e = await falla("select registrar_gasto($1)", [gasto({ valor: 0 })]); assert.match(e?.message ?? "", /valor/);
+    // Con turno: egreso del turno por el valor exacto, con la fecha de hoy y en pesos enteros.
+    const t = (await c.query("select abrir_turno($1, 50000) t", [C.A])).rows[0].t;
+    const eg = async () => Number((await c.query("select resumen_turno($1) r", [t])).rows[0].r.egresos);
+    const ing = async () => Number((await c.query("select resumen_turno($1) r", [t])).rows[0].r.ingresos);
+    e = await falla("select registrar_gasto($1)", [gasto({ medio: "efectivo", caja_id: C.A, valor: 5000.5 })]); assert.match(e?.message ?? "", /sin centavos/);
+    e = await falla("select registrar_gasto($1)", [gasto({ medio: "efectivo", caja_id: C.A, valor: 5000, fecha: new Date(Date.now() - 3 * 864e5).toLocaleDateString("en-CA", { timeZone: "America/Bogota" }) })]);
+    assert.match(e?.message ?? "", /fecha de hoy/);
+    const g3 = (await c.query("select registrar_gasto($1) r", [gasto({ medio: "efectivo", caja_id: C.A, valor: 23000, categoria: "transporte", descripcion: "Domicilio de medicamentos" })])).rows[0].r;
+    assert.equal(g3.egreso_caja, true); assert.equal(await eg(), 23000, "el gasto sale del turno");
+    const mov = (await c.query(`select g.turno_id, mc.concepto, mc.valor::float v from gastos g join movimientos_caja mc on mc.id = g.movimiento_caja_id where g.id = $1`, [g3.id])).rows[0];
+    assert.equal(mov.turno_id, t); assert.equal(mov.v, 23000); assert.match(mov.concepto, /^Gasto G-\d+ · Transporte: Domicilio/);
+    // «No sale de la caja»: efectivo sin turno ni egreso.
+    const g4 = (await c.query("select registrar_gasto($1) r", [gasto({ medio: "efectivo", desde_caja: false, caja_id: C.A, valor: 7000 })])).rows[0].r;
+    assert.equal(g4.egreso_caja, false); assert.equal(await eg(), 23000);
+    // Anular: motivo obligatorio; el efectivo vuelve como ingreso del turno abierto; no se anula dos veces.
+    e = await falla("select anular_gasto($1, 'no')", [g3.id]); assert.match(e?.message ?? "", /motivo/);
+    await c.query("select anular_gasto($1, 'Se registró dos veces')", [g3.id]);
+    assert.equal(await ing(), 23000, "el efectivo vuelve al turno");
+    e = await falla("select anular_gasto($1, 'Otra vez')", [g3.id]); assert.match(e?.message ?? "", /ya está anulado/);
+    assert.equal((await c.query(`select count(*)::int n from auditoria where entidad_id = $1 and accion in ('registrar_gasto', 'anular_gasto')`, [g3.id])).rows[0].n, 2, "queda en la auditoría");
+    // Turno del gasto ya cerrado: sin turno abierto no se anula; con el turno nuevo, el ingreso entra en ese.
+    const g5 = (await c.query("select registrar_gasto($1) r", [gasto({ medio: "efectivo", caja_id: C.A, valor: 4000 })])).rows[0].r;
+    const r0 = (await c.query("select resumen_turno($1) r", [t])).rows[0].r;
+    await c.query("select cerrar_turno($1, $2)", [t, r0.efectivo_esperado]);
+    e = await falla("select anular_gasto($1, 'Error de digitación')", [g5.id]); assert.match(e?.message ?? "", /abre el turno/);
+    const t2 = (await c.query("select abrir_turno($1, 0) t", [C.A])).rows[0].t;
+    await c.query("select anular_gasto($1, 'Error de digitación')", [g5.id]);
+    assert.equal(Number((await c.query("select resumen_turno($1) r", [t2])).rows[0].r.ingresos), 4000, "entra al turno abierto ahora");
+    assert.equal(Number((await c.query(`select efectivo_esperado from turnos where id = $1`, [t])).rows[0].efectivo_esperado), Number(r0.efectivo_esperado), "el turno cerrado no cambia");
+    // Inmutables: nadie los edita ni los borra (ni la app ni el servidor).
+    e = await falla("update gastos set valor = 1 where id = $1", [g1.id]); assert.match(e?.message ?? "", /permission denied/);
+    await raiz();
+    e = await falla("update gastos set valor = 1 where id = $1", [g1.id]); assert.match(e?.message ?? "", /solo puede anularse/);
+    e = await falla("delete from gastos where id = $1", [g1.id]); assert.match(e?.message ?? "", /no se borran/);
+    e = await falla("update gastos set anulado = false, motivo = null where id = $1", [g3.id]); assert.match(e?.message ?? "", /solo puede anularse/);
+  });
+});
+
+test("gastos y bitácora: la cajera y la bodega no registran ni ven; otra empresa no ve ni anula; nadie escribe la auditoría", async () => {
+  await escena(async (c, { quien, falla }) => {
+    await quien(U.carlos);
+    const g = (await c.query("select registrar_gasto($1) r", [gasto({ descripcion: "Arriendo de prueba", categoria: "arriendo", valor: 1500000 })])).rows[0].r;
+    for (const u of [U.cajera, U.bodega]) {
+      await quien(u);
+      let e = await falla("select registrar_gasto($1)", [gasto()]); assert.match(e?.message ?? "", /dueño o el administrador/);
+      e = await falla("select anular_gasto($1, 'No debería')", [g.id]); assert.match(e?.message ?? "", /dueño o el administrador/);
+      assert.equal((await c.query("select count(*)::int n from gastos")).rows[0].n, 0, "no ve gastos");
+      assert.equal((await c.query("select count(*)::int n from auditoria")).rows[0].n, 0, "no ve la auditoría");
+    }
+    await quien(U.duenoB);
+    assert.equal((await c.query("select count(*)::int n from gastos where empresa_id = $1", [E.A])).rows[0].n, 0, "B no ve los gastos de A");
+    assert.equal((await c.query("select count(*)::int n from auditoria where empresa_id = $1", [E.A])).rows[0].n, 0, "B no ve la bitácora de A");
+    let e = await falla("select anular_gasto($1, 'Ajeno')", [g.id]); assert.match(e?.message ?? "", /dueño o el administrador/);
+    e = await falla("select registrar_gasto($1)", [gasto()]); assert.match(e?.message ?? "", /dueño o el administrador/);
+    await quien(U.carlos);
+    e = await falla("insert into auditoria (empresa_id, accion, entidad) values ($1, 'x', 'y')", [E.A]); assert.match(e?.message ?? "", /permission denied/);
+    e = await falla("delete from auditoria where empresa_id = $1", [E.A]); assert.match(e?.message ?? "", /permission denied/);
+    e = await falla("insert into gastos (empresa_id, sede_id, numero, fecha, categoria, descripcion, medio, valor, usuario_id) values ($1, $2, 999, current_date, 'otros', 'Directo', 'efectivo', 1, $3)", [E.A, S.A, U.carlos]);
+    assert.match(e?.message ?? "", /permission denied/);
+    assert.equal((await c.query("select count(*)::int n from gastos where id = $1", [g.id])).rows[0].n, 1, "el dueño sí lo ve");
+  });
+});
+
+test("gastos: los totales por categoría y del periodo cuadran (anulados fuera) y la consola elimina una droguería de prueba con gastos", async () => {
+  await escena(async (c, { quien, raiz, falla }) => {
+    await quien(U.duenoB);
+    const sede = (await c.query(`select id from sedes where empresa_id = $1 limit 1`, [E.B])).rows[0].id;
+    const caja = (await c.query(`select id from cajas where empresa_id = $1 and activa limit 1`, [E.B])).rows[0].id;
+    const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+    const gB = (x) => ({ empresa_id: E.B, sede_id: sede, fecha: hoy, medio: "transferencia", ...x });
+    await c.query("select registrar_gasto($1)", [gB({ categoria: "arriendo", descripcion: "Arriendo B", valor: 1000000 })]);
+    await c.query("select registrar_gasto($1)", [gB({ categoria: "servicios", descripcion: "Agua B", valor: 50000.25 })]);
+    const an = (await c.query("select registrar_gasto($1) r", [gB({ categoria: "servicios", descripcion: "Luz B", valor: 70000 })])).rows[0].r;
+    await c.query("select anular_gasto($1, 'Duplicado')", [an.id]);
+    const t = (await c.query("select abrir_turno($1, 0) t", [caja])).rows[0].t;
+    await c.query("select registrar_gasto($1)", [gB({ categoria: "otros", descripcion: "Bolsas B", valor: 9000, medio: "efectivo", caja_id: caja })]);
+    const tot = (await c.query(`select categoria, sum(valor)::float v from gastos where empresa_id = $1 and not anulado group by 1 order by 1`, [E.B])).rows;
+    assert.deepEqual(tot, [{ categoria: "arriendo", v: 1000000 }, { categoria: "otros", v: 9000 }, { categoria: "servicios", v: 50000.25 }]);
+    assert.equal(Number((await c.query("select resumen_turno($1) r", [t])).rows[0].r.egresos), 9000);
+    // Consola: con la marca de eliminación, el servidor borra los gastos (antes de movimientos_caja) y luego la droguería.
+    await raiz();
+    let e = await falla("delete from gastos where empresa_id = $1", [E.B]); assert.match(e?.message ?? "", /no se borran/, "sin la marca no se borran");
+    await c.query(`update resoluciones_dian set pruebas = true where empresa_id = $1`, [E.B]);
+    await c.query(`update empresas set estado = 'suspendida' where id = $1`, [E.B]);
+    await c.query("select set_config('regenta.eliminar_empresa', $1, true)", [E.B]);
+    await c.query("delete from gastos where empresa_id = $1", [E.B]);   // lo que añade el integrador a eliminar_empresa_prueba
+    await c.query("select eliminar_empresa_prueba($1)", [E.B]);
+    assert.equal((await c.query(`select count(*)::int n from gastos where empresa_id = $1`, [E.B])).rows[0].n, 0);
+    assert.equal((await c.query(`select count(*)::int n from empresas where id = $1`, [E.B])).rows[0].n, 0);
+  });
+});

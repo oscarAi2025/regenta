@@ -1,10 +1,11 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { comoUsuario } from "@/lib/db";
 import { leerSesion, puede } from "@/lib/sesion";
 import { Cabecera, Dato, pesos } from "@/components/ui/Cabecera";
 import { MEDIO } from "@/lib/formato";
-import { datosReporte, rango } from "@/lib/reportes";
+import { atajos as rangosRapidos, datosReporte, rango } from "@/lib/reportes";
+import { pesosExactos } from "@/lib/compras";
+import { Pestanas } from "./Pestanas";
 
 export const metadata = { title: "Reportes" };
 
@@ -18,9 +19,8 @@ export default async function Reportes({ searchParams }: { searchParams: Promise
   const r = rango(sp.desde, sp.hasta);
   const d = await comoUsuario(s, (c) => datosReporte(c, s.empresa, r, true));
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
-  const menos = (n: number) => new Date(new Date(hoy + "T12:00:00Z").getTime() - n * 86400000).toISOString().slice(0, 10);
-  const mesPasadoFin = menos(Number(hoy.slice(8, 10)));
-  const atajos: [string, string, string][] = [["Hoy", hoy, hoy], ["7 días", menos(6), hoy], ["Este mes", hoy.slice(0, 8) + "01", hoy], ["Mes pasado", mesPasadoFin.slice(0, 8) + "01", mesPasadoFin], ["30 días", menos(29), hoy]];
+  const atajos = rangosRapidos();
+  const res = d.resultados!;
   const q = `desde=${r.desde}&hasta=${r.hasta}`;
   const maxDia = Math.max(1, ...d.dias.map((x) => x.total));
   const maxHora = Math.max(1, ...d.horas.map((x) => x.total));
@@ -36,16 +36,19 @@ export default async function Reportes({ searchParams }: { searchParams: Promise
           <button className="btn-oscuro">Ver</button>
         </form>
       </Cabecera>
+      <Pestanas actual="/reportes" rango={q} />
       <nav className="flex flex-wrap gap-2" aria-label="Rangos rápidos">
-        {atajos.map(([t, a, b]) => <Link key={t} href={`/reportes?desde=${a}&hasta=${b}`} aria-current={a === r.desde && b === r.hasta ? "true" : undefined}
-          className={`pastilla border ${a === r.desde && b === r.hasta ? "bg-ink text-white border-ink" : "bg-surface border-line hover:border-ink"}`}>{t}</Link>)}
-        <Link href={`/control-especial?desde=${r.desde}&hasta=${r.hasta}`} className="pastilla border bg-surface border-line hover:border-ink sm:ml-auto">Libro de control especial</Link>
+        {atajos.map(([t, a, b]) => <a key={t} href={`/reportes?desde=${a}&hasta=${b}`} aria-current={a === r.desde && b === r.hasta ? "true" : undefined}
+          className={`pastilla border ${a === r.desde && b === r.hasta ? "bg-ink text-white border-ink" : "bg-surface border-line hover:border-ink"}`}>{t}</a>)}
+        <a href={`/control-especial?desde=${r.desde}&hasta=${r.hasta}`} className="pastilla border bg-surface border-line hover:border-ink sm:ml-auto">Libro de control especial</a>
       </nav>
 
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3" aria-label="Resumen">
         <Dato titulo="Ventas netas" valor={pesos(d.netas)} tono="cruz" nota={`${pesos(d.resumen.bruto)} vendido − ${pesos(d.devoluciones.total)} devuelto`} />
         <Dato titulo="Ventas" valor={d.resumen.ventas} nota={`ticket promedio ${pesos(d.promedio)}${d.resumen.anuladas ? ` · ${d.resumen.anuladas} anuladas` : ""}`} />
-        <Dato titulo="Ganancia bruta" valor={d.ganancia === null ? "—" : pesos(d.ganancia)} nota={d.margen === null ? "Sin ventas en el rango" : `margen ${d.margen} % sobre la venta sin IVA`} />
+        <Dato titulo="Ganancia bruta" valor={pesos(res.utilidad_bruta)} nota={<>{res.margen === null ? "Sin ventas con costo en el rango" : `margen ${String(res.margen).replace(".", ",")} % sobre la venta sin IVA`}
+          {res.sin_costo.netas > 0 && <span className="block text-aviso">{pesosExactos(res.sin_costo.netas)} vendidos sin costo registrado (no cuentan)</span>}
+          <a href={`/reportes/resultados?${q}`} className="block underline">Ver estado de resultados</a></>} />
         <Dato titulo="IVA cobrado" valor={pesos(d.resumen.iva - d.devoluciones.iva)} nota={d.resumen.credito ? `${pesos(d.resumen.credito)} vendido a crédito` : `${d.devoluciones.n} devoluciones`} />
       </section>
 
@@ -100,14 +103,14 @@ export default async function Reportes({ searchParams }: { searchParams: Promise
 
       <section className="tarjeta p-5" aria-label="Por producto">
         <div className="flex justify-between items-baseline gap-2"><h2 className="titulo text-xl">Por producto</h2>{exportar("productos", "Exportar a Excel")}</div>
-        <p className="text-sm text-muted mt-1">Los 200 que más venden en el rango. La ganancia usa el costo de cada lote vendido.</p>
+        <p className="text-sm text-muted mt-1">Los 200 que más venden en el rango. La ganancia es sin IVA, neta de lo devuelto y solo de los lotes con costo registrado.</p>
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-sm num min-w-[640px]">
             <thead><tr className="text-left text-muted"><th className="py-2 font-medium">Producto</th><th className="text-right font-medium">Unidades</th><th className="text-right font-medium">Devueltas</th><th className="text-right font-medium">Vendido</th><th className="text-right font-medium">Ganancia</th></tr></thead>
             <tbody className="divide-y divide-line">{d.productos.map((x, i) => {
-              const g = x.base - (x.costo ?? 0);
-              return <tr key={i}><td className="py-2 font-sans">{x.producto}</td><td className="text-right">{x.unidades}</td><td className="text-right">{x.devueltas || ""}</td><td className="text-right font-semibold">{pesos(x.total)}</td>
-                <td className={`text-right ${x.sin_costo ? "text-muted" : g < 0 ? "text-alerta" : ""}`}>{x.sin_costo ? "sin costo" : pesos(g)}</td></tr>;
+              const g = x.ganancia ?? 0;
+              return <tr key={i}><td className="py-2 font-sans">{x.producto}{x.heredado && <span className="ml-1.5 text-xs text-muted" title="Costo anterior a compras: puede incluir IVA">(costo anterior)</span>}</td><td className="text-right">{x.unidades}</td><td className="text-right">{x.devueltas || ""}</td><td className="text-right font-semibold">{pesos(x.total)}</td>
+                <td className={`text-right ${!x.con_costo ? "text-muted" : g < 0 ? "text-alerta" : ""}`}>{x.con_costo ? pesos(g) : "sin costo"}{x.con_costo && (x.sin_costo ?? 0) > 0 && <span className="block text-xs text-aviso">+{pesos(x.sin_costo!)} sin costo</span>}</td></tr>;
             })}</tbody>
           </table>
         </div>
