@@ -88,7 +88,10 @@ await db.query(`insert into miembros (empresa_id, user_id, nombre, rol) values
 await db.query(`insert into resoluciones_dian (empresa_id, tipo, prefijo, desde, hasta, actual, vigente_hasta, pruebas) values
   ($1, 'pos', 'SETP', 990000000, 995000000, 989999999, '2027-12-31', true),
   ($1, 'factura', 'SETT', 1, 5000000, 0, '2027-12-31', true),
-  ($1, 'nota_credito', 'NCSE', 1, 1000000, 0, '2027-12-31', true)`, [E.A]);
+  ($1, 'nota_credito', 'NCSE', 1, 1000000, 0, '2027-12-31', true),
+  ($1, 'soporte', 'DSSE', 1, 1000000, 0, '2027-12-31', true),
+  ($1, 'ajuste_soporte', 'NASE', 1, 1000000, 0, '2027-12-31', true),
+  ($1, 'nota_debito', 'NDSE', 1, 1000000, 0, '2027-12-31', true)`, [E.A]);
 // Segunda droguería, solo en local: las pruebas comprueban que una empresa nunca ve los datos de otra.
 if (!PROD) {
   await db.query(`insert into empresas (id, nit, dv, razon_social, nombre_comercial, ciudad, direccion, telefono) values ($1, '900000002', '2', 'DROGUERÍA VECINA S.A.S.', 'Droguería Vecina', 'Ibagué', 'Calle 9 # 9-9', '3000000001')`, [E.B]);
