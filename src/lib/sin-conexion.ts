@@ -7,6 +7,8 @@ export type ProductoCaja = {
   id: string; nombre: string; laboratorio: string | null; ean: string | null; iva: number; unidades_por_caja: number;
   precio_caja: number; precio_unidad: number | null; stock_minimo: number; unidades: number; proximo_vence: string | null; exacto: boolean;
   requiere_formula?: boolean; control_especial?: boolean;
+  /** Códigos de barras alternos (además del ean): el lector los encuentra igual sin internet. */
+  codigos?: string[];
 };
 export type VentaEnCola = {
   idem_key: string; empresa: string; creado: string; cuerpo: Record<string, unknown>; total: number; cambio: number;
@@ -17,8 +19,9 @@ export type VentaEnCola = {
 
 const K_CATALOGO = "regenta.catalogo";
 // Versión del catálogo guardado: la 2 trae las marcas de fórmula médica y control especial. Un catálogo anterior no se usa
-// (sin esas marcas, la caja podría vender sin internet un medicamento que exige registrar la fórmula).
-const V_CATALOGO = 2;
+// (sin esas marcas, la caja podría vender sin internet un medicamento que exige registrar la fórmula). La 3 trae los códigos
+// alternos de cada producto (sin ellos, escanear un código alterno sin internet no encontraría el producto).
+const V_CATALOGO = 3;
 const K_COLA = "regenta.cola_ventas";
 const leer = <T,>(k: string, d: T): T => { try { const v = localStorage.getItem(k); return v ? (JSON.parse(v) as T) : d; } catch { return d; } };
 const escribir = (k: string, v: unknown) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
@@ -41,16 +44,19 @@ export const catalogo = () => {
   return c?.v === V_CATALOGO ? c : null;
 };
 
-/** Busca como el servidor: código de barras exacto o todas las palabras en nombre + laboratorio. Descuenta lo vendido sin internet. */
+/** Busca como el servidor: código de barras exacto (principal o alterno) o todas las palabras en nombre + laboratorio.
+ *  Descuenta lo vendido sin internet. */
 export function buscarLocal(q: string): ProductoCaja[] {
   const c = catalogo(); if (!c) return [];
   const t = q.trim().toLowerCase(); if (!t) return [];
   const palabras = t.split(/\s+/).slice(0, 6);
+  const codigo = q.replace(/\s/g, "").toUpperCase(); // como se guardan los códigos alternos
+  const exacto = (p: ProductoCaja) => p.ean === q.trim() || (p.codigos ?? []).includes(codigo);
   const usadas = new Map<string, number>();
   for (const v of cola().filter((x) => !x.error)) for (const l of v.lineas) usadas.set(l.producto_id, (usadas.get(l.producto_id) ?? 0) + l.unidades);
   return c.productos
-    .filter((p) => p.ean === q.trim() || palabras.every((w) => `${p.nombre} ${p.laboratorio ?? ""}`.toLowerCase().includes(w)))
-    .map((p) => ({ ...p, unidades: Math.max(0, p.unidades - (usadas.get(p.id) ?? 0)), exacto: p.ean === q.trim() }))
+    .filter((p) => exacto(p) || palabras.every((w) => `${p.nombre} ${p.laboratorio ?? ""}`.toLowerCase().includes(w)))
+    .map((p) => ({ ...p, unidades: Math.max(0, p.unidades - (usadas.get(p.id) ?? 0)), exacto: exacto(p) }))
     .sort((a, b) => Number(b.exacto) - Number(a.exacto) || Number(b.unidades > 0) - Number(a.unidades > 0) || a.nombre.localeCompare(b.nombre))
     .slice(0, 30);
 }

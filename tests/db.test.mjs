@@ -1199,6 +1199,8 @@ test("la consola elimina una droguería de prueba con compras, pagos y devolucio
     const sede = (await c.query(`select id from sedes where empresa_id = $1 limit 1`, [E.B])).rows[0].id;
     const caja = (await c.query(`select id from cajas where empresa_id = $1 and activa limit 1`, [E.B])).rows[0].id;
     const p = (await c.query(`insert into productos (empresa_id, nombre, precio_caja) values ($1, 'Producto bloque 2 B', 1000) returning id`, [E.B])).rows[0].id;
+    await c.query(`insert into resoluciones_dian (empresa_id, tipo, prefijo, desde, hasta, actual, vigente_hasta, pruebas)
+      select $1, 'nota_credito', 'NCB3', 1, 1000, 0, '2027-12-31', true where not exists (select 1 from resoluciones_dian where empresa_id = $1 and tipo = 'nota_credito' and activa)`, [E.B]);
     // B vende solo con numeración de producción; antes de eliminarla se vuelve a «pruebas» (la consola no borra lo fiscal real).
     await c.query(`insert into resoluciones_dian (empresa_id, tipo, prefijo, desde, hasta, actual, vigente_hasta, pruebas) values ($1, 'factura', 'FB', 1, 1000, 0, '2027-12-31', true)`, [E.B]);
     await c.query(`update resoluciones_dian set pruebas = false, numero_resolucion = '18760000000001' where empresa_id = $1`, [E.B]);
@@ -1251,5 +1253,252 @@ test("la consola elimina una droguería de prueba con compras, pagos y devolucio
     await c.query("select eliminar_empresa_prueba($1)", [E.B]);
     assert.equal((await c.query(`select count(*)::int n from empresas where id = $1`, [E.B])).rows[0].n, 0);
     assert.deepEqual(await cuenta(), Object.fromEntries(TABLAS.map((t) => [t, 0])), "no queda nada de compras, pedidos ni recibos");
+  });
+});
+
+// ───────────────────────── Bloque 3-C · precios masivos, códigos alternos y cuarentena (036) ─────────────────────────
+/** Cambia de usuario dentro de la misma transacción (como si otra persona actuara a continuación). */
+const ser = async (c, uid) => { await c.query("reset role"); await c.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: uid, role: "authenticated" })]); await c.query("set local role authenticated"); };
+const codigoDe = (e) => e?.code;
+const conCodigo = async (c, sql, params, code, re) => {
+  await c.query("savepoint k");
+  try { await c.query(sql, params); assert.fail(`se esperaba el error ${code}`); }
+  catch (e) { assert.equal(codigoDe(e), code, e.message); if (re) assert.match(e.message, re); }
+  await c.query("rollback to savepoint k");
+};
+
+test("códigos alternos: únicos por droguería, sin chocar con el código principal de otro producto; permisos y aislamiento", async () => {
+  await como(U.carlos, async (c) => {
+    const [p1, p2] = (await c.query(`select id, ean from productos where empresa_id = $1 and activo and ean is not null order by nombre limit 2`, [E.A])).rows;
+    const r = (await c.query(`select agregar_codigo_producto($1, ' alt-0001 ') r`, [p1.id])).rows[0].r;
+    assert.equal(r.codigo, "ALT-0001", "se guarda sin espacios y en mayúsculas");
+    await conCodigo(c, `select agregar_codigo_producto($1, 'ALT-0001')`, [p2.id], "23505", /ya está asignado a/);
+    await conCodigo(c, `select agregar_codigo_producto($1, 'alt-0001')`, [p1.id], "23505", /ya tiene el código/);
+    await conCodigo(c, `select agregar_codigo_producto($1, $2)`, [p1.id, p2.ean], "23505", /código de barras de/);
+    await conCodigo(c, `select agregar_codigo_producto($1, $2)`, [p1.id, p1.ean], "P0001", /principal/);
+    await conCodigo(c, `select agregar_codigo_producto($1, 'a b')`, [p1.id], "P0001", /entre 3 y 40/);
+    // El código principal de otro producto tampoco puede ser un código alterno ajeno
+    await conCodigo(c, `update productos set ean = 'ALT-0001' where id = $1`, [p2.id], "23505", /código alterno de/);
+    await conCodigo(c, `insert into producto_codigos (empresa_id, producto_id, codigo) values ($1, $2, 'DIRECTO')`, [E.A, p1.id], "42501");
+    await ser(c, U.bodega);
+    await c.query(`select agregar_codigo_producto($1, 'BOD-777')`, [p1.id]);
+    await ser(c, U.cajera);
+    await conCodigo(c, `select agregar_codigo_producto($1, 'CAJ-1')`, [p1.id], "42501");
+    const id = (await c.query(`select id from producto_codigos where codigo = 'BOD-777'`)).rows[0].id;
+    await conCodigo(c, `select quitar_codigo_producto($1)`, [id], "42501");
+    assert.equal((await c.query(`select count(*)::int n from producto_codigos where producto_id = $1`, [p1.id])).rows[0].n, 2, "la cajera los lee (para buscar)");
+    await ser(c, U.duenoB);
+    assert.equal((await c.query(`select count(*)::int n from producto_codigos`)).rows[0].n, 0, "B no ve códigos de A");
+    await conCodigo(c, `select agregar_codigo_producto($1, 'B-1')`, [p1.id], "42501");
+    await conCodigo(c, `select quitar_codigo_producto($1)`, [id], "42501");
+    await ser(c, U.carlos);
+    await c.query(`select quitar_codigo_producto($1)`, [id]);
+    assert.ok((await c.query(`select count(*)::int n from auditoria where accion in ('codigo_alterno_agregar', 'codigo_alterno_quitar') and entidad_id = $1`, [p1.id])).rows[0].n >= 3);
+  });
+});
+
+test("cambio masivo: la vista previa es lo que se aplica (+5 %, redondeo a $50), queda auditado y revertir deja todo exacto", async () => {
+  await como(U.carlos, async (c) => {
+    const lab = (await c.query(`select laboratorio from productos where empresa_id = $1 and activo and laboratorio is not null group by 1 having count(*) between 4 and 40 order by 1 limit 1`, [E.A])).rows[0].laboratorio;
+    const pet = { empresa_id: E.A, filtro: { tipo: "laboratorio", valor: lab }, regla: { tipo: "porcentaje", valor: 5 }, redondeo: 50 };
+    const antes = (await c.query(`select id, precio_caja::float pc, precio_unidad::float pu from productos where empresa_id = $1 and activo and laboratorio = $2 order by id`, [E.A, lab])).rows;
+    const v = (await c.query(`select aplicar_cambio_precios($1) r`, [{ ...pet, simular: true }])).rows[0].r;
+    assert.equal(v.resumen.productos, antes.length);
+    for (const l of v.lineas.filter((x) => x.aplica)) {
+      const a = antes.find((x) => x.id === l.producto_id);
+      assert.equal(Number(l.caja_despues), Math.ceil((a.pc * 1.05) / 50) * 50, "caja +5 % redondeada hacia arriba a $50");
+      assert.equal(Number(l.caja_despues) % 50, 0);
+      if (a.pu !== null) { assert.ok(Number(l.unidad_despues) <= Number(l.caja_despues)); assert.equal(Number(l.unidad_despues) % 50, 0); }
+    }
+    assert.equal((await c.query(`select count(*)::int n from cambios_precio`)).rows[0].n, 0, "la vista previa no escribe nada");
+    await conCodigo(c, `select aplicar_cambio_precios($1)`, [{ ...pet, simular: false, firma: "otra" }], "P0001", /vista previa/);
+    const k = (await c.query(`select aplicar_cambio_precios($1) r`, [{ ...pet, simular: false, firma: v.firma, idem_key: "idem-precios-1" }])).rows[0].r;
+    assert.equal(k.productos, v.resumen.cambian);
+    const rep = (await c.query(`select aplicar_cambio_precios($1) r`, [{ ...pet, simular: false, firma: v.firma, idem_key: "idem-precios-1" }])).rows[0].r;
+    assert.equal(rep.id, k.id, "la misma petición dos veces es el mismo cambio");
+    for (const l of v.lineas.filter((x) => x.aplica)) {
+      const p = (await c.query(`select precio_caja::float pc, precio_unidad::float pu from productos where id = $1`, [l.producto_id])).rows[0];
+      assert.equal(p.pc, Number(l.caja_despues)); assert.equal(p.pu, l.unidad_despues === null ? null : Number(l.unidad_despues));
+    }
+    assert.equal((await c.query(`select count(*)::int n from auditoria where accion = 'cambio_precio' and entidad_id = any($1)`, [v.lineas.filter((x) => x.aplica).map((x) => x.producto_id)])).rows[0].n, k.productos, "cada precio en la auditoría (trigger)");
+    await conCodigo(c, `update cambio_precio_lineas set caja_despues = 1 where cambio_id = $1`, [k.id], "42501");
+    await conCodigo(c, `delete from cambios_precio where id = $1`, [k.id], "42501");
+    await c.query("reset role"); // ni siquiera el dueño de las tablas los cambia o borra
+    await conCodigo(c, `update cambio_precio_lineas set caja_despues = 1 where cambio_id = $1`, [k.id], "P0001", /solo puede revertirse/);
+    await conCodigo(c, `update cambios_precio set productos = 1 where id = $1`, [k.id], "P0001", /solo puede revertirse/);
+    await conCodigo(c, `delete from cambios_precio where id = $1`, [k.id], "P0001", /no se borran/);
+    await ser(c, U.carlos);
+    const r = (await c.query(`select revertir_cambio_precios($1) r`, [k.id])).rows[0].r;
+    assert.equal(r.revertido, true); assert.equal(r.revertidos, k.productos);
+    const despues = (await c.query(`select id, precio_caja::float pc, precio_unidad::float pu from productos where empresa_id = $1 and activo and laboratorio = $2 order by id`, [E.A, lab])).rows;
+    assert.deepEqual(despues, antes, "revertir deja exactamente los precios de antes");
+    await conCodigo(c, `select revertir_cambio_precios($1)`, [k.id], "P0001", /ya se revirtió/);
+  });
+});
+
+test("revertir avisa si un precio cambió después; con «parcial» revierte solo los demás", async () => {
+  await como(U.carlos, async (c) => {
+    const ps = (await c.query(`select id from productos where empresa_id = $1 and activo and precio_caja > 1000 order by nombre limit 3`, [E.A])).rows.map((x) => x.id);
+    const pet = { empresa_id: E.A, filtro: { tipo: "productos", valor: ps }, regla: { tipo: "porcentaje", valor: -10 }, redondeo: 100 };
+    const v = (await c.query(`select aplicar_cambio_precios($1) r`, [{ ...pet, simular: true }])).rows[0].r;
+    const k = (await c.query(`select aplicar_cambio_precios($1) r`, [{ ...pet, simular: false, firma: v.firma }])).rows[0].r;
+    await c.query(`update productos set precio_caja = precio_caja + 100 where id = $1`, [ps[0]]);
+    const r = (await c.query(`select revertir_cambio_precios($1) r`, [k.id])).rows[0].r;
+    assert.equal(r.revertido, false); assert.equal(r.conflictos.length, 1); assert.equal(r.conflictos[0].producto_id, ps[0]);
+    assert.equal((await c.query(`select revertido from cambios_precio where id = $1`, [k.id])).rows[0].revertido, null, "sin parcial no toca nada");
+    const r2 = (await c.query(`select revertir_cambio_precios($1, true) r`, [k.id])).rows[0].r;
+    assert.equal(r2.revertidos, 2);
+    assert.deepEqual((await c.query(`select producto_id, revertida from cambio_precio_lineas where cambio_id = $1 order by producto_id`, [k.id])).rows.map((x) => [x.producto_id === ps[0], x.revertida]).sort(),
+      [[false, true], [false, true], [true, false]]);
+  });
+});
+
+test("margen objetivo sobre el último costo SIN IVA de la compra; sin costo queda igual; costo heredado se advierte", async () => {
+  await como(U.carlos, async (c) => {
+    const p = (await c.query(`select id, unidades_por_caja upc, iva::float iva from productos where empresa_id = $1 and activo and iva = 19 and unidades_por_caja > 1 and not requiere_formula order by nombre limit 1`, [E.A])).rows[0];
+    const prov = await proveedorDe(c, E.A, "Proveedor margen BD");
+    await c.query("select registrar_compra($1)", [compra(prov, [{ producto_id: p.id, lote: "MARG-1", vence, unidades: 10, costo: 1000, costo_por: "unidad", iva_pct: 19 }])]);
+    const sinCosto = (await c.query(`insert into productos (empresa_id, nombre, iva, precio_caja) values ($1, 'Producto sin costo BD', 0, 5000) returning id`, [E.A])).rows[0].id;
+    const v = (await c.query(`select aplicar_cambio_precios($1) r`, [{ empresa_id: E.A, filtro: { tipo: "productos", valor: [p.id, sinCosto] }, regla: { tipo: "margen", valor: 30 }, redondeo: 100, simular: true }])).rows[0].r;
+    const l = v.lineas.find((x) => x.producto_id === p.id);
+    assert.equal(Number(l.costo), 1000, "costo sin IVA de la compra (no 1.190)");
+    assert.equal(Number(l.caja_despues), Math.ceil((1000 * p.upc / 0.7) * 1.19 / 100) * 100);
+    assert.ok(Number(l.margen_despues) >= 30 && Number(l.margen_despues) < 31, String(l.margen_despues));
+    assert.equal(l.heredado, false);
+    const s = v.lineas.find((x) => x.producto_id === sinCosto);
+    assert.equal(s.aplica, false); assert.equal(s.omitido, "Sin costo registrado");
+    // Costo heredado (anterior a la 031): se marca
+    const h = (await c.query(`select l.producto_id from lote_costos lc join lotes l on l.id = lc.lote_id where l.empresa_id = $1
+      and not exists (select 1 from compra_lineas cl where cl.producto_id = l.producto_id) limit 1`, [E.A])).rows[0].producto_id;
+    await c.query("reset role");
+    await c.query(`update lote_costos set heredado = true where lote_id in (select id from lotes where producto_id = $1)`, [h]);
+    await ser(c, U.carlos);
+    const vh = (await c.query(`select aplicar_cambio_precios($1) r`, [{ empresa_id: E.A, filtro: { tipo: "productos", valor: [h] }, regla: { tipo: "margen", valor: 25 }, redondeo: 50, simular: true }])).rows[0].r;
+    assert.equal(vh.lineas[0].heredado, true); assert.equal(vh.resumen.heredados, vh.resumen.cambian);
+    await conCodigo(c, `select aplicar_cambio_precios($1)`, [{ empresa_id: E.A, filtro: { tipo: "iva", valor: "19" }, regla: { tipo: "margen", valor: 100 }, redondeo: 50, simular: true }], "P0001", /margen objetivo/);
+    await conCodigo(c, `select aplicar_cambio_precios($1)`, [{ empresa_id: E.A, filtro: { tipo: "iva", valor: "19" }, regla: { tipo: "porcentaje", valor: 5 }, redondeo: 10, simular: true }], "P0001", /redondeo/);
+  });
+});
+
+test("cambio masivo: la cajera y la bodega no; otra empresa no ve ni toca los de A", async () => {
+  const pet = { empresa_id: E.A, filtro: { tipo: "iva", valor: "0" }, regla: { tipo: "porcentaje", valor: 5 }, redondeo: 50, simular: true };
+  for (const u of [U.cajera, U.bodega, U.duenoB]) await assert.rejects(como(u, (c) => c.query(`select aplicar_cambio_precios($1)`, [pet])), /dueño o el administrador/);
+  await como(U.carlos, async (c) => {
+    const v = (await c.query(`select aplicar_cambio_precios($1) r`, [{ ...pet, filtro: { tipo: "productos", valor: [prod.id] } }])).rows[0].r;
+    const k = (await c.query(`select aplicar_cambio_precios($1) r`, [{ ...pet, filtro: { tipo: "productos", valor: [prod.id] }, simular: false, firma: v.firma }])).rows[0].r;
+    for (const u of [U.cajera, U.duenoB]) {
+      await ser(c, u);
+      assert.equal((await c.query(`select (select count(*) from cambios_precio) + (select count(*) from cambio_precio_lineas) n`)).rows[0].n, "0");
+      await conCodigo(c, `select revertir_cambio_precios($1)`, [k.id], "42501");
+    }
+  });
+});
+
+test("cuarentena: devolución a cuarentena saca el lote de la venta (FEFO lo salta); liberar lo devuelve; baja con acta; permisos", async () => {
+  await como(U.carlos, async (c) => {
+    // Dos lotes del producto de prueba: la venta toma el primero por FEFO.
+    const lotes = (await c.query(`select lote_id, unidades from v_stock_lotes where producto_id = $1 and unidades > 0 order by vence nulls last, lote_id`, [prod.id])).rows;
+    const v = (await c.query("select registrar_venta($1) r", [venta([{ producto_id: prod.id, presentacion: "unidad", cantidad: 1 }], { pagos: [{ medio: "efectivo", valor: Number(prod.precio_unidad) }] })])).rows[0].r;
+    const lv = (await c.query(`select lote_id from venta_lineas where venta_id = $1`, [v.venta_id])).rows[0].lote_id;
+    assert.equal(lv, lotes[0].lote_id, "FEFO toma el primero");
+    const d = (await c.query("select devolver_venta($1) r", [{ venta_id: v.venta_id, motivo: "Empaque abierto", destino: "cuarentena", lineas: [{ producto_id: prod.id, presentacion: "unidad", cantidad: 1 }] }])).rows[0].r;
+    assert.equal(d.destino, "cuarentena"); assert.equal(d.lotes_cuarentena, 1);
+    const l = (await c.query(`select bloqueado, bloqueo_tipo, bloqueo_desde is not null desde, bloqueo_motivo from lotes where id = $1`, [lv])).rows[0];
+    assert.deepEqual([l.bloqueado, l.bloqueo_tipo, l.desde], [true, "devolucion", true]); assert.match(l.bloqueo_motivo, /Empaque abierto/);
+    assert.equal((await c.query(`select destino from devoluciones where id = $1`, [d.id])).rows[0].destino, "cuarentena");
+    assert.equal((await c.query(`select count(*)::int n from v_stock_vigente where lote_id = $1`, [lv])).rows[0].n, 0, "no cuenta como vendible");
+    const v2 = (await c.query("select registrar_venta($1) r", [venta([{ producto_id: prod.id, presentacion: "unidad", cantidad: 1 }], { pagos: [{ medio: "efectivo", valor: Number(prod.precio_unidad) }] })])).rows[0].r;
+    assert.equal((await c.query(`select lote_id from venta_lineas where venta_id = $1`, [v2.venta_id])).rows[0].lote_id, lotes[1].lote_id, "FEFO salta el lote en cuarentena");
+    // Pedir más de lo vendible: el mensaje ya no culpa solo al INVIMA
+    await conCodigo(c, "select registrar_venta($1)", [venta([{ producto_id: prod.id, presentacion: "unidad", cantidad: lotes[1].unidades + 5 }], { pagos: [{ medio: "efectivo", valor: 99999999 }] })], "P0001", /alerta del INVIMA o cuarentena/);
+    // La cajera no libera; la bodega sí (con motivo)
+    await ser(c, U.cajera);
+    await conCodigo(c, "select liberar_cuarentena($1, 'Revisado')", [lv], "42501");
+    await conCodigo(c, "select poner_cuarentena($1, 'Revisar')", [lotes[1].lote_id], "42501");
+    await ser(c, U.duenoB);
+    await conCodigo(c, "select liberar_cuarentena($1, 'Revisado')", [lv], "42501");
+    assert.equal((await c.query(`select count(*)::int n from lotes where id = $1`, [lv])).rows[0].n, 0);
+    await ser(c, U.bodega);
+    await conCodigo(c, "select liberar_cuarentena($1, 'ok')", [lv], "P0001", /qué se revisó/);
+    await c.query("select liberar_cuarentena($1, 'Empaque sellado, en buen estado')", [lv]);
+    const lib = (await c.query(`select bloqueado, bloqueo_tipo, bloqueo_desde, bloqueo_motivo from lotes where id = $1`, [lv])).rows[0];
+    assert.deepEqual(lib, { bloqueado: false, bloqueo_tipo: null, bloqueo_desde: null, bloqueo_motivo: null });
+    await ser(c, U.carlos);
+    const v3 = (await c.query("select registrar_venta($1) r", [venta([{ producto_id: prod.id, presentacion: "unidad", cantidad: 1 }], { pagos: [{ medio: "efectivo", valor: Number(prod.precio_unidad) }] })])).rows[0].r;
+    assert.equal((await c.query(`select lote_id from venta_lineas where venta_id = $1`, [v3.venta_id])).rows[0].lote_id, lv, "liberado: se vende de nuevo");
+    // Poner en cuarentena y dar de baja con acta (registrar_ajuste)
+    await ser(c, U.bodega);
+    await c.query("select poner_cuarentena($1, 'Cadena de frío en duda')", [lv]);
+    await conCodigo(c, "select poner_cuarentena($1, 'Otra vez')", [lv], "P0001", /ya está separado/);
+    const u = (await c.query(`select unidades from v_stock_lotes where lote_id = $1`, [lv])).rows[0].unidades;
+    const a = (await c.query("select registrar_ajuste($1) r", [{ empresa_id: E.A, motivo: "averia", detalle: "Desde cuarentena", lineas: [{ lote_id: lv, unidades: -u }] }])).rows[0].r;
+    assert.equal((await c.query(`select motivo from ajustes where id = $1`, [a.id])).rows[0].motivo, "averia");
+    assert.equal((await c.query(`select unidades from v_stock_lotes where lote_id = $1`, [lv])).rows[0].unidades, 0);
+    await ser(c, U.carlos);
+    assert.ok((await c.query(`select count(*)::int n from auditoria where accion in ('cuarentena_poner', 'cuarentena_liberar') and entidad_id = $1`, [lv])).rows[0].n === 2);
+  });
+});
+
+test("cuarentena: el bloqueo del INVIMA se marca como tal y no se libera; la devolución por defecto sigue lo que configura la droguería", async () => {
+  await como(U.carlos, async (c) => {
+    const lote = (await c.query(`select lote_id from v_stock_lotes where producto_id = $1 and unidades > 0 limit 1`, [prod.id])).rows[0].lote_id;
+    await c.query("reset role");
+    await c.query(`update lotes set bloqueado = true, bloqueo_motivo = 'Alerta INVIMA prueba' where id = $1`, [lote]); // como lo hacía la 010
+    assert.equal((await c.query(`select bloqueo_tipo from lotes where id = $1`, [lote])).rows[0].bloqueo_tipo, "invima");
+    await assert.rejects(c.query(`update lotes set bloqueo_tipo = null where id = $1`, [lote]).then(() => c.query(`select 1 from lotes where id = $1 and bloqueado and bloqueo_tipo is null`, [lote])).then((r) => { if (r.rowCount) throw new Error("incoherente"); throw new Error("coherente"); }), /coherente/);
+    await ser(c, U.carlos);
+    await conCodigo(c, "select liberar_cuarentena($1, 'Revisado a mano')", [lote], "P0001", /INVIMA/);
+    // Destino por defecto: la demo no se configura; otra droguería sí
+    await conCodigo(c, "select configurar_devoluciones($1, 'cuarentena')", [E.A], "P0001", /demostración/);
+    await c.query("reset role");
+    await c.query(`update empresas set demo = false where id = $1`, [E.A]);
+    await ser(c, U.cajera);
+    await conCodigo(c, "select configurar_devoluciones($1, 'cuarentena')", [E.A], "42501");
+    await ser(c, U.carlos);
+    await c.query("select configurar_devoluciones($1, 'cuarentena')", [E.A]);
+    await c.query("reset role");
+    await c.query(`update empresas set demo = true where id = $1`, [E.A]); // la demo vende con numeración de pruebas
+    await c.query(`update lotes set bloqueado = false where id = $1`, [lote]); // se suelta el lote de la alerta de prueba
+    await ser(c, U.carlos);
+    const v = (await c.query("select registrar_venta($1) r", [venta([{ producto_id: prod.id, presentacion: "unidad", cantidad: 1 }], { pagos: [{ medio: "efectivo", valor: Number(prod.precio_unidad) }] })])).rows[0].r;
+    const d = (await c.query("select devolver_venta($1) r", [{ venta_id: v.venta_id, motivo: "Sin destino explícito", lineas: [{ producto_id: prod.id, presentacion: "unidad", cantidad: 1 }] }])).rows[0].r;
+    assert.equal(d.destino, "cuarentena", "sin destino: el de la droguería");
+    const v2 = (await c.query("select registrar_venta($1) r", [venta([{ producto_id: prod.id, presentacion: "unidad", cantidad: 1 }], { pagos: [{ medio: "efectivo", valor: Number(prod.precio_unidad) }] })])).rows[0].r;
+    const d2 = (await c.query("select devolver_venta($1) r", [{ venta_id: v2.venta_id, motivo: "Destino explícito", destino: "vendible", lineas: [{ producto_id: prod.id, presentacion: "unidad", cantidad: 1 }] }])).rows[0].r;
+    assert.equal(d2.destino, "vendible"); assert.equal(d2.lotes_cuarentena, 0);
+  });
+});
+
+test("la consola elimina una droguería de prueba con códigos alternos, cambios de precio y lotes en cuarentena", async () => {
+  await como(U.duenoB, async (c) => {
+    await c.query("reset role");
+    const sede = (await c.query(`select id from sedes where empresa_id = $1 limit 1`, [E.B])).rows[0].id;
+    const caja = (await c.query(`select id from cajas where empresa_id = $1 and activa limit 1`, [E.B])).rows[0].id;
+    const p = (await c.query(`insert into productos (empresa_id, nombre, precio_caja, unidades_por_caja, precio_unidad) values ($1, 'Producto bloque 3 B', 10000, 10, 1200) returning id`, [E.B])).rows[0].id;
+    await c.query(`insert into resoluciones_dian (empresa_id, tipo, prefijo, desde, hasta, actual, vigente_hasta, pruebas)
+      select $1, 'pos', 'PB3', 1, 1000, 0, '2027-12-31', true where not exists (select 1 from resoluciones_dian where empresa_id = $1 and tipo = 'pos' and activa)`, [E.B]);
+    await c.query(`insert into resoluciones_dian (empresa_id, tipo, prefijo, desde, hasta, actual, vigente_hasta, pruebas)
+      select $1, 'nota_credito', 'NCB3', 1, 1000, 0, '2027-12-31', true where not exists (select 1 from resoluciones_dian where empresa_id = $1 and tipo = 'nota_credito' and activa)`, [E.B]);
+    // B vende solo con numeración de producción (como en la prueba del bloque 2); antes de eliminarla vuelve a «pruebas».
+    await c.query(`update resoluciones_dian set pruebas = false, numero_resolucion = '18760000000003' where empresa_id = $1`, [E.B]);
+    await ser(c, U.duenoB);
+    await c.query("select registrar_entrada($1)", [{ empresa_id: E.B, sede_id: sede, tipo: "inicial", lineas: [{ producto_id: p, lote: "LB3", vence: "2031-01-31", unidades: 50, costo_unidad: 500 }, { producto_id: p, lote: "LB3Q", vence: "2031-01-31", unidades: 5 }] }]);
+    await c.query(`select agregar_codigo_producto($1, 'B3-ALT')`, [p]);
+    const v = (await c.query(`select aplicar_cambio_precios($1) r`, [{ empresa_id: E.B, filtro: { tipo: "productos", valor: [p] }, regla: { tipo: "porcentaje", valor: 10 }, redondeo: 100, simular: true }])).rows[0].r;
+    await c.query(`select aplicar_cambio_precios($1)`, [{ empresa_id: E.B, filtro: { tipo: "productos", valor: [p] }, regla: { tipo: "porcentaje", valor: 10 }, redondeo: 100, simular: false, firma: v.firma }]);
+    // (Una devolución de venta en B no se incluye: eliminar_empresa_prueba de la 033a borra venta_lineas antes que
+    //  devolucion_lineas y falla por la llave; lo corrige el integrador, ver la entrega del frente 3-C.)
+    await c.query("select registrar_venta($1)", [{ empresa_id: E.B, sede_id: sede, caja_id: caja, idem_key: crypto.randomUUID(), tipo_doc: "pos", lineas: [{ producto_id: p, presentacion: "unidad", cantidad: 2 }], pagos: [{ medio: "efectivo", valor: 99999 }] }]);
+    await c.query("select poner_cuarentena((select id from lotes where producto_id = $1 and lote = 'LB3'), 'Revisar B (lote 1)')", [p]);
+    await c.query("select poner_cuarentena((select id from lotes where producto_id = $1 and lote = 'LB3Q'), 'Revisar B')", [p]);
+    const TABLAS = ["producto_codigos", "cambios_precio", "cambio_precio_lineas"];
+    await c.query("reset role");
+    const antes = (await c.query(`select ${TABLAS.map((t) => `(select count(*)::int from ${t} where empresa_id = $1) ${t}`).join(", ")}, (select count(*)::int from lotes where empresa_id = $1 and bloqueado) bloqueados`, [E.B])).rows[0];
+    assert.ok(TABLAS.every((t) => antes[t] > 0) && antes.bloqueados === 2, JSON.stringify(antes));
+    await c.query(`update resoluciones_dian set pruebas = true where empresa_id = $1`, [E.B]);
+    await c.query(`update empresas set estado = 'suspendida' where id = $1`, [E.B]);
+    await c.query("select eliminar_empresa_prueba($1)", [E.B]);
+    const despues = (await c.query(`select ${TABLAS.map((t) => `(select count(*)::int from ${t} where empresa_id = $1) ${t}`).join(", ")}`, [E.B])).rows[0];
+    assert.deepEqual(despues, Object.fromEntries(TABLAS.map((t) => [t, 0])));
   });
 });

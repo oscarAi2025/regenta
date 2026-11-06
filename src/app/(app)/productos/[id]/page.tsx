@@ -5,6 +5,8 @@ import { leerSesion, puede } from "@/lib/sesion";
 import { Cabecera, existenciasTexto } from "@/components/ui/Cabecera";
 import { ProductoForm } from "@/components/ProductoForm";
 import { Kardex } from "./Kardex";
+import { Codigos } from "./Codigos";
+import { puedePrecios } from "@/lib/precios";
 
 export const metadata = { title: "Producto" };
 
@@ -20,7 +22,9 @@ export default async function Editar({ params, searchParams }: { params: Promise
   const d = await comoUsuario(s, async (c) => {
     const p = (await c.query(`select p.*, coalesce((select sum(unidades) from v_stock_vigente v where v.producto_id = p.id), 0)::int vigentes
       from productos p where p.id = $1 and p.empresa_id = $2 and p.activo`, [id, s.empresa])).rows[0];
-    return p ? { p, kardex: await Kardex({ c, producto: p, filtros }) } : null;
+    if (!p) return null;
+    const codigos = (await c.query(`select id::int, codigo, to_char(creado at time zone 'America/Bogota', 'DD/MM/YYYY') creado from producto_codigos where producto_id = $1 order by creado, id`, [id])).rows;
+    return { p, codigos, kardex: await Kardex({ c, producto: p, filtros }) };
   });
   if (!d) notFound();
   const { p } = d;
@@ -33,6 +37,7 @@ export default async function Editar({ params, searchParams }: { params: Promise
       {gestiona && <ProductoForm id={p.id} inicial={{ nombre: p.nombre, laboratorio: p.laboratorio ?? "", ean: p.ean ?? "", iva: Number(p.iva) as 0 | 5 | 19, categoria: p.categoria ?? null, unidades_por_caja: p.unidades_por_caja,
         precio_caja: String(Math.round(p.precio_caja)), precio_unidad: p.precio_unidad ? String(Math.round(p.precio_unidad)) : "", stock_minimo: p.stock_minimo, registro_sanitario: p.registro_sanitario ?? "",
         requiere_formula: !!p.requiere_formula, control_especial: !!p.control_especial }} />}
+      {puedePrecios.codigos(s.rol) && <Codigos productoId={p.id} principal={p.ean} inicial={d.codigos} />}
       {d.kardex}
     </main>
   );

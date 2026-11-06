@@ -3,8 +3,9 @@ import { comoUsuario, mensajeError, sinComodines } from "@/lib/db";
 import { conSesion, json } from "@/lib/api";
 import { ProductoEntrada, primerError } from "@/lib/validar";
 import { leerSesion, puede } from "@/lib/sesion";
+import { normalizarCodigo } from "@/lib/precios";
 
-/** Búsqueda para la caja: por código de barras exacto o por palabras (todas deben aparecer en nombre o laboratorio). */
+/** Búsqueda para la caja: por código de barras exacto (principal o alterno) o por palabras (todas deben aparecer en nombre o laboratorio). */
 export async function GET(req: Request) {
   const s = await leerSesion();
   if (!s) return NextResponse.json({ error: "Sesión vencida" }, { status: 401 });
@@ -28,7 +29,8 @@ export async function GET(req: Request) {
     try {
       const productos = await comoUsuario(s, async (c) => (await c.query(
         `select p.id, p.nombre, p.laboratorio, p.ean, p.iva::float, p.unidades_por_caja, p.precio_caja::float, p.precio_unidad::float,
-                p.stock_minimo, coalesce(st.unidades, 0)::int unidades, st.proximo_vence::text, false as exacto, p.requiere_formula, p.control_especial
+                p.stock_minimo, coalesce(st.unidades, 0)::int unidades, st.proximo_vence::text, false as exacto, p.requiere_formula, p.control_especial,
+                coalesce((select array_agg(pc.codigo order by pc.codigo) from producto_codigos pc where pc.producto_id = p.id), '{}') codigos
          from productos p
          left join lateral (select sum(unidades) unidades, min(vence) filter (where unidades > 0) proximo_vence from v_stock_vigente where producto_id = p.id) st on true
          where p.empresa_id = $1 and p.activo order by p.nombre limit 20000`, [s.empresa])).rows);
@@ -37,18 +39,21 @@ export async function GET(req: Request) {
   }
   if (!q) return NextResponse.json({ productos: [] });
   const palabras = q.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6).map(sinComodines);
+  // Código de barras exacto: el principal (ean) o cualquiera de los códigos alternos del producto.
+  const codigo = normalizarCodigo(q);
   try {
     const productos = await comoUsuario(s, async (c) => (await c.query(
       `select p.id, p.nombre, p.laboratorio, p.ean, p.iva::float, p.unidades_por_caja, p.precio_caja::float, p.precio_unidad::float,
-              p.stock_minimo, coalesce(st.unidades, 0)::int as unidades, st.proximo_vence::text as proximo_vence, coalesce(p.ean = $2, false) as exacto,
-              p.requiere_formula, p.control_especial
+              p.stock_minimo, coalesce(st.unidades, 0)::int as unidades, st.proximo_vence::text as proximo_vence,
+              (coalesce(p.ean = $2, false) or alt.id is not null) as exacto, p.requiere_formula, p.control_especial
        from productos p
+       left join producto_codigos alt on alt.producto_id = p.id and alt.empresa_id = $1 and alt.codigo = $4
        left join lateral (select sum(unidades) unidades, min(vence) filter (where unidades > 0) proximo_vence
                           from v_stock_vigente where producto_id = p.id) st on true
        where p.empresa_id = $1 and p.activo
-         and (p.ean = $2 or (select bool_and(lower(p.nombre || ' ' || coalesce(p.laboratorio, '')) like '%' || w || '%') from unnest($3::text[]) w))
-       order by coalesce(p.ean = $2, false) desc, (coalesce(st.unidades, 0) > 0) desc, p.nombre
-       limit 30`, [s.empresa, q, palabras])).rows);
+         and (p.ean = $2 or alt.id is not null or (select bool_and(lower(p.nombre || ' ' || coalesce(p.laboratorio, '')) like '%' || w || '%') from unnest($3::text[]) w))
+       order by (coalesce(p.ean = $2, false) or alt.id is not null) desc, (coalesce(st.unidades, 0) > 0) desc, p.nombre
+       limit 30`, [s.empresa, q, palabras, codigo])).rows);
     return NextResponse.json({ productos });
   } catch (e) {
     const { status, error } = mensajeError(e);
@@ -67,6 +72,8 @@ export const POST = conSesion(async (s, req) => {
     if (d.ean) {
       const ya = (await c.query(`select nombre from productos where empresa_id = $1 and ean = $2 and activo`, [s.empresa, d.ean])).rows[0];
       if (ya) return { error: `Ya tienes un producto con ese código de barras: ${ya.nombre}` };
+      const alt = (await c.query(`select p.nombre from producto_codigos pc join productos p on p.id = pc.producto_id where pc.empresa_id = $1 and pc.codigo = $2`, [s.empresa, normalizarCodigo(d.ean)])).rows[0];
+      if (alt) return { error: `Ese código de barras ya es un código alterno de ${alt.nombre}` };
     }
     const { rows } = await c.query(
       `insert into productos (empresa_id, maestro_id, nombre, laboratorio, ean, iva, categoria, unidades_por_caja, precio_caja, precio_unidad, stock_minimo, registro_sanitario, requiere_formula, control_especial)

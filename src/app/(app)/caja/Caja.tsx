@@ -362,7 +362,7 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja }:
     const t = q.trim();
     if (e.key === "Enter" && /^\d{7,14}$/.test(t)) {
       e.preventDefault();
-      const exacto = (l: Producto[]) => l.find((p) => p.ean === t);
+      const exacto = (l: Producto[]) => l.find((p) => p.exacto || p.ean === t); // exacto: también por código alterno
       const ya = exacto(res);
       if (ya) { agregar(ya, "caja"); setQ(""); return; }
       (async () => {

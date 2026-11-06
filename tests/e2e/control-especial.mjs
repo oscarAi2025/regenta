@@ -196,7 +196,7 @@ let ventaControl;
 // ── 6. Sin internet: los productos que exigen registrar la fórmula se bloquean
 {
   const { ctx, p, errs } = await entrar("Laura");
-  await p.waitForFunction(() => { try { return (JSON.parse(localStorage.getItem("regenta.catalogo") ?? "null")?.v ?? 0) === 2; } catch { return false; } }, null, { timeout: 20000 });
+  await p.waitForFunction(() => { try { return (JSON.parse(localStorage.getItem("regenta.catalogo") ?? "null")?.v ?? 0) >= 2; } /* 2 = marcas de fórmula; 3 (036) = además códigos alternos */ catch { return false; } }, null, { timeout: 20000 });
   await p.waitForLoadState("networkidle");
   await agregar(p, CONTROL);
   await ctx.setOffline(true);
