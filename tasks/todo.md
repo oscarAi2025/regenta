@@ -372,3 +372,14 @@ Tres frentes en paralelo (2-A regenta_2a :4511, 2-B regenta_2b :4512, 2-C regent
 - [x] SQL de producción db/produccion/bloque2-031-033a.sql probado de una pieza como rol sin superusuario sobre una copia hasta 030a
 - [ ] Oscar: aplicar bloque2-031-033a.sql en Supabase y desplegar (un solo despliegue)
 - [ ] Pendiente: el vendedor de la demo (la demo no trae uno); proveedores no tienen entrada propia en el menú (se llega desde Compras y Cuentas por pagar)
+
+## 06/11/2026 · Bloque 2 en producción
+- [x] 2-A Compras, proveedores, cuentas por pagar y devoluciones a proveedor (031)
+- [x] 2-B Mostrador: cantidad tecleada, venta en espera F4/F6, domicilios, cotizaciones, rol vendedor (032)
+- [x] 2-C Fiado con cupo, recibos de caja, cartera por cliente, abonos por turno (033)
+- [x] Integración: una sola lógica de venta, crédito en la caja, 033a (eliminar droguerías de prueba con las tablas nuevas), menú y permisos
+- [x] Guardia de navegación (clics que el enrutador dejaba colgados) y /favicon.ico
+- [x] Pruebas: npm test 96/96 · e2e 24/24 suites sin fallos (1821 comprobaciones de endpoints, 248 pantallas) · suites nuevas 3 veces seguidas
+- [x] 031–033a aplicadas en producción con autorización de Oscar (06/11/2026); un solo despliegue
+- [ ] Bloque 3: resultados y ganancia corregida, gastos, auxiliar de IVA, bitácora; DIAN complementaria (documento soporte, nota débito, XML); precios masivos, códigos alternos, etiquetas y cuarentena
+- [ ] Logo de la droguería en cotizaciones (falta campo)
