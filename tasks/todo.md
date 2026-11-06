@@ -347,3 +347,14 @@ Reparto en 3 frentes paralelos (cada uno en su rama, su base local y su puerto);
   - [x] Pruebas: db 42/42 · unitarias 25/25 · e2e control-especial 0 fallos · caja, descuentos, devoluciones, sin-conexion, facturacion 0 fallos (build de producción) · endpoints 1124 (1 fallo ajeno: sin REGENTA_CRON_KEY)
   - [x] Integración: enlace en el menú (Navegacion) y migración 030 en Supabase (con autorización de Oscar)
 - [x] Integración: menú agrupado (Vender · Inventario · Cumplimiento · Gestión), typecheck, npm test 74/74, e2e 21/21 suites sin fallos (1323 comprobaciones de endpoints, 160 pantallas auditadas); migraciones 028–030 aplicadas en producción con autorización de Oscar (06/11/2026); un solo despliegue
+
+## 06/11/2026 · Correcciones del Bloque 1 (revisión independiente) — migración 030a
+- [x] Conteo físico: lo vendido después de contar un lote no vuelve al inventario al cerrar (existencias al contar por línea)
+- [x] Cierre de conteos sin tope de lotes; anular un conteo abierto (dueño o administrador, con motivo)
+- [x] Bloqueo compartido al contar: un conteo que se cierra no recibe líneas nuevas
+- [x] Consola: eliminar droguerías de prueba con ajustes, conteos, temperatura y fórmulas
+- [x] Temperatura: fecha de Bogotá; el informe muestra la hora real y marca los registros atrasados
+- [x] Kardex por la empresa del producto; baja «Vencido» solo con lote vencido; idempotencia de ajustes; aviso de una venta por fórmula
+- [x] Pruebas: npm test 80/80 · e2e 21/21 suites sin fallos (1345 comprobaciones de endpoints, 160 pantallas)
+- [x] 030a aplicada en producción con autorización de Oscar (06/11/2026); un solo despliegue
+- [ ] Pendientes bajos: conteo a ciegas para la bodega (opcional), paginación de ajustes y conteos antiguos, rangos de temperatura en la demo compartida
