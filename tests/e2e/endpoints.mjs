@@ -39,7 +39,8 @@ async function pedir(metodo, ruta, { cookie = "", origen = B, cuerpo, crudo, cab
 }
 // Nada de lo que vea un cliente puede delatar el interior: trazas, SQL, rutas del servidor.
 const FUGA = /\bat .+\.(js|ts):\d+|relation "|column "|syntax error|violates|duplicate key|ECONN|node_modules|\/home\/|stack|pg_|SELECT |INSERT /i;
-const limpio = (r) => !FUGA.test(r.texto);
+// Un ZIP es binario comprimido: sus bytes pueden formar «pg_» al azar (falso positivo); no se revisa como texto.
+const limpio = (r) => /application\/zip/.test(r.tipo) || !FUGA.test(r.texto);
 
 // ── Mapa de endpoints. acceso: quién puede; basura: se le mandan datos rotos; rol: [rol sin permiso, estado esperado]
 const R = [
@@ -100,6 +101,11 @@ const R = [
   { m: "POST", p: `/api/ventas/${U}/reenviar`, acceso: "sesion", rol: ["cajero", 403] },
   { m: "DELETE", p: `/api/ventas/${U}`, acceso: "sesion", basura: true },
   { m: "POST", p: "/api/ventas", acceso: "sesion", basura: true, rol: ["bodega", 403] },
+  { m: "GET", p: "/api/documentos?estado=rechazado", acceso: "sesion", rol: ["cajero", 403] },
+  { m: "GET", p: "/api/documentos?desde=x&hasta=y&pagina=-5&tipo=nada", acceso: "sesion" },
+  { m: "GET", p: "/api/temperatura?mes=2026-13", acceso: "sesion", rol: ["cajero", 403] },
+  { m: "POST", p: "/api/temperatura", acceso: "sesion", basura: true, rol: ["cajero", 403] },
+  { m: "PATCH", p: "/api/temperatura", acceso: "sesion", basura: true, rol: ["bodega", 403] },
   // consola de superadministración
   { m: "POST", p: `/api/admin/clientes/${U}/entrar`, acceso: "admin" },
   { m: "POST", p: `/api/admin/clientes/${U}/numeraciones`, acceso: "admin", basura: true },

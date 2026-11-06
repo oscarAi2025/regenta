@@ -38,6 +38,7 @@ export default async function Ventas({ searchParams }: { searchParams: Promise<{
           <Link href={`/ventas?dia=${otro(1)}`} className={`btn-borde ${dia >= hoy ? "pointer-events-none opacity-40" : ""}`} aria-label="Día siguiente">→</Link>
         </>}
         {dian && <Link href="/ventas" className="btn-borde">Ver ventas de hoy</Link>}
+        {puede.anular(s.rol) && <Link href="/documentos" className="btn-borde">Documentos DIAN</Link>}
       </Cabecera>
       {!dian && (
         <section className="grid grid-cols-2 lg:grid-cols-3 gap-3">

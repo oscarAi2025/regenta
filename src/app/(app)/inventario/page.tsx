@@ -50,6 +50,7 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
   return (
     <main className="p-4 sm:p-6">
       <Cabecera titulo="Inventario" sub="Lotes, vencimientos y lo que se acabó.">
+        {puede.moverInventario(s.rol) && <Link href="/temperatura" className="btn-borde">Temperatura y humedad</Link>}
         {puede.moverInventario(s.rol) && <Link href="/inventario/recibir" className="btn-primario">Recibir mercancía</Link>}
       </Cabecera>
       {datos.sinCosto.length > 0 && <CostosPendientes lotes={datos.sinCosto} />}
