@@ -46,7 +46,7 @@ export function Navegacion({ rol, demo = false }: { rol: string; demo?: boolean 
         if (!items.length) return null;
         return (
           <div key={titulo || "inicio"} className="contents lg:block lg:mb-2">
-            {titulo && <p className="hidden lg:block px-3 pt-1.5 pb-1 text-[11.5px] font-semibold text-white/45">{titulo}</p>}
+            {titulo && !items.every((i) => "soloCelular" in i) && <p className="hidden lg:block px-3 pt-1.5 pb-1 text-[11.5px] font-semibold text-white/45">{titulo}</p>}
             {items.map((i) => {
               const on = p.startsWith(i.href);
               return (
