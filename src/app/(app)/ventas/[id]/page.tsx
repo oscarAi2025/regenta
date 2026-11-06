@@ -34,7 +34,10 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
     const nota = (await c.query(`select prefijo || numero documento, estado, cufe, simulado, ultimo_error from documentos_dian
       where venta_id = $1 and tipo = 'nota_credito' and devolucion_id is null order by creado desc limit 1`, [id])).rows[0];
     const abonos = v.condicion === "credito" && puede.cartera(s.rol) ? (await c.query(`select id::text, to_char(creado at time zone 'America/Bogota', 'DD/MM/YYYY') fecha, medio, valor::float, referencia, anulado, anulado_motivo from abonos where venta_id = $1 order by creado`, [id])).rows : [];
-    return { v, lineas, pagos, doc, nota, abonos, devoluciones };
+    // Fórmula médica de la venta (solo la ve la gerencia: lleva datos del paciente).
+    const formulas = puede.verCostos(s.rol) ? (await c.query(`select p.nombre, f.control, f.paciente_tipo_doc, f.paciente_doc, f.paciente_nombre, f.medico_nombre, f.medico_registro,
+        f.formula_numero, to_char(f.formula_fecha, 'DD/MM/YYYY') formula_fecha from venta_formulas f join productos p on p.id = f.producto_id where f.venta_id = $1 order by f.control desc, p.nombre`, [id])).rows : [];
+    return { v, lineas, pagos, doc, nota, abonos, devoluciones, formulas };
   });
   if (!d) notFound();
   const { v } = d;
@@ -100,6 +103,19 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
           )}
           {v.estado !== "anulada" && d.doc?.estado === "rechazado" && puede.anular(s.rol) && <Reenviar id={v.id} />}
         </div>
+        {d.formulas.length > 0 && (
+          <div className="tarjeta p-5">
+            <h2 className="titulo text-xl">Fórmula médica</h2>
+            {d.formulas.find((f) => f.paciente_doc) ? (() => { const f = d.formulas.find((x) => x.paciente_doc)!; return (
+              <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+                <dt className="text-muted">Paciente</dt><dd>{f.paciente_nombre} · <span className="num">{f.paciente_tipo_doc} {f.paciente_doc}</span></dd>
+                <dt className="text-muted">Médico</dt><dd>{f.medico_nombre} · Reg. {f.medico_registro}</dd>
+                <dt className="text-muted">Fórmula</dt><dd className="num">N.º {f.formula_numero} del {f.formula_fecha}</dd>
+              </dl>); })() : <p className="mt-2 text-sm">Quien vendió confirmó que verificó la fórmula.</p>}
+            <p className="mt-2 text-sm text-muted">{d.formulas.map((f) => `${f.nombre}${f.control ? " (control especial)" : ""}`).join(" · ")}</p>
+            {d.formulas.some((f) => f.control) && <Link href="/control-especial" className="mt-2 inline-block text-sm font-semibold text-cruz">Ver el libro de control especial →</Link>}
+          </div>
+        )}
         {v.condicion === "credito" && puede.cartera(s.rol) && <Abonos abonos={d.abonos.map((a) => ({ ...a, medio: MEDIO[a.medio] ?? a.medio }))} puedeAnular={v.estado === "cerrada"} />}
         {d.devoluciones.length > 0 && (
           <div className="tarjeta p-5">

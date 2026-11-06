@@ -18,7 +18,7 @@ export const GET = conSesion(async (s, req) => {
     const conc = concentracion ? `(^|[^0-9.,])${concentracion.valor.replace(".", "[.,]")}\\s*${concentracion.unidad}` : null;
     return (await c.query(
       `select p.id, p.nombre, p.laboratorio, p.ean, p.iva::float, p.unidades_por_caja, p.precio_caja::float, p.precio_unidad::float,
-              p.stock_minimo, st.unidades::int, st.proximo_vence::text, false as exacto
+              p.stock_minimo, st.unidades::int, st.proximo_vence::text, false as exacto, p.requiere_formula, p.control_especial
        from productos p
        join lateral (select sum(unidades) unidades, min(vence) filter (where unidades > 0) proximo_vence from v_stock_vigente where producto_id = p.id) st on true
        where p.empresa_id = $1 and p.activo and p.id <> $2 and st.unidades > 0

@@ -4,10 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pesos } from "@/lib/formato";
 import { ClienteFactura, documento, type Cliente } from "./ClienteFactura";
 import { actualizarCatalogo, buscarLocal, catalogo, cola, descartar, encolar, reintentar, esFallaDeRed, imprimirProvisional, sincronizar, type VentaEnCola } from "@/lib/sin-conexion";
+import { FORMULA_VACIA, errorFormula, exigencia, limpiarDoc, pideFormula, type ConfigFormula, type DatosFormula } from "@/lib/control-especial";
+import { PanelFormula } from "./PanelFormula";
 
 type Producto = {
   id: string; nombre: string; laboratorio: string | null; ean: string | null; iva: number; unidades_por_caja: number;
   precio_caja: number; precio_unidad: number | null; stock_minimo: number; unidades: number; proximo_vence: string | null; exacto: boolean;
+  requiere_formula?: boolean; control_especial?: boolean;
 };
 type Linea = { key: string; p: Producto; presentacion: "caja" | "unidad"; cantidad: number; descuento: number /* % */ };
 type Medio = "efectivo" | "transferencia" | "nequi" | "daviplata" | "tarjeta" | "bre_b" | "qr";
@@ -36,6 +39,13 @@ function Vence({ fecha }: { fecha: string | null }) {
   );
 }
 
+/** Marca de dispensación del producto (en resultados y en la tirilla). */
+function MarcaFormula({ p }: { p: Producto }) {
+  if (p.control_especial) return <span className="text-[12px] font-semibold px-1.5 py-0.5 rounded bg-alerta-soft text-alerta">Control especial</span>;
+  if (p.requiere_formula) return <span className="text-[12px] font-semibold px-1.5 py-0.5 rounded bg-aviso-soft text-aviso">Con fórmula</span>;
+  return null;
+}
+
 function existencias(p: Producto) {
   if (p.unidades <= 0) return "Agotado";
   if (p.unidades_por_caja <= 1) return `${p.unidades} und`;
@@ -43,7 +53,7 @@ function existencias(p: Producto) {
   return `${c} caja${c === 1 ? "" : "s"}${u ? ` + ${u} und` : ""}`;
 }
 
-export function Caja({ fiar, empresa, nombreEmpresa }: { fiar: boolean; empresa: string; nombreEmpresa: string }) {
+export function Caja({ fiar, empresa, nombreEmpresa, formulas }: { fiar: boolean; empresa: string; nombreEmpresa: string; formulas: ConfigFormula }) {
   const [q, setQ] = useState("");
   const [res, setRes] = useState<Producto[]>([]);
   const [sel, setSel] = useState(0);
@@ -66,6 +76,8 @@ export function Caja({ fiar, empresa, nombreEmpresa }: { fiar: boolean; empresa:
   const [credito, setCredito] = useState(false);
   const [plazo, setPlazo] = useState(30);
   const idem = useRef<string>(crypto.randomUUID());
+  // Fórmula médica de la venta (productos con fórmula o de control especial).
+  const [formula, setFormula] = useState<DatosFormula>(FORMULA_VACIA);
   // Sin internet: catálogo local, cola de ventas y aviso del estado.
   const [enLinea, setEnLinea] = useState(true);
   const [pendientes, setPendientes] = useState(0);
@@ -149,7 +161,7 @@ export function Caja({ fiar, empresa, nombreEmpresa }: { fiar: boolean; empresa:
     ls.filter((l) => l.p.id === p.id).reduce((a, l) => a + l.cantidad * (l.presentacion === "caja" ? p.unidades_por_caja : 1), 0) > p.unidades, []);
 
   const nueva = useCallback(() => {
-    setLineas([]); setHecho(null); setCobrando(false); setRecibido(""); setMedio("efectivo"); setOtro(null); setDescGeneral(0); setError(""); setCliente(null); setCredito(false);
+    setLineas([]); setHecho(null); setCobrando(false); setRecibido(""); setMedio("efectivo"); setOtro(null); setDescGeneral(0); setError(""); setCliente(null); setCredito(false); setFormula(FORMULA_VACIA);
     idem.current = crypto.randomUUID();
     setTimeout(() => buscador.current?.focus(), 0);
   }, []);
@@ -160,10 +172,23 @@ export function Caja({ fiar, empresa, nombreEmpresa }: { fiar: boolean; empresa:
   const recibidoNum = medio === "efectivo" && !aCredito ? Number(recibido.replace(/\D/g, "")) || 0 : totales.total;
   const cambio = Math.max(0, recibidoNum - restante);
   const faltaCliente = tipoDoc === "factura" && !cliente;
-  const puedeCobrar = lineas.length > 0 && !lineas.some((l) => excede(lineas, l.p)) && !faltaCliente;
+  const ex = useMemo(() => exigencia(lineas.map((l) => l.p), formulas), [lineas, formulas]);
+  const pide = pideFormula(ex);
+  const faltaFormula = pide ? errorFormula(formula, ex, formulas) : null;
+  const formulaSinRed = !enLinea && ex.datos; // sin internet no se garantiza el registro: esos productos no se venden
+  const puedeCobrar = lineas.length > 0 && !lineas.some((l) => excede(lineas, l.p)) && !faltaCliente && !faltaFormula && !formulaSinRed;
+  // F9 o «Cobrar» con la fórmula incompleta llevan al primer dato que falta (lector y teclado no se quedan sin salida).
+  const irAFormula = useCallback(() => {
+    const panel = document.getElementById("formula");
+    if (!panel) return;
+    panel.scrollIntoView({ behavior: "smooth", block: "center" });
+    const vacio = [...panel.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input, select")].find((x) => x instanceof HTMLInputElement && (x.type === "checkbox" ? !x.checked : !x.value.trim()));
+    (vacio ?? panel.querySelector<HTMLElement>("input, select"))?.focus({ preventScroll: true });
+  }, []);
 
   async function confirmar() {
-    if (enviando || !puedeCobrar) return;
+    if (enviando) return;
+    if (!puedeCobrar) { if (faltaFormula || formulaSinRed) { setError(formulaSinRed ? "Sin internet no se puede registrar la fórmula médica" : faltaFormula!); irAFormula(); } return; }
     if (!aCredito && medio === "efectivo" && otro && (otroNum <= 0 || otroNum >= Math.round(totales.total))) { setError("En el pago mixto, la parte con el otro medio debe ser menor que el total"); return; }
     if (!aCredito && medio === "efectivo" && recibidoNum < restante) { setError(otroNum ? `El efectivo no cubre el resto (${pesos(restante)})` : "El efectivo recibido no cubre el total"); return; }
     setEnviando(true); setError("");
@@ -175,6 +200,7 @@ export function Caja({ fiar, empresa, nombreEmpresa }: { fiar: boolean; empresa:
           pagos: aCredito ? [] : medio === "efectivo" && otroNum > 0
             ? [{ medio: otro!.medio, valor: otroNum }, { medio: "efectivo", valor: recibidoNum }]
             : [{ medio, valor: medio === "efectivo" ? recibidoNum : Math.round(totales.total) }],
+          formula: pide ? (ex.datos ? { ...formula, verificada: true, paciente_doc: limpiarDoc(formula.paciente_doc) } : { ...FORMULA_VACIA, verificada: formula.verificada }) : null,
     };
     try {
       const r = await fetch("/api/ventas", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(cuerpo) });
@@ -186,6 +212,7 @@ export function Caja({ fiar, empresa, nombreEmpresa }: { fiar: boolean; empresa:
     } catch (e) {
       if (!esFallaDeRed(e)) { setError("No se pudo registrar la venta. Vuelve a confirmar (no se duplicará)."); return; }
       setEnLinea(false);
+      if (ex.datos) { setError("Sin internet no se puede registrar la fórmula médica. Quita esos productos de la venta o espera a que vuelva la conexión."); return; }
       if (tipoDoc !== "pos" || aCredito) { setError("Sin internet: la factura electrónica necesita conexión. Cobra con tiquete POS y se envía solo al volver internet."); return; }
       // Sin internet: la venta se guarda en esta caja y se envía sola al volver la conexión (misma clave: no se duplica).
       const v: VentaEnCola = {
@@ -204,6 +231,7 @@ export function Caja({ fiar, empresa, nombreEmpresa }: { fiar: boolean; empresa:
     const h = (e: KeyboardEvent) => {
       if (e.key === "F2") { e.preventDefault(); buscador.current?.focus(); }
       if (e.key === "F9" && puedeCobrar && !hecho) { e.preventDefault(); setCobrando(true); setTimeout(() => recibidoRef.current?.focus(), 0); }
+      else if (e.key === "F9" && !hecho && lineas.length > 0 && (faltaFormula || formulaSinRed)) { e.preventDefault(); irAFormula(); }
       if (e.key === "Escape" && cobrando) { setCobrando(false); buscador.current?.focus(); }
       if (e.key === "Enter" && hecho) { e.preventDefault(); nueva(); }
       if (e.key === "F8" && hecho?.provisional) { e.preventDefault(); imprimirProvisional(hecho.provisional, nombreEmpresa, impresora.ancho); }
@@ -211,7 +239,7 @@ export function Caja({ fiar, empresa, nombreEmpresa }: { fiar: boolean; empresa:
     };
     addEventListener("keydown", h);
     return () => removeEventListener("keydown", h);
-  }, [puedeCobrar, cobrando, hecho, nueva, impresora.ancho, nombreEmpresa]);
+  }, [puedeCobrar, cobrando, hecho, nueva, impresora.ancho, nombreEmpresa, lineas.length, faltaFormula, formulaSinRed, irAFormula]);
 
   function teclaBuscador(e: React.KeyboardEvent) {
     if (e.key === "ArrowDown") { e.preventDefault(); setSel((s) => Math.min(s + 1, res.length - 1)); }
@@ -307,6 +335,9 @@ export function Caja({ fiar, empresa, nombreEmpresa }: { fiar: boolean; empresa:
             {hecho.venta.repetida && (
               <p role="alert" className="mt-4 rounded-xl bg-alerta-soft text-alerta px-4 py-3 font-semibold">Esta venta ya se había registrado antes del corte de conexión. Revisa la tirilla: si agregaste productos después, no se cobraron; regístralos en una venta nueva.</p>
             )}
+            {!hecho.provisional && ex.control.length > 0 && (
+              <p className="mt-4 rounded-xl bg-paper px-4 py-3 text-sm"><b>Control especial:</b> la dispensación quedó en el libro con el lote vendido, el paciente y la fórmula.</p>
+            )}
             {hecho.venta.credito && hecho.venta.vence_pago && (
               <p className="mt-4 rounded-xl bg-aviso-soft text-aviso px-4 py-3 font-semibold">A crédito · vence el {fechaCorta(hecho.venta.vence_pago)}. Queda en Cartera para registrar los abonos.</p>
             )}
@@ -391,7 +422,7 @@ export function Caja({ fiar, empresa, nombreEmpresa }: { fiar: boolean; empresa:
                   return (
                     <li key={l.key} className="py-3">
                       <div className="flex justify-between gap-3">
-                        <p className="leading-snug text-[15px]">{l.p.nombre}</p>
+                        <p className="leading-snug text-[15px]">{l.p.nombre}{(l.p.control_especial || l.p.requiere_formula) && <span className="ml-1.5 inline-block align-middle"><MarcaFormula p={l.p} /></span>}</p>
                         <button onClick={() => setLineas((ls) => ls.filter((x) => x.key !== l.key))} aria-label={`Quitar ${l.p.nombre}`} className="text-muted hover:text-alerta shrink-0 -mt-0.5 text-xl leading-none">×</button>
                       </div>
                       <div className="mt-2 flex items-center justify-between gap-3">
@@ -416,6 +447,7 @@ export function Caja({ fiar, empresa, nombreEmpresa }: { fiar: boolean; empresa:
                 })}
               </ul>
             )}
+            {pide && <PanelFormula ex={ex} cfg={formulas} datos={formula} onCambio={setFormula} falta={faltaFormula} sinRed={formulaSinRed} />}
             <div className="corte" />
             <dl className="px-6 pt-3 text-sm text-muted num grid grid-cols-2 gap-y-1">
               <dt>Base</dt><dd className="text-right">{pesos(totales.base)}</dd>
@@ -485,7 +517,7 @@ export function Caja({ fiar, empresa, nombreEmpresa }: { fiar: boolean; empresa:
                   className="w-full h-16 rounded-xl bg-cruz text-cruz-ink text-xl font-semibold disabled:opacity-40 flex items-center justify-center gap-3">
                   Cobrar <kbd className="!bg-transparent !text-white/80 !border-white/40">F9</kbd>
                 </button>
-                <p className="mt-3 text-center text-[13px] text-muted">{faltaCliente && lineas.length > 0 ? "Elige o crea el cliente para facturar" : `${tipoDoc === "factura" ? "Factura electrónica de venta" : "Tiquete POS electrónico"} · el lote que vence antes sale primero`}</p>
+                <p className="mt-3 text-center text-[13px] text-muted">{faltaCliente && lineas.length > 0 ? "Elige o crea el cliente para facturar" : formulaSinRed ? "Sin internet no se venden productos que exigen registrar la fórmula" : faltaFormula && lineas.length > 0 ? <>Completa la fórmula médica para cobrar · <kbd>F9</kbd> te lleva al dato que falta</> : `${tipoDoc === "factura" ? "Factura electrónica de venta" : "Tiquete POS electrónico"} · el lote que vence antes sale primero`}</p>
               </div>
             )}
           </>
@@ -498,8 +530,12 @@ export function Caja({ fiar, empresa, nombreEmpresa }: { fiar: boolean; empresa:
             <span className="block text-sm text-white/70">{totales.items} artículo{totales.items === 1 ? "" : "s"} · ver venta</span>
             <span className="block num font-cond text-2xl leading-tight" style={{ fontWeight: 700 }}>{pesos(totales.total)}</span>
           </a>
+          {(faltaFormula || formulaSinRed) && lineas.every((l) => !excede(lineas, l.p)) && !faltaCliente ? (
+            <button onClick={irAFormula} className="h-12 px-4 rounded-xl bg-aviso-soft text-aviso font-semibold">Completar fórmula</button>
+          ) : (
           <button disabled={!puedeCobrar} onClick={() => { setCobrando(true); document.getElementById("venta")?.scrollIntoView({ behavior: "smooth" }); setTimeout(() => recibidoRef.current?.focus(), 350); }}
             className="h-12 px-6 rounded-xl bg-cruz text-cruz-ink font-semibold text-lg disabled:opacity-40">Cobrar</button>
+          )}
         </div>
       )}
     </div>
@@ -519,6 +555,7 @@ function Fila({ p, activo, onHover, agregar }: { p: Producto; activo: boolean; o
           <span aria-hidden>·</span>
           <span className={agotado ? "text-alerta font-semibold" : p.unidades <= p.stock_minimo * Math.max(1, p.unidades_por_caja) ? "text-aviso font-semibold" : ""}>{existencias(p)}</span>
           <Vence fecha={p.proximo_vence} />
+          <MarcaFormula p={p} />
           {p.iva > 0 && <span className="text-[12px]">IVA {p.iva} %</span>}
         </p>
       </div>

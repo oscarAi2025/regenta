@@ -342,4 +342,11 @@ Reparto en 3 frentes paralelos (cada uno en su rama, su base local y su puerto);
   - [x] Pruebas: tests/e2e/cumplimiento.mjs, 2 pruebas nuevas en db.test.mjs, rutas nuevas en endpoints.mjs
   - [ ] Sin XML guardado: la descarga masiva de XML queda pendiente hasta guardar el XML que devuelve el proveedor
 - [ ] C · Control especial (migración 030): marca de control especial / venta con fórmula en el producto; la caja pide paciente, médico y fórmula; libro de control especial exportable — regenta_c, 4503
+- [x] C · Control especial (migración 030): marca de control especial / venta con fórmula en el producto; la caja pide paciente, médico y fórmula; libro de control especial exportable — regenta_c, 4503
+  - [x] Marcas en ficha, alta, listado e importación Excel (sí/no/x/1, «condición de venta»); auditoría del cambio de marca
+  - [x] Caja: panel de fórmula (control: paciente, médico, registro, n.º y fecha vigente según el plazo de la droguería; con fórmula: confirmación), F9 lleva al dato que falta, sin internet se bloquean los que exigen datos (catálogo local v2 con marcas)
+  - [x] Servidor: API valida (400) y la base exige el registro al confirmar (restricción diferida); la fórmula solo entra con su venta; venta_formulas inmutable y visible solo a gerencia
+  - [x] /control-especial: dispensaciones y reintegros (anulación/devolución), saldo por producto, filtros, CSV, informe imprimible (/control-especial/informe), ajustes (vigencia, exigir datos); enlaces desde Productos y Reportes; ZIP de datos con el libro
+  - [x] Pruebas: db 42/42 · unitarias 25/25 · e2e control-especial 0 fallos · caja, descuentos, devoluciones, sin-conexion, facturacion 0 fallos (build de producción) · endpoints 1124 (1 fallo ajeno: sin REGENTA_CRON_KEY)
+  - [ ] Integración: enlace en el menú (Navegacion) y migración 030 en Supabase (con autorización de Oscar)
 - [ ] Integración: menú (Navegacion), inicio con tareas, typecheck, npm test, e2e completos y auditoría de pantallas en local; migraciones 028–030 a producción con autorización de Oscar; un solo despliegue; verificación en vivo

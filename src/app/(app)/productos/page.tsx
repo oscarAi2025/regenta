@@ -17,7 +17,7 @@ export default async function Productos({ searchParams }: { searchParams: Promis
   const { filas, total, hallados } = await comoUsuario(s, async (c) => {
     const filas = (await c.query(`
       select count(*) over ()::int hallados, p.id, p.nombre, p.laboratorio, p.ean, p.iva::float, p.unidades_por_caja, p.precio_caja::float, p.precio_unidad::float, p.stock_minimo,
-             coalesce(st.u, 0)::int unidades
+             p.requiere_formula, p.control_especial, coalesce(st.u, 0)::int unidades
       from productos p left join lateral (select sum(unidades) u from v_stock_vigente where producto_id = p.id) st on true
       where p.empresa_id = $1 and p.activo
         and (cardinality($2::text[]) = 0 or p.ean = $3 or (select bool_and(lower(p.nombre || ' ' || coalesce(p.laboratorio, '')) like '%' || w || '%') from unnest($2::text[]) w))
@@ -29,7 +29,7 @@ export default async function Productos({ searchParams }: { searchParams: Promis
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
       <Cabecera titulo="Productos" sub={`${total.toLocaleString("es-CO")} productos en tu droguería`}>
-        {gestiona && <><Link href="/productos/nuevo" className="btn-primario">Agregar producto</Link><Link href="/productos/importar" className="btn-borde">Cargar desde Excel</Link></>}
+        {gestiona && <><Link href="/productos/nuevo" className="btn-primario">Agregar producto</Link><Link href="/productos/importar" className="btn-borde">Cargar desde Excel</Link><Link href="/control-especial" className="btn-borde">Libro de control especial</Link></>}
       </Cabecera>
       <form className="flex flex-wrap gap-2" role="search">
         <label htmlFor="q" className="sr-only">Buscar producto</label>
@@ -48,7 +48,9 @@ export default async function Productos({ searchParams }: { searchParams: Promis
               const bajo = p.stock_minimo > 0 && p.unidades <= p.stock_minimo * p.unidades_por_caja;
               return (
                 <tr key={p.id} className="hover:bg-paper/50">
-                  <td className="px-4 py-3"><p className="font-semibold leading-snug">{p.nombre}</p><p className="text-sm text-muted">{p.laboratorio ?? "Genérico"}{p.iva ? ` · IVA ${p.iva} %` : ""}</p></td>
+                  <td className="px-4 py-3"><p className="font-semibold leading-snug">{p.nombre}</p><p className="text-sm text-muted">{p.laboratorio ?? "Genérico"}{p.iva ? ` · IVA ${p.iva} %` : ""}
+                    {p.control_especial ? <span className="ml-2 inline-block rounded px-1.5 py-0.5 text-[12px] font-semibold bg-alerta-soft text-alerta">Control especial</span>
+                      : p.requiere_formula ? <span className="ml-2 inline-block rounded px-1.5 py-0.5 text-[12px] font-semibold bg-aviso-soft text-aviso">Con fórmula</span> : null}</p></td>
                   <td className="px-4 py-3 num text-sm text-muted">{p.ean ?? "—"}</td>
                   <td className="px-4 py-3 text-sm">{p.unidades_por_caja > 1 ? `Caja x${p.unidades_por_caja}${p.precio_unidad ? " · se fracciona" : ""}` : "Unidad"}</td>
                   <td className={`px-4 py-3 num text-sm ${p.unidades <= 0 ? "text-alerta font-semibold" : bajo ? "text-aviso font-semibold" : ""}`}>{existenciasTexto(p.unidades, p.unidades_por_caja)}</td>

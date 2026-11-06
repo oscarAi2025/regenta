@@ -31,7 +31,8 @@ export default async function Editar({ params, searchParams }: { params: Promise
         {puede.moverInventario(s.rol) && <Link href="/inventario/ajustes" className="btn-borde">Ajustar o dar de baja</Link>}
       </Cabecera>
       {gestiona && <ProductoForm id={p.id} inicial={{ nombre: p.nombre, laboratorio: p.laboratorio ?? "", ean: p.ean ?? "", iva: Number(p.iva) as 0 | 5 | 19, categoria: p.categoria ?? null, unidades_por_caja: p.unidades_por_caja,
-        precio_caja: String(Math.round(p.precio_caja)), precio_unidad: p.precio_unidad ? String(Math.round(p.precio_unidad)) : "", stock_minimo: p.stock_minimo, registro_sanitario: p.registro_sanitario ?? "" }} />}
+        precio_caja: String(Math.round(p.precio_caja)), precio_unidad: p.precio_unidad ? String(Math.round(p.precio_unidad)) : "", stock_minimo: p.stock_minimo, registro_sanitario: p.registro_sanitario ?? "",
+        requiere_formula: !!p.requiere_formula, control_especial: !!p.control_especial }} />}
       {d.kardex}
     </main>
   );

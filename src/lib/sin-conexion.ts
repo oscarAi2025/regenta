@@ -6,6 +6,7 @@
 export type ProductoCaja = {
   id: string; nombre: string; laboratorio: string | null; ean: string | null; iva: number; unidades_por_caja: number;
   precio_caja: number; precio_unidad: number | null; stock_minimo: number; unidades: number; proximo_vence: string | null; exacto: boolean;
+  requiere_formula?: boolean; control_especial?: boolean;
 };
 export type VentaEnCola = {
   idem_key: string; empresa: string; creado: string; cuerpo: Record<string, unknown>; total: number; cambio: number;
@@ -15,6 +16,9 @@ export type VentaEnCola = {
 };
 
 const K_CATALOGO = "regenta.catalogo";
+// Versión del catálogo guardado: la 2 trae las marcas de fórmula médica y control especial. Un catálogo anterior no se usa
+// (sin esas marcas, la caja podría vender sin internet un medicamento que exige registrar la fórmula).
+const V_CATALOGO = 2;
 const K_COLA = "regenta.cola_ventas";
 const leer = <T,>(k: string, d: T): T => { try { const v = localStorage.getItem(k); return v ? (JSON.parse(v) as T) : d; } catch { return d; } };
 const escribir = (k: string, v: unknown) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
@@ -29,10 +33,13 @@ export async function actualizarCatalogo() {
     const r = await fetch("/api/productos?catalogo=1", { cache: "no-store" });
     if (!r.ok) return false;
     const j = await r.json();
-    return escribir(K_CATALOGO, { t: Date.now(), empresa: j.empresa, productos: j.productos });
+    return escribir(K_CATALOGO, { v: V_CATALOGO, t: Date.now(), empresa: j.empresa, productos: j.productos });
   } catch { return false; }
 }
-export const catalogo = () => leer<{ t: number; empresa: string; productos: ProductoCaja[] } | null>(K_CATALOGO, null);
+export const catalogo = () => {
+  const c = leer<{ v?: number; t: number; empresa: string; productos: ProductoCaja[] } | null>(K_CATALOGO, null);
+  return c?.v === V_CATALOGO ? c : null;
+};
 
 /** Busca como el servidor: código de barras exacto o todas las palabras en nombre + laboratorio. Descuenta lo vendido sin internet. */
 export function buscarLocal(q: string): ProductoCaja[] {

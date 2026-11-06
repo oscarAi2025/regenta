@@ -1,7 +1,7 @@
 // Importación de productos: columnas de otros sistemas, números, fechas, IVA, códigos de barras y duplicados.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mapearColumnas, numero, fecha, iva, codigoBarras, leerFilas } from "../src/lib/importar.ts";
+import { mapearColumnas, numero, fecha, iva, codigoBarras, leerFilas, siNo, marcasDispensacion } from "../src/lib/importar.ts";
 
 test("reconoce columnas con los nombres de otros sistemas", () => {
   const m = mapearColumnas(["Código", "Descripción", "Laboratorio", "IVA %", "Precio Venta", "Existencia Actual", "Fecha Vto", "Lote", "Costo Promedio", "Valor Total", "Reg. INVIMA"]);
@@ -91,4 +91,46 @@ test("el mismo producto con código de barras en unas filas y sin él en otras s
   ], "2026-11-03");
   assert.equal(l.productos.length, 1);
   assert.deepEqual(l.productos[0].lotes.map((x) => [x.lote, x.unidades]), [["A1", 10], ["B2", 5]]);
+});
+
+test("reconoce las columnas de venta con fórmula y control especial", () => {
+  assert.deepEqual(mapearColumnas(["Producto", "PVP", "Control especial", "Venta con fórmula"]), ["nombre", "precio_caja", "control_especial", "requiere_formula"]);
+  assert.deepEqual(mapearColumnas(["Descripción", "Precio", "Controlado", "Fórmula"]), ["nombre", "precio_caja", "control_especial", "requiere_formula"]);
+  assert.deepEqual(mapearColumnas(["nombre", "precio", "RX"]), ["nombre", "precio_caja", "requiere_formula"]);
+  assert.deepEqual(mapearColumnas(["nombre", "precio", "Condición de venta"]), ["nombre", "precio_caja", "requiere_formula"]);
+  assert.deepEqual(mapearColumnas(["nombre", "precio", "Medicamento de control especial", "Requiere receta"]), ["nombre", "precio_caja", "control_especial", "requiere_formula"]);
+  // palabras sueltas no se toman por prefijo: «formula_farmaceutica» o «control_calidad» no son marcas
+  assert.deepEqual(mapearColumnas(["nombre", "precio", "control_calidad", "formula_farmaceutica"]), ["nombre", "precio_caja", null, null]);
+});
+
+test("valores sí/no de las marcas en cualquier forma", () => {
+  for (const v of ["sí", "Si", "SI", "x", "X", "1", 1, true, "verdadero", "S"]) assert.equal(siNo(v), true, `«${v}»`);
+  for (const v of ["no", "NO", "0", 0, false, "falso", "N", "-"]) assert.equal(siNo(v), false, `«${v}»`);
+  assert.equal(siNo(""), undefined);
+  assert.equal(siNo("quizás"), null);
+  assert.deepEqual(marcasDispensacion("Venta libre", undefined), { requiere_formula: false });
+  assert.deepEqual(marcasDispensacion("Con fórmula médica", undefined), { requiere_formula: true });
+  assert.deepEqual(marcasDispensacion("No requiere fórmula", undefined), { requiere_formula: false });
+  assert.deepEqual(marcasDispensacion("Control especial", undefined), { requiere_formula: true, control_especial: true });
+  assert.deepEqual(marcasDispensacion("", "controlado"), { requiere_formula: true, control_especial: true });
+  assert.deepEqual(marcasDispensacion("", "no controlado"), { control_especial: false });
+  assert.deepEqual(marcasDispensacion("no", "x"), { requiere_formula: true, control_especial: true }); // control especial implica fórmula
+});
+
+test("las marcas llegan al producto; sin la columna no se tocan; un valor raro es error con su fila", () => {
+  const l = leerFilas([
+    { nombre: "Clonazepam 2 mg caja x 30", precio_caja: 20000, control_especial: "sí" },
+    { nombre: "Amoxicilina 500 mg caja x 50", precio_caja: 30000, requiere_formula: "x", control_especial: "no" },
+    { nombre: "Gasa estéril", precio_caja: 2000, requiere_formula: "0" },
+    { nombre: "Suero oral", precio_caja: 4500 },
+    { nombre: "Producto raro", precio_caja: 1000, control_especial: "tal vez" },
+  ], "2026-11-06");
+  assert.deepEqual(l.errores.map((e) => e.fila), [6]);
+  assert.match(l.errores[0].texto, /control especial no se entiende/);
+  const [clon, amox, gasa, suero] = l.productos;
+  assert.equal(clon.control_especial, true); assert.equal(clon.requiere_formula, true);
+  assert.equal(amox.control_especial, false); assert.equal(amox.requiere_formula, true);
+  assert.equal(gasa.requiere_formula, false); assert.equal(gasa.control_especial, undefined);
+  assert.equal(suero.requiere_formula, undefined); assert.equal(suero.control_especial, undefined);
+  assert.ok(l.columnas.has("control_especial") && l.columnas.has("requiere_formula"));
 });

@@ -153,3 +153,7 @@
 - El contrato de endpoints buscaba «fugas» con una expresión regular también dentro del ZIP binario: los bytes comprimidos formaron «Pg_» al azar. Los cuerpos binarios no se revisan como texto.
 - La siembra cambia ventas.creado pero no documentos_dian.creado: la fecha de un tiquete o factura es la de su venta (la de la nota crédito, la suya). Las pantallas de documentos filtran por esa fecha, con d.creado como cota inferior para usar el índice.
 - En componentes de cliente no usar toLocaleString para textos que se renderizan en el servidor (riesgo de diferencias de ICU e hidratación): formatos hechos a mano.
+## 06/11/2026 · Control especial (frente C)
+- En un trigger, `auth.uid()` falla («invalid input syntax for type json») si la conexión tuvo antes claims locales: tras la transacción `request.jwt.claims` queda en '' y no en NULL. En triggers que pueden correr desde procesos del servidor, comprobar `nullif(current_setting('request.jwt.claims', true), '')` antes de llamar a auth.uid().
+- Para exigir algo «con la venta» sin tocar registrar_venta: función aparte en la misma transacción (que exige `ventas.creado = now()`, así no se completa a posteriori) + restricción diferida (`constraint trigger … initially deferred`) que lo comprueba al confirmar. En pruebas de base: `set constraints all immediate` para dispararla sin confirmar.
+- Repetir una e2e muchas veces sobre la misma base agota las existencias de los productos que usa (caja.mjs con «acetaminofen forte mk»): antes de diagnosticar un fallo «nuevo», reiniciar la base y repetir.
