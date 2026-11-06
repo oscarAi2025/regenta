@@ -30,11 +30,14 @@ export const POST = conSesion(async (s, req) => {
   const p = Registro.safeParse(await req.json().catch(() => null));
   if (!p.success) return json({ error: p.error.issues[0]?.message ?? "Datos incompletos" }, 400);
   const caja = await cajaElegida();
-  const r = await comoUsuario(s, async (c) => {
+  const { registro, mes } = await comoUsuario(s, async (c) => {
     const { sede_id } = await puestoDeTrabajo(c, s.empresa, caja);
-    return (await c.query(`select registrar_temperatura($1) r`, [{ ...p.data, fecha: p.data.fecha ?? hoyBogota(), empresa_id: s.empresa, sede_id }])).rows[0].r;
+    const registro = (await c.query(`select registrar_temperatura($1) r`, [{ ...p.data, fecha: p.data.fecha ?? hoyBogota(), empresa_id: s.empresa, sede_id }])).rows[0].r;
+    // La planilla del mes ya con el registro: la pantalla se actualiza con esto sin esperar a recargar los datos.
+    const m = String(registro.fecha).slice(0, 7);
+    return { registro, mes: { mes: m, ...(await datosMes(c, s.empresa, sede_id, m)) } };
   });
-  return json({ registro: r });
+  return json({ registro, mes });
 });
 
 /** Cambia el rango de un área (dueño o administrador). */

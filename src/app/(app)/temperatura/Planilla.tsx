@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AREAS, AREA_CORTA, JORNADAS, celdas, dec, diaCorto, diaLargo, fueraDeRango, nombreCorto, rangoTexto,
@@ -17,9 +17,16 @@ const num = (t: string) => { const v = t.trim().replace(",", "."); return v === 
 const igual = (a: Slot, b: Slot) => a.fecha === b.fecha && a.jornada === b.jornada && a.area === b.area;
 
 /** Planilla del mes: registrar la jornada (con alerta inmediata fuera de rango), ver qué falta y corregir sin borrar. */
-export function Planilla({ mes, hoy, jornada, registros, rangos, inicio, puedeRegistrar, limite, children }: Props) {
+export function Planilla({ mes, hoy, jornada, registros: deServidor, rangos, inicio: inicioServidor, puedeRegistrar, limite, children }: Props) {
   const router = useRouter();
-  const [, refrescar] = useTransition();
+  // Los datos del mes vienen del servidor y, al guardar, de la respuesta de la API: la planilla se actualiza al instante.
+  const [datos, setDatos] = useState({ registros: deServidor, inicio: inicioServidor });
+  const [previos, setPrevios] = useState({ registros: deServidor, inicio: inicioServidor });
+  if (previos.registros !== deServidor || previos.inicio !== inicioServidor) {
+    setPrevios({ registros: deServidor, inicio: inicioServidor });
+    setDatos({ registros: deServidor, inicio: inicioServidor });
+  }
+  const { registros, inicio } = datos;
   const [slot, setSlot] = useState<Slot>({ fecha: hoy, jornada, area: "general" });
   const [temp, setTemp] = useState(""), [hum, setHum] = useState(""), [accion, setAccion] = useState(""), [obs, setObs] = useState(""), [motivo, setMotivo] = useState("");
   const [verObs, setVerObs] = useState(false);
@@ -72,7 +79,8 @@ export function Planilla({ mes, hoy, jornada, registros, rangos, inicio, puedeRe
     limpiar();
     setMsg({ ok: true, t: fueCorreccion ? "Corrección guardada. El registro anterior queda en el historial." : j.registro?.fuera_rango ? "Registro guardado fuera de rango, con su acción correctiva." : "Registro guardado." });
     setElegida(fueCorreccion ? slot : null);
-    refrescar(() => router.refresh());
+    if (j.mes?.mes === mes) setDatos({ registros: j.mes.registros, inicio: j.mes.inicio });
+    router.refresh(); // el resto de la pantalla (resumen e informe) también se pone al día
   }
 
   const etiquetaSlot = `${slot.fecha === hoy ? "Hoy" : diaLargo(slot.fecha).replace(/^./, (x) => x.toUpperCase())}, ${JORNADAS[slot.jornada].toLowerCase()}`;

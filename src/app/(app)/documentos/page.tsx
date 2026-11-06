@@ -56,12 +56,12 @@ export default async function Documentos({ searchParams }: { searchParams: Promi
   const contador = (estado: EstadoDoc, titulo: string, valor: number, tono: string, nota?: string) => {
     const activo = f.estado === estado;
     return (
-      <Link href={`/documentos?${qs(f, { estado: activo ? null : estado })}`} aria-current={activo ? "true" : undefined} aria-label={`${titulo}: ${valor}${activo ? " (filtro activo, quitar)" : ""}`}
+      <a href={`/documentos?${qs(f, { estado: activo ? null : estado })}`} aria-current={activo ? "true" : undefined} aria-label={`${titulo}: ${valor}${activo ? " (filtro activo, quitar)" : ""}`}
         className={`tarjeta px-4 py-3.5 transition-colors hover:border-ink ${activo ? "border-ink ring-2 ring-ink/15" : ""}`}>
         <span className="block text-sm text-muted">{titulo}</span>
         <span className={`block num titulo text-[30px] leading-tight ${valor ? tono : "text-ink"}`}>{valor.toLocaleString("es-CO")}</span>
         <span className="block text-[13px] text-muted mt-0.5">{activo ? "Mostrando solo estos · quitar" : nota ?? "Ver solo estos"}</span>
-      </Link>
+      </a>
     );
   };
 
@@ -86,7 +86,7 @@ export default async function Documentos({ searchParams }: { searchParams: Promi
         {f.estado && <input type="hidden" name="estado" value={f.estado} />}
         <div className="col-span-2 md:col-span-1 flex gap-2">
           <button className="btn-oscuro flex-1 md:flex-none">Buscar</button>
-          {filtrado && <Link href={`/documentos?${qs(f, { tipo: null, estado: null, q: null })}`} className="btn-borde">Limpiar</Link>}
+          {filtrado && <a href={`/documentos?${qs(f, { tipo: null, estado: null, q: null })}`} className="btn-borde">Limpiar</a>}
         </div>
       </form>
 
@@ -108,12 +108,12 @@ export default async function Documentos({ searchParams }: { searchParams: Promi
           {filtrado ? <>
             <p className="titulo text-xl">Ningún documento cumple estos filtros</p>
             <p className="text-muted max-w-md">Prueba con otro rango de fechas o quita los filtros.</p>
-            <Link href={`/documentos?${qs(f, { tipo: null, estado: null, q: null })}`} className="btn-borde">Quitar filtros</Link>
+            <a href={`/documentos?${qs(f, { tipo: null, estado: null, q: null })}`} className="btn-borde">Quitar filtros</a>
           </> : <>
             <p className="titulo text-xl">No hay documentos en estas fechas</p>
             <p className="text-muted max-w-md">Cada venta de la caja genera su tiquete POS o su factura electrónica, y cada anulación o devolución su nota crédito. Aquí verás todos con su estado ante la DIAN.</p>
             <div className="flex flex-wrap gap-2 justify-center">
-              <Link href={`/documentos?desde=${hace30}&hasta=${hoy}`} className="btn-borde">Ver los últimos 30 días</Link>
+              <a href={`/documentos?desde=${hace30}&hasta=${hoy}`} className="btn-borde">Ver los últimos 30 días</a>
               <Link href="/caja" className="btn-primario">Ir a la caja</Link>
             </div>
           </>}
@@ -184,8 +184,8 @@ export default async function Documentos({ searchParams }: { searchParams: Promi
           <nav className="flex flex-wrap items-center justify-between gap-3 text-sm" aria-label="Páginas">
             <p className="text-muted">{totalFiltro.toLocaleString("es-CO")} documento{totalFiltro === 1 ? "" : "s"} · página {Math.min(f.pagina, paginas)} de {paginas}</p>
             <div className="flex gap-2">
-              {f.pagina > 1 ? <Link href={`/documentos?${qs(f, { pagina: f.pagina - 1 })}`} className="btn-borde h-10">← Anteriores</Link> : null}
-              {f.pagina < paginas ? <Link href={`/documentos?${qs(f, { pagina: f.pagina + 1 })}`} className="btn-borde h-10">Siguientes →</Link> : null}
+              {f.pagina > 1 ? <a href={`/documentos?${qs(f, { pagina: f.pagina - 1 })}`} className="btn-borde h-10">← Anteriores</a> : null}
+              {f.pagina < paginas ? <a href={`/documentos?${qs(f, { pagina: f.pagina + 1 })}`} className="btn-borde h-10">Siguientes →</a> : null}
             </div>
           </nav>
         </>

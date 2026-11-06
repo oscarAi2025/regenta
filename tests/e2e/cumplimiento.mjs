@@ -64,7 +64,7 @@ const docDe = async (venta, nc = false) => (await pool.query(`select prefijo || 
   await pool.query(`update documentos_dian set estado = 'rechazado', ultimo_error = 'Rechazo DIAN 99: el correo del adquirente no es válido (prueba)' where venta_id = $1 and tipo = 'factura'`, [vFac]);
 
   await p.goto(B + `/documentos?desde=${hoy}&hasta=${hoy}`); await p.waitForLoadState("networkidle");
-  ok(await p.getByRole("heading", { name: "Documentos electrónicos", level: 1 }).isVisible(), "el dueño entra a Documentos electrónicos");
+  ok(await p.getByRole("heading", { name: "Documentos electrónicos", level: 1 }).waitFor({ timeout: 10000 }).then(() => true, () => false), "el dueño entra a Documentos electrónicos");
   const fila = (n) => p.locator(`tr[data-doc="${n}"]`);
   const texto = async (n) => (await fila(n).count()) ? (await fila(n).innerText()).replace(/\s+/g, " ") : "";
   const t = { pos: await texto(D.pos.n), fac: await texto(D.fac.n), ncA: await texto(D.ncA.n), ncD: await texto(D.ncD.n) };
@@ -104,7 +104,7 @@ const docDe = async (venta, nc = false) => (await pool.query(`select prefijo || 
   ok((await fila(D.fac.n).count()) === 1 && (await p.locator("tbody tr").allInnerTexts()).every((x) => /Salud Vital/.test(x)), "búsqueda por cliente");
   // Estado vacío
   await p.goto(B + `/documentos?desde=2021-01-04&hasta=2021-01-05`);
-  ok(await p.getByText("No hay documentos en estas fechas").isVisible(), "estado vacío con orientación");
+  ok(await p.getByText("No hay documentos en estas fechas").waitFor({ timeout: 10000 }).then(() => true, () => false), "estado vacío con orientación");
 
   // Reenviar el rechazado
   await p.goto(B + `/documentos?desde=${hoy}&hasta=${hoy}&estado=rechazado`); await p.waitForLoadState("networkidle");
@@ -152,7 +152,7 @@ const slot = async (area, jornada) => (await pool.query(`select id, temperatura:
   // Rangos: el dueño los cambia en la pantalla
   const { ctx, p, errs } = await entrar("Carlos");
   await p.goto(B + "/temperatura"); await p.waitForLoadState("networkidle");
-  ok(await p.getByText(/rango configurado por tu droguería/i).first().isVisible(), "la pantalla habla del rango configurado por la droguería");
+  ok(await p.getByText(/rango configurado por tu droguería/i).first().waitFor({ timeout: 10000 }).then(() => true, () => false), "la pantalla habla del rango configurado por la droguería");
   await p.getByRole("button", { name: "Cambiar rango de Almacenamiento general" }).click();
   await p.fill("#r-tmax", "28");
   await p.getByRole("button", { name: "Guardar rango" }).click();
