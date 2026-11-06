@@ -127,7 +127,7 @@ const docDe = async (venta, nc = false) => (await pool.query(`select prefijo || 
   await p.screenshot({ path: `${OUT}/documentos-escritorio.png` });
   // Acceso desde Ventas
   await p.goto(B + "/ventas");
-  ok(await p.getByRole("link", { name: "Documentos DIAN" }).getAttribute("href") === "/documentos", "Ventas lleva a Documentos");
+  ok(await p.getByRole("main").getByRole("link", { name: "Documentos DIAN" }).getAttribute("href") === "/documentos", "Ventas lleva a Documentos");
   ok(errs.length === 0, "sin errores de consola (documentos)", errs.join(" | "));
   await ctx.close();
 }

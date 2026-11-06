@@ -92,7 +92,7 @@ export function ModoDemo({ rol, precio, garantia }: { rol: string; precio: numbe
 
       {/* Recorrido de 3 pasos. */}
       {e && pasos.length > 0 && (
-        <div role="complementary" aria-label="Recorrido de la demo" className="fixed z-30 left-3 bottom-3 sm:left-auto sm:right-auto lg:left-[100px] max-w-[calc(100vw-96px)] sm:max-w-sm">
+        <div role="complementary" aria-label="Recorrido de la demo" className="fixed z-30 left-3 bottom-3 sm:left-auto sm:right-auto lg:left-[248px] max-w-[calc(100vw-96px)] sm:max-w-sm">
           {abierta ? (
             <div className="rounded-2xl bg-[#0b1f33] text-white shadow-[0_24px_48px_-20px_rgba(0,0,0,.7)] p-4">
               <div className="flex items-start justify-between gap-3">
@@ -126,7 +126,7 @@ export function ModoDemo({ rol, precio, garantia }: { rol: string; precio: numbe
 
       {/* Aviso después de cada venta. */}
       {aviso && (
-        <div role="status" className="fixed z-40 bottom-20 left-3 right-3 sm:right-auto lg:left-[100px] sm:max-w-md rounded-2xl bg-emerald-600 text-white p-4 shadow-[0_24px_48px_-20px_rgba(0,0,0,.7)]">
+        <div role="status" className="fixed z-40 bottom-20 left-3 right-3 sm:right-auto lg:left-[248px] sm:max-w-md rounded-2xl bg-emerald-600 text-white p-4 shadow-[0_24px_48px_-20px_rgba(0,0,0,.7)]">
           <p className="font-semibold leading-snug">{aviso}</p>
           <div className="mt-3 flex gap-2">
             <Link href="/contratar?plan=pro&origen=demo-venta" className="h-10 inline-flex items-center rounded-lg px-4 font-bold bg-white text-emerald-800">Quiero esto en mi droguería</Link>
