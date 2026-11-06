@@ -46,6 +46,10 @@ export default async function Sistema() {
         <p className="text-sm text-muted">Emisor del servidor: <b>{process.env.REGENTA_DIAN ?? "simulado"}</b> · API: {process.env.MATIAS_URL ?? "sandbox"} · token {process.env.MATIAS_TOKEN ? "configurado" : "sin configurar"}. La droguería de demostración emite siempre en simulado.</p>
       </section>
       <section className="tarjeta p-5 grid gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="titulo text-xl">Regenta IA</h2><Accion url="/api/admin/sistema" cuerpo={{ accion: "ia" }} texto="Probar Regenta IA" clase="btn-oscuro h-10 text-sm" /></div>
+        <p className="text-sm text-muted">Modelo: <b>{process.env.REGENTA_IA_MODELO ?? "claude-sonnet-5-5"}</b> · clave {process.env.ANTHROPIC_API_KEY ? "configurada" : "sin configurar"}. La prueba no usa datos de ninguna droguería.</p>
+      </section>
+      <section className="tarjeta p-5 grid gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="titulo text-xl">Correos</h2><Accion url="/api/admin/sistema" cuerpo={{ accion: "probar_correo" }} texto="Enviarme un correo de prueba" clase="btn-oscuro h-10 text-sm" /></div>
         <p className="text-sm text-muted">Envío: {process.env.RESEND_API_KEY ? "Resend" : process.env.SMTP_USER ? "Google Workspace (SMTP)" : "sin configurar (simulado)"} · remitente {process.env.CORREO_REMITENTE ?? "—"}.</p>
       </section>

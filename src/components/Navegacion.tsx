@@ -18,25 +18,43 @@ const ITEMS = [
   { href: "/cuenta", label: "Mi cuenta", soloCelular: true, roles: ["dueno", "admin", "cajero", "bodeguero"], d: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" },
 ];
 
+// Grupos del menú lateral en escritorio (en el celular la barra es horizontal y sin títulos).
+const GRUPOS: [string, string[]][] = [
+  ["", ["/inicio"]],
+  ["Vender", ["/caja", "/turno", "/ventas", "/clientes", "/cartera"]],
+  ["Inventario", ["/productos", "/inventario", "/prediccion", "/alertas"]],
+  ["Gestión", ["/reportes", "/equipo", "/cuenta"]],
+];
+
 export function Navegacion({ rol, demo = false }: { rol: string; demo?: boolean }) {
   const p = usePathname();
   async function salir() { await fetch("/api/sesion", { method: "DELETE" }); location.href = demo ? "/demo/gracias" : "/entrar"; } // la demo termina en la oferta, no en la pantalla de entrar
+  const visibles = ITEMS.filter((i) => i.roles.includes(rol));
+  const icono = (d: string) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true" className="shrink-0"><path d={d} /></svg>;
   return (
-    <nav className="flex lg:flex-col items-center gap-1 lg:mt-6 flex-1 w-full overflow-x-auto [mask-image:linear-gradient(90deg,#000_85%,transparent)] lg:[mask-image:none]" aria-label="Principal">
-      {ITEMS.filter((i) => i.roles.includes(rol)).map((i) => {
-        const on = p.startsWith(i.href);
+    <nav className="flex lg:flex-col items-center lg:items-stretch gap-1 lg:gap-0 lg:mt-4 flex-1 w-full min-h-0 overflow-x-auto lg:overflow-x-hidden lg:overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(90deg,#000_85%,transparent)] lg:[mask-image:none]" aria-label="Principal">
+      {GRUPOS.map(([titulo, rutas]) => {
+        const items = rutas.map((r) => visibles.find((i) => i.href === r)).filter((i): i is (typeof ITEMS)[number] => !!i);
+        if (!items.length) return null;
         return (
-          <Link key={i.href} href={i.href} aria-current={on ? "page" : undefined}
-            className={`${"soloCelular" in i ? "lg:hidden " : ""}flex flex-col items-center gap-1 rounded-xl px-2 py-2 min-w-16 text-[12px] font-medium shrink-0 ${on ? "text-white" : "text-white/65 hover:text-white"}`}
-            style={on ? { background: "rgba(255,255,255,.12)" } : undefined}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true"><path d={i.d} /></svg>
-            {i.label}
-          </Link>
+          <div key={titulo || "inicio"} className="contents lg:block lg:mb-2">
+            {titulo && <p className="hidden lg:block px-3 pt-1.5 pb-1 text-[11.5px] font-semibold text-white/45">{titulo}</p>}
+            {items.map((i) => {
+              const on = p.startsWith(i.href);
+              return (
+                <Link key={i.href} href={i.href} aria-current={on ? "page" : undefined}
+                  className={`${"soloCelular" in i ? "lg:hidden " : ""}relative flex flex-col lg:flex-row items-center gap-1 lg:gap-3 rounded-xl lg:rounded-lg px-2 lg:px-3 py-2 lg:py-[6px] min-w-16 lg:min-w-0 lg:w-full text-[12px] lg:text-[14.5px] font-medium shrink-0 transition-colors ${on ? "text-white bg-white/12 lg:before:absolute lg:before:left-0 lg:before:top-1.5 lg:before:bottom-1.5 lg:before:w-[3px] lg:before:rounded-full lg:before:bg-teal-300" : "text-white/70 hover:text-white hover:bg-white/6"}`}>
+                  {icono(i.d)}
+                  <span className="whitespace-nowrap">{i.label}</span>
+                </Link>
+              );
+            })}
+          </div>
         );
       })}
-      <button onClick={salir} className="lg:mt-auto ml-auto lg:ml-0 flex flex-col items-center gap-1 rounded-xl px-2 py-2 min-w-16 text-[12px] text-white/65 hover:text-white shrink-0">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><path d="M14 4h5v16h-5M10 12h9M7 9l-3 3 3 3" /></svg>
-        Salir
+      <button onClick={salir} className="lg:mt-auto ml-auto lg:ml-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 rounded-xl lg:rounded-lg px-2 lg:px-3 py-2 lg:py-[7px] min-w-16 lg:w-full text-[12px] lg:text-[14.5px] text-white/70 hover:text-white hover:bg-white/6 shrink-0 lg:border-t lg:border-white/10 lg:rounded-none lg:pt-3">
+        {icono("M14 4h5v16h-5M10 12h9M7 9l-3 3 3 3")}
+        <span>Salir</span>
       </button>
     </nav>
   );

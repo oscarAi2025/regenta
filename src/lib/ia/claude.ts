@@ -9,6 +9,43 @@ export const iaActiva = () => Boolean(process.env.ANTHROPIC_API_KEY);
 const URL_API = () => (process.env.REGENTA_IA_URL ?? "https://api.anthropic.com") + "/v1/messages";
 const MODELO = () => process.env.REGENTA_IA_MODELO ?? "claude-sonnet-5-5";
 
+/** Error de la API de Anthropic con su código y su mensaje (va al registro del servidor y a la prueba de la consola). */
+export class ErrorIA extends Error {
+  constructor(public status: number, detalleApi: string) { super(`Anthropic respondió ${status}: ${detalleApi}`); }
+}
+async function detalle(r: Response) {
+  const t = await r.text().catch(() => "");
+  try { const j = JSON.parse(t); return j?.error?.message ?? j?.message ?? t.slice(0, 300); } catch { return t.slice(0, 300) || "sin detalle"; }
+}
+
+/** Mensaje para quien usa Regenta según la causa (sin datos internos). */
+export function mensajeError(e: unknown) {
+  const st = e instanceof ErrorIA ? e.status : 0;
+  if (st === 401 || st === 403) return "Regenta IA no está disponible: la clave del servicio no es válida. Ya avisamos al equipo de Regenta.";
+  if (st === 400 && /credit|balance|billing/i.test((e as Error).message)) return "Regenta IA no está disponible por un tema de facturación del servicio. Ya avisamos al equipo de Regenta.";
+  if (st === 429 || st === 529 || st === 503) return "Regenta IA está muy solicitada en este momento. Intenta de nuevo en un minuto.";
+  if ((e as Error)?.name === "TimeoutError") return "Regenta IA tardó demasiado en responder. Intenta de nuevo o haz la pregunta más concreta.";
+  return "Regenta IA no pudo responder ahora. Intenta de nuevo.";
+}
+
+/** Prueba mínima del servicio (consola → Sistema): modelo configurado, respuesta y tiempo. No usa datos de ninguna droguería. */
+export async function probarIA() {
+  if (!iaActiva()) return { ok: false, mensaje: "Falta ANTHROPIC_API_KEY en el servidor" };
+  const t0 = Date.now();
+  try {
+    const r = await fetch(URL_API(), {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY!, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({ model: MODELO(), max_tokens: 16, messages: [{ role: "user", content: "Responde solo: OK" }] }), signal: AbortSignal.timeout(30000),
+    });
+    if (!r.ok) return { ok: false, mensaje: `Regenta IA falla con el modelo ${MODELO()}: Anthropic respondió ${r.status} · ${await detalle(r)}` };
+    const j = (await r.json()) as { model?: string; content?: { type: string; text?: string }[] };
+    return { ok: true, mensaje: `Regenta IA responde (${j.model ?? MODELO()}, ${Date.now() - t0} ms): «${(j.content?.find((b) => b.type === "text")?.text ?? "").trim()}»` };
+  } catch (e) {
+    return { ok: false, mensaje: `Regenta IA no respondió (${MODELO()}): ${(e as Error).message}` };
+  }
+}
+
 export type Mensaje = { role: "user" | "assistant"; content: string };
 type Bloque = { type: "text"; text: string } | { type: "tool_use"; id: string; name: string; input: Record<string, unknown> } | { type: "tool_result"; tool_use_id: string; content: string };
 type Turno = { role: "user" | "assistant"; content: string | Bloque[] };
@@ -45,7 +82,7 @@ async function llamar(cuerpo: Record<string, unknown>, emitir: (e: Evento) => vo
     headers: { "content-type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY!, "anthropic-version": "2023-06-01" },
     body: JSON.stringify({ ...cuerpo, stream: true }), signal: AbortSignal.timeout(60000),
   });
-  if (!r.ok) throw new Error(`El servicio de IA respondió ${r.status}`);
+  if (!r.ok) throw new ErrorIA(r.status, await detalle(r));
   if (!(r.headers.get("content-type") ?? "").includes("text/event-stream")) {
     const j = (await r.json()) as Respuesta;
     for (const b of j.content) if (b.type === "text" && b.text) emitir({ t: "texto", d: b.text });

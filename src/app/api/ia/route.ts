@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { conSesion, ipCliente, json, limitador, limiteBD } from "@/lib/api";
 import { sinRLS } from "@/lib/db";
-import { iaActiva, responder } from "@/lib/ia/claude";
+import { iaActiva, mensajeError, responder } from "@/lib/ia/claude";
 
 const Peticion = z.object({ mensajes: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().trim().min(1).max(2000) })).min(1).max(20) });
 
@@ -42,7 +42,7 @@ export const POST = conSesion(async (s, req) => {
       const latido = setInterval(() => { try { ctl.enqueue(cod.encode("\n")); } catch {} }, 3000);
       let fin: Record<string, unknown>;
       try { fin = await responder(s, mensajes, enviar); }
-      catch (e) { console.error(e); fin = { error: "Regenta IA no pudo responder ahora. Intenta de nuevo." }; }
+      catch (e) { console.error("Regenta IA:", (e as Error).message); fin = { error: mensajeError(e) }; }
       clearInterval(latido);
       enviar({ t: "fin", ...fin });
       ctl.close();

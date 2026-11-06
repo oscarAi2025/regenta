@@ -5,10 +5,11 @@ import { procesarCola } from "@/lib/dian";
 import { sincronizarInvima } from "@/lib/invima";
 import { encolar, enviarAhora, enviarPendientes, programarRecordatorios } from "@/lib/correo";
 import { sinRLS } from "@/lib/db";
+import { probarIA } from "@/lib/ia/claude";
 
 /** Acciones de sistema con un clic: procesar la cola DIAN o traer las alertas nuevas del INVIMA. */
 export const POST = conAdmin(async (a, req) => {
-  const p = z.object({ accion: z.enum(["dian", "invima", "correos", "matias", "probar_correo"]) }).safeParse(await req.json().catch(() => null));
+  const p = z.object({ accion: z.enum(["dian", "invima", "correos", "matias", "probar_correo", "ia"]) }).safeParse(await req.json().catch(() => null));
   if (!p.success) return NextResponse.json({ error: "Acción no válida" }, { status: 400 });
   if (p.data.accion === "dian") {
     const r = await procesarCola(50);
@@ -37,6 +38,11 @@ export const POST = conAdmin(async (a, req) => {
     } catch (e) {
       return NextResponse.json({ error: `MATIAS no respondió: ${(e as Error).message}` }, { status: 502 });
     }
+  }
+  if (p.data.accion === "ia") {
+    const r = await probarIA();
+    await evento(a, "probar_ia", null, { ok: r.ok });
+    return r.ok ? NextResponse.json({ ok: true, mensaje: r.mensaje }) : NextResponse.json({ error: r.mensaje }, { status: 502 });
   }
   if (p.data.accion === "probar_correo") {
     // Envía la bienvenida al correo del propio superadministrador y dice cómo salió (enviado, simulado o el error).
