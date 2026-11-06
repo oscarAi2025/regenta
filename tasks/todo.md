@@ -396,5 +396,6 @@ Tres frentes en paralelo (3-A regenta_3a, 3-B regenta_3b, 3-C regenta_3c); integ
 - [x] Producción 06/11: 034–036a aplicadas en Supabase (hash d5c1f65d…, 4 migraciones registradas, 6 tablas nuevas, anon sin permisos, 1293 ventas intactas) y publicado en main
 - [x] Farmagenéricos: inventario de Alegra importado en producción (127 productos, 6.822 und, $30.451.101 a costo). Sin costo, por revisar: Ultra Fer (Alegra 300), Amoxicladelt 1000 (3.500), Loperamida 2mg x6 (2.390 > precio 1.980)
 - [ ] Regenta IA en producción responde «mantenimiento» (401/crédito): recargar créditos en console.anthropic.com
+- [x] Auditoría 06/11: revisión de seguridad independiente (0 críticos/altos; 2 medios y 3 bajos corregidos), 27 suites e2e + 2.259 comprobaciones de endpoints + 88+30 pruebas de base en verde, matriz de 10 equipos (730 pantallas) sin fallos tras arreglos; 037 aplicada en producción
 - [ ] Oscar: aplicar bloque3-034-036a.sql en Supabase y desplegar (un solo despliegue)
 - [ ] Pendiente: activar el envío real de documento soporte y nota débito en MATIAS por droguería (consola) tras probar en su sandbox; la consola (/admin) sigue sin loading.tsx (no se midió 418 allí)
