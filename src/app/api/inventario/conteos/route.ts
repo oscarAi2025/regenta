@@ -8,6 +8,7 @@ const Iniciar = z.object({
   alcance: z.enum(["todo", "laboratorio", "categoria"], { errorMap: () => ({ message: "Elige qué vas a contar" }) }),
   filtro: z.string().trim().max(160).nullish(),
   observaciones: z.string().trim().max(500, "Las observaciones admiten máximo 500 caracteres").nullish(),
+  a_ciegas: z.boolean().default(false),
 }).refine((c) => c.alcance === "todo" || (c.filtro ?? "").length > 0, { message: "Elige el laboratorio o la categoría que vas a contar", path: ["filtro"] });
 
 /** Inicia un conteo físico en la sede de este equipo (dueño, administrador o bodega). */

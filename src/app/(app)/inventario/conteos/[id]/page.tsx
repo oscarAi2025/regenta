@@ -29,13 +29,13 @@ export default async function Conteo({ params }: { params: Promise<{ id: string 
   if (k.estado === "abierto") {
     return (
       <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
-        <Cabecera titulo={`Conteo N.º ${k.numero}`} sub={`${alcance} · empezó ${k.inicio}. Puedes contar desde varios celulares a la vez.`}>
-          <Link href={`/inventario/conteos/${id}/informe`} className="btn-borde">Informe</Link>
+        <Cabecera titulo={`Conteo N.º ${k.numero}${k.a_ciegas ? " · a ciegas" : ""}`} sub={`${alcance} · empezó ${k.inicio}. Puedes contar desde varios celulares a la vez.`}>
+          {(!k.a_ciegas || costos) && <Link href={`/inventario/conteos/${id}/informe`} className="btn-borde">{k.a_ciegas ? "Ver diferencias (informe)" : "Informe"}</Link>}
           <Link href="/inventario/conteos" className="btn-borde">Conteos</Link>
           {(s.rol === "dueno" || s.rol === "admin") && <AnularConteo id={id} numero={k.numero} />}
         </Cabecera>
         <p className="text-sm text-muted max-w-3xl">Mientras cuentas puedes seguir vendiendo: cada lote se compara con las existencias del momento en que lo cuentas, así lo vendido después no aparece como faltante.</p>
-        <Contar conteo={{ id, numero: k.numero }} inicial={lineas} verCosto={costos} />
+        <Contar conteo={{ id, numero: k.numero }} inicial={lineas} verCosto={costos} ciego={!!k.a_ciegas} />
       </main>
     );
   }

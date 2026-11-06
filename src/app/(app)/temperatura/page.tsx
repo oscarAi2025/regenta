@@ -21,7 +21,8 @@ export default async function Temperatura({ searchParams }: { searchParams: Prom
   const d = await comoUsuario(s, async (c) => {
     const { sede_id } = await puestoDeTrabajo(c, s.empresa, caja);
     const sede = (await c.query(`select nombre from sedes where id = $1`, [sede_id])).rows[0]?.nombre as string | undefined;
-    return { sede, ...(await datosMes(c, s.empresa, sede_id, mes)) };
+    const demo = Boolean((await c.query(`select demo from empresas where id = $1`, [s.empresa])).rows[0]?.demo);
+    return { sede, demo, ...(await datosMes(c, s.empresa, sede_id, mes)) };
   });
   const limite = new Date(new Date(hoy + "T12:00:00Z").getTime() - 7 * 86400000).toISOString().slice(0, 10);
   const actual = hoy.slice(0, 7);
@@ -38,7 +39,7 @@ export default async function Temperatura({ searchParams }: { searchParams: Prom
         {mes !== actual && <Link href="/temperatura" className="text-sm font-semibold text-cruz px-2">Ir al mes actual</Link>}
       </nav>
       <Planilla mes={mes} hoy={hoy} jornada={jornadaActual() as Jornada} registros={d.registros} rangos={d.rangos} inicio={d.inicio} puedeRegistrar={puedeTemperatura(s.rol)} limite={limite}>
-        <Rangos rangos={d.rangos} editable={puedeRangos(s.rol)} />
+        <Rangos rangos={d.rangos} editable={puedeRangos(s.rol) && !d.demo} demo={d.demo} />
       </Planilla>
     </main>
   );

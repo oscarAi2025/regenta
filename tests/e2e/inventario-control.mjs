@@ -253,8 +253,35 @@ const D = await entrar("Carlos");
   ok(await p.locator("#kardex").count() === 1 && await p.getByRole("button", { name: /Guardar/ }).count() === 0, "la bodega ve el kardex pero no edita el producto");
   await ir(p, `/inventario/actas/${(await q1(`select id from ajustes where empresa_id = $1 and motivo = 'vencido' order by creado desc limit 1`, [EMP.id])).id}`);
   ok(!/Costo total/.test(await p.locator("#documento").innerText()), "el acta de la bodega no muestra costos");
+
+  // Conteo a ciegas (038): la bodega lo inicia y cuenta sin ver lo del sistema, ni en pantalla, ni en la API, ni en el informe.
+  await ir(p, "/inventario/conteos");
+  await p.getByLabel(/^Un laboratorio/).check();
+  await p.selectOption("#filtro-conteo", { label: P.laboratorio.trim() });
+  await p.getByLabel(/Conteo a ciegas/).check();
+  await Promise.all([p.waitForURL(/\/inventario\/conteos\/[0-9a-f-]{36}$/), p.getByRole("button", { name: "Empezar a contar" }).click()]);
+  await p.waitForLoadState("networkidle");
+  const ciego = p.url().split("/").pop();
+  ok((await q1(`select a_ciegas from conteos where id = $1`, [ciego]))?.a_ciegas === true, "el conteo queda marcado a ciegas");
+  const pantalla = await p.locator("main").innerText();
+  ok(/a ciegas/.test(pantalla) && !/Sistema \d/.test(pantalla) && !/con diferencia/i.test(pantalla), "la bodega no ve lo del sistema ni las diferencias", pantalla.slice(0, 200));
+  ok(await p.getByRole("link", { name: /Informe|diferencias/ }).count() === 0, "ni el enlace al informe");
+  const lin = await api(p, `/api/inventario/conteos/${ciego}`);
+  ok(lin.status === 200 && lin.j.lineas.length > 0 && lin.j.lineas.every((l) => l.oculto && l.sistema === 0), "la API de líneas no le entrega lo del sistema");
+  const c1 = await api(p, `/api/inventario/conteos/${ciego}`, "PATCH", { modo: "fijar", cantidad: 1, lote_id: lin.j.lineas[0].lote_id });
+  ok(c1.status === 200 && c1.j.sistema === null && c1.j.contado === 1, "al contar tampoco recibe lo del sistema", JSON.stringify(c1.j).slice(0, 160));
+  await ir(p, `/inventario/conteos/${ciego}/informe`);
+  ok(!/\/informe$/.test(p.url()), "el informe la devuelve a la pantalla de contar", p.url());
   ok(sinProvocados(p, errs).length === 0, "sin errores de consola (bodega)", sinProvocados(p, errs).join(" | "));
   await ctx.close();
+  // El dueño sí ve las diferencias en el informe del conteo a ciegas y lo anula para no dejarlo abierto.
+  const DD = await entrar("Carlos");
+  const dl = await api(DD.p, `/api/inventario/conteos/${ciego}`);
+  ok(dl.j.lineas.every((l) => !l.oculto) && dl.j.lineas.some((l) => l.sistema > 0), "el dueño recibe lo del sistema");
+  await ir(DD.p, `/inventario/conteos/${ciego}/informe`);
+  ok(/\/informe$/.test(DD.p.url()) && /Informe de conteo físico/.test(await DD.p.locator("#documento").innerText()), "y entra al informe con las diferencias");
+  ok((await api(DD.p, `/api/inventario/conteos/${ciego}`, "DELETE", { motivo: "Prueba del conteo a ciegas" })).status === 200, "el dueño anula el conteo de prueba");
+  await DD.ctx.close();
 }
 
 // ───────────── Celular (iPhone 13): sin desbordes, con capturas

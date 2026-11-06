@@ -35,8 +35,11 @@ export const PATCH = conSesion(async (s, req, ctx) => {
   const p = Contar.safeParse(await req.json().catch(() => null));
   if (!p.success) return json({ error: p.error.issues[0]?.message ?? "Datos no válidos" }, 400);
   const r = await comoUsuario(s, async (c) => {
-    if (!(await c.query(`select 1 from conteos where id = $1 and empresa_id = $2`, [id, s.empresa])).rowCount) return null;
-    return (await c.query(`select contar_conteo($1) r`, [{ ...p.data, conteo_id: id }])).rows[0].r;
+    const k = (await c.query(`select a_ciegas from conteos where id = $1 and empresa_id = $2`, [id, s.empresa])).rows[0];
+    if (!k) return null;
+    const r = (await c.query(`select contar_conteo($1) r`, [{ ...p.data, conteo_id: id }])).rows[0].r;
+    // A ciegas, quien cuenta (si no es la gerencia) no recibe lo del sistema ni en la respuesta.
+    return k.a_ciegas && !puede.verCostos(s.rol) ? { ...r, sistema: null, oculto: true } : r;
   });
   return r ? json(r) : json({ error: "Ese conteo no existe en tu droguería" }, 404);
 });

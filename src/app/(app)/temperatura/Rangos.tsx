@@ -6,7 +6,7 @@ import { AREAS, dec, rangoTexto, type Area, type Rango } from "@/lib/temperatura
 const num = (t: string) => { const v = t.trim().replace(",", "."); return v === "" ? null : /^-?\d+(\.\d+)?$/.test(v) ? Number(v) : NaN; };
 
 /** Rangos aceptables por área. Los define cada droguería (vienen valores de partida); dueño y administrador los cambian. */
-export function Rangos({ rangos, editable }: { rangos: Rango[]; editable: boolean }) {
+export function Rangos({ rangos, editable, demo = false }: { rangos: Rango[]; editable: boolean; demo?: boolean }) {
   const router = useRouter();
   const [editando, setEditando] = useState<Area | null>(null);
   const [v, setV] = useState({ tmin: "", tmax: "", hmin: "", hmax: "" });
@@ -36,7 +36,7 @@ export function Rangos({ rangos, editable }: { rangos: Rango[]; editable: boolea
   return (
     <section className="tarjeta p-5" aria-label="Rangos">
       <h2 className="titulo text-xl">Rangos de tu droguería</h2>
-      <p className="text-sm text-muted mt-1">Cada registro se compara con el rango configurado por tu droguería{editable ? ". Ajústalo según tu procedimiento interno." : "; lo cambian el dueño o el administrador."}</p>
+      <p className="text-sm text-muted mt-1">Cada registro se compara con el rango configurado por tu droguería{demo ? ". En la demo quedan fijos para que todos los visitantes vean lo mismo; en tu droguería el dueño o el administrador los ajustan aquí." : editable ? ". Ajústalo según tu procedimiento interno." : "; lo cambian el dueño o el administrador."}</p>
       <ul className="mt-3 grid gap-3">
         {rangos.map((r) => (
           <li key={r.area} className="rounded-xl border border-line p-3">

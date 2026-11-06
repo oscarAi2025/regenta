@@ -149,8 +149,13 @@ const docDe = async (venta, nc = false) => (await pool.query(`select prefijo || 
 const slot = async (area, jornada) => (await pool.query(`select id, temperatura::float t, humedad::float h, fuera_rango, accion, anula_id, motivo from temperatura_registros
   where empresa_id = $1 and fecha = $2 and area = $3 and jornada = $4 order by creado`, [emp, hoy, area, jornada])).rows;
 {
-  // Rangos: el dueño los cambia en la pantalla
+  // Rangos: en la demo compartida quedan fijos (038); como droguería normal, el dueño los cambia en la pantalla.
   const { ctx, p, errs } = await entrar("Carlos");
+  await p.goto(B + "/temperatura"); await p.waitForLoadState("networkidle");
+  ok(await p.getByText(/En la demo quedan fijos/).count() === 1 && await p.getByRole("button", { name: /Cambiar rango/ }).count() === 0, "en la demo los rangos se ven fijos, sin botón para cambiarlos");
+  const rd = await api(p, "/api/temperatura", "PATCH", { area: "general", temp_min: 15, temp_max: 50, hum_min: 30, hum_max: 70 });
+  ok(rd.status === 422 && /En la demo los rangos quedan fijos/.test(rd.j?.error ?? ""), "y la API tampoco deja cambiarlos en la demo", `${rd.status} ${JSON.stringify(rd.j)}`);
+  await pool.query("update empresas set demo = false where id = $1", [emp]);
   await p.goto(B + "/temperatura"); await p.waitForLoadState("networkidle");
   ok(await p.getByText(/rango configurado por tu droguería/i).first().waitFor({ timeout: 10000 }).then(() => true, () => false), "la pantalla habla del rango configurado por la droguería");
   await p.getByRole("button", { name: "Cambiar rango de Almacenamiento general" }).click();
@@ -160,6 +165,7 @@ const slot = async (area, jornada) => (await pool.query(`select id, temperatura:
   const rg = (await pool.query(`select temp_min::float, temp_max::float, hum_min::float, hum_max::float from temperatura_rangos where empresa_id = $1 and area = 'general'`, [emp])).rows[0];
   ok(rg?.temp_max === 28 && rg.temp_min === 15 && rg.hum_max === 70, "el dueño configura el rango del almacenamiento general", JSON.stringify(rg));
   ok(errs.length === 0, "sin errores de consola (rangos)", errs.join(" | "));
+  await pool.query("update empresas set demo = true where id = $1", [emp]);
   await ctx.close();
 }
 {

@@ -29,6 +29,8 @@ export default async function Informe({ params, searchParams }: { params: Promis
   });
   if (!d) notFound();
   const { k, lineas } = d;
+  // Conteo a ciegas abierto: las diferencias solo las ve la gerencia (quien cuenta vuelve a la pantalla de contar).
+  if (k.a_ciegas && k.estado === "abierto" && !costos) redirect(`/inventario/conteos/${id}`);
   const contadas = lineas.filter((l) => l.contado !== null);
   const dif = contadas.filter((l) => l.contado !== l.sistema);
   const filas = todo ? lineas : dif;

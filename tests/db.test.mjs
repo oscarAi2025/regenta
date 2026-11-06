@@ -597,12 +597,17 @@ test("temperatura: la cajera no registra, el dueño de B no ve la planilla de A 
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
   await assert.rejects(como(U.cajera, (c) => c.query("select registrar_temperatura($1)", [{ empresa_id: E.A, sede_id: S.A, fecha: hoy, jornada: "tarde", area: "general", temperatura: 20, humedad: 50 }])), /permiso/);
   await assert.rejects(como(U.bodega, (c) => c.query("select configurar_rango_temperatura($1, 'general', 15, 28, 30, 70)", [E.A])), /dueño o el administrador/);
+  // En la demo compartida los rangos no se cambian (038); el resto de la prueba corre como droguería normal.
+  await assert.rejects(como(U.carlos, (c) => c.query("select configurar_rango_temperatura($1, 'general', 15, 28, 30, 70)", [E.A])), /En la demo los rangos quedan fijos/);
+  await pool.query("update empresas set demo = false where id = $1", [E.A]);
+  try {
   await como(U.carlos, async (c) => {
     await c.query("select configurar_rango_temperatura($1, 'general', 15, 28, 30, 70)", [E.A]);
     const g = (await c.query("select temp_max::float, personalizado from rangos_temperatura($1) where area = 'general'", [E.A])).rows[0];
     assert.deepEqual(g, { temp_max: 28, personalizado: true });
     await c.query("select registrar_temperatura($1)", [{ empresa_id: E.A, sede_id: S.A, fecha: hoy, jornada: "tarde", area: "general", temperatura: 20, humedad: 50 }]);
   }, { commit: false });
+  } finally { await pool.query("update empresas set demo = true where id = $1", [E.A]); }
   const visto = await como(U.duenoB, async (c) => (await c.query("select count(*)::int n from temperatura_registros where empresa_id = $1", [E.A])).rows[0].n);
   assert.equal(visto, 0);
   const cajera = await como(U.cajera, async (c) => (await c.query("select count(*)::int n from temperatura_rangos")).rows[0].n);

@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 export type Linea = {
   id: number; producto_id: string; nombre: string; laboratorio: string | null; ean: string | null; unidades_por_caja: number;
   lote_id: string; lote: string; vence: string | null; vencido: boolean; contado: number | null; sistema: number; costo: number | null; nuevo: boolean;
+  oculto?: boolean;
 };
 type Prod = { id: string; nombre: string; laboratorio: string | null; ean: string | null; unidades_por_caja: number; exacto?: boolean };
 type LoteSis = { lote_id: string; lote: string; vence: string | null; unidades: number; vencido: boolean; costo: number | null };
@@ -13,7 +14,9 @@ const fecha = (d: string | null) => (d ? new Date(d + "T00:00:00").toLocaleDateS
 const pesos = (v: number) => (v < 0 ? "−" : "") + "$" + Math.abs(Math.round(v)).toLocaleString("es-CO");
 const POR_PAGINA = 80;
 
-export function Contar({ conteo, inicial, verCosto }: { conteo: { id: string; numero: number }; inicial: Linea[]; verCosto: boolean }) {
+/** `ciego`: conteo a ciegas. Aquí nadie ve lo del sistema ni las diferencias (se cuenta lo que hay); la gerencia las ve
+ *  en el informe y, al cerrar, todos ven el resultado. */
+export function Contar({ conteo, inicial, verCosto, ciego = false }: { conteo: { id: string; numero: number }; inicial: Linea[]; verCosto: boolean; ciego?: boolean }) {
   const [lineas, setLineas] = useState<Linea[]>(inicial);
   const [q, setQ] = useState("");
   const [res, setRes] = useState<Prod[]>([]);
@@ -146,7 +149,7 @@ export function Contar({ conteo, inicial, verCosto }: { conteo: { id: string; nu
     location.assign(`/inventario/conteos/${conteo.id}`); // carga completa: el conteo cerrado se ve con los datos del cierre
   }
 
-  const tabs: [typeof ver, string, number][] = [["todos", "Todos", lineas.length], ["sin", "Sin contar", resumen.sinContar], ["dif", "Con diferencia", resumen.dif]];
+  const tabs: [typeof ver, string, number][] = [["todos", "Todos", lineas.length], ["sin", "Sin contar", resumen.sinContar], ...(ciego ? [] : [["dif", "Con diferencia", resumen.dif] as [typeof ver, string, number]])];
   return (
     <div className="grid gap-4 max-w-5xl">
       <section className="tarjeta p-4 sm:p-5 grid gap-3" aria-labelledby="escanear-t">
@@ -164,7 +167,7 @@ export function Contar({ conteo, inicial, verCosto }: { conteo: { id: string; nu
             </ul>
           )}
         </form>
-        <p className="text-sm text-muted num">{resumen.contados.toLocaleString("es-CO")} de {lineas.length.toLocaleString("es-CO")} lotes contados · {resumen.dif} con diferencia</p>
+        <p className="text-sm text-muted num">{resumen.contados.toLocaleString("es-CO")} de {lineas.length.toLocaleString("es-CO")} lotes contados{ciego ? " · conteo a ciegas: cuenta lo que hay, sin mirar el sistema" : ` · ${resumen.dif} con diferencia`}</p>
         <div aria-live="polite">
           {aviso && (
             <p className={`rounded-xl px-4 py-3 font-semibold flex flex-wrap items-center gap-x-3 gap-y-1 ${aviso.tono === "ok" ? "bg-cruz-soft text-cruz" : "bg-alerta-soft text-alerta"}`} role={aviso.tono === "error" ? "alert" : "status"}>
@@ -192,7 +195,7 @@ export function Contar({ conteo, inicial, verCosto }: { conteo: { id: string; nu
             ))}
             {elegir.otros.map((x) => (
               <button key={x.lote_id} type="button" onClick={() => { const p = elegir.p; setElegir(null); sumarUno(x.lote_id, p, x.costo); escaner.current?.focus(); }} className="rounded-xl border-2 border-dashed border-line hover:border-ink bg-surface px-4 py-3 text-left">
-                <span className="font-semibold num">Lote {x.lote}</span><span className="block text-sm text-muted num">Vence {fecha(x.vence)} · en el sistema {x.unidades} und · no estaba en este conteo</span>
+                <span className="font-semibold num">Lote {x.lote}</span><span className="block text-sm text-muted num">Vence {fecha(x.vence)}{ciego ? "" : ` · en el sistema ${x.unidades} und`} · no estaba en este conteo</span>
               </button>
             ))}
           </div>
@@ -237,10 +240,12 @@ export function Contar({ conteo, inicial, verCosto }: { conteo: { id: string; nu
                     className="campo w-20 h-11 text-center text-lg num font-semibold" />
                 </div>
                 <p className="col-span-2 text-sm num flex flex-wrap gap-x-3">
+                  {ciego ? <span className="text-muted">{l.contado === null ? "Sin contar" : "Contado"}</span> : <>
                   <span className="text-muted">Sistema {l.sistema.toLocaleString("es-CO")} und</span>
                   {d === null ? <span className="text-muted">Sin contar</span>
                     : d === 0 ? <span className="text-cruz font-semibold">Cuadra</span>
                     : <span className={d < 0 ? "text-alerta font-semibold" : "text-aviso font-semibold"}>{d < 0 ? `Faltan ${(-d).toLocaleString("es-CO")}` : `Sobran ${d.toLocaleString("es-CO")}`} und{verCosto && l.costo !== null ? ` · ${pesos(d * l.costo)}` : ""}</span>}
+                  </>}
                 </p>
               </li>
             );
@@ -253,9 +258,9 @@ export function Contar({ conteo, inicial, verCosto }: { conteo: { id: string; nu
       <section className="tarjeta p-4 lg:sticky lg:bottom-3 lg:shadow-lg grid gap-3" aria-labelledby="resumen-t">
         <h2 id="resumen-t" className="sr-only">Resumen del conteo</h2>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <p className="flex-1 min-w-[200px] num text-[15px]"><b>{resumen.contados.toLocaleString("es-CO")}</b> de {lineas.length.toLocaleString("es-CO")} lotes contados · <b>{resumen.dif}</b> con diferencia
-            {resumen.faltan > 0 && <span className="text-alerta"> · faltan {resumen.faltan.toLocaleString("es-CO")} und</span>}{resumen.sobran > 0 && <span className="text-aviso"> · sobran {resumen.sobran.toLocaleString("es-CO")} und</span>}
-            {verCosto && resumen.dif > 0 && <> · {pesos(resumen.valor)}{resumen.sinCosto ? "*" : ""} a costo</>}</p>
+          <p className="flex-1 min-w-[200px] num text-[15px]"><b>{resumen.contados.toLocaleString("es-CO")}</b> de {lineas.length.toLocaleString("es-CO")} lotes contados{!ciego && <> · <b>{resumen.dif}</b> con diferencia</>}
+            {!ciego && resumen.faltan > 0 && <span className="text-alerta"> · faltan {resumen.faltan.toLocaleString("es-CO")} und</span>}{!ciego && resumen.sobran > 0 && <span className="text-aviso"> · sobran {resumen.sobran.toLocaleString("es-CO")} und</span>}
+            {!ciego && verCosto && resumen.dif > 0 && <> · {pesos(resumen.valor)}{resumen.sinCosto ? "*" : ""} a costo</>}</p>
           {!cerrar && <button type="button" onClick={() => setCerrar(true)} className="btn-primario">Cerrar conteo</button>}
         </div>
         {cerrar && (
