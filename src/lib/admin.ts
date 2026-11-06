@@ -17,7 +17,9 @@ const clave = () => {
 };
 
 export async function crearSesionAdmin(a: Admin) {
-  const jwt = await new SignJWT({ ...a, tipo: "admin" }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("8h").sign(clave());
+  // La versión de la contraseña va en la sesión: al cambiarla, las sesiones abiertas de la consola dejan de valer.
+  const v = (await sinRLS((c) => c.query(`select coalesce(version_sesion, 0) v from cuentas where id = $1`, [a.uid]))).rows[0]?.v ?? 0;
+  const jwt = await new SignJWT({ ...a, v, tipo: "admin" }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("8h").sign(clave());
   (await cookies()).set(COOKIE, jwt, { httpOnly: true, sameSite: "strict", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 8 * 3600 });
 }
 export async function cerrarSesionAdmin() { (await cookies()).delete(COOKIE); }
@@ -29,7 +31,8 @@ export async function leerAdmin(): Promise<Admin | null> {
     const { payload } = await jwtVerify(t, clave());
     if (payload.tipo !== "admin") return null;
     const uid = String(payload.uid);
-    const ok = await sinRLS(async (c) => (await c.query(`select 1 from superadmins s join cuentas c on c.id = s.user_id where s.user_id = $1 and c.activa`, [uid])).rowCount);
+    const ok = await sinRLS(async (c) => (await c.query(`select 1 from superadmins s join cuentas c on c.id = s.user_id
+      where s.user_id = $1 and c.activa and coalesce(c.version_sesion, 0) = $2`, [uid, Number(payload.v ?? 0)])).rowCount);
     return ok ? { uid, nombre: String(payload.nombre) } : null;
   } catch { return null; }
 }

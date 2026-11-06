@@ -18,7 +18,7 @@ export function AvisoPermiso() {
   return (
     <p role="status" className="mx-4 sm:mx-6 mt-4 rounded-xl bg-aviso-soft text-aviso px-4 py-3 font-semibold flex items-center justify-between gap-3">
       Esa pantalla no está disponible para tu usuario. Si la necesitas, pídele acceso al dueño de la droguería.
-      <button onClick={() => setVer(false)} aria-label="Cerrar aviso" className="text-xl leading-none">×</button>
+      <button onClick={() => setVer(false)} aria-label="Cerrar aviso" className="text-xl leading-none size-8 -m-1.5 shrink-0 grid place-items-center rounded-md">×</button>
     </p>
   );
 }

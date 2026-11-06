@@ -41,6 +41,26 @@ if (ajena) {
   const v2 = await venta();
   ok((await pool.query(`select caja_id from ventas where id = $1`, [v2.venta_id])).rows[0].caja_id !== ajena, "una caja de otra droguería no se usa");
 }
+// La cajera solo toca el turno de la caja donde trabaja (revisión de seguridad 06/11): desde otra caja no registra salidas
+// ni cierra el turno ajeno; un turno de otra droguería ni existe para ella.
+{
+  const cj = await b.newContext({ viewport: { width: 1440, height: 900 } });
+  const q = await cj.newPage();
+  await q.request.post(B + "/demo", { form: { rol: "cajero" } });
+  const c1 = (await pool.query(`select id from cajas where empresa_id = $1 and id <> $2 and activa order by nombre, id limit 1`, [E, c2])).rows[0].id;
+  await cj.addCookies([{ name: "regenta_caja", value: c1, url: B }]);
+  const mov = (turno) => q.request.post(B + "/api/turnos", { headers: { origin: B }, data: { accion: "movimiento", turno, tipo: "egreso", valor: 1000, concepto: "Prueba otra caja" } });
+  const r1 = await mov(tj.turno);
+  ok(r1.status() === 403 && /otra caja/.test((await r1.json()).error ?? ""), "la cajera de otra caja no registra salidas en este turno", String(r1.status()));
+  const r2 = await q.request.post(B + "/api/turnos", { headers: { origin: B }, data: { accion: "cerrar", turno: tj.turno, contado: 1 } });
+  ok(r2.status() === 403, "ni lo cierra", String(r2.status()));
+  const otraEmp = (await pool.query(`select t.id from turnos t where t.empresa_id <> $1 limit 1`, [E])).rows[0]?.id;
+  if (otraEmp) { const r3 = await mov(otraEmp); ok(r3.status() === 400, "un turno de otra droguería no existe para ella", String(r3.status())); }
+  await cj.addCookies([{ name: "regenta_caja", value: c2, url: B }]);
+  const r4 = await mov(tj.turno);
+  ok(r4.ok(), "desde su caja sí registra la salida", String(r4.status()));
+  await cj.close();
+}
 const cierre = await p.request.post(B + "/api/turnos", { headers: { origin: B }, data: { accion: "cerrar", turno: tj.turno, contado: 100000 } });
 ok(cierre.ok(), "el turno de esa caja se cierra", String(cierre.status()));
 await pool.query(`update cajas set activa = false where id = $1`, [c2]);

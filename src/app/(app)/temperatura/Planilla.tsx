@@ -140,7 +140,7 @@ export function Planilla({ mes, hoy, jornada, registros: deServidor, rangos, ini
                   <label className="grid gap-1 text-sm font-semibold">Observación (opcional)
                     <textarea id="t-obs" value={obs} onChange={(e) => setObs(e.target.value)} rows={2} maxLength={500} className="campo h-auto py-2 font-normal" />
                   </label>
-                ) : <button type="button" onClick={() => setVerObs(true)} className="justify-self-start text-sm font-semibold text-cruz">+ Agregar observación</button>}
+                ) : <button type="button" onClick={() => setVerObs(true)} className="justify-self-start text-sm font-semibold text-cruz py-1.5 -my-1.5">+ Agregar observación</button>}
                 {corrigiendo && (
                   <label className="grid gap-1 text-sm font-semibold">Motivo de la corrección
                     <input id="t-motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={300} placeholder="Ej.: se anotó mal el número" className="campo font-normal" />

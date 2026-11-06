@@ -28,6 +28,14 @@ export const POST = conSesion(async (s, req) => {
       if (!caja_id) throw Object.assign(new Error("Esta empresa no tiene cajas activas"), { code: "P0001" });
       return { turno: (await c.query(`select abrir_turno($1, $2) id`, [caja_id, a.base])).rows[0].id };
     }
+    if (a.accion === "movimiento" || a.accion === "cerrar") {
+      // El turno tiene que ser de esta droguería; la cajera solo toca el de la caja en la que trabaja (el dueño y el
+      // administrador, cualquiera de la droguería). Así nadie registra salidas ni cierra el turno de otra caja.
+      const t = (await c.query(`select caja_id from turnos where id = $1 and empresa_id = $2`, [a.turno, s.empresa])).rows[0];
+      if (!t) throw Object.assign(new Error("Ese turno no existe en tu droguería"), { code: "P0001" });
+      if (s.rol === "cajero" && t.caja_id !== (await puestoDeTrabajo(c, s.empresa, caja)).caja_id)
+        throw Object.assign(new Error("Ese turno es de otra caja: lo maneja quien trabaja en ella, el dueño o el administrador"), { code: "42501" });
+    }
     if (a.accion === "movimiento") return { id: (await c.query(`select movimiento_caja($1, $2, $3, $4) id`, [a.turno, a.tipo, a.valor, a.concepto])).rows[0].id };
     if (a.accion === "cerrar") return { cierre: (await c.query(`select cerrar_turno($1, $2, $3) r`, [a.turno, a.contado, a.observaciones ?? null])).rows[0].r, turno: a.turno };
     await c.query(`select exigir_turno($1, $2)`, [s.empresa, a.valor]);

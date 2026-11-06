@@ -66,10 +66,11 @@ const medir = (c: Tx) => {
 
 /** Ejecuta fn como el usuario de la sesión, en una transacción. El arranque (transacción, identidad del usuario, rol y
  *  zona horaria) va en UNA sola ida a la base: con la base lejos del servidor, cada ida cuenta. */
-export async function comoUsuario<T>(s: Pick<Sesion, "uid">, fn: (c: Tx) => Promise<T>): Promise<T> {
+export async function comoUsuario<T>(s: Pick<Sesion, "uid"> & { soporte?: string }, fn: (c: Tx) => Promise<T>): Promise<T> {
   const c = medir(await pool.connect());
   try {
-    const claims = c.escapeLiteral(JSON.stringify({ sub: s.uid, role: "authenticated" }));
+    // `soporte`: el superadministrador que entró como el cliente; la auditoría lo guarda junto al usuario (037).
+    const claims = c.escapeLiteral(JSON.stringify({ sub: s.uid, role: "authenticated", ...(s.soporte ? { soporte: s.soporte } : {}) }));
     await c.query(`begin; select set_config('request.jwt.claims', ${claims}, true); set local role authenticated; set local timezone = 'America/Bogota'`);
     const r = await fn(c);
     await c.query("commit");

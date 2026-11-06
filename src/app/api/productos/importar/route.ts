@@ -34,6 +34,9 @@ export const POST = conSesion(async (s, req) => {
   const avisos: Nota[] = [...lec.avisos];
 
   const resultado = await comoUsuario(s, async (c) => {
+    // Una carga a la vez por droguería: si llegan dos iguales a la vez (doble clic, dos pestañas), la segunda espera y
+    // encuentra los productos y lotes que dejó la primera, en vez de crearlos otra vez.
+    if (!p.data.simular) await c.query(`select pg_advisory_xact_lock(hashtext('importar:' || $1))`, [s.empresa]);
     const sede = (await puestoDeTrabajo(c, s.empresa)).sede_id;
     const ex = (await c.query(`select id, nombre, laboratorio, ean, activo, maestro_id from productos where empresa_id = $1`, [s.empresa])).rows as Existente[];
     const porEan = new Map<string, Existente>(), porNombre = new Map<string, Existente>();

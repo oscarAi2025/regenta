@@ -6,9 +6,9 @@
  *  hidrata la página cuando su HTML llegó completo. */
 export function CargandoDocumento() {
   return (
-    <main className="p-4 sm:p-6 grid gap-4 justify-items-center" aria-busy="true" aria-label="Cargando">
+    <div role="status" className="p-4 sm:p-6 grid gap-4 justify-items-center" aria-busy="true" aria-label="Cargando">
       <div className="h-9 w-full max-w-md rounded-lg bg-line/60 animate-pulse print:hidden" />
       <div className="h-64 w-full max-w-md rounded-xl bg-line/40 animate-pulse print:hidden" />
-    </main>
+    </div>
   );
 }

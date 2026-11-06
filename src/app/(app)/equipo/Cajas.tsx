@@ -65,8 +65,8 @@ export function Cajas({ cajas, tope, plan, demo }: { cajas: Caja[]; tope: number
                 <span className={`flex-1 font-semibold ${c.activa ? "" : "text-muted line-through"}`}>{c.nombre}</span>
                 {c.turno_abierto && <span className="text-sm text-cruz font-semibold">Turno abierto</span>}
                 {!c.activa && <span className="text-sm text-muted">Desactivada</span>}
-                <button onClick={() => { setEditando(c.id); setNombre(c.nombre); }} className="text-sm font-semibold text-cruz">Renombrar</button>
-                <button onClick={() => hacer("PATCH", { id: c.id, activa: !c.activa }, c.activa ? "Caja desactivada" : "Caja activada")} disabled={enviando} className="text-sm font-semibold text-muted hover:text-ink">{c.activa ? "Desactivar" : "Activar"}</button>
+                <button onClick={() => { setEditando(c.id); setNombre(c.nombre); }} className="text-sm font-semibold text-cruz py-1.5 -my-1.5">Renombrar</button>
+                <button onClick={() => hacer("PATCH", { id: c.id, activa: !c.activa }, c.activa ? "Caja desactivada" : "Caja activada")} disabled={enviando} className="text-sm font-semibold text-muted hover:text-ink py-1.5 -my-1.5">{c.activa ? "Desactivar" : "Activar"}</button>
               </>
             )}
           </li>

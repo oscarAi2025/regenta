@@ -15,7 +15,7 @@ export const TIPOS_BITACORA: Record<string, { nombre: string; acciones: string[]
   devolucion: { nombre: "Devoluciones", acciones: ["devolucion", "devolucion_proveedor", "nc_proveedor"] },
   descuento: { nombre: "Descuentos sobre el tope", acciones: [] },
   ajuste: { nombre: "Ajustes y bajas", acciones: ["ajuste_inventario", "entrada_ajuste"] },
-  turno: { nombre: "Turnos con diferencia", acciones: ["cerrar_turno"] },
+  turno: { nombre: "Turnos y caja", acciones: ["cerrar_turno", "venta_sin_turno"] },
   credito: { nombre: "Crédito de clientes", acciones: ["credito_cliente", "mora_bloqueo", "credito_autorizado"] },
   rango: { nombre: "Rangos de temperatura", acciones: ["rango_temperatura"] },
   configuracion: { nombre: "Equipo y configuración", acciones: ["configurar_empresa", "configurar_formulas", "cambio_formula", "cambiar_usuario", "invitar_usuario", "crear_caja", "cambiar_caja"] },
@@ -47,14 +47,14 @@ export async function bitacora(c: Tx, empresa: string, f: FiltroBitacora) {
     and ($5::date is null or ${col} < (($5::date + 1)::timestamp at time zone 'America/Bogota'))`;
   const r = (await c.query(`
     with ev as (
-      select 'a' || a.id clave, a.creado, a.usuario_id, a.accion, a.entidad, a.entidad_id, a.datos
+      select 'a' || a.id clave, a.creado, a.usuario_id, a.soporte_id, a.accion, a.entidad, a.entidad_id, a.datos
       from auditoria a
       where a.empresa_id = $1 and a.accion = any ($2::text[]) and ($3::uuid is null or a.usuario_id = $3::uuid) and ${fechas("a.creado")}
         and (a.accion <> 'cerrar_turno' or coalesce((a.datos ->> 'diferencia')::numeric, 0) <> 0)
         -- Un ajuste de la pantalla de ajustes o del conteo deja dos registros (el ajuste y la entrada): se muestra el ajuste.
         and not (a.accion = 'entrada_ajuste' and exists (select 1 from auditoria b where b.empresa_id = a.empresa_id and b.accion = 'ajuste_inventario' and b.creado = a.creado))
       union all
-      select 'd' || v.id, v.creado, v.usuario_id, 'descuento_sobre_tope', 'ventas', v.id::text,
+      select 'd' || v.id, v.creado, v.usuario_id, null::uuid, 'descuento_sobre_tope', 'ventas', v.id::text,
              jsonb_build_object('pct', max(l.descuento_pct), 'descuento', sum(l.descuento), 'tope', e.descuento_max_cajero, 'total', v.total)
       from ventas v join empresas e on e.id = v.empresa_id join venta_lineas l on l.venta_id = v.id and l.descuento_pct > 0
       where $6::boolean and v.empresa_id = $1 and l.descuento_pct > e.descuento_max_cajero and ($3::uuid is null or v.usuario_id = $3::uuid) and ${fechas("v.creado")}
@@ -62,7 +62,8 @@ export async function bitacora(c: Tx, empresa: string, f: FiltroBitacora) {
     ), pagina as (
       select *, count(*) over () total from ev order by creado desc, clave desc limit $7 offset $8
     )
-    select x.clave, x.total::int total, to_char(x.creado at time zone 'America/Bogota', 'DD/MM/YYYY HH24:MI') fecha, m.nombre usuario, x.accion, x.entidad_id, x.datos,
+    select x.clave, x.total::int total, to_char(x.creado at time zone 'America/Bogota', 'DD/MM/YYYY HH24:MI') fecha,
+           case when x.soporte_id is not null then coalesce(m.nombre, 'Dueño') || ' (soporte de Regenta)' else m.nombre end usuario, x.accion, x.entidad_id, x.datos,
            pr.nombre producto, coalesce(vt.prefijo || vt.numero, '') venta, cl.nombre cliente, cj.nombre caja, mb.nombre miembro, lo.lote || ' de ' || plo.nombre lote
     from pagina x
     left join miembros m on m.empresa_id = $1 and m.user_id = x.usuario_id
@@ -117,6 +118,9 @@ function describir(x: Cruda): FilaBitacora {
     case "ajuste_inventario": titulo = d.motivo === "conteo" ? "Ajuste por conteo" : "Ajuste o baja de inventario";
       detalle = `N.º ${d.numero}, motivo ${MOTIVOS_AJUSTE[String(d.motivo)] ?? d.motivo}${d.detalle ? ` (${d.detalle})` : ""}: ${d.lineas} lote${Number(d.lineas) === 1 ? "" : "s"}.`; break;
     case "entrada_ajuste": titulo = "Ajuste de inventario"; detalle = `${d.lineas} lote${Number(d.lineas) === 1 ? "" : "s"}${d.motivo ? `. Motivo: «${d.motivo}»` : ""}.`; break;
+    case "venta_sin_turno":
+      titulo = "Venta sin turno abierto";
+      detalle = `${String(d.caja ?? "Caja")}: venta ${x.venta ?? ""} por ${$(d.total)} hecha sin internet y sincronizada cuando no había turno abierto. Ese dinero no entra en ningún arqueo: revísalo con quien la hizo.`; break;
     case "cerrar_turno": {
       const dif = Number(d.diferencia ?? 0);
       titulo = dif < 0 ? "Turno con faltante" : "Turno con sobrante";
@@ -137,7 +141,7 @@ function describir(x: Cruda): FilaBitacora {
       const f = (v: unknown) => { const r = Array.isArray(v) ? v : []; return `${num(r[0])}–${num(r[1])} °C${r[2] !== null && r[2] !== undefined ? `, humedad ${num(r[2])}–${num(r[3])} %` : ""}`; };
       detalle = `${AREAS[String(x.entidad_id)] ?? x.entidad_id}: ${Array.isArray(d.antes) && d.antes[0] !== null && d.antes[0] !== undefined ? f(d.antes) : "los de fábrica"} → ${f(d.despues)}.`; break;
     }
-    case "configurar_empresa": titulo = "Datos de la droguería"; detalle = `Tope de descuento de la cajera ${num(d.descuento_max_cajero)} %, salidas de caja de la cajera hasta ${$(d.egreso_max_cajero)}.`; break;
+    case "configurar_empresa": titulo = "Datos de la droguería"; detalle = `Tope de descuento de la cajera ${num(d.descuento_max_cajero)} %, salidas de caja de la cajera hasta ${$(d.egreso_max_cajero)} por turno.`; break;
     case "configurar_formulas": titulo = "Configuración de fórmulas"; detalle = `Vigencia de la fórmula ${d.vigencia_dias} días; exigir datos del paciente: ${sino(d.exige_datos)}.`; break;
     case "cambio_formula": titulo = "Marca de fórmula o control especial";
       detalle = `${x.producto ?? "Producto"}: venta con fórmula ${sino(a.formula)} → ${sino(z.formula)}, control especial ${sino(a.control)} → ${sino(z.control)}.`; break;

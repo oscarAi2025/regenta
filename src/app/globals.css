@@ -44,6 +44,10 @@
 
 html, body { background: var(--paper); color: var(--ink); }
 body { font-family: Barlow, system-ui, sans-serif; font-size: 16px; -webkit-font-smoothing: antialiased; }
+/* Los textos solo para lector de pantalla (sr-only) son absolutos: dentro de una tabla con desplazamiento lateral, su caja
+   de referencia quedaba fuera del contenedor y en celulares angostos ensanchaban toda la página (medido: /prediccion a 320 px).
+   Con la tabla como referencia se quedan dentro del contenedor que se desplaza. */
+table { position: relative; }
 .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
 :focus-visible { outline: 3px solid var(--marca); outline-offset: 2px; border-radius: 6px; }
 

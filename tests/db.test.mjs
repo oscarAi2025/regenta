@@ -1851,3 +1851,47 @@ test("la consola elimina una droguería de prueba con ventas, devoluciones, comp
     assert.deepEqual(quedan, {}, "no queda nada de la droguería eliminada");
   });
 });
+
+test("037: las salidas de la cajera suman contra el tope del turno; soporte queda en la auditoría; venta sin turno a la bitácora", async () => {
+  // Tope de 50.000 por turno para la cajera.
+  await pool.query("update empresas set egreso_max_cajero = 50000 where id = $1", [E.A]);
+  try {
+    await como(U.cajera, async (c) => {
+      const t = (await c.query(`select id from turnos where caja_id = $1 and estado = 'abierto'`, [C.A])).rows[0]?.id ?? (await c.query(`select abrir_turno($1, 100000) id`, [C.A])).rows[0].id;
+      const ya = Number((await c.query(`select coalesce(sum(m.valor), 0) s from movimientos_caja m join miembros x on x.empresa_id = m.empresa_id and x.user_id = m.usuario_id and x.rol = 'cajero'
+        where m.turno_id = $1 and m.tipo = 'egreso'`, [t])).rows[0].s);
+      const libre = 50000 - ya;
+      assert.ok(libre >= 30000, "la prueba parte de un turno con espacio");
+      await c.query("select movimiento_caja($1, 'egreso', $2, 'Domicilio uno')", [t, libre - 10000]);
+      await c.query("select movimiento_caja($1, 'egreso', 10000, 'Domicilio dos')", [t]);
+      await falla(c, "select movimiento_caja($1, 'egreso', 1, 'Domicilio tres')", [t], /van hasta 50\.000/);
+      await c.query("select movimiento_caja($1, 'ingreso', 5000, 'Entra cambio')", [t]); // los ingresos no cuentan
+    });
+    // El dueño sí puede registrar salidas por encima del tope de la cajera.
+    await como(U.carlos, async (c) => {
+      const t = (await c.query(`select id from turnos where caja_id = $1 and estado = 'abierto'`, [C.A])).rows[0]?.id ?? (await c.query(`select abrir_turno($1, 100000) id`, [C.A])).rows[0].id;
+      await c.query("select movimiento_caja($1, 'egreso', 90000, 'Pago al proveedor')", [t]);
+    });
+  } finally { await pool.query("update empresas set egreso_max_cajero = 200000 where id = $1", [E.A]); }
+
+  // Soporte: con `soporte` en los datos de la sesión, la auditoría guarda quién entró.
+  const sup = "00000000-0000-4000-8000-0000000000aa";
+  const c = await pool.connect();
+  try {
+    await c.query("begin");
+    await c.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: U.carlos, role: "authenticated", soporte: sup })]);
+    await c.query("set local role authenticated");
+    const t = (await c.query(`select id from turnos where caja_id = $1 and estado = 'abierto'`, [C.A])).rows[0]?.id ?? (await c.query(`select abrir_turno($1, 0) id`, [C.A])).rows[0].id;
+    await c.query("select movimiento_caja($1, 'ingreso', 1000, 'Prueba soporte')", [t]);
+    const a = (await c.query(`select usuario_id, soporte_id from auditoria where empresa_id = $1 and accion = 'movimiento_caja' order by id desc limit 1`, [E.A])).rows[0];
+    assert.equal(a.usuario_id, U.carlos); assert.equal(a.soporte_id, sup, "queda el superadministrador que lo hizo");
+    // Venta sin turno: la marca la puede poner quien vende, y deja la venta en la auditoría con su total.
+    const v = (await c.query("select id, total from ventas where empresa_id = $1 limit 1", [E.A])).rows[0];
+    await c.query("select marcar_venta_sin_turno($1)", [v.id]);
+    const m = (await c.query(`select datos from auditoria where empresa_id = $1 and accion = 'venta_sin_turno' and entidad_id = $2`, [E.A, v.id])).rows[0];
+    assert.equal(Number(m.datos.total), Number(v.total));
+    await c.query("rollback");
+  } catch (e) { await c.query("rollback").catch(() => {}); throw e; } finally { c.release(); }
+  // Sin auditoría con soporte, el campo queda vacío; y quien no es de la droguería no marca ventas ajenas.
+  await assert.rejects(como(U.duenoB, async (c) => c.query("select marcar_venta_sin_turno($1)", [(await pool.query("select id from ventas where empresa_id = $1 limit 1", [E.A])).rows[0].id])), /No puedes marcar/);
+});

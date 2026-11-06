@@ -60,6 +60,9 @@ export async function registrarVenta(c: Tx, s: Sesion, d: Venta, cajaElegida: st
   }
   const venta = (await c.query(`select registrar_venta($1) r`, [{ ...d, formula: undefined, empresa_id: s.empresa, sede_id: puesto.sede_id, caja_id: puesto.caja_id }])).rows[0].r as VentaRegistrada;
   if (ex && pideFormula(ex) && !venta.repetida) await c.query(`select registrar_formulas_venta($1, $2)`, [venta.venta_id, d.formula]);
+  // Una venta hecha sin internet entra aunque hoy no haya turno abierto (ya se hizo en el mostrador), pero queda en la
+  // bitácora del dueño: es dinero que no entra en ningún arqueo.
+  if (sinTurno && d.sin_conexion && !venta.repetida) await c.query(`select marcar_venta_sin_turno($1)`, [venta.venta_id]);
   return { venta };
 }
 

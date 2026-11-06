@@ -38,7 +38,7 @@ export function Configuracion({ inicial, demo }: { inicial: Record<string, strin
         {campo("ciudad", "Ciudad")}
         {campo("email", "Correo de la droguería", "email")}
         {campo("descuento_max_cajero", "Descuento máximo de la cajera (%)", "number", "Por encima de este porcentaje solo autoriza el dueño o el administrador.")}
-        {campo("egreso_max_cajero", "Salida de caja máxima de la cajera ($)", "number", "Gastos o retiros mayores los registra el dueño o el administrador.")}
+        {campo("egreso_max_cajero", "Salidas de caja de la cajera por turno ($)", "number", "Suma de gastos o retiros que la cajera puede registrar en un turno; lo que pase de ahí lo registra el dueño o el administrador.")}
       </div>
       {msg && <p role={msg.ok ? "status" : "alert"} className={`mt-3 text-sm font-semibold ${msg.ok ? "text-cruz" : "text-alerta"}`}>{msg.t}</p>}
       {!demo && <button disabled={enviando} className="btn-primario mt-4">{enviando ? "Guardando…" : "Guardar datos"}</button>}

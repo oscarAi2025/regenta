@@ -43,7 +43,7 @@ export function FormAcceso({ consola = false }: { consola?: boolean }) {
 function Olvide({ email: inicial }: { email: string }) {
   const [abierto, setAbierto] = useState(false), [email, setEmail] = useState(inicial);
   const [mensaje, setMensaje] = useState(""), [enviando, setEnviando] = useState(false);
-  if (!abierto) return <button type="button" onClick={() => { setEmail(inicial); setAbierto(true); }} className="text-sm font-semibold text-cruz text-left">¿Olvidaste tu contraseña?</button>;
+  if (!abierto) return <button type="button" onClick={() => { setEmail(inicial); setAbierto(true); }} className="text-sm font-semibold text-cruz text-left py-1.5 -my-1.5 self-start">¿Olvidaste tu contraseña?</button>;
   async function pedir() {
     setEnviando(true); setMensaje("");
     const r = await fetch("/api/restablecer", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email }) }).catch(() => null);
