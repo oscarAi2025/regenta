@@ -64,7 +64,9 @@ async function revisar(p, errs, ruta, etiqueta, tactil) {
   if (m.nc) { avisos++; console.log(`AVISO ${etiqueta}: ${ruta} ${m.nc} control(es) entre 24 y 32 px — ${m.chicos.join(" · ")}`); }
 }
 
-for (const [equipo, opts] of EQUIPOS) {
+// EQUIPOS="iPhone SE,PC 1366" limita la corrida a esos equipos.
+const SOLO = process.env.EQUIPOS?.split(",").map((x) => x.trim());
+for (const [equipo, opts] of EQUIPOS.filter(([n]) => !SOLO || SOLO.includes(n))) {
   const tactil = !!opts.hasTouch;
   // Web pública
   { const c = await b.newContext(opts); const p = await c.newPage(); const errs = [];

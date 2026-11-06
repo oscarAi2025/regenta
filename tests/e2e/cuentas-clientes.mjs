@@ -281,7 +281,8 @@ let rc;
   const agregarP = async (p) => {
     await p.locator("#buscar").fill(P.nombre.split(" ").slice(0, 2).join(" "));
     await p.waitForSelector('[aria-label="Resultados"] [role="option"]');
-    await p.locator('[aria-label="Resultados"] [role="option"]', { hasText: P.nombre }).first().getByRole("button").first().click();
+    // Por unidad (el último botón): tras las ventas de arriba puede no quedar una caja completa y la línea no se cobraría.
+    await p.locator('[aria-label="Resultados"] [role="option"]', { hasText: P.nombre }).first().getByRole("button").last().click();
   };
   // Cajera: dentro del cupo ve «Crédito» y factura a crédito.
   const LC = await entrar("Laura", { viewport: { width: 1440, height: 900 } }, C1);

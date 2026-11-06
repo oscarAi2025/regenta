@@ -1,6 +1,6 @@
 "use client";
 import { guardarImpresora, imprimirTiquete, leerImpresora, type Impresora } from "@/lib/impresion";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { pesos } from "@/lib/formato";
 import { ClienteFactura, documento, type Cliente, type CreditoCaja } from "./ClienteFactura";
 import { actualizarCatalogo, buscarLocal, catalogo, cola, descartar, encolar, reintentar, esFallaDeRed, imprimirProvisional, sincronizar, type VentaEnCola } from "@/lib/sin-conexion";
@@ -328,8 +328,12 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja }:
   }, [hecho, lineas.length]);
 
   // Atajos: F2 buscar, F4 en espera, F6 recuperar, F9 cobrar, F8 imprimir, Esc volver, Enter nueva venta tras cobrar.
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => {
+  // Un solo escuchador que siempre llama a la versión más reciente (se actualiza tras cada render, antes de la siguiente
+  // tecla): con el escuchador re-registrado por efecto, una F9 justo después de escribir el motivo usaba el estado anterior
+  // y no abría el cobro (medido en la prueba de crédito).
+  const atajo = useRef<(e: KeyboardEvent) => void>(() => {});
+  useLayoutEffect(() => {
+    atajo.current = (e: KeyboardEvent) => {
       if (dialogo) return; // el cuadro abierto maneja sus teclas
       if (e.key === "F2") { e.preventDefault(); buscador.current?.focus(); }
       if (e.key === "F4") { e.preventDefault(); ponerEnEspera(); }
@@ -342,9 +346,12 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja }:
       if (e.key === "F8" && hecho?.provisional) { e.preventDefault(); imprimirProvisional(hecho.provisional, nombreEmpresa, impresora.ancho); }
       else if (e.key === "F8" && hecho?.venta.venta_id) { e.preventDefault(); imprimirTiquete(hecho.venta.venta_id, impresora.ancho); }
     };
+  });
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => atajo.current(e);
     addEventListener("keydown", h);
     return () => removeEventListener("keydown", h);
-  }, [puedeCobrar, cobrando, hecho, nueva, impresora.ancho, nombreEmpresa, lineas.length, faltaFormula, formulaSinRed, irAFormula, dialogo, ponerEnEspera, abrirCobro, mult]);
+  }, []);
 
   function escribir(v: string) {
     const pre = prefijoCantidad(v);
@@ -555,7 +562,7 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja }:
                   className="w-full h-16 rounded-xl bg-cruz text-cruz-ink text-xl font-semibold disabled:opacity-40 flex items-center justify-center gap-3">
                   Cobrar <kbd className="!bg-transparent !text-white/80 !border-white/40">F9</kbd>
                 </button>
-                <p className="mt-3 text-center text-[13px] text-muted">{faltaCliente && lineas.length > 0 ? "Elige o crea el cliente para facturar" : faltaMotivo && lineas.length > 0 ? "Escribe el motivo para fiar por encima del cupo" : formulaSinRed ? "Sin internet no se venden productos que exigen registrar la fórmula" : faltaFormula && lineas.length > 0 ? <>Completa la fórmula médica para cobrar · <kbd>F9</kbd> te lleva al dato que falta</> : `${tipoDoc === "factura" ? "Factura electrónica de venta" : "Tiquete POS electrónico"} · el lote que vence antes sale primero`}</p>
+                <p className="mt-3 text-center text-[13px] text-muted">{lineas.some((l) => excede(lineas, l.p)) ? "Hay más de lo que queda en existencias: baja la cantidad o vende por unidad" : faltaCliente && lineas.length > 0 ? "Elige o crea el cliente para facturar" : faltaMotivo && lineas.length > 0 ? "Escribe el motivo para fiar por encima del cupo" : formulaSinRed ? "Sin internet no se venden productos que exigen registrar la fórmula" : faltaFormula && lineas.length > 0 ? <>Completa la fórmula médica para cobrar · <kbd>F9</kbd> te lleva al dato que falta</> : `${tipoDoc === "factura" ? "Factura electrónica de venta" : "Tiquete POS electrónico"} · el lote que vence antes sale primero`}</p>
               </div>
             )}
           </>
