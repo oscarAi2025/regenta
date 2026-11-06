@@ -163,3 +163,8 @@
 - Tras guardar, la pantalla no debe depender de `router.refresh()` para mostrar lo guardado: la API devuelve los datos ya actualizados y el componente los aplica; el refresco queda solo para el resto de la pantalla.
 - Pruebas e2e: nunca `isVisible()` justo después de `goto` en páginas con `loading.tsx` (el contenido llega por streaming); usar `waitFor`. Hacer clic y esperar la URL con `Promise.all`.
 - La batería completa contra un solo servidor acumula el límite anti-abuso por IP en memoria: pagos va primero o con servidor recién arrancado.
+## 06/11/2026 · Frente 2-C (cuentas de clientes)
+- Un `<span class="sr-only">` (posición absoluta) dentro de una tabla con `overflow-x-auto` se ubica respecto al primer ancestro posicionado, no al contenedor desplazable: en el celular ensanchaba la página (/clientes llegó a 766 px). Los contenedores desplazables de tablas llevan `relative`. La prueba `cortados` no lo ve (excluye lo que está dentro de un desplazable): mirar también `desborde`.
+- `set constraints all immediate` en una prueba deja inmediatas las FK diferidas para el resto de la transacción: una venta posterior (líneas antes que la venta) falla por FK. Tras alterar triggers, volver con `set constraints all deferred`.
+- `fetch().text()` quita el BOM: para comprobar el BOM de un CSV, leer los bytes (`arrayBuffer`).
+- Con `loading.tsx`, `notFound()` llega por streaming con estado 200: las pruebas comprueban el contenido («404») y que no salga el dato ajeno, no el código HTTP.

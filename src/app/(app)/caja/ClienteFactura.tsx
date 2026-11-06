@@ -1,13 +1,44 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { pesos } from "@/lib/formato";
 
 export type Cliente = { id: string; tipo_doc: string; numero_doc: string; dv: string | null; nombre: string; email: string | null; telefono: string | null };
 const TIPOS = [["NIT", "NIT"], ["CC", "Cédula"], ["CE", "Cédula de extranjería"], ["PP", "Pasaporte"], ["PEP", "PEP"]] as const;
 
 export const documento = (c: Cliente) => `${c.tipo_doc} ${c.numero_doc}${c.dv ? `-${c.dv}` : ""}`;
 
+/** Respuesta de GET /api/clientes/[id]/credito (contrato con la caja). */
+export type CreditoCaja = { puede_fiar: boolean; requiere_motivo: boolean; motivo: string | null; aviso: string | null; cupo: number | null; cupo_disponible: number | null; saldo: number; dias_mora: number; plazo_dias: number | null };
+
+/** Cupo disponible y motivo cuando no se le puede fiar. Con `total`, evalúa la venta en curso (supera el cupo…). */
+function CreditoDelCliente({ id, total, onCredito }: { id: string; total?: number; onCredito?: (c: CreditoCaja | null) => void }) {
+  const [c, setC] = useState<CreditoCaja | null>(null);
+  useEffect(() => {
+    const ctl = new AbortController();
+    const h = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/clientes/${id}/credito${total ? `?valor=${Math.round(total)}` : ""}`, { signal: ctl.signal });
+        const j = r.ok ? await r.json() : null;
+        setC(j); onCredito?.(j);
+      } catch { /* cancelada o sin conexión: no se muestra */ }
+    }, total === undefined ? 0 : 250);
+    return () => { clearTimeout(h); ctl.abort(); };
+  }, [id, total, onCredito]);
+  if (!c) return null;
+  if (c.cupo === null && c.puede_fiar && c.saldo === 0) return null; // gerencia, cliente sin cupo ni deuda: nada que avisar
+  return (
+    <div className="mt-2 text-sm" aria-live="polite">
+      {c.cupo !== null && <p className="num">Cupo disponible <b className={c.cupo_disponible ? "text-cruz" : "text-alerta"}>{pesos(c.cupo_disponible ?? 0)}</b> de {pesos(c.cupo)}{c.saldo > 0 ? ` · debe ${pesos(c.saldo)}` : ""}</p>}
+      {c.cupo === null && c.saldo > 0 && <p className="num">Debe {pesos(c.saldo)}</p>}
+      {!c.puede_fiar && c.motivo && <p role="status" className="mt-1 rounded-lg bg-aviso-soft text-aviso px-2.5 py-1.5 font-semibold">No se le puede fiar: {c.motivo}{c.requiere_motivo ? ". Puedes autorizarlo con un motivo." : "."}</p>}
+    </div>
+  );
+}
+
 /** Cliente de la factura electrónica: buscar por NIT, cédula o nombre, o crearlo sin salir de la venta. */
-export function ClienteFactura({ cliente, onCambio }: { cliente: Cliente | null; onCambio: (c: Cliente | null) => void }) {
+export function ClienteFactura({ cliente, onCambio, total, onCredito }: { cliente: Cliente | null; onCambio: (c: Cliente | null) => void;
+  /** Total de la venta en curso, para saber si cabe en el cupo (opcional). */ total?: number;
+  /** Recibe el estado de crédito del cliente elegido (para que la caja decida si muestra «Crédito» o pide el motivo). */ onCredito?: (c: CreditoCaja | null) => void }) {
   const [q, setQ] = useState("");
   const [res, setRes] = useState<Cliente[]>([]);
   const [buscado, setBuscado] = useState(false);
@@ -55,6 +86,7 @@ export function ClienteFactura({ cliente, onCambio }: { cliente: Cliente | null;
         <p className="font-semibold leading-snug">{cliente.nombre}</p>
         <p className="text-sm text-muted num">{documento(cliente)}{cliente.email ? ` · ${cliente.email}` : ""}</p>
         {!cliente.email && <p className="text-xs text-aviso mt-1">Sin correo: la factura no le llegará por email</p>}
+        <CreditoDelCliente id={cliente.id} total={total} onCredito={onCredito} />
       </div>
       <button onClick={() => { onCambio(null); setTimeout(() => input.current?.focus(), 0); }} className="text-sm font-semibold underline shrink-0">Cambiar</button>
     </div>

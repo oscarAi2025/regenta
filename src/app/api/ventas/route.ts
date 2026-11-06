@@ -21,6 +21,7 @@ const Venta = z.object({
   cliente_id: z.string().uuid().nullish(),
   condicion: z.enum(["contado", "credito"]).default("contado"),
   plazo_dias: z.number().int().min(1).max(180).nullish(),
+  motivo_credito: z.string().trim().max(200, "El motivo va hasta 200 caracteres").nullish(), // el dueño o el administrador autorizan pasarse del cupo
   lineas: z.array(z.object({ producto_id: z.string().uuid(), presentacion: z.enum(["caja", "unidad"]), cantidad: z.number().int().positive().max(10000), descuento_pct: z.number().min(0).max(99).optional() })).min(1).max(200),
   descuento_pct: z.number().min(0).max(99).optional(),
   pagos: z.array(Pago).max(6),
