@@ -21,9 +21,11 @@ alter table proveedores add column if not exists contacto text check (contacto i
 
 -- ───────────────────────── Costos heredados ─────────────────────────
 -- Los costos que había antes de esta migración no dicen si llevan IVA: quedan marcados para que la ganancia los distinga.
-alter table lote_costos add column if not exists heredado boolean not null default false;
+-- Las filas que ya existen nacen marcadas (la columna se crea con valor true, sin un update que reescriba datos y sin
+-- volver a marcar nada si la migración se repite); las que se creen después llevan false.
+alter table lote_costos add column if not exists heredado boolean not null default true;
+alter table lote_costos alter column heredado set default false;
 alter table lote_costos add column if not exists actualizado timestamptz;
-update lote_costos set heredado = true;
 comment on column lote_costos.heredado is 'Costo anterior a la migración 031: no se sabe si incluye IVA. Los costos de compras (031 en adelante) son sin IVA.';
 
 create index if not exists movimientos_ref on movimientos (ref_id);

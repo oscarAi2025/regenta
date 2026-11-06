@@ -174,3 +174,10 @@
 - `set constraints all immediate` en una prueba deja inmediatas las FK diferidas para el resto de la transacción: una venta posterior (líneas antes que la venta) falla por FK. Tras alterar triggers, volver con `set constraints all deferred`.
 - `fetch().text()` quita el BOM: para comprobar el BOM de un CSV, leer los bytes (`arrayBuffer`).
 - Con `loading.tsx`, `notFound()` llega por streaming con estado 200: las pruebas comprueban el contenido («404») y que no salga el dato ajeno, no el código HTTP.
+
+## 06/11/2026 · Integración del Bloque 2
+- Al resolver conflictos «uniendo ambos lados» en un archivo de pruebas, git puede quedarse con el cierre común (`});`) de un solo lado: la prueba anterior quedó sin cerrar. Tras resolver: `node --check` y contar las pruebas (base + las de cada frente) antes de seguir.
+- Una copia del flujo de venta en otro módulo (cobrar pedidos) se queda atrás del original en cuanto otro frente lo cambia (motivo_credito): la lógica de venta vive en un solo módulo (src/lib/venta-servidor.ts). Los «pre-chequeos» en el navegador no reemplazan la regla del servidor.
+- Cada tabla nueva con llave hacia empresas por un camino RESTRICT/NO ACTION (pagos_proveedor → movimientos_caja) rompe eliminar_empresa_prueba sin que ninguna prueba del frente lo note: cada bloque añade una prueba de base que llena TODAS sus tablas en la empresa B y la elimina.
+- No poner `update` de datos en una migración para rellenar una columna nueva: crear la columna con el valor de las filas viejas (`default true`) y cambiar luego el default; no reescribe la tabla y no vuelve a marcar nada si la migración se repite.
+- Los servidores simulados de las pruebas (IA, Wompi) toman su puerto de una variable: con puertos fijos dos hilos no pueden correr la batería a la vez.

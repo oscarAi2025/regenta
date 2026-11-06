@@ -358,3 +358,17 @@ Reparto en 3 frentes paralelos (cada uno en su rama, su base local y su puerto);
 - [x] Pruebas: npm test 80/80 · e2e 21/21 suites sin fallos (1345 comprobaciones de endpoints, 160 pantallas)
 - [x] 030a aplicada en producción con autorización de Oscar (06/11/2026); un solo despliegue
 - [ ] Pendientes bajos: conteo a ciegas para la bodega (opcional), paginación de ajustes y conteos antiguos, rangos de temperatura en la demo compartida
+
+## 06/11/2026 · Bloque 2 (compras, mostrador, cuentas de clientes)
+Tres frentes en paralelo (2-A regenta_2a :4511, 2-B regenta_2b :4512, 2-C regenta_2c :4513); integración en `bloque2-integracion` (regenta_2int, :4520).
+- [x] A · Compras (031): proveedores ampliados, compras con costo sin IVA, bonificadas y promedio ponderado, recepción de la bodega sin costos, pagos a proveedores (también desde la caja), devoluciones y notas crédito, cuentas por pagar con CSV; /compras, /proveedores, /cuentas-por-pagar, tirilla de recepción
+- [x] B · Mostrador (032): cantidad tecleada y «12*», venta en curso que sobrevive a recargar, ventas en espera (F4/F6), domicilios, cotizaciones imprimibles, rol vendedor (arma pedidos, no cobra)
+- [x] C · Cuentas de clientes (033): cupo, plazo, bloqueo y mora por cliente; la cajera fía dentro del cupo; la gerencia autoriza con motivo (auditoría); recibos de caja por turno; cartera por cliente con edades y CSV; estado de cuenta
+- [x] Integración: una sola lógica de venta (src/lib/venta-servidor.ts) para /api/ventas y para cobrar pedidos (cupo, fórmula, turno, idempotencia idénticos)
+- [x] Integración: crédito en la caja según GET /api/clientes/[id]/credito (la cajera ve «Crédito» dentro del cupo; motivo escrito en la pantalla cuando la gerencia se pasa; motivo en español si no se puede)
+- [x] 033a: eliminar_empresa_prueba borra compras, pagos y devoluciones a proveedores, pedidos y recibos (la versión 030a fallaba por pagos_proveedor → movimientos_caja); recibos borrables solo desde la consola
+- [x] Menú: Pedidos (Vender), grupo Compras (Compras, Cuentas por pagar), vendedor solo con Inicio y Pedidos; Equipo con rol Vendedor; exportar con recibos, proveedores, compras, pagos, devoluciones, cuentas por pagar y pedidos; robots
+- [x] Pruebas: endpoints y auditoría con las rutas y pantallas nuevas (incluido el vendedor); mocks de IA y Wompi con puerto configurable (IA_MOCK_PUERTO, WOMPI_MOCK_PUERTO)
+- [x] SQL de producción db/produccion/bloque2-031-033a.sql probado de una pieza como rol sin superusuario sobre una copia hasta 030a
+- [ ] Oscar: aplicar bloque2-031-033a.sql en Supabase y desplegar (un solo despliegue)
+- [ ] Pendiente: el vendedor de la demo (la demo no trae uno); proveedores no tienen entrada propia en el menú (se llega desde Compras y Cuentas por pagar)
