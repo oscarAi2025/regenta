@@ -357,7 +357,8 @@ Reparto en 3 frentes paralelos (cada uno en su rama, su base local y su puerto);
 - [x] Kardex por la empresa del producto; baja «Vencido» solo con lote vencido; idempotencia de ajustes; aviso de una venta por fórmula
 - [x] Pruebas: npm test 80/80 · e2e 21/21 suites sin fallos (1345 comprobaciones de endpoints, 160 pantallas)
 - [x] 030a aplicada en producción con autorización de Oscar (06/11/2026); un solo despliegue
-- [ ] Pendientes bajos: conteo a ciegas para la bodega (opcional), paginación de ajustes y conteos antiguos, rangos de temperatura en la demo compartida
+- [x] Conteo a ciegas y rangos de temperatura fijos en la demo compartida (038, en producción 06/11)
+- [ ] Pendiente bajo: paginación de ajustes y conteos antiguos
 
 ## 06/11/2026 · Bloque 2 (compras, mostrador, cuentas de clientes)
 Tres frentes en paralelo (2-A regenta_2a :4511, 2-B regenta_2b :4512, 2-C regenta_2c :4513); integración en `bloque2-integracion` (regenta_2int, :4520).
