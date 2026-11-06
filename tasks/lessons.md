@@ -163,3 +163,8 @@
 - Tras guardar, la pantalla no debe depender de `router.refresh()` para mostrar lo guardado: la API devuelve los datos ya actualizados y el componente los aplica; el refresco queda solo para el resto de la pantalla.
 - Pruebas e2e: nunca `isVisible()` justo después de `goto` en páginas con `loading.tsx` (el contenido llega por streaming); usar `waitFor`. Hacer clic y esperar la URL con `Promise.all`.
 - La batería completa contra un solo servidor acumula el límite anti-abuso por IP en memoria: pagos va primero o con servidor recién arrancado.
+
+## Varios equipos en paralelo sobre el mismo Postgres (06/11/2026)
+- `scripts/db-reset.mjs` usa la base `regenta` por defecto: un reinicio sin DATABASE_URL borra la base de otro. Cada frente y el integrador usan su propia base (regenta_2a…, regenta_int) y pasan DATABASE_URL en la misma línea de cada comando.
+- Si una suite falla con «terminating connection due to administrator command» o le faltan datos de la demo, primero sospechar de un reinicio ajeno, no del código.
+- Detener solo el servidor propio (`fuser -k 4500/tcp`), nunca `pkill -f "next start"`: mataría los servidores de los demás frentes.
