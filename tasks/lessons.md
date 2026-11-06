@@ -136,3 +136,7 @@
 - Un endpoint solo probado con «basura» (datos rotos) puede estar roto en el camino feliz: cargar numeración DIAN daba 500 siempre ($5 - 1 con tipos deducidos distintos). Cada acción de la consola necesita al menos una prueba con datos válidos.
 - En SQL parametrizado, si un mismo parámetro se usa como valor de columna bigint y en una operación aritmética, castearlo explícito ($5::bigint).
 - Al buscar texto en HTML renderizado por React, quitar los comentarios <!-- --> que separan trozos de texto.
+
+## 06/11/2026 · Regenta IA caída en producción
+- El asistente respondía siempre «no pudo responder» y el registro solo decía «El servicio de IA respondió 400»: la causa real (saldo de créditos de Anthropic agotado) no se veía. Regla: todo error de un servicio externo se registra con su código Y su mensaje, y la consola tiene un botón para probar cada servicio (MATIAS, correo, IA).
+- Los mensajes al usuario no prometen acciones que el sistema no hace («ya avisamos al equipo» sin aviso real).

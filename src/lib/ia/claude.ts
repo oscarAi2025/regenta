@@ -21,8 +21,8 @@ async function detalle(r: Response) {
 /** Mensaje para quien usa Regenta según la causa (sin datos internos). */
 export function mensajeError(e: unknown) {
   const st = e instanceof ErrorIA ? e.status : 0;
-  if (st === 401 || st === 403) return "Regenta IA no está disponible: la clave del servicio no es válida. Ya avisamos al equipo de Regenta.";
-  if (st === 400 && /credit|balance|billing/i.test((e as Error).message)) return "Regenta IA no está disponible por un tema de facturación del servicio. Ya avisamos al equipo de Regenta.";
+  if (st === 401 || st === 403) return "Regenta IA está en mantenimiento en este momento. Puedes seguir usando Regenta con normalidad; vuelve a intentarlo más tarde.";
+  if (st === 400 && /credit|balance|billing/i.test((e as Error).message)) return "Regenta IA está en mantenimiento en este momento. Puedes seguir usando Regenta con normalidad; vuelve a intentarlo más tarde.";
   if (st === 429 || st === 529 || st === 503) return "Regenta IA está muy solicitada en este momento. Intenta de nuevo en un minuto.";
   if ((e as Error)?.name === "TimeoutError") return "Regenta IA tardó demasiado en responder. Intenta de nuevo o haz la pregunta más concreta.";
   return "Regenta IA no pudo responder ahora. Intenta de nuevo.";
