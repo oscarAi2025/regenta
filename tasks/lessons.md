@@ -148,3 +148,8 @@
 - Una prueba de base de datos que confirma (commit) «dejar en cero lo no contado» sobre todo el inventario vació la demo y tumbó las demás pruebas: lo que una prueba guarda de verdad debe ser neutro (contar igual al sistema).
 - `pkill -f "next start"` no detiene el servidor (el proceso pasa a llamarse `next-server`): detenerlo por su carpeta de trabajo o su puerto. `next start` exige REGENTA_SESSION_SECRET aunque sea local.
 - La carpeta de capturas del scratchpad la comparten los hilos paralelos: cada frente escribe en su propia subcarpeta.
+## 06/11/2026 · Frente B (cumplimiento)
+- Con varios `next dev` en paralelo (un frente por puerto) el servidor de desarrollo se cerró solo al compilar todas las rutas del contrato de endpoints: las suites largas se corren contra `next build && next start`.
+- El contrato de endpoints buscaba «fugas» con una expresión regular también dentro del ZIP binario: los bytes comprimidos formaron «Pg_» al azar. Los cuerpos binarios no se revisan como texto.
+- La siembra cambia ventas.creado pero no documentos_dian.creado: la fecha de un tiquete o factura es la de su venta (la de la nota crédito, la suya). Las pantallas de documentos filtran por esa fecha, con d.creado como cota inferior para usar el índice.
+- En componentes de cliente no usar toLocaleString para textos que se renderizan en el servidor (riesgo de diferencias de ICU e hidratación): formatos hechos a mano.

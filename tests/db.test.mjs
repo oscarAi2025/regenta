@@ -560,3 +560,41 @@ test("conteo: la cajera no cuenta y otra empresa no ve los conteos", async () =>
   assert.equal((await como(U.duenoB, (c) => c.query("select * from conteos where empresa_id = $1", [E.A]))).rows.length, 0);
   assert.equal((await como(U.duenoB, (c) => c.query("select * from ajustes where empresa_id = $1", [E.A]))).rows.length, 0);
 });
+
+test("temperatura: bodega registra, fuera de rango exige acción, una jornada por área y la corrección no borra", async () => {
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+  const reg = (extra) => ({ empresa_id: E.A, sede_id: S.A, fecha: hoy, jornada: "manana", area: "general", temperatura: 22.5, humedad: 55, ...extra });
+  await como(U.bodega, async (c) => {
+    const r = (await c.query("select registrar_temperatura($1) r", [reg({})])).rows[0].r;
+    assert.equal(r.fuera_rango, false);
+    await assert.rejects(c.query("savepoint s1").then(() => c.query("select registrar_temperatura($1)", [reg({ temperatura: 23 })])), /ya está registrada/);
+    await c.query("rollback to savepoint s1");
+    await assert.rejects(c.query("savepoint s2").then(() => c.query("select registrar_temperatura($1)", [reg({ area: "frio", temperatura: 12, humedad: null })])), /acción correctiva/);
+    await c.query("rollback to savepoint s2");
+    const f = (await c.query("select registrar_temperatura($1) r", [reg({ area: "frio", temperatura: 12, humedad: null, accion: "Se movieron los productos a la otra nevera" })])).rows[0].r;
+    assert.equal(f.fuera_rango, true);
+    const k = (await c.query("select registrar_temperatura($1) r", [{ empresa_id: E.A, anula_id: r.id, temperatura: 23, humedad: 54, motivo: "Se anotó mal" }])).rows[0].r;
+    const filas = (await c.query("select id, anula_id, temperatura::float t from temperatura_registros where empresa_id = $1 and fecha = $2 and area = 'general' order by creado", [E.A, hoy])).rows;
+    assert.deepEqual(filas.map((x) => x.t), [22.5, 23]);
+    assert.equal(filas[1].id, k.id); assert.equal(filas[1].anula_id, r.id);
+    await assert.rejects(c.query("savepoint s3").then(() => c.query("update temperatura_registros set temperatura = 1 where id = $1", [r.id])), /permission denied|no se modifican/);
+    await c.query("rollback to savepoint s3");
+    await assert.rejects(c.query("savepoint s4").then(() => c.query("delete from temperatura_registros where id = $1", [r.id])), /permission denied|no se modifican/);
+  });
+});
+
+test("temperatura: la cajera no registra, el dueño de B no ve la planilla de A y la bodega no cambia rangos", async () => {
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+  await assert.rejects(como(U.cajera, (c) => c.query("select registrar_temperatura($1)", [{ empresa_id: E.A, sede_id: S.A, fecha: hoy, jornada: "tarde", area: "general", temperatura: 20, humedad: 50 }])), /permiso/);
+  await assert.rejects(como(U.bodega, (c) => c.query("select configurar_rango_temperatura($1, 'general', 15, 28, 30, 70)", [E.A])), /dueño o el administrador/);
+  await como(U.carlos, async (c) => {
+    await c.query("select configurar_rango_temperatura($1, 'general', 15, 28, 30, 70)", [E.A]);
+    const g = (await c.query("select temp_max::float, personalizado from rangos_temperatura($1) where area = 'general'", [E.A])).rows[0];
+    assert.deepEqual(g, { temp_max: 28, personalizado: true });
+    await c.query("select registrar_temperatura($1)", [{ empresa_id: E.A, sede_id: S.A, fecha: hoy, jornada: "tarde", area: "general", temperatura: 20, humedad: 50 }]);
+  }, { commit: false });
+  const visto = await como(U.duenoB, async (c) => (await c.query("select count(*)::int n from temperatura_registros where empresa_id = $1", [E.A])).rows[0].n);
+  assert.equal(visto, 0);
+  const cajera = await como(U.cajera, async (c) => (await c.query("select count(*)::int n from temperatura_rangos")).rows[0].n);
+  assert.equal(cajera, 0);
+});

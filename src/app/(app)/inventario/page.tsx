@@ -56,6 +56,7 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
           <Link href="/inventario/recibir" className="btn-primario">Recibir mercancía</Link>
           <Link href="/inventario/ajustes" className="btn-borde">Ajustar o dar de baja</Link>
           <Link href="/inventario/conteos" className="btn-borde">{datos.conteo ? `Conteo N.º ${datos.conteo} en curso` : "Conteo físico"}</Link>
+          <Link href="/temperatura" className="btn-borde">Temperatura y humedad</Link>
         </>}
       </Cabecera>
       {datos.sinCosto.length > 0 && <CostosPendientes lotes={datos.sinCosto} />}
