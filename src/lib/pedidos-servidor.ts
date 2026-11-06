@@ -4,55 +4,9 @@ import { z } from "zod";
 import type { Tx } from "./db";
 import type { Sesion } from "./sesion";
 import { puestoDeTrabajo } from "./db";
-import { errorFormula, exigencia, pideFormula } from "./control-especial";
 import type { EstadoPedido, TipoPedido } from "./pedidos";
 
-// ───────────── Venta de la caja ─────────────
-// Mismo contrato que POST /api/ventas: mismos validadores, mismas reglas (turno, fórmula, topes de descuento en la base,
-// idempotencia por idem_key). Si cambia uno, cambia el otro.
-const Pago = z.object({ medio: z.enum(["efectivo", "transferencia", "nequi", "daviplata", "tarjeta", "bre_b", "qr"]), valor: z.number().positive().max(1_000_000_000, "Revisa el valor recibido"), referencia: z.string().max(60).nullish() });
-const Formula = z.object({
-  verificada: z.boolean().default(false),
-  paciente_tipo_doc: z.string().max(5).default(""), paciente_doc: z.string().max(30).default(""), paciente_nombre: z.string().max(160).default(""),
-  medico_nombre: z.string().max(160).default(""), medico_registro: z.string().max(60).default(""),
-  formula_numero: z.string().max(60).default(""), formula_fecha: z.string().max(10).default(""),
-});
-export const VentaCaja = z.object({
-  idem_key: z.string().uuid(),
-  tipo_doc: z.enum(["pos", "factura"]),
-  cliente_id: z.string().uuid().nullish(),
-  condicion: z.enum(["contado", "credito"]).default("contado"),
-  plazo_dias: z.number().int().min(1).max(180).nullish(),
-  lineas: z.array(z.object({ producto_id: z.string().uuid(), presentacion: z.enum(["caja", "unidad"]), cantidad: z.number().int().positive().max(10000), descuento_pct: z.number().min(0).max(99).optional() })).min(1).max(200),
-  descuento_pct: z.number().min(0).max(99).optional(),
-  pagos: z.array(Pago).max(6),
-  sin_conexion: z.boolean().optional(),
-  formula: Formula.nullish(),
-}).refine((v) => v.condicion === "credito" ? v.pagos.length === 0 : v.pagos.length > 0, { message: "Datos de pago incompletos" })
-  .refine((v) => v.tipo_doc === "pos" || v.cliente_id, { message: "La factura electrónica necesita el cliente" });
-export type VentaCaja = z.infer<typeof VentaCaja>;
-export const errorVenta = (e: z.ZodError) => e.issues.find((i) => i.code === "custom")?.message ?? e.issues.find((i) => i.path.includes("pagos"))?.message ?? "Datos de la venta incompletos";
-
-/** Registra la venta dentro de la transacción `c` (como POST /api/ventas). Devuelve la venta o el dato de fórmula que falta. */
-export async function registrarVentaCaja(c: Tx, s: Sesion, d: VentaCaja, cajaElegida: string | null):
-  Promise<{ venta: { venta_id: string; repetida: boolean } & Record<string, unknown> } | { invalida: string }> {
-  const puesto = await puestoDeTrabajo(c, s.empresa, cajaElegida);
-  if (!puesto.caja_id) throw Object.assign(new Error("Esta empresa no tiene cajas activas"), { code: "P0001" });
-  const sinTurno = (await c.query(`select e.exige_turno and not exists (select 1 from turnos t where t.caja_id = $2 and t.estado = 'abierto') falta
-    from empresas e where e.id = $1`, [s.empresa, puesto.caja_id])).rows[0]?.falta;
-  if (sinTurno && !d.sin_conexion) throw Object.assign(new Error("Abre el turno de caja antes de vender (Caja → Turno)"), { code: "P0001" });
-  const { rows: marcas } = await c.query(`select p.nombre, p.requiere_formula, p.control_especial, e.formula_vigencia_dias vigencia_dias, e.formula_exige_datos exige_datos
-    from productos p join empresas e on e.id = p.empresa_id where p.empresa_id = $1 and p.id = any($2::uuid[]) and (p.requiere_formula or p.control_especial)`,
-    [s.empresa, [...new Set(d.lineas.map((l) => l.producto_id))]]);
-  const ex = marcas.length ? exigencia(marcas, marcas[0]) : null;
-  if (ex && pideFormula(ex)) {
-    const falta = errorFormula(d.formula, ex, marcas[0]);
-    if (falta) return { invalida: ex.control.length ? `${falta} (${ex.control[0]} es de control especial)` : falta };
-  }
-  const venta = (await c.query(`select registrar_venta($1) r`, [{ ...d, formula: undefined, empresa_id: s.empresa, sede_id: puesto.sede_id, caja_id: puesto.caja_id }])).rows[0].r;
-  if (ex && pideFormula(ex) && !venta.repetida) await c.query(`select registrar_formulas_venta($1, $2)`, [venta.venta_id, d.formula]);
-  return { venta };
-}
+// La venta al cobrar un pedido usa la misma lógica que la caja: src/lib/venta-servidor.ts.
 
 // ───────────── Pedidos ─────────────
 const fecha = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha no válida");

@@ -144,11 +144,12 @@ let f1, f2;
   await p.locator('[aria-label="Resultados"] [role="option"]', { hasText: P.nombre }).first().getByRole("button").first().click();
   await p.keyboard.press("F9");
   await p.getByRole("button", { name: "Crédito", exact: true }).click();
+  await p.locator("#motivo-credito").waitFor();
+  ok(await p.getByLabel("Motivo de la autorización").count() === 1, "a crédito sobre el cupo, la caja pide el motivo en la pantalla");
   await p.getByRole("button", { name: /Facturar a crédito/ }).click();
-  const alerta = p.getByText(/supera el cupo disponible \(\$0 de \$200\.000\)\. Para fiar de todas formas, escribe el motivo/);
+  const alerta = p.getByRole("alert").filter({ hasText: "Escribe el motivo de la autorización" });
   await alerta.waitFor({ timeout: 10000 }).catch(() => {});
-  p.__provocados = (p.__provocados ?? 0) + 1;
-  ok(await alerta.count() === 1, "la caja muestra por qué no se puede fiar (supera el cupo)");
+  ok(await alerta.count() === 1, "sin motivo no se factura: la caja lo pide (sin llamar a la API)");
   await p.screenshot({ path: `${OUT}/caja-cupo-1440.png` });
 }
 
@@ -261,6 +262,71 @@ let rc;
     await L.p.getByText(/No se le puede fiar/).waitFor();
     ok(await L.p.getByText(/No se le puede fiar: Mora de 20 días: pasa el límite de 10 días/).count() === 1, "la caja muestra la mora como motivo");
   } finally { await pool.query(`update empresas set dias_mora_bloqueo = null where id = $1`, [EMP.id]); }
+}
+
+// ───────────── Crédito en la caja, por la pantalla: la cajera fía dentro del cupo; bloqueado → motivo y sin «Crédito»;
+// el dueño se pasa del cupo escribiendo el motivo (queda en la auditoría). Cliente propio para no tocar los saldos de arriba.
+{
+  const r = await api(D.p, "/api/clientes", "POST", { tipo_doc: "CC", numero_doc: `78${sufijo}`, nombre: `Cliente Caja E2E ${sufijo}`, email: `caja${sufijo}@prueba.example`, autoriza_datos: true });
+  const cli2 = r.j.cliente?.id;
+  ok(r.status === 201 && !!cli2, "cliente para fiar desde la caja", String(r.status));
+  const credito = (d) => api(D.p, `/api/clientes/${cli2}/credito`, "PATCH", { plazo_dias_defecto: 30, notas: null, ...d });
+  ok((await credito({ cupo_credito: 5000000, credito_bloqueado: false })).status === 200, "cupo de $5.000.000");
+  const elegir = async (p) => {
+    await ir(p, "/caja");
+    await p.getByRole("button", { name: "Factura electrónica", exact: true }).click();
+    await p.locator("#cf-buscar").fill(`Caja E2E ${sufijo}`);
+    await p.getByRole("button", { name: new RegExp(`Cliente Caja E2E ${sufijo}`) }).click();
+  };
+  const agregarP = async (p) => {
+    await p.locator("#buscar").fill(P.nombre.split(" ").slice(0, 2).join(" "));
+    await p.waitForSelector('[aria-label="Resultados"] [role="option"]');
+    await p.locator('[aria-label="Resultados"] [role="option"]', { hasText: P.nombre }).first().getByRole("button").first().click();
+  };
+  // Cajera: dentro del cupo ve «Crédito» y factura a crédito.
+  const LC = await entrar("Laura", { viewport: { width: 1440, height: 900 } }, C1);
+  await elegir(LC.p);
+  await LC.p.getByText(/Cupo disponible \$5\.000\.000/).waitFor();
+  await agregarP(LC.p);
+  await LC.p.getByRole("button", { name: "Crédito", exact: true }).waitFor();
+  await LC.p.getByRole("button", { name: "Crédito", exact: true }).click();
+  ok(await LC.p.locator("#motivo-credito").count() === 0, "dentro del cupo la cajera no necesita motivo");
+  await LC.p.keyboard.press("F9");
+  await LC.p.screenshot({ path: `${OUT}/caja-credito-cajera-1440.png` });
+  await LC.p.getByRole("button", { name: /Facturar a crédito/ }).click();
+  await LC.p.waitForSelector("text=Factura electrónica registrada", { timeout: 15000 });
+  ok(await LC.p.getByText(/A crédito · vence el/).count() === 1, "la cajera fía por la pantalla dentro del cupo");
+  const v1 = await q1(`select v.id, v.condicion, v.usuario_id::text u, v.plazo_dias from ventas v where v.cliente_id = $1 order by v.creado desc limit 1`, [cli2]);
+  ok(v1?.condicion === "credito" && v1.u === U.laura && v1.plazo_dias === 30, "la venta queda a crédito, a nombre de la cajera y con el plazo del cliente", JSON.stringify(v1));
+  ok(!(await q1(`select 1 x from auditoria where accion = 'credito_autorizado' and entidad_id = $1`, [v1?.id]))?.x, "sin autorización (no hacía falta)");
+  // Bloqueado: la cajera ve el motivo y no le aparece «Crédito».
+  ok((await credito({ cupo_credito: 5000000, credito_bloqueado: true })).status === 200, "el dueño bloquea el crédito del cliente");
+  await elegir(LC.p);
+  await LC.p.getByText(/No se le puede fiar/).waitFor();
+  ok(await LC.p.getByText("No se le puede fiar: El crédito de este cliente está bloqueado.").count() === 1, "cliente bloqueado: la cajera ve el motivo en español");
+  await agregarP(LC.p);
+  ok(await LC.p.getByRole("button", { name: "Crédito", exact: true }).count() === 0, "y no le aparece «Crédito»");
+  await LC.p.screenshot({ path: `${OUT}/caja-bloqueado-cajera-1440.png` });
+  ok(sinProvocados(LC.p, LC.errs).length === 0, "sin errores de consola (cajera, crédito en la caja)", LC.errs.join(" | "));
+  await LC.ctx.close();
+  // Dueño: cupo de $1.000 (ya lo pasó): escribe el motivo en la pantalla y factura.
+  ok((await credito({ cupo_credito: 1000, credito_bloqueado: false })).status === 200, "cupo de $1.000");
+  const DC = await entrar("Carlos", { viewport: { width: 1440, height: 900 } }, C1);
+  await elegir(DC.p);
+  await DC.p.getByText(/No se le puede fiar/).waitFor();
+  await agregarP(DC.p);
+  await DC.p.getByRole("button", { name: "Crédito", exact: true }).click();
+  await DC.p.locator("#motivo-credito").fill("Cliente conocido, paga el lunes");
+  await DC.p.keyboard.press("F9");
+  await DC.p.screenshot({ path: `${OUT}/caja-motivo-duenio-1440.png` });
+  await DC.p.getByRole("button", { name: /Facturar a crédito/ }).click();
+  await DC.p.waitForSelector("text=Factura electrónica registrada", { timeout: 15000 });
+  const v2 = await q1(`select id from ventas where cliente_id = $1 order by creado desc limit 1`, [cli2]);
+  const au = await q1(`select datos, usuario_id from auditoria where accion = 'credito_autorizado' and entidad_id = $1`, [v2?.id]);
+  ok(v2?.id !== v1?.id && au?.datos?.motivo === "Cliente conocido, paga el lunes" && au.usuario_id === U.carlos && /supera el cupo/.test(au.datos.razon),
+    "el dueño se pasa del cupo escribiendo el motivo y queda en la auditoría", JSON.stringify(au?.datos ?? {}).slice(0, 160));
+  ok(sinProvocados(DC.p, DC.errs).length === 0, "sin errores de consola (dueño, motivo en la caja)", DC.errs.join(" | "));
+  await DC.ctx.close();
 }
 
 // ───────────── Aislamiento y permisos

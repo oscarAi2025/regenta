@@ -30,7 +30,7 @@ export default async function PaginaCaja() {
         </div>
       )}
       {cajas.length > 1 && <div className="mx-4 mt-3 flex justify-end"><ElegirCaja cajas={cajas} actual={actual} /></div>}
-      <Caja fiar={puede.fiar(s.rol)} empresa={s.empresa} nombreEmpresa={e?.n ?? ""} caja={actual}
+      <Caja fiar={puede.fiar(s.rol)} gerencia={puede.cartera(s.rol)} empresa={s.empresa} nombreEmpresa={e?.n ?? ""} caja={actual}
         formulas={{ vigencia_dias: Number(e?.formula_vigencia_dias ?? 30), exige_datos: !!e?.formula_exige_datos }} />
     </main>
   );

@@ -1189,3 +1189,67 @@ test("cotizaciones vencidas: quedan «vencidas» y se pueden cobrar al precio de
     assert.equal((await c.query("select cobrar_pedido($1, $2) r", [p.id, v.venta_id])).rows[0].r.estado, "cobrado");
   });
 });
+
+// ───────────── Integración del Bloque 2 (033a): la consola elimina una droguería de prueba con compras, pedidos y recibos
+test("la consola elimina una droguería de prueba con compras, pagos y devoluciones a proveedores, pedidos y recibos de caja", async () => {
+  await como(U.duenoB, async (c) => {
+    const raiz = async () => { await c.query("reset role"); };
+    const dueno = async () => { await c.query("set local role authenticated"); };
+    await raiz();
+    const sede = (await c.query(`select id from sedes where empresa_id = $1 limit 1`, [E.B])).rows[0].id;
+    const caja = (await c.query(`select id from cajas where empresa_id = $1 and activa limit 1`, [E.B])).rows[0].id;
+    const p = (await c.query(`insert into productos (empresa_id, nombre, precio_caja) values ($1, 'Producto bloque 2 B', 1000) returning id`, [E.B])).rows[0].id;
+    // B vende solo con numeración de producción; antes de eliminarla se vuelve a «pruebas» (la consola no borra lo fiscal real).
+    await c.query(`insert into resoluciones_dian (empresa_id, tipo, prefijo, desde, hasta, actual, vigente_hasta, pruebas) values ($1, 'factura', 'FB', 1, 1000, 0, '2027-12-31', true)`, [E.B]);
+    await c.query(`update resoluciones_dian set pruebas = false, numero_resolucion = '18760000000001' where empresa_id = $1`, [E.B]);
+    await dueno();
+    const turno = (await c.query("select abrir_turno($1, 0) t", [caja])).rows[0].t;
+    // Compras: compra a crédito, pago por transferencia, pago en efectivo desde la caja (egreso del turno) y devolución.
+    const prov = (await c.query(`insert into proveedores (empresa_id, nombre, plazo_dias) values ($1, 'Proveedor B bloque 2', 30) returning id`, [E.B])).rows[0].id;
+    const compraB = (await c.query("select registrar_compra($1) r", [{ empresa_id: E.B, sede_id: sede, proveedor_id: prov, numero_factura: "FB-1", condicion: "credito",
+      fecha_factura: new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" }),
+      lineas: [{ producto_id: p, lote: "LB2", vence: "2031-06-30", unidades: 40, costo: 500, costo_por: "unidad", iva_pct: 0 }] }])).rows[0].r;
+    await c.query("select registrar_pago_proveedor($1)", [{ empresa_id: E.B, proveedor_id: prov, medio: "transferencia", valor: 1000, compras: [compraB.id] }]);
+    await c.query("select registrar_pago_proveedor($1)", [{ empresa_id: E.B, proveedor_id: prov, medio: "efectivo", valor: 500, caja_id: caja, compras: [compraB.id] }]);
+    const linea = (await c.query(`select id from compra_lineas where compra_id = $1`, [compraB.id])).rows[0].id;
+    await c.query("select registrar_devolucion_proveedor($1)", [{ empresa_id: E.B, compra_id: compraB.id, motivo: "Empaque roto", lineas: [{ compra_linea_id: linea, unidades: 2 }] }]);
+    // Mostrador: una espera cobrada (enlazada a su venta) y una cotización abierta.
+    const ped = (await c.query("select guardar_pedido($1) r", [{ empresa_id: E.B, sede_id: sede, caja_id: caja, tipo: "espera", lineas: [{ producto_id: p, presentacion: "caja", cantidad: 1 }] }])).rows[0].r;
+    await c.query("select guardar_pedido($1)", [{ empresa_id: E.B, sede_id: sede, caja_id: caja, tipo: "cotizacion", lineas: [{ producto_id: p, presentacion: "caja", cantidad: 3 }] }]);
+    const vp = (await c.query("select registrar_venta($1) r", [{ empresa_id: E.B, sede_id: sede, caja_id: caja, idem_key: crypto.randomUUID(), tipo_doc: "pos",
+      lineas: [{ producto_id: p, presentacion: "caja", cantidad: 1 }], pagos: [{ medio: "efectivo", valor: 1000 }] }])).rows[0].r;
+    await c.query("select cobrar_pedido($1, $2)", [ped.id, vp.venta_id]);
+    // Cuentas de clientes: cupo, venta a crédito y recibo de caja en el turno.
+    const cli = (await c.query(`insert into clientes (empresa_id, tipo_doc, numero_doc, nombre, email) values ($1, 'CC', '55500011', 'Cliente B bloque 2', 'b2@prueba.example') returning id`, [E.B])).rows[0].id;
+    await c.query("select configurar_credito_cliente($1, 100000, 30, false, null)", [cli]);
+    await c.query("select registrar_venta($1)", [{ empresa_id: E.B, sede_id: sede, caja_id: caja, idem_key: crypto.randomUUID(), tipo_doc: "factura", cliente_id: cli,
+      condicion: "credito", pagos: [], lineas: [{ producto_id: p, presentacion: "caja", cantidad: 2 }] }]);
+    const rc = (await c.query("select registrar_recibo($1, 'efectivo', 1500, null, $2) r", [cli, caja])).rows[0].r;
+    const TABLAS = ["compras", "compra_lineas", "pagos_proveedor", "pago_aplicaciones", "devoluciones_proveedor", "devolucion_proveedor_lineas",
+      "pedidos_mostrador", "pedido_lineas", "recibos_caja", "abonos", "proveedores"];
+    const cuenta = async () => (await c.query(`select ${TABLAS.map((t) => `(select count(*)::int from ${t} where empresa_id = $1) ${t}`).join(", ")}`, [E.B])).rows[0];
+    await raiz();
+    const antes = await cuenta();
+    assert.ok(TABLAS.every((t) => antes[t] > 0), "hay datos de los tres frentes en B: " + JSON.stringify(antes));
+    assert.ok((await c.query(`select turno_id from recibos_caja where id = $1`, [rc.id])).rows[0].turno_id === turno, "el recibo quedó en el turno");
+    // Un usuario de la app no borra recibos, ni siquiera con la marca de la consola puesta.
+    await c.query("savepoint s");
+    await dueno();
+    await c.query("select set_config('regenta.eliminar_empresa', $1, true)", [E.B]);
+    await assert.rejects(c.query(`delete from recibos_caja where id = $1`, [rc.id]), /permission denied|no se borran/);
+    await c.query("rollback to savepoint s");
+    await raiz();
+    await assert.rejects(c.query(`delete from recibos_caja where id = $1`, [rc.id]), /no se borran/);
+    await c.query("rollback to savepoint s");
+    await raiz();
+    await c.query(`update empresas set estado = 'suspendida' where id = $1`, [E.B]);
+    await assert.rejects(c.query("select eliminar_empresa_prueba($1)", [E.B]), /se conservan por ley/);
+    await c.query("rollback to savepoint s");
+    await raiz();
+    await c.query(`update resoluciones_dian set pruebas = true where empresa_id = $1`, [E.B]);
+    await c.query(`update empresas set estado = 'suspendida' where id = $1`, [E.B]);
+    await c.query("select eliminar_empresa_prueba($1)", [E.B]);
+    assert.equal((await c.query(`select count(*)::int n from empresas where id = $1`, [E.B])).rows[0].n, 0);
+    assert.deepEqual(await cuenta(), Object.fromEntries(TABLAS.map((t) => [t, 0])), "no queda nada de compras, pedidos ni recibos");
+  });
+});

@@ -2,7 +2,7 @@
 import { guardarImpresora, imprimirTiquete, leerImpresora, type Impresora } from "@/lib/impresion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pesos } from "@/lib/formato";
-import { ClienteFactura, documento, type Cliente } from "./ClienteFactura";
+import { ClienteFactura, documento, type Cliente, type CreditoCaja } from "./ClienteFactura";
 import { actualizarCatalogo, buscarLocal, catalogo, cola, descartar, encolar, reintentar, esFallaDeRed, imprimirProvisional, sincronizar, type VentaEnCola } from "@/lib/sin-conexion";
 import { FORMULA_VACIA, errorFormula, exigencia, limpiarDoc, pideFormula, type ConfigFormula, type DatosFormula } from "@/lib/control-especial";
 import { MAX_CANTIDAD, etiquetaPedido, netoLinea, prefijoCantidad, type TipoPedido } from "@/lib/pedidos";
@@ -18,7 +18,9 @@ import { precioDe, unidadesDe, type Linea, type Medio, type PedidoVinculado, typ
 const PLAZOS = [15, 30, 45, 60, 90];
 type DetallePedido = Omit<PedidoGuardado, "lineas"> & PedidoVinculado & { cliente_datos: Cliente | null; lineas: (Omit<PedidoGuardado["lineas"][number], "producto"> & { producto: Producto & { activo?: boolean } })[] };
 
-export function Caja({ fiar, empresa, nombreEmpresa, formulas, caja }: { fiar: boolean; empresa: string; nombreEmpresa: string; formulas: ConfigFormula; caja: string | null }) {
+export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja }: { fiar: boolean;
+  /** Dueño o administrador: fían también a clientes sin cupo y se pasan del cupo escribiendo el motivo. */ gerencia: boolean;
+  empresa: string; nombreEmpresa: string; formulas: ConfigFormula; caja: string | null }) {
   const [q, setQ] = useState("");
   const [res, setRes] = useState<Producto[]>([]);
   const [sel, setSel] = useState(0);
@@ -40,6 +42,9 @@ export function Caja({ fiar, empresa, nombreEmpresa, formulas, caja }: { fiar: b
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [credito, setCredito] = useState(false);
   const [plazo, setPlazo] = useState(30);
+  // Crédito del cliente elegido (GET /api/clientes/[id]/credito con el total) y motivo cuando la gerencia se pasa del cupo.
+  const [cred, setCred] = useState<CreditoCaja | null>(null);
+  const [motivoCredito, setMotivoCredito] = useState("");
   const idem = useRef<string>(crypto.randomUUID());
   // Fórmula médica de la venta (productos con fórmula o de control especial).
   const [formula, setFormula] = useState<DatosFormula>(FORMULA_VACIA);
@@ -139,7 +144,7 @@ export function Caja({ fiar, empresa, nombreEmpresa, formulas, caja }: { fiar: b
   const excede = useCallback((ls: Linea[], p: Producto) => ls.filter((l) => l.p.id === p.id).reduce((a, l) => a + unidadesDe(l), 0) > p.unidades, []);
 
   const limpiar = useCallback(() => {
-    setLineas([]); setHecho(null); setCobrando(false); setRecibido(""); setMedio("efectivo"); setOtro(null); setDescGeneral(0); setError(""); setCliente(null); setCredito(false); setFormula(FORMULA_VACIA);
+    setLineas([]); setHecho(null); setCobrando(false); setRecibido(""); setMedio("efectivo"); setOtro(null); setDescGeneral(0); setError(""); setCliente(null); setCredito(false); setCred(null); setMotivoCredito(""); setFormula(FORMULA_VACIA);
     setPedido(null); setMult(null); setRecuperada(false); setCobrado(null);
     idem.current = crypto.randomUUID();
   }, []);
@@ -240,7 +245,19 @@ export function Caja({ fiar, empresa, nombreEmpresa, formulas, caja }: { fiar: b
     return () => { clearTimeout(h); ctl.abort(); };
   }, [ids, pedido, enLinea]);
 
-  const aCredito = credito && tipoDoc === "factura" && fiar;
+  // «Crédito» se ofrece cuando la base dice que se le puede fiar (la cajera, dentro del cupo) o, a la gerencia, cuando puede
+  // autorizarlo con un motivo; mientras no hay respuesta, la gerencia lo ve como siempre y la cajera no. La base vuelve a
+  // decidir al registrar.
+  const credCliente = cliente && cred?.id === cliente.id ? cred : null;
+  const ofreceCredito = tipoDoc === "factura" && fiar && (credCliente ? credCliente.puede_fiar || credCliente.requiere_motivo : gerencia);
+  const aCredito = credito && ofreceCredito;
+  const pideMotivo = aCredito && !!credCliente && !credCliente.puede_fiar && credCliente.requiere_motivo;
+  const faltaMotivo = pideMotivo && motivoCredito.trim().length < 4;
+  useEffect(() => { if (credito && cliente && credCliente && !ofreceCredito) setCredito(false); }, [credito, cliente, credCliente, ofreceCredito]);
+  // El plazo por defecto del cliente, al elegirlo.
+  const clienteId = cliente?.id ?? null;
+  const plazoCliente = credCliente?.plazo_dias ?? null;
+  useEffect(() => { if (clienteId && plazoCliente && PLAZOS.includes(plazoCliente)) setPlazo(plazoCliente); }, [clienteId, plazoCliente]);
   const otroNum = medio === "efectivo" && otro ? Math.min(Number(otro.valor.replace(/\D/g, "")) || 0, Math.round(totales.total)) : 0;
   const restante = Math.round(totales.total) - otroNum; // lo que falta cubrir en efectivo
   const recibidoNum = medio === "efectivo" && !aCredito ? Number(recibido.replace(/\D/g, "")) || 0 : totales.total;
@@ -250,7 +267,7 @@ export function Caja({ fiar, empresa, nombreEmpresa, formulas, caja }: { fiar: b
   const pide = pideFormula(ex);
   const faltaFormula = pide ? errorFormula(formula, ex, formulas) : null;
   const formulaSinRed = !enLinea && ex.datos; // sin internet no se garantiza el registro: esos productos no se venden
-  const puedeCobrar = lineas.length > 0 && !lineas.some((l) => excede(lineas, l.p)) && !faltaCliente && !faltaFormula && !formulaSinRed;
+  const puedeCobrar = lineas.length > 0 && !lineas.some((l) => excede(lineas, l.p)) && !faltaCliente && !faltaFormula && !formulaSinRed && !faltaMotivo;
   const preciosCambiados = lineas.filter((l) => l.antes !== undefined && l.antes !== precioDe(l)).length;
   // F9 o «Cobrar» con la fórmula incompleta llevan al primer dato que falta (lector y teclado no se quedan sin salida).
   const irAFormula = useCallback(() => {
@@ -263,13 +280,14 @@ export function Caja({ fiar, empresa, nombreEmpresa, formulas, caja }: { fiar: b
 
   async function confirmar() {
     if (enviando) return;
+    if (!puedeCobrar && faltaMotivo && !faltaCliente && !faltaFormula && !formulaSinRed) { setError("Escribe el motivo de la autorización para fiar por encima de lo permitido"); document.getElementById("motivo-credito")?.focus(); return; }
     if (!puedeCobrar) { if (faltaFormula || formulaSinRed) { setError(formulaSinRed ? "Sin internet no se puede registrar la fórmula médica" : faltaFormula!); irAFormula(); } return; }
     if (!aCredito && medio === "efectivo" && otro && (otroNum <= 0 || otroNum >= Math.round(totales.total))) { setError("En el pago mixto, la parte con el otro medio debe ser menor que el total"); return; }
     if (!aCredito && medio === "efectivo" && recibidoNum < restante) { setError(otroNum ? `El efectivo no cubre el resto (${pesos(restante)})` : "El efectivo recibido no cubre el total"); return; }
     setEnviando(true); setError("");
     const cuerpo = {
           idem_key: idem.current, tipo_doc: tipoDoc, cliente_id: tipoDoc === "factura" ? cliente?.id : null,
-          condicion: aCredito ? "credito" : "contado", plazo_dias: aCredito ? plazo : null,
+          condicion: aCredito ? "credito" : "contado", plazo_dias: aCredito ? plazo : null, motivo_credito: pideMotivo ? motivoCredito.trim() : null,
           lineas: lineas.map((l) => ({ producto_id: l.p.id, presentacion: l.presentacion, cantidad: l.cantidad, descuento_pct: l.descuento })),
           descuento_pct: descGeneral,
           pagos: aCredito ? [] : medio === "efectivo" && otroNum > 0
@@ -278,11 +296,6 @@ export function Caja({ fiar, empresa, nombreEmpresa, formulas, caja }: { fiar: b
           formula: pide ? (ex.datos ? { ...formula, verificada: true, paciente_doc: limpiarDoc(formula.paciente_doc) } : { ...FORMULA_VACIA, verificada: formula.verificada }) : null,
     };
     try {
-      // Un pedido a crédito: si la droguería maneja cupos (otro módulo), se respeta; si no existe esa consulta, como siempre.
-      if (pedido && aCredito && cliente) {
-        const c = await fetch(`/api/clientes/${cliente.id}/credito`).catch(() => null);
-        if (c?.ok) { const k = await c.json().catch(() => ({})); if (k.puede_fiar === false) { setError(k.motivo || "Este cliente no tiene cupo de crédito disponible"); return; } }
-      }
       const r = await fetch(pedido ? `/api/pedidos/${pedido.id}/cobrar` : "/api/ventas", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(cuerpo) });
       const j = await r.json();
       if (!r.ok) { setError(j.error ?? "No se pudo registrar la venta"); return; }
@@ -466,8 +479,8 @@ export function Caja({ fiar, empresa, nombreEmpresa, formulas, caja }: { fiar: b
                 ))}
               </div>
             </div>
-            {tipoDoc === "factura" && <ClienteFactura cliente={cliente} onCambio={setCliente} />}
-            {tipoDoc === "factura" && fiar && (
+            {tipoDoc === "factura" && <ClienteFactura cliente={cliente} onCambio={(c) => { setCliente(c); setMotivoCredito(""); }} total={Math.round(totales.total)} onCredito={setCred} gerencia={gerencia} />}
+            {ofreceCredito && (
                   <div className="px-6 pt-3">
                     <p className="text-sm font-semibold mb-2">Forma de pago</p>
                     <div className="grid grid-cols-2 gap-2" role="group" aria-label="Forma de pago">
@@ -486,6 +499,15 @@ export function Caja({ fiar, empresa, nombreEmpresa, formulas, caja }: { fiar: b
                           ))}
                         </div>
                         <p className="mt-2 text-sm text-muted">{cliente ? `${cliente.nombre} (${documento(cliente)})` : "El cliente"} paga a {plazo} días. Los abonos se registran en Cartera.</p>
+                        {pideMotivo && (
+                          <div className="mt-3 rounded-xl border-2 border-aviso bg-aviso-soft p-3">
+                            <label htmlFor="motivo-credito" className="text-sm font-semibold">Motivo de la autorización</label>
+                            <p id="motivo-credito-ayuda" className="text-[13px] text-muted">Fiar por encima de lo permitido queda a tu nombre, con este motivo, en la auditoría.</p>
+                            <textarea id="motivo-credito" rows={2} maxLength={200} value={motivoCredito} aria-describedby="motivo-credito-ayuda"
+                              onChange={(e) => { setMotivoCredito(e.target.value); setError(""); }} placeholder="Ej.: cliente de años, paga el viernes"
+                              className="mt-2 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm" />
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -533,7 +555,7 @@ export function Caja({ fiar, empresa, nombreEmpresa, formulas, caja }: { fiar: b
                   className="w-full h-16 rounded-xl bg-cruz text-cruz-ink text-xl font-semibold disabled:opacity-40 flex items-center justify-center gap-3">
                   Cobrar <kbd className="!bg-transparent !text-white/80 !border-white/40">F9</kbd>
                 </button>
-                <p className="mt-3 text-center text-[13px] text-muted">{faltaCliente && lineas.length > 0 ? "Elige o crea el cliente para facturar" : formulaSinRed ? "Sin internet no se venden productos que exigen registrar la fórmula" : faltaFormula && lineas.length > 0 ? <>Completa la fórmula médica para cobrar · <kbd>F9</kbd> te lleva al dato que falta</> : `${tipoDoc === "factura" ? "Factura electrónica de venta" : "Tiquete POS electrónico"} · el lote que vence antes sale primero`}</p>
+                <p className="mt-3 text-center text-[13px] text-muted">{faltaCliente && lineas.length > 0 ? "Elige o crea el cliente para facturar" : faltaMotivo && lineas.length > 0 ? "Escribe el motivo para fiar por encima del cupo" : formulaSinRed ? "Sin internet no se venden productos que exigen registrar la fórmula" : faltaFormula && lineas.length > 0 ? <>Completa la fórmula médica para cobrar · <kbd>F9</kbd> te lleva al dato que falta</> : `${tipoDoc === "factura" ? "Factura electrónica de venta" : "Tiquete POS electrónico"} · el lote que vence antes sale primero`}</p>
               </div>
             )}
           </>

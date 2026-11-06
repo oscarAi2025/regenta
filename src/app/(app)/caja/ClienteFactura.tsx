@@ -8,17 +8,17 @@ const TIPOS = [["NIT", "NIT"], ["CC", "Cédula"], ["CE", "Cédula de extranjerí
 export const documento = (c: Cliente) => `${c.tipo_doc} ${c.numero_doc}${c.dv ? `-${c.dv}` : ""}`;
 
 /** Respuesta de GET /api/clientes/[id]/credito (contrato con la caja). */
-export type CreditoCaja = { puede_fiar: boolean; requiere_motivo: boolean; motivo: string | null; aviso: string | null; cupo: number | null; cupo_disponible: number | null; saldo: number; dias_mora: number; plazo_dias: number | null };
+export type CreditoCaja = { id: string; bloqueado: boolean; puede_fiar: boolean; requiere_motivo: boolean; motivo: string | null; aviso: string | null; cupo: number | null; cupo_disponible: number | null; saldo: number; dias_mora: number; plazo_dias: number | null };
 
 /** Cupo disponible y motivo cuando no se le puede fiar. Con `total`, evalúa la venta en curso (supera el cupo…). */
-function CreditoDelCliente({ id, total, onCredito }: { id: string; total?: number; onCredito?: (c: CreditoCaja | null) => void }) {
+function CreditoDelCliente({ id, total, onCredito, gerencia }: { id: string; total?: number; onCredito?: (c: CreditoCaja | null) => void; gerencia?: boolean }) {
   const [c, setC] = useState<CreditoCaja | null>(null);
   useEffect(() => {
     const ctl = new AbortController();
     const h = setTimeout(async () => {
       try {
         const r = await fetch(`/api/clientes/${id}/credito${total ? `?valor=${Math.round(total)}` : ""}`, { signal: ctl.signal });
-        const j = r.ok ? await r.json() : null;
+        const j: CreditoCaja | null = r.ok ? { ...(await r.json()), id } : null;
         setC(j); onCredito?.(j);
       } catch { /* cancelada o sin conexión: no se muestra */ }
     }, total === undefined ? 0 : 250);
@@ -26,6 +26,8 @@ function CreditoDelCliente({ id, total, onCredito }: { id: string; total?: numbe
   }, [id, total, onCredito]);
   if (!c) return null;
   if (c.cupo === null && c.puede_fiar && c.saldo === 0) return null; // gerencia, cliente sin cupo ni deuda: nada que avisar
+  // Cajera y cliente sin cupo asignado (sin deuda, bloqueo ni mora): no es una alerta, solo que la venta va de contado.
+  if (!gerencia && c.cupo === null && c.saldo === 0 && !c.bloqueado && !c.dias_mora) return <p className="mt-2 text-sm text-muted">Sin cupo de crédito asignado: se factura de contado.</p>;
   return (
     <div className="mt-2 text-sm" aria-live="polite">
       {c.cupo !== null && <p className="num">Cupo disponible <b className={c.cupo_disponible ? "text-cruz" : "text-alerta"}>{pesos(c.cupo_disponible ?? 0)}</b> de {pesos(c.cupo)}{c.saldo > 0 ? ` · debe ${pesos(c.saldo)}` : ""}</p>}
@@ -36,7 +38,8 @@ function CreditoDelCliente({ id, total, onCredito }: { id: string; total?: numbe
 }
 
 /** Cliente de la factura electrónica: buscar por NIT, cédula o nombre, o crearlo sin salir de la venta. */
-export function ClienteFactura({ cliente, onCambio, total, onCredito }: { cliente: Cliente | null; onCambio: (c: Cliente | null) => void;
+export function ClienteFactura({ cliente, onCambio, total, onCredito, gerencia }: { cliente: Cliente | null; onCambio: (c: Cliente | null) => void;
+  /** Dueño o administrador (pueden autorizar con un motivo). */ gerencia?: boolean;
   /** Total de la venta en curso, para saber si cabe en el cupo (opcional). */ total?: number;
   /** Recibe el estado de crédito del cliente elegido (para que la caja decida si muestra «Crédito» o pide el motivo). */ onCredito?: (c: CreditoCaja | null) => void }) {
   const [q, setQ] = useState("");
@@ -86,7 +89,7 @@ export function ClienteFactura({ cliente, onCambio, total, onCredito }: { client
         <p className="font-semibold leading-snug">{cliente.nombre}</p>
         <p className="text-sm text-muted num">{documento(cliente)}{cliente.email ? ` · ${cliente.email}` : ""}</p>
         {!cliente.email && <p className="text-xs text-aviso mt-1">Sin correo: la factura no le llegará por email</p>}
-        <CreditoDelCliente id={cliente.id} total={total} onCredito={onCredito} />
+        <CreditoDelCliente id={cliente.id} total={total} onCredito={onCredito} gerencia={gerencia} />
       </div>
       <button onClick={() => { onCambio(null); setTimeout(() => input.current?.focus(), 0); }} className="text-sm font-semibold underline shrink-0">Cambiar</button>
     </div>

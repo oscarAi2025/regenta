@@ -60,6 +60,7 @@ export const puede = {
   moverInventario: (r: Rol) => r === "dueno" || r === "admin" || r === "bodeguero",
   anular: (r: Rol) => r === "dueno" || r === "admin",
   cartera: (r: Rol) => r === "dueno" || r === "admin",
-  /** Vender a crédito: quien responde por la cartera. */
-  fiar: (r: Rol) => r === "dueno" || r === "admin",
+  /** Vender a crédito: la gerencia (también a clientes sin cupo, o pasándose con un motivo) y la cajera dentro del cupo
+   *  del cliente. La base (registrar_venta → credito_cliente) es la que decide cada venta. */
+  fiar: (r: Rol) => r === "dueno" || r === "admin" || r === "cajero",
 };

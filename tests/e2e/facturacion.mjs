@@ -145,7 +145,7 @@ async function agregar(p, texto) {
   await ctx.close();
 }
 
-// ── Cajera: factura sí, crédito y cartera no
+// ── Cajera: factura sí; crédito no (cliente sin cupo asignado; con cupo lo prueba cuentas-clientes.mjs); cartera no
 {
   const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
   const { p, errs } = await entrar(ctx, "Laura");
@@ -154,7 +154,7 @@ async function agregar(p, texto) {
   await p.getByRole("button", { name: /Hogar Geriátrico/ }).click();
   await agregar(p, "acetaminofen");
   await p.keyboard.press("F9");
-  ok(await p.getByRole("button", { name: "Crédito", exact: true }).count() === 0, "la cajera no ve la opción de crédito");
+  ok(await p.getByRole("button", { name: "Crédito", exact: true }).count() === 0, "la cajera no ve la opción de crédito con un cliente sin cupo");
   await p.goto(B + "/cartera"); await p.waitForLoadState("networkidle");
   await p.waitForURL(/\/inicio/);
   ok(true, "la cajera no entra a Cartera");
