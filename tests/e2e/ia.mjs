@@ -49,6 +49,11 @@ const mock = http.createServer((req, res) => {
       const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
       return responder({ stop_reason: "tool_use", content: [{ type: "tool_use", id: "t2", name: "resumen_ventas", input: { desde: hoy, hasta: hoy } }] });
     }
+    // Respuesta que llega al tope de longitud: Regenta IA debe continuar sola en la misma respuesta
+    if (typeof ultimo.content === "string" && /^respuesta muy larga/i.test(ultimo.content))
+      return responder({ stop_reason: "max_tokens", content: [{ type: "text", text: "Parte uno de la tabla, " }] });
+    if (typeof ultimo.content === "string" && /^Continúa exactamente donde quedaste/.test(ultimo.content))
+      return responder({ stop_reason: "end_turn", content: [{ type: "text", text: "parte dos y cierre." }] });
     if (typeof ultimo.content === "string" && /inventario a costo/i.test(ultimo.content))
       return responder({ stop_reason: "tool_use", content: [{ type: "text", text: "" }, { type: "tool_use", id: "t3", name: "resumen_inventario", input: {} }] });
     if (typeof ultimo.content === "string") {
@@ -122,14 +127,6 @@ const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw
   ok(datos.length > 0 && !("valor_en_riesgo" in datos[0]), "a la cajera no le llegan costos");
   const malo = await p.request.post(B + "/api/ia", { data: { mensajes: [] } });
   ok(malo.status() === 400, "pregunta vacía rechazada");
-  // Conversación larga: una respuesta anterior de más de 2.000 caracteres ya no rompe la siguiente pregunta (07/11)
-  const larga = "Pedido sugerido detallado. ".repeat(220);
-  const sigue = await p.request.post(B + "/api/ia", { data: { mensajes: [{ role: "user", content: "¿Qué pido esta semana?" }, { role: "assistant", content: larga }, { role: "user", content: "¿Y cuál me deja más margen?" }] } });
-  ok(sigue.ok(), "tras una respuesta larga, la siguiente pregunta funciona", `${sigue.status()} · ${larga.length} caracteres`);
-  const enviados = vistos.at(-1).body.messages;
-  ok(enviados[1].role === "assistant" && enviados[1].content.length <= 8000 && enviados[0].role === "user", "el historial llega al modelo en orden y recortado", JSON.stringify(enviados.map((m) => [m.role, typeof m.content === "string" ? m.content.length : "bloques"])));
-  const raro = await p.request.post(B + "/api/ia", { data: { mensajes: [{ role: "assistant", content: "Hola" }, { role: "user", content: "uno" }, { role: "user", content: "dos" }] } });
-  ok(raro.ok(), "historial desordenado (error previo, dos preguntas seguidas) se ordena y responde", `${raro.status()}`);
   await ctx.close();
 }
 // Celular: el panel ocupa la pantalla, «atrás» lo cierra sin salir de la página y el botón se esconde al bajar
@@ -186,6 +183,25 @@ const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw
 {
   const r = await (await b.newContext()).request.post(B + "/api/ia", { data: { mensajes: [{ role: "user", content: "hola" }] } });
   ok(r.status() === 401, "sin sesión no responde");
+}
+// Conversaciones largas (07/11): tras esperar la ventana del límite de la demo (8 preguntas por minuto por IP)
+{
+  await new Promise((r) => setTimeout(r, 61000));
+  const ctx = await b.newContext();
+  const p = await ctx.newPage();
+  await p.request.post(B + "/demo", { form: { rol: "dueno" } });
+  // Conversación larga: una respuesta anterior de más de 2.000 caracteres ya no rompe la siguiente pregunta (07/11)
+  const larga = "Pedido sugerido detallado. ".repeat(220);
+  const sigue = await p.request.post(B + "/api/ia", { data: { mensajes: [{ role: "user", content: "¿Qué pido esta semana?" }, { role: "assistant", content: larga }, { role: "user", content: "¿Y cuál me deja más margen?" }] } });
+  ok(sigue.ok(), "tras una respuesta larga, la siguiente pregunta funciona", `${sigue.status()} · ${larga.length} caracteres`);
+  const enviados = vistos.at(-1).body.messages;
+  ok(enviados[1].role === "assistant" && enviados[1].content.length <= 8000 && enviados[0].role === "user", "el historial llega al modelo en orden y recortado", JSON.stringify(enviados.map((m) => [m.role, typeof m.content === "string" ? m.content.length : "bloques"])));
+  const tope = await p.request.post(B + "/api/ia", { data: { mensajes: [{ role: "user", content: "respuesta muy larga por favor" }] } });
+  const finTope = (await tope.text()).split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l)).at(-1);
+  ok(finTope?.respuesta === "Parte uno de la tabla, parte dos y cierre.", "al llegar al tope de longitud continúa sola, sin pedir «sigue»", JSON.stringify(finTope));
+  const raro = await p.request.post(B + "/api/ia", { data: { mensajes: [{ role: "assistant", content: "Hola" }, { role: "user", content: "uno" }, { role: "user", content: "dos" }] } });
+  ok(raro.ok(), "historial desordenado (error previo, dos preguntas seguidas) se ordena y responde", `${raro.status()}`);
+  await ctx.close();
 }
 await b.close(); mock.close();
 console.log(`\n${fallos} fallos`);

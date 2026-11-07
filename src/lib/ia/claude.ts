@@ -144,20 +144,27 @@ export async function responder(s: Sesion, mensajes: Mensaje[], emitir: (e: Even
   // Instrucciones y herramientas en caché: a partir de la segunda pregunta la IA empieza a responder antes.
   const demo = await comoUsuario(s, async (c) => Boolean((await c.query(`select demo from empresas where id = $1`, [s.empresa])).rows[0]?.demo)).catch(() => false);
   const system = [{ type: "text", text: BASE, cache_control: { type: "ephemeral" } }, { type: "text", text: contexto(s, demo) }];
-  for (let paso = 0; paso < 6; paso++) {
-    const cuerpo = { model: MODELO(), max_tokens: 4000, system, tools: herramientasPara(s.rol), messages: turnos };
+  const t0 = Date.now(); let previo = "";   // texto ya escrito cuando la respuesta continúa sola tras llegar al tope
+  for (let paso = 0; paso < 8; paso++) {
+    const cuerpo = { model: MODELO(), max_tokens: 8000, system, tools: herramientasPara(s.rol), messages: turnos };
     let r: Respuesta;
     try { r = await llamar({ ...cuerpo, thinking: { type: "disabled" } }, emitir); }
     catch (e) { if (e instanceof ErrorIA && e.status === 400 && /thinking/i.test(e.message)) r = await llamar(cuerpo, emitir); else throw e; }
     const llamadas = r.content.filter((b): b is Extract<Bloque, { type: "tool_use" }> => b.type === "tool_use");
     if (r.stop_reason !== "tool_use" || !llamadas.length) {
-      const texto = r.content.filter((b): b is Extract<Bloque, { type: "text" }> => b.type === "text").map((b) => b.text).join("\n").trim();
-      // Si llegó al tope de longitud, se dice y se ofrece seguir (antes la respuesta quedaba cortada sin aviso).
+      const crudo = r.content.filter((b): b is Extract<Bloque, { type: "text" }> => b.type === "text").map((b) => b.text).join("\n");
+      const texto = crudo.trim();
+      // Llegó al tope de longitud: si hay tiempo, continúa sola en la misma respuesta (sin que la persona escriba «sigue»).
+      if (r.stop_reason === "max_tokens" && texto && Date.now() - t0 < 30000 && paso < 7) {
+        previo += crudo; turnos.push({ role: "assistant", content: texto }, { role: "user", content: "Continúa exactamente donde quedaste, sin repetir nada ni saludar." });
+        continue;
+      }
       const seguir = r.stop_reason === "max_tokens" && texto ? "\n\n(Escribe «sigue» y continúo.)" : "";
       if (seguir) emitir({ t: "texto", d: seguir });
-      return { respuesta: texto ? texto + seguir : "No pude armar la respuesta esta vez. Hazme la pregunta de nuevo, por favor.", herramientas: usadas };
+      const total = (previo + crudo).trim();
+      return { respuesta: total ? total + seguir : "No pude armar la respuesta esta vez. Hazme la pregunta de nuevo, por favor.", herramientas: usadas };
     }
-    emitir({ t: "limpiar" });
+    if (!previo) emitir({ t: "limpiar" });   // el texto provisional se descarta; lo ya escrito de una continuación, no
     turnos.push({ role: "assistant", content: r.content });
     usadas.push(...llamadas.map((ll) => ll.name));
     const resultados: Bloque[] = await Promise.all(llamadas.map(async (ll) => {
