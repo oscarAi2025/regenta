@@ -64,7 +64,7 @@ Tu nivel es el de un químico farmacéutico y regente de farmacia colombiano con
 Cómo trabajas:
 - Español de Colombia, directo y profesional. Respuestas cortas por defecto; si te piden detalle, profundiza con estructura (viñetas, pasos o tablas).
 - Toda respuesta queda completa: termina la idea, la lista o la tabla que empezaste. Mantén el hilo de la conversación (lo que ya dijo la persona y lo que ya respondiste) y no repitas lo ya explicado. Si escriben «sigue» o «continúa», sigue exactamente donde quedaste.
-- Datos de la droguería (ventas, inventario, lotes, existencias, predicciones, alertas): usa SIEMPRE las herramientas; nunca inventes cifras ni productos. Cuando recomiendes un producto o un equivalente, búscalo con buscar_producto y di si hay existencias y a qué precio.
+- Datos de la droguería (ventas, inventario, lotes, existencias, predicciones, alertas): usa SIEMPRE las herramientas; nunca inventes cifras ni productos. Pide lo justo: para pedido, margen o valor del pedido basta pedido_sugerido (trae precio, costo y margen); usa buscar_producto solo para productos puntuales. Cuando recomiendes un producto o un equivalente, búscalo con buscar_producto y di si hay existencias y a qué precio.
 - Conocimiento farmacéutico y normativo: responde con criterio técnico y di la base (ficha técnica, norma). Si no estás seguro de un dato puntual (una cifra, un artículo), dilo y sugiere verificarlo en la fuente oficial (INVIMA, normograma).
 - Dispensación: los medicamentos de venta con fórmula médica solo se dispensan con prescripción; los de control especial además con su recetario oficial y registro. Para medicamentos de venta libre puedes orientar con la posología del registro sanitario o el inserto para adultos, siempre indicando leer el inserto. En niños, embarazo, lactancia, adultos mayores polimedicados o enfermedades crónicas, recomienda consultar al médico antes de dar dosis.
 - Signos de alarma (dolor de pecho, dificultad para respirar, fiebre alta persistente o en menores de 3 meses, sangrado, deshidratación, síntomas neurológicos, reacción alérgica grave): indica remitir de inmediato a urgencias.
@@ -145,7 +145,10 @@ export async function responder(s: Sesion, mensajes: Mensaje[], emitir: (e: Even
   const demo = await comoUsuario(s, async (c) => Boolean((await c.query(`select demo from empresas where id = $1`, [s.empresa])).rows[0]?.demo)).catch(() => false);
   const system = [{ type: "text", text: BASE, cache_control: { type: "ephemeral" } }, { type: "text", text: contexto(s, demo) }];
   for (let paso = 0; paso < 6; paso++) {
-    const r = await llamar({ model: MODELO(), max_tokens: 4000, system, tools: herramientasPara(s.rol), messages: turnos }, emitir);
+    const cuerpo = { model: MODELO(), max_tokens: 4000, system, tools: herramientasPara(s.rol), messages: turnos };
+    let r: Respuesta;
+    try { r = await llamar({ ...cuerpo, thinking: { type: "disabled" } }, emitir); }
+    catch (e) { if (e instanceof ErrorIA && e.status === 400 && /thinking/i.test(e.message)) r = await llamar(cuerpo, emitir); else throw e; }
     const llamadas = r.content.filter((b): b is Extract<Bloque, { type: "tool_use" }> => b.type === "tool_use");
     if (r.stop_reason !== "tool_use" || !llamadas.length) {
       const texto = r.content.filter((b): b is Extract<Bloque, { type: "text" }> => b.type === "text").map((b) => b.text).join("\n").trim();

@@ -13,7 +13,7 @@ export const HERRAMIENTAS: Herramienta[] = [
     input_schema: { type: "object", properties: { desde: { type: "string", description: "Fecha inicial AAAA-MM-DD" }, hasta: { type: "string", description: "Fecha final AAAA-MM-DD (incluida)" } }, required: ["desde", "hasta"] } },
   { name: "buscar_producto", description: "Busca productos por nombre, laboratorio o código de barras. Devuelve precios, existencias vigentes, lotes con vencimiento, ritmo de venta y días de cobertura.",
     input_schema: { type: "object", properties: { texto: { type: "string", description: "Palabras del nombre o código de barras" } }, required: ["texto"] } },
-  { name: "pedido_sugerido", description: "Productos que se venden y no alcanzan para los próximos 18 días, con las cajas sugeridas a pedir.",
+  { name: "pedido_sugerido", description: "Productos que se venden y no alcanzan para los próximos 18 días, con las cajas sugeridas a pedir, el precio de venta por caja y (dueño y administrador) el último costo, el margen y el valor estimado del pedido. Úsala para preguntas de pedido, margen o cuánto vale el pedido en vez de buscar producto por producto.",
     input_schema: { type: "object", properties: { limite: { type: "number", description: "Máximo de productos (por defecto 20)" } } } },
   { name: "riesgo_vencimiento", description: "Lotes que, al ritmo de venta actual, no se alcanzarán a vender antes de vencer (próximos 6 meses), con unidades y valor en riesgo.",
     input_schema: { type: "object", properties: { limite: { type: "number", description: "Máximo de lotes (por defecto 20)" } } } },
@@ -75,9 +75,19 @@ export async function ejecutar(s: Sesion, nombre: string, entrada: Record<string
           where p.empresa_id = $1 and p.activo and (p.ean = $2 or (select bool_and(lower(p.nombre || ' ' || coalesce(p.laboratorio, '')) like '%' || w || '%') from unnest($3::text[]) w))
           order by pr.venta_dia desc limit 8`, [s.empresa, t, palabras])).rows;
       }
-      case "pedido_sugerido":
-        return (await c.query(`select nombre, laboratorio, unidades_por_caja, existencias, venta_dia::float venta_por_dia, dias_cobertura::float, sugerido_cajas
-          from prediccion_productos($1) where sugerido_unidades > 0 and venta_dia > 0 order by dias_cobertura nulls first limit $2`, [s.empresa, limite(entrada.limite)])).rows;
+      case "pedido_sugerido": {
+        // Con precio de venta (y, para dueño y administrador, último costo y margen) y el valor del pedido: así una sola
+        // consulta responde «qué pido, cuánto vale y qué me deja más», sin buscar producto por producto.
+        const filas = (await c.query(`select pr.nombre, pr.laboratorio, pr.unidades_por_caja, pr.existencias, pr.venta_dia::float venta_por_dia,
+            pr.dias_cobertura::float, pr.sugerido_cajas, p.precio_caja::float precio_venta_caja
+            ${costos ? `, (select lc.costo_unidad * greatest(pr.unidades_por_caja, 1) from lote_costos lc join lotes l on l.id = lc.lote_id
+                 where l.producto_id = pr.producto_id order by l.creado desc limit 1)::float ultimo_costo_caja` : ""}
+          from prediccion_productos($1) pr join productos p on p.id = pr.producto_id
+          where pr.sugerido_unidades > 0 and pr.venta_dia > 0 order by pr.dias_cobertura nulls first limit $2`, [s.empresa, limite(entrada.limite)])).rows;
+        const conMargen = filas.map((f) => costos && f.ultimo_costo_caja && f.precio_venta_caja
+          ? { ...f, margen_pct: Math.round((1 - f.ultimo_costo_caja / f.precio_venta_caja) * 1000) / 10, costo_pedido: Math.round(f.ultimo_costo_caja * f.sugerido_cajas) } : f);
+        return conMargen;   // costo_pedido = último costo registrado × cajas sugeridas (sin costo registrado no viene)
+      }
       case "riesgo_vencimiento":
         return (await c.query(`select nombre, lote, vence::text, dias, unidades, venta_dia::float venta_por_dia, unidades_en_riesgo ${costos ? ", valor_en_riesgo::float" : ""}
           from riesgo_vencimiento($1) order by coalesce(valor_en_riesgo, unidades_en_riesgo) desc limit $2`, [s.empresa, limite(entrada.limite)])).rows;
