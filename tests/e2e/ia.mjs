@@ -122,6 +122,14 @@ const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw
   ok(datos.length > 0 && !("valor_en_riesgo" in datos[0]), "a la cajera no le llegan costos");
   const malo = await p.request.post(B + "/api/ia", { data: { mensajes: [] } });
   ok(malo.status() === 400, "pregunta vacía rechazada");
+  // Conversación larga: una respuesta anterior de más de 2.000 caracteres ya no rompe la siguiente pregunta (07/11)
+  const larga = "Pedido sugerido detallado. ".repeat(220);
+  const sigue = await p.request.post(B + "/api/ia", { data: { mensajes: [{ role: "user", content: "¿Qué pido esta semana?" }, { role: "assistant", content: larga }, { role: "user", content: "¿Y cuál me deja más margen?" }] } });
+  ok(sigue.ok(), "tras una respuesta larga, la siguiente pregunta funciona", `${sigue.status()} · ${larga.length} caracteres`);
+  const enviados = vistos.at(-1).body.messages;
+  ok(enviados[1].role === "assistant" && enviados[1].content.length <= 8000 && enviados[0].role === "user", "el historial llega al modelo en orden y recortado", JSON.stringify(enviados.map((m) => [m.role, typeof m.content === "string" ? m.content.length : "bloques"])));
+  const raro = await p.request.post(B + "/api/ia", { data: { mensajes: [{ role: "assistant", content: "Hola" }, { role: "user", content: "uno" }, { role: "user", content: "dos" }] } });
+  ok(raro.ok(), "historial desordenado (error previo, dos preguntas seguidas) se ordena y responde", `${raro.status()}`);
   await ctx.close();
 }
 // Celular: el panel ocupa la pantalla, «atrás» lo cierra sin salir de la página y el botón se esconde al bajar

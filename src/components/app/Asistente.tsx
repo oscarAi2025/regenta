@@ -66,7 +66,7 @@ export function Asistente({ activa }: { activa: boolean }) {
     let acumulado = "";
     try {
       const r = await fetch("/api/ia", { method: "POST", headers: { "content-type": "application/json" }, signal: ctl.signal,
-        body: JSON.stringify({ mensajes: nuevos.slice(-12).filter((m) => m.content).map(({ role, content }) => ({ role, content })) }) });
+        body: JSON.stringify({ mensajes: nuevos.filter((m) => m.content && !m.error).slice(-16).map(({ role, content }) => ({ role, content })) }) });
       if (!r.ok || !r.body) { const j = await r.json().catch(() => ({})); poner({ content: j.error ?? "No pude responder ahora.", error: true }); return; }
       const lector = r.body.getReader(); const dec = new TextDecoder(); let resto = "";
       for (;;) {

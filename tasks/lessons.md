@@ -216,3 +216,7 @@
 ## 2026-11-07 · Costos reales antes de fijar precios
 - El documento adicional se publicó a $20 y a Regenta le cuesta ≈ $21 en MATIAS (paquete de 30.000): se vendía a pérdida. Subido a $50.
 - El certificado digital NO va incluido en el paquete de MATIAS (solo el primero, como bono): cuesta $104.000/año por NIT. Antes de dar un costo o un margen, leerlo en la página oficial del proveedor, no de lo anotado.
+
+## 2026-11-07 · Regenta IA «se cortaba»
+- La API rechazaba el historial si cualquier mensaje pasaba de 2.000 caracteres: tras una respuesta larga de la IA (tablas, pedido), la pregunta siguiente fallaba con «Escribe tu pregunta». Validar la pregunta nueva, no el historial; el historial se limpia (orden, vacíos, errores) y se recorta en el servidor.
+- Probar siempre una conversación de varios turnos con respuestas largas, no solo una pregunta suelta. Reproducido en la demo publicada antes de corregir.

@@ -62,7 +62,8 @@ Tu nivel es el de un químico farmacéutico y regente de farmacia colombiano con
 - Venta consultiva y gestión: venta cruzada útil (p. ej. sales de rehidratación con antidiarreico, protector gástrico cuando aplica), rotación, márgenes, pedido, exhibición, cartera y servicio al cliente.
 
 Cómo trabajas:
-- Español de Colombia, directo y profesional. Respuestas cortas por defecto; si te piden detalle, profundiza con estructura (viñetas o pasos).
+- Español de Colombia, directo y profesional. Respuestas cortas por defecto; si te piden detalle, profundiza con estructura (viñetas, pasos o tablas).
+- Toda respuesta queda completa: termina la idea, la lista o la tabla que empezaste. Mantén el hilo de la conversación (lo que ya dijo la persona y lo que ya respondiste) y no repitas lo ya explicado. Si escriben «sigue» o «continúa», sigue exactamente donde quedaste.
 - Datos de la droguería (ventas, inventario, lotes, existencias, predicciones, alertas): usa SIEMPRE las herramientas; nunca inventes cifras ni productos. Cuando recomiendes un producto o un equivalente, búscalo con buscar_producto y di si hay existencias y a qué precio.
 - Conocimiento farmacéutico y normativo: responde con criterio técnico y di la base (ficha técnica, norma). Si no estás seguro de un dato puntual (una cifra, un artículo), dilo y sugiere verificarlo en la fuente oficial (INVIMA, normograma).
 - Dispensación: los medicamentos de venta con fórmula médica solo se dispensan con prescripción; los de control especial además con su recetario oficial y registro. Para medicamentos de venta libre puedes orientar con la posología del registro sanitario o el inserto para adultos, siempre indicando leer el inserto. En niños, embarazo, lactancia, adultos mayores polimedicados o enfermedades crónicas, recomienda consultar al médico antes de dar dosis.
@@ -107,6 +108,7 @@ async function llamar(cuerpo: Record<string, unknown>, emitir: (e: Evento) => vo
     const e = JSON.parse(data);
     if (e.type === "content_block_start") {
       const b = e.content_block;
+      if (b.type !== "tool_use" && b.type !== "text") return;   // razonamiento u otros bloques: no son respuesta
       bloques[e.index] = b.type === "tool_use" ? { type: "tool_use", id: b.id, name: b.name, input: {}, json: "" } : { type: "text", text: "" };
       if (b.type === "tool_use") emitir({ t: "consulta", h: b.name });
     } else if (e.type === "content_block_delta") {
@@ -143,11 +145,14 @@ export async function responder(s: Sesion, mensajes: Mensaje[], emitir: (e: Even
   const demo = await comoUsuario(s, async (c) => Boolean((await c.query(`select demo from empresas where id = $1`, [s.empresa])).rows[0]?.demo)).catch(() => false);
   const system = [{ type: "text", text: BASE, cache_control: { type: "ephemeral" } }, { type: "text", text: contexto(s, demo) }];
   for (let paso = 0; paso < 6; paso++) {
-    const r = await llamar({ model: MODELO(), max_tokens: 2000, system, tools: herramientasPara(s.rol), messages: turnos }, emitir);
+    const r = await llamar({ model: MODELO(), max_tokens: 4000, system, tools: herramientasPara(s.rol), messages: turnos }, emitir);
     const llamadas = r.content.filter((b): b is Extract<Bloque, { type: "tool_use" }> => b.type === "tool_use");
     if (r.stop_reason !== "tool_use" || !llamadas.length) {
       const texto = r.content.filter((b): b is Extract<Bloque, { type: "text" }> => b.type === "text").map((b) => b.text).join("\n").trim();
-      return { respuesta: texto || "No tengo una respuesta para eso.", herramientas: usadas };
+      // Si llegó al tope de longitud, se dice y se ofrece seguir (antes la respuesta quedaba cortada sin aviso).
+      const seguir = r.stop_reason === "max_tokens" && texto ? "\n\n(Escribe «sigue» y continúo.)" : "";
+      if (seguir) emitir({ t: "texto", d: seguir });
+      return { respuesta: texto ? texto + seguir : "No pude armar la respuesta esta vez. Hazme la pregunta de nuevo, por favor.", herramientas: usadas };
     }
     emitir({ t: "limpiar" });
     turnos.push({ role: "assistant", content: r.content });

@@ -3,7 +3,21 @@ import { conSesion, ipCliente, json, limitador, limiteBD } from "@/lib/api";
 import { sinRLS } from "@/lib/db";
 import { iaActiva, mensajeError, responder } from "@/lib/ia/claude";
 
-const Peticion = z.object({ mensajes: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().trim().min(1).max(2000) })).min(1).max(20) });
+// Las respuestas de la IA pueden ser largas (tablas, pedidos): el historial las acepta y el servidor las recorta para el
+// modelo. Antes una respuesta de más de 2.000 caracteres hacía fallar la pregunta siguiente («Escribe tu pregunta»).
+const Peticion = z.object({ mensajes: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(60000) })).min(1).max(40) });
+/** Historial limpio para el modelo: sin vacíos, turnos alternos (se juntan los seguidos del mismo rol), empieza por una
+ *  pregunta, la última es la pregunta nueva (máx. 2.000 caracteres) y las respuestas anteriores se recortan a 8.000. */
+function historial(ms: { role: "user" | "assistant"; content: string }[]) {
+  const out: { role: "user" | "assistant"; content: string }[] = [];
+  for (const m of ms.slice(-16)) {
+    const c = m.content.trim(); if (!c) continue;
+    const prev = out[out.length - 1];
+    if (prev && prev.role === m.role) prev.content += "\n\n" + c; else out.push({ role: m.role, content: c });
+  }
+  while (out.length && out[0].role !== "user") out.shift();
+  return out.map((m) => ({ role: m.role, content: m.role === "user" ? m.content.slice(0, 2000) : m.content.slice(0, 8000) }));
+}
 
 // Límite sencillo por usuario: 20 preguntas por minuto (por instancia del servidor).
 const uso = new Map<string, number[]>();
@@ -23,7 +37,8 @@ const IA_DIARIA = 300;
 export const POST = conSesion(async (s, req) => {
   if (!iaActiva()) return json({ error: "Regenta IA no está activada en este servidor." }, 503);
   const p = Peticion.safeParse(await req.json().catch(() => null));
-  if (!p.success || p.data.mensajes.at(-1)!.role !== "user") return json({ error: "Escribe tu pregunta" }, 400);
+  const mensajes = p.success ? historial(p.data.mensajes) : [];
+  if (!mensajes.length || mensajes.at(-1)!.role !== "user") return json({ error: "Escribe tu pregunta" }, 400);
   if (!permitido(s.uid)) return json({ error: "Muchas preguntas seguidas: espera un minuto." }, 429);
   if (!empresasDemo.has(s.empresa)) empresasDemo.set(s.empresa, !!(await sinRLS(async (c) => (await c.query(`select demo from empresas where id = $1`, [s.empresa])).rows[0]?.demo)));
   if (empresasDemo.get(s.empresa) && (!porIp(ipCliente(req)) || !diario("demo")
@@ -34,7 +49,6 @@ export const POST = conSesion(async (s, req) => {
   // Respuesta en flujo, una línea JSON por evento: {t:"consulta"} mientras consulta datos, {t:"texto"} con cada pedazo de
   // la respuesta en cuanto la IA lo escribe, {t:"limpiar"} si descarta un texto provisional y al final {t:"fin"} con la
   // respuesta completa (o «error»). Una línea vacía cada 3 s mantiene viva la conexión (Netlify la corta a los ~30 s sin datos).
-  const mensajes = p.data.mensajes;
   const cod = new TextEncoder();
   const flujo = new ReadableStream({
     async start(ctl) {
