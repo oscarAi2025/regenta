@@ -212,3 +212,7 @@
 - Controles de texto (Renombrar, ×, «¿Olvidaste tu contraseña?») de 20 px de alto son difíciles de tocar: mínimo 24 px (WCAG 2.5.8), con py-1.5 -my-1.5 para no mover el diseño.
 - (06/11) La API de Anthropic rechaza un bloque de texto vacío en el historial («text content blocks must be non-empty»): la IA a veces abre un texto y pasa directo a una herramienta. Al armar el turno del asistente se quitan los textos vacíos; el mock de ia.mjs ahora responde 400 como la API real.
 - La suite ia.mjs no se puede repetir dentro del mismo minuto: el límite de la demo (8 preguntas por minuto por IP) vive en memoria del servidor. Entre corridas, esperar 60 s.
+
+## 2026-11-07 · Costos reales antes de fijar precios
+- El documento adicional se publicó a $20 y a Regenta le cuesta ≈ $21 en MATIAS (paquete de 30.000): se vendía a pérdida. Subido a $50.
+- El certificado digital NO va incluido en el paquete de MATIAS (solo el primero, como bono): cuesta $104.000/año por NIT. Antes de dar un costo o un margen, leerlo en la página oficial del proveedor, no de lo anotado.

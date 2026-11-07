@@ -88,7 +88,7 @@ await q(`insert into documentos_dian (empresa_id, tipo, prefijo, numero, estado,
 await q(`insert into documentos_dian (empresa_id, tipo, prefijo, numero, estado, simulado, creado) select $1, 'pos', 'POI', 5000 + g, 'aceptado', false, now() from generate_series(1, 1850) g`, [emp]);
 await tarea(); await tarea();
 const cargo = await q(`select id, documentos, extra, monto::float, estado, referencia from cargos_documentos where empresa_id = $1`, [emp]);
-ok(cargo.length === 1 && cargo[0].documentos === 2012 && cargo[0].extra === 12 && cargo[0].monto === 240, "documentos extra: un solo cargo por los 12 de más (los de pruebas no cuentan)", JSON.stringify(cargo));
+ok(cargo.length === 1 && cargo[0].documentos === 2012 && cargo[0].extra === 12 && cargo[0].monto === 600, "documentos extra: un solo cargo por los 12 de más (los de pruebas no cuentan)", JSON.stringify(cargo));
 const cd = await correo(DUENO, "cargo_documentos");
 ok(cd?.estado === "simulado" && cd.datos.referencia === cargo[0]?.referencia, "documentos extra: correo con valor y referencia");
 ok((await correo(DUENO, "cupo_documentos"))?.estado === "simulado", "aviso al 90 % del cupo del mes");
