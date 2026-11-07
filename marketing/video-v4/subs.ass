@@ -1,0 +1,29 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+WrapStyle: 2
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: S,Barlow Semi Condensed,52,&H00FFFFFF,&H00FFFFFF,&H00402508,&H96402508,1,0,0,0,100,100,0,0,3,14,0,2,200,200,62,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.15,0:00:02.42,S,,0,0,0,,¡Tu droguería puede estar\Nen {\c&HA6B814&}otro nivel{\c&HFFFFFF&}!
+Dialogue: 0,0:00:03.15,0:00:04.31,S,,0,0,0,,¡Llegó {\c&HA6B814&}Regenta{\c&HFFFFFF&}!
+Dialogue: 0,0:00:04.36,0:00:07.48,S,,0,0,0,,La tecnología que te ayuda\Na tenerlo todo {\c&HA6B814&}bajo control{\c&HFFFFFF&}.
+Dialogue: 0,0:00:08.15,0:00:09.99,S,,0,0,0,,Vende ágil, con tu punto de venta
+Dialogue: 0,0:00:10.04,0:00:12.78,S,,0,0,0,,y {\c&HA6B814&}factura electrónica{\c&HFFFFFF&},\Nen la misma caja.
+Dialogue: 0,0:00:15.95,0:00:18.51,S,,0,0,0,,Organiza tu inventario,\Ncontrola {\c&HA6B814&}cada lote{\c&HFFFFFF&}
+Dialogue: 0,0:00:18.56,0:00:20.84,S,,0,0,0,,y anticípate a los {\c&HA6B814&}vencimientos{\c&HFFFFFF&}.
+Dialogue: 0,0:00:23.85,0:00:25.47,S,,0,0,0,,Y aquí viene lo mejor…
+Dialogue: 0,0:00:25.70,0:00:26.90,S,,0,0,0,,¡{\c&HA6B814&}Regenta IA{\c&HFFFFFF&}!
+Dialogue: 0,0:00:26.95,0:00:29.35,S,,0,0,0,,Analiza tus ventas\Ny te dice {\c&HA6B814&}qué reponer{\c&HFFFFFF&},
+Dialogue: 0,0:00:29.40,0:00:32.81,S,,0,0,0,,qué productos están quietos\Ny qué merece tu atención.
+Dialogue: 0,0:00:34.95,0:00:38.71,S,,0,0,0,,Alertas, temperatura,\N{\c&HA6B814&}control especial{\c&HFFFFFF&} e indicadores,
+Dialogue: 0,0:00:38.77,0:00:40.41,S,,0,0,0,,con información clara.
+Dialogue: 0,0:00:40.55,0:00:42.72,S,,0,0,0,,Menos enredos. {\c&HA6B814&}Más control{\c&HFFFFFF&}.
+Dialogue: 0,0:00:42.77,0:00:45.30,S,,0,0,0,,¡Y más tiempo para hacer\Ncrecer tu negocio!
+Dialogue: 0,0:00:45.55,0:00:48.58,S,,0,0,0,,Regenta.\NTu droguería, {\c&HA6B814&}en orden{\c&HFFFFFF&}.
+Dialogue: 0,0:00:48.75,0:00:51.71,S,,0,0,14,,¡Entra a {\c&HA6B814&}regenta.pro{\c&HFFFFFF&} y pruébala gratis!

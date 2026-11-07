@@ -1,0 +1,13 @@
+[
+ ["01", [["¡Tu droguería puede estar en otro nivel!", "+4%", "+8Hz", 0]]],
+ ["02", [["¡Llegó Regenta!", "+2%", "+10Hz", 0.25], ["La tecnología que te ayuda a tenerlo todo bajo control.", "+6%", "+5Hz", 0]]],
+ ["03", [["Vende ágil,", "+4%", "+7Hz", 0.12], ["con tu punto de venta y factura electrónica,", "+6%", "+5Hz", 0.1], ["en la misma caja.", "+4%", "+6Hz", 0]]],
+ ["04", [["Organiza tu inventario,", "+5%", "+6Hz", 0.1], ["controla cada lote", "+5%", "+5Hz", 0.1], ["y anticípate a los vencimientos.", "+4%", "+6Hz", 0]]],
+ ["05", [["Y aquí viene lo mejor…", "-2%", "+4Hz", 0]]],
+ ["06", [["¡Regenta IA!", "+0%", "+12Hz", 0]]],
+ ["07", [["Analiza tus ventas y te dice qué reponer,", "+6%", "+6Hz", 0.1], ["qué productos están quietos", "+6%", "+5Hz", 0.08], ["y qué merece tu atención.", "+4%", "+7Hz", 0]]],
+ ["08", [["Alertas, temperatura, control especial e indicadores,", "+7%", "+5Hz", 0.1], ["con información clara.", "+4%", "+6Hz", 0]]],
+ ["09", [["Menos enredos.", "+0%", "+5Hz", 0.18], ["Más control.", "+0%", "+6Hz", 0.18], ["¡Y más tiempo para hacer crecer tu negocio!", "+5%", "+9Hz", 0]]],
+ ["10", [["Regenta.", "-4%", "+6Hz", 0.25], ["Tu droguería, en orden.", "+0%", "+7Hz", 0]]],
+ ["11", [["¡Entra a regenta punto pro y pruébala gratis!", "+4%", "+10Hz", 0]]]
+]

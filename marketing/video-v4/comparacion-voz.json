@@ -1,0 +1,14 @@
+{
+ "voz-a": {
+  "mediana_hz": 182.6,
+  "rango_semitonos_p5_p95": 6.48,
+  "desviacion_st": 1.96,
+  "duracion": 39.2
+ },
+ "voz": {
+  "mediana_hz": 191.5,
+  "rango_semitonos_p5_p95": 6.6,
+  "desviacion_st": 2.0,
+  "duracion": 37.8
+ }
+}

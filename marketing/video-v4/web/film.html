@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Regenta · lanzamiento V4</title>
+<!-- Spot de lanzamiento V4. Una sola composición parametrizada: ?f=h (1920×1080), ?f=v (1080×1920), ?f=c (1080×1080).
+     window.render(T) dibuja el instante T (s). Las pantallas son grabaciones reales de la demo (fr/<toma>/NNNN.jpg). -->
+<style>
+@font-face{font-family:O;src:url(f/outfit-latin-400-normal.woff2);font-weight:400}
+@font-face{font-family:O;src:url(f/outfit-latin-500-normal.woff2);font-weight:500}
+@font-face{font-family:O;src:url(f/outfit-latin-600-normal.woff2);font-weight:600}
+@font-face{font-family:O;src:url(f/outfit-latin-700-normal.woff2);font-weight:700}
+@font-face{font-family:O;src:url(f/outfit-latin-800-normal.woff2);font-weight:800}
+@font-face{font-family:O;src:url(f/outfit-latin-900-normal.woff2);font-weight:900}
+:root{--azul:#0b2540;--azul2:#123d6e;--turq:#14b8a6;--turq2:#2dd4bf;--menta:#e8f8f4;--sol:#fbbf24;--verde:#22c55e;--tinta:#0b2540;--gris:#4f6577}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{overflow:hidden;background:#f4fbf9}
+#stage{position:absolute;left:0;top:0;overflow:hidden;font-family:O;color:var(--tinta)}
+.sc{position:absolute;inset:0;display:none}
+.abs{position:absolute}
+.k{font-family:O;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.92}
+.ln{display:block;overflow:hidden;padding:.06em 0 .04em}
+.ln>span{display:inline-block;will-change:transform}
+/* pantalla: ventana del navegador con la grabación real adentro */
+.pan{position:absolute;border-radius:26px;background:#fff;overflow:hidden;
+  box-shadow:0 50px 90px -40px rgba(11,37,64,.55),0 18px 40px -20px rgba(11,37,64,.25),0 0 0 1px rgba(11,37,64,.08)}
+.pan .cr{position:absolute;left:0;right:0;top:0;height:40px;background:#f1f5f7;border-bottom:1px solid #e2e8ec;display:flex;align-items:center;gap:9px;padding-left:20px}
+.pan .cr i{width:12px;height:12px;border-radius:50%;background:#d5dde3}
+.pan .cr span{margin-left:18px;font-size:16px;font-weight:500;color:#6b7f8e;background:#fff;border-radius:999px;padding:3px 16px}
+.pan .vp{position:absolute;left:0;right:0;top:40px;bottom:0;overflow:hidden;background:#f6f8f9}
+.pan .vp img{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0}
+.pill{position:absolute;display:inline-flex;align-items:center;gap:.45em;white-space:nowrap;font-weight:700;border-radius:999px;padding:.42em .95em;background:#fff;color:var(--tinta);
+  box-shadow:0 20px 40px -18px rgba(11,37,64,.5),0 0 0 1px rgba(11,37,64,.06)}
+.pill b{display:inline-grid;place-items:center;width:1.35em;height:1.35em;border-radius:50%;background:var(--turq);color:#fff;font-size:.8em}
+.nota{position:absolute;font-weight:500;color:#5b7080;line-height:1.3}
+#flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+</style></head>
+<body><div id="stage">
+<div id="bg" class="abs" style="inset:0"></div>
+<div id="escenas"></div>
+<div id="flash"></div>
+</div>
+<script src="data.js"></script>
+<script>
+const F = new URLSearchParams(location.search).get("f") || "h";
+const [VW, VH] = { h: [1920, 1080], v: [1080, 1920], c: [1080, 1080] }[F];
+const H = F === "h", V = F === "v";
+const P = (h, v, c) => (F === "h" ? h : F === "v" ? v : c);
+document.getElementById("stage").style.cssText += `;width:${VW}px;height:${VH}px`;
+document.body.style.cssText = `width:${VW}px;height:${VH}px`;
+
+const $ = (h) => { const d = document.createElement("div"); d.innerHTML = h.trim(); return d.firstElementChild; };
+const cl = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lin = (t, a, b) => cl((t - a) / (b - a));
+const eo = (x) => 1 - Math.pow(1 - x, 3), eoq = (x) => 1 - Math.pow(1 - x, 5), eio = (x) => (x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const back = (x) => { const c1 = 1.7, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const css = (el, x) => { if (el._b === undefined) el._b = el.style.cssText; el.style.cssText = el._b + ";" + x; };
+const Lk = Object.fromEntries(TL.lineas.map((l) => [l.k, l]));
+const W = (k, txt, desde = 0) => { const i = PW[k].findIndex((w, j) => j >= desde && w[1].toLowerCase().startsWith(txt.toLowerCase())); return Lk[k].ini + Math.max(0, PW[k][i < 0 ? 0 : i][0]); };
+const B = TL.beat, BAR = 4 * B, bar = (c) => c * BAR;
+const ISO = (s, id) => `<svg width="${s}" height="${s}" viewBox="0 0 48 48"><defs><linearGradient id="g${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#14b8a6"/><stop offset=".55" stop-color="#0e7490"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><rect x="2" y="2" width="44" height="44" rx="13" fill="url(#g${id})"/><path d="M13 10h18a3 3 0 0 1 3 3v24l-2.5-2-2.5 2-2.5-2-2.5 2-2.5-2-2.5 2-2.5-2-2.5 2-2.5-2V13a3 3 0 0 1 3-3z" fill="#fff"/><path d="M17.5 32V16h6.2a4.6 4.6 0 0 1 0 9.2h-6.2M23 25.2l5 6.8" fill="none" stroke="#0b2540" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M38 3.5l1.6 4.2 4.2 1.6-4.2 1.6L38 15.1l-1.6-4.2-4.2-1.6 4.2-1.6z" fill="#fbbf24" stroke="#fff" stroke-width="1.2"/></svg>`;
+const CHISPA = (s, c = "#fbbf24") => `<svg width="${s}" height="${s}" viewBox="0 0 20 20"><path d="M10 0l2.6 7.4L20 10l-7.4 2.6L10 20l-2.6-7.4L0 10l7.4-2.6z" fill="${c}"/></svg>`;
+
+// ── grabaciones: cuadro de una toma, ventana con cámara (foco y zoom sobre el cuadro de 1920×1080)
+const pend = []; const fijar = (img, src) => { if (img.getAttribute("src") !== src) { img.setAttribute("src", src); pend.push(img.decode().catch(() => {})); } };
+const src = (toma, n) => `fr/${toma}/${String(Math.min(NF[toma], Math.max(1, Math.round(n)))).padStart(4, "0")}.jpg`;
+const PAN = (id, url = "regenta.pro") => `<div class="pan" id="${id}"><div class="cr"><i></i><i></i><i></i><span>${url}</span></div><div class="vp"><img></div></div>`;
+const caja = (el, x, y, w, h, extra = "") => { el._w = w; el._h = h - 40; css(el, `left:${x}px;top:${y}px;width:${w}px;height:${h}px;${extra}`); };
+const ver = (el, toma, n, fx, fy, z) => {
+  const img = el.querySelector(".vp img"); fijar(img, src(toma, n));
+  const cw = el._w, ch = el._h, s = z * Math.max(cw / 1920, ch / 1080);
+  const L = cl(cw / 2 - fx * s, cw - 1920 * s, 0), T = cl(ch / 2 - fy * s, ch - 1080 * s, 0);
+  img.style.transform = `translate(${L}px,${T}px) scale(${s})`;
+};
+// curvas por tramos: [[t, v...], ...] → valores interpolados (suave entre llaves)
+const tramo = (t, ks, suave = true) => { if (t <= ks[0][0]) return ks[0].slice(1); for (let i = 1; i < ks.length; i++) if (t <= ks[i][0]) { const a = ks[i - 1], b = ks[i]; let k = (t - a[0]) / (b[0] - a[0]); if (suave) k = eio(k); return a.slice(1).map((v, j) => v + (b[j + 1] - v) * k); } return ks[ks.length - 1].slice(1); };
+const inv = (f, ks) => { for (let i = 1; i < ks.length; i++) { const a = ks[i - 1], b = ks[i]; if (f >= a[1] && f <= b[1] && b[1] > a[1]) return a[0] + (f - a[1]) / (b[1] - a[1]) * (b[0] - a[0]); } return null; };
+
+// ── líneas cinéticas: cada renglón sube desde su máscara
+const KT = (lineas, size, extra = "") => `<div class="abs k" style="font-size:${size}px;${extra}">${lineas.map((l) => `<span class="ln"><span style="${l[1] || ""}">${l[0]}</span></span>`).join("")}</div>`;
+const subir = (el, t, tiempos, salida = 1e9, dur = .42) => el.querySelectorAll(".ln>span").forEach((s, i) => {
+  const a = eoq(lin(t, tiempos[i], tiempos[i] + dur)), o = eio(lin(t, salida, salida + .35));
+  css(s, `transform:translateY(${(1 - a) * 105 + o * -105}%)`); });
+const pop = (el, t, a, extra = "") => { const k = lin(t, a, a + .45); css(el, `opacity:${cl(k * 3)};transform:scale(${k <= 0 ? .6 : .6 + .4 * back(k)});${extra}`); };
+
+const E = []; const SFX = []; const golpes = [];
+const esc = (ini, fin, html, dib) => { const el = $(`<div class="sc">${html}</div>`); document.getElementById("escenas").appendChild(el); E.push({ ini, fin, el, dib, q: (s) => el.querySelector(s), qa: (s) => [...el.querySelectorAll(s)] }); };
+const sfx = (t, k, g = 1) => SFX.push({ t: +t.toFixed(3), k, g });
+
+// fondos: superficie luminosa con manchas de color que respiran
+const fondoClaro = (T) => `radial-gradient(ellipse 55% 50% at ${18 + Math.sin(T * .35) * 8}% ${20 + Math.cos(T * .3) * 8}%, rgba(94,234,212,.55), transparent 70%),
+  radial-gradient(ellipse 50% 45% at ${85 - Math.sin(T * .28) * 8}% ${80 + Math.cos(T * .33) * 6}%, rgba(125,211,252,.5), transparent 70%),
+  radial-gradient(ellipse 40% 35% at ${80 + Math.cos(T * .4) * 6}% ${12 + Math.sin(T * .3) * 6}%, rgba(253,230,138,.55), transparent 70%), #f4fbf9`;
+const fondoVivo = (T, x = 50, y = 50) => `radial-gradient(circle at ${x}% ${y}%, rgba(94,234,212,.75), transparent 45%), radial-gradient(ellipse 80% 70% at ${70 + Math.sin(T * .5) * 10}% 90%, rgba(59,130,246,.75), transparent 70%), linear-gradient(135deg,#0e7490,#0b2540 60%,#1d4ed8)`;
+
+// tipografía y márgenes por formato
+const M = P(96, 72, 64);                      // margen lateral
+const TT = P(96, 104, 84);                    // tamaño de título
+const TOP = P(64, 230, 60);                   // dónde empiezan los títulos (9:16 deja libre la franja superior de las apps)
+
+// ═════ 1 · GANCHO (0 – 2,95): «¡Tu droguería puede estar en otro nivel!»
+const S1 = [["¡Tu droguería"], ["puede estar"], ["en otro nivel!", "color:var(--turq)"]];
+const MINI = [["caja", 230, 1780, 690, 2.6], ["inventario", 120, 1300, 300, 1.8], ["ia", 200, 1650, 820, 2.2], ["prediccion", 30, 900, 200, 1.6]];
+const POSM = P([[1300, 90, 520, 330], [1390, 640, 470, 300], [60, 720, 440, 280], [80, 70, 420, 260]],
+  [[560, 140, 460, 300], [600, 1440, 420, 300], [60, 1560, 440, 290], [70, 190, 400, 260]],
+  [[700, 60, 330, 220], [720, 800, 320, 220], [40, 820, 300, 200], [40, 60, 300, 200]]);
+esc(-1, 3.25, MINI.map((m, i) => PAN("mi" + i)).join("") + KT(S1, P(176, 122, 128), `left:0;right:0;top:${P(250, 620, 300)}px;text-align:center`),
+  (T, t, s) => {
+    const tw = [W("01", "Tu") - .05, W("01", "puede") - .05, W("01", "en") - .05];
+    const k = s.q(".k"); subir(k, T, tw);
+    const sube = eio(lin(T, W("01", "nivel") + .25, 3.2));              // «otro nivel»: todo sube un piso
+    css(k, `transform:translateY(${-sube * VH * .9}px) scale(${1 + .03 * Math.sin(T * 2)})`);
+    MINI.forEach((m, i) => { const el = s.q("#mi" + i), p = POSM[i]; caja(el, p[0], p[1] + (1 - eoq(lin(T, .1 + i * .18, .9 + i * .18))) * 160 - sube * VH * (1.2 + i * .15) - T * 14, p[2], p[3],
+      `opacity:${eo(lin(T, .1 + i * .18, .6 + i * .18)) * .92};transform:rotate(${(i % 2 ? 3 : -3) * (1 - T * .1)}deg)`); ver(el, m[0], m[1] + T * 30, m[2], m[3], m[4]); });
+  });
+sfx(0, "impacto", .8); for (const w of ["Tu", "puede", "en"]) sfx(W("01", w) - .05, "pop", .5); sfx(W("01", "nivel") + .2, "whoosh", 1); sfx(1.95, "subida", .8);
+
+// ═════ 2 · LLEGÓ REGENTA (2,95 – 7,87)
+const tR = W("02", "Regenta");
+esc(2.55, 8.15, `<div class="abs" id="v2" style="inset:0"></div>
+  ${[0, 1, 2].map((i) => `<div class="abs aro2" style="left:50%;top:${P(43, 42, 43)}%;border-radius:50%;border:${6 - i * 2}px solid rgba(255,255,255,.7)"></div>`).join("")}
+  ${Array.from({ length: 14 }, (_, i) => `<div class="abs ch2">${CHISPA(P(34, 30, 26), i % 3 ? "#fde68a" : "#5eead4")}</div>`).join("")}
+  <div class="abs k" id="ll2" style="left:0;right:0;top:${P(190, 560, 200)}px;text-align:center;font-size:${P(64, 64, 52)}px;color:#a7f3e9;letter-spacing:.12em">¡Llegó</div>
+  <div class="abs" id="lg2" style="left:0;right:0;top:${P(290, 680, 290)}px;display:flex;justify-content:center;align-items:center;gap:${P(40, 30, 28)}px;color:#fff">
+    <div id="iso2">${ISO(P(210, 170, 150), "a")}</div><div class="k" style="font-size:${P(230, 190, 160)}px;text-transform:none;letter-spacing:-.035em">Regenta!</div></div>
+  <div class="abs" id="tg2" style="left:${M}px;right:${M}px;top:${P(610, 980, 560)}px;text-align:center;color:#fff;font-weight:600;font-size:${P(54, 54, 46)}px;line-height:1.2">
+    La tecnología que te ayuda a tener<br>todo <span style="font-weight:800;color:#fde68a">bajo control</span>.</div>`,
+  (T, t, s) => {
+    const sube = eio(lin(T, 2.55, 3.05));
+    const v = s.q("#v2"); css(v, `background:${fondoVivo(T, 50, 42)};transform:translateY(${(1 - sube) * 100}%)`);
+    css(s.q("#ll2"), `opacity:${eo(lin(T, W("02", "Llegó") - .1, W("02", "Llegó") + .25))};transform:translateY(${(1 - eoq(lin(T, W("02", "Llegó") - .1, W("02", "Llegó") + .35))) * 30}px)`);
+    const a = lin(T, tR - .08, tR + .5);
+    css(s.q("#lg2"), `opacity:${cl(a * 4)};transform:scale(${a <= 0 ? .4 : .4 + .6 * back(a)})`);
+    css(s.q("#iso2"), `transform:rotate(${(1 - eoq(a)) * -120}deg);filter:drop-shadow(0 20px 40px rgba(0,0,0,.35))`);
+    s.qa(".aro2").forEach((r, i) => { const k = lin(T, tR + i * .12, tR + 1.3 + i * .12); const d = eoq(k) * P(1900, 1500, 1200); css(r, `width:${d}px;height:${d}px;transform:translate(-50%,-50%);opacity:${k > 0 ? (1 - k) : 0}`); });
+    s.qa(".ch2").forEach((c, i) => { const ang = i / 14 * Math.PI * 2 + .3, k = eo(lin(T, tR, tR + 1.4)), r = k * P(620, 480, 420) * (.7 + (i % 4) * .12);
+      css(c, `left:${VW / 2 + Math.cos(ang) * r - 15}px;top:${VH * P(.43, .42, .43) + Math.sin(ang) * r * P(.6, 1, .8) - 15}px;opacity:${k > 0 ? 1 - lin(T, tR + .9, tR + 1.8) : 0};transform:rotate(${T * 200 + i * 30}deg) scale(${.6 + (i % 3) * .3})`); });
+    const tg = lin(T, W("02", "La") - .1, W("02", "La") + .5); css(s.q("#tg2"), `opacity:${eo(tg)};transform:translateY(${(1 - eoq(tg)) * 30}px)`);
+    const zl = eio(lin(T, 7.55, 7.95)); s.el.style.transform = `scale(${1 + zl * .25})`; s.el.style.filter = `blur(${zl * 6}px)`;
+  });
+golpes.push(tR); sfx(tR - .03, "impacto", 1); sfx(7.6, "whoosh", .9);
+
+// ═════ 3 · VENTAS ÁGILES: caja real, de la búsqueda a «Venta registrada» (7,87 – 15,74)
+const K3 = [[7.80, 66], [9.05, 100], [10.0, 228], [10.75, 262], [12.0, 330], [12.9, 395], [13.35, 418], [15.9, 446]];
+const C3 = P(
+  [[7.8, 760, 330, 1.55], [9.0, 760, 330, 1.55], [9.5, 1600, 420, 1.5], [10.1, 1630, 330, 1.75], [10.8, 1630, 330, 1.75], [11.4, 1640, 620, 1.45], [12.8, 1640, 620, 1.45], [13.25, 1640, 270, 1.95], [15.9, 1640, 270, 2.05]],
+  [[7.8, 640, 300, 1.5], [9.0, 640, 300, 1.5], [9.5, 1640, 430, 1.25], [10.1, 1640, 330, 1.45], [10.8, 1640, 330, 1.45], [11.4, 1640, 650, 1.2], [12.8, 1640, 650, 1.2], [13.25, 1640, 300, 1.55], [15.9, 1640, 300, 1.6]],
+  [[7.8, 700, 300, 1.4], [9.0, 700, 300, 1.4], [9.5, 1630, 430, 1.4], [10.1, 1630, 330, 1.7], [10.8, 1630, 330, 1.7], [11.4, 1640, 620, 1.35], [12.8, 1640, 620, 1.35], [13.25, 1640, 270, 1.8], [15.9, 1640, 270, 1.9]]);
+const tVenta = inv(417, K3);
+const R3 = P([96, 250, 1728, 772], [60, 640, 960, 1060], [60, 270, 960, 700]);
+esc(7.6, 16.0, `<div class="abs" id="w3" style="inset:0"></div>${KT([["Ventas ágiles"], ["POS + factura electrónica", "color:var(--turq);font-size:.52em;letter-spacing:-.01em"]], TT, `left:${M}px;top:${TOP}px`)}
+  ${PAN("p3", "regenta.pro/caja")}
+  <div class="pill" id="ok3" style="font-size:${P(38, 40, 32)}px"><b>✓</b>Venta registrada</div>
+  <div class="nota" id="n3" style="left:${M}px;right:${M}px;top:${P(1036, 1650, 1000)}px;font-size:${P(19, 24, 18)}px">Demo con emisión simulada. La emisión electrónica ante la DIAN se activa en tu cuenta al terminar su integración.</div>`,
+  (T, t, s) => {
+    const w = eio(lin(T, 7.6, 8.0)); css(s.q("#w3"), `background:${fondoClaro(T)};clip-path:polygon(${100 - w * 160}% 0,100% 0,100% 100%,${160 - w * 160}% 100%)`);
+    subir(s.q(".k"), T, [W("03", "Vende") - .1, W("03", "factura") - .1]);
+    const e = eoq(lin(T, 7.62, 8.15)); const p = s.q("#p3");
+    caja(p, R3[0] + (1 - e) * VW * .6, R3[1], R3[2], R3[3], `transform:rotate(${(1 - e) * 4}deg)`);
+    const n = tramo(T, K3, false)[0]; const [fx, fy, z] = tramo(T, C3); ver(p, "caja", n, fx, fy, z);
+    pop(s.q("#ok3"), T, tVenta + .05, P(`left:${R3[0] + 60}px;top:${R3[1] + R3[3] - 130}px`, `left:${R3[0] + 40}px;top:${R3[1] + R3[3] - 120}px`, `left:${R3[0] + 40}px;top:${R3[1] + R3[3] - 110}px`));
+    css(s.q("#n3"), `opacity:${lin(T, 8.4, 9) * .95}`);
+    const o = eio(lin(T, 15.5, 15.95)); s.el.style.transform = `translateX(${-o * VW * .3}px)`; s.el.style.opacity = 1 - o;
+  });
+for (const f of [97, 161, 225, 257, 289, 321, 353, 390]) { const t = inv(f, K3); if (t) sfx(t, "clic", .7); }
+sfx(tVenta, "venta", 1); sfx(15.45, "whoosh", .8);
+
+// ═════ 4 · CONTROLA CADA LOTE (15,74 – 23,61): recibir con lote y vencimiento, luego el inventario por lote
+const K4a = [[15.6, 150], [17.6, 252], [19.0, 327]];
+const K4b = [[19.15, 40], [21.4, 140], [23.7, 200]];
+const C4a = P([[15.6, 520, 640, 1.3], [17.0, 700, 880, 1.6], [18.2, 700, 880, 1.6], [18.7, 900, 540, 1.6], [19.1, 900, 560, 1.6]],
+  [[15.6, 450, 640, 1.15], [17.0, 600, 880, 1.45], [18.2, 600, 880, 1.45], [18.7, 800, 560, 1.4], [19.1, 800, 560, 1.4]],
+  [[15.6, 520, 640, 1.2], [17.0, 700, 880, 1.5], [18.2, 700, 880, 1.5], [18.7, 900, 540, 1.5], [19.1, 900, 560, 1.5]]);
+const C4b = P([[19.1, 1300, 300, 1.25], [20.5, 1380, 330, 1.55], [23.7, 1380, 420, 1.6]],
+  [[19.1, 1400, 300, 1.2], [20.5, 1460, 330, 1.35], [23.7, 1460, 420, 1.4]],
+  [[19.1, 1300, 300, 1.3], [20.5, 1400, 330, 1.5], [23.7, 1400, 420, 1.55]]);
+const R4 = R3;
+esc(15.45, 24.0, `${KT([["Controla cada lote"], ["Anticípate a los vencimientos", "color:var(--turq);font-size:.62em;letter-spacing:-.01em"]], TT, `left:${M}px;top:${TOP}px`)}
+  ${PAN("p4a", "regenta.pro/inventario/recibir")}${PAN("p4b", "regenta.pro/inventario")}
+  <div class="pill" id="l4" style="font-size:${P(36, 38, 30)}px"><b>✓</b>Lote L2611A</div>
+  <div class="pill" id="v4" style="font-size:${P(36, 38, 30)}px;color:#b45309"><b style="background:var(--sol)">!</b>Vence 31 may 2028</div>
+  <div class="pill" id="f4" style="font-size:${P(34, 36, 28)}px"><b>↑</b>Sale primero el que vence antes</div>`,
+  (T, t, s) => {
+    subir(s.q(".k"), T, [W("04", "Organiza") - .1, W("04", "anticípate") - .1], 1e9, .45);
+    const ent = eoq(lin(T, 15.5, 16.0)), cam = eio(lin(T, 18.95, 19.4));
+    const a = s.q("#p4a"), b = s.q("#p4b");
+    caja(a, R4[0] + (1 - ent) * VW * .7 - cam * VW * 1.1, R4[1], R4[2], R4[3]);
+    caja(b, R4[0] + (1 - cam) * VW * 1.1, R4[1], R4[2], R4[3]);
+    if (T < 19.5) { const [fx, fy, z] = tramo(T, C4a); ver(a, "recibir", tramo(T, K4a, false)[0], fx, fy, z); }
+    if (T > 18.8) { const [fx, fy, z] = tramo(T, C4b); ver(b, "inventario", tramo(T, K4b, false)[0], fx, fy, z); }
+    const sal = (T > 18.9) ? eio(lin(T, 18.9, 19.2)) : 0;
+    pop(s.q("#l4"), T, 17.5, `left:${R4[0] + R4[2] - P(460, 380, 360)}px;top:${R4[1] + P(80, 90, 70)}px;opacity:${1 - sal}`);
+    pop(s.q("#v4"), T, 18.0, `left:${R4[0] + R4[2] - P(560, 480, 440)}px;top:${R4[1] + P(170, 180, 150)}px;opacity:${1 - sal}`);
+    pop(s.q("#f4"), T, 20.2, `left:${R4[0] + P(50, 30, 30)}px;top:${R4[1] + R4[3] - P(120, 120, 100)}px`);
+    const z = eio(lin(T, 23.3, 23.95)); s.el.style.transform = `scale(${1 - z * .5})`; s.el.style.opacity = 1 - lin(T, 23.6, 23.95);
+  });
+sfx(17.5, "pop", .6); sfx(18.0, "pop", .6); sfx(18.95, "whoosh", .7); sfx(20.2, "pop", .6);
+
+// ═════ 5 · REGENTA IA (23,61 – 34,92): quiebre, caída y la IA respondiendo
+const tIA = W("06", "Regenta"), DROP = bar(13);
+const K5 = [[26.8, 38], [27.6, 62], [29.0, 132], [29.6, 148], [33.6, 241], [35.2, 250]];
+const C5 = P([[26.8, 1200, 560, 1.0], [27.5, 1300, 600, 1.15], [28.3, 1650, 680, 1.75], [35.2, 1650, 700, 1.8]],
+  [[26.8, 1400, 560, 1.0], [27.5, 1500, 620, 1.2], [28.3, 1650, 690, 1.55], [35.2, 1650, 720, 1.55]],
+  [[26.8, 1200, 560, 1.0], [27.5, 1300, 600, 1.15], [28.3, 1650, 690, 1.6], [35.2, 1650, 710, 1.6]]);
+const R5 = P([760, 150, 1080, 860], [90, 470, 900, 900], [430, 200, 610, 820]);
+const CH5 = [["¿Qué reponer?", "reponer"], ["Productos quietos", "productos"], ["Qué merece tu atención", "merece"]];
+esc(23.55, 35.3, `<div class="abs" id="v5" style="inset:0"></div>
+  ${Array.from({ length: 24 }, (_, i) => `<div class="abs pt5" style="width:6px;height:6px;border-radius:50%;background:rgba(167,243,233,.7)"></div>`).join("")}
+  <div class="abs k" id="y5" style="left:${M}px;right:${M}px;top:${P(420, 820, 420)}px;text-align:center;font-size:${P(110, 100, 86)}px;color:#fff">${PW["05"].map((w) => `<span class="w5" style="display:inline-block;margin:0 .14em">${w[1]}${w[1] === "mejor" ? "…" : ""}</span>`).join("")}</div>
+  ${[0, 1].map(() => `<div class="abs aro5" style="border-radius:50%;border:5px solid rgba(255,255,255,.75)"></div>`).join("")}
+  <div class="abs" id="ia5" style="display:flex;align-items:center;gap:${P(34, 28, 24)}px;color:#fff"><div id="iso5">${ISO(P(180, 160, 120), "b")}</div>
+    <div><div class="k" style="font-size:${P(170, 150, 118)}px;text-transform:none;letter-spacing:-.035em">Regenta <span style="color:#5eead4">IA</span></div>
+    <div id="sb5" style="font-weight:600;font-size:${P(40, 38, 30)}px;color:#d9fbf5;margin-top:${P(8, 6, 4)}px">Inteligencia para decidir mejor</div></div></div>
+  ${PAN("p5", "regenta.pro/inicio")}
+  ${CH5.map((c, i) => `<div class="pill ch5" style="font-size:${P(38, 40, 28)}px"><b>${["↻", "◷", "★"][i]}</b>${c[0]}</div>`).join("")}`,
+  (T, t, s) => {
+    const osc = eio(lin(T, 23.55, 24.1)), viv = lin(T, DROP - .05, DROP + .4);
+    css(s.q("#v5"), `background:${fondoVivo(T, 50, 45)};opacity:${osc}`);
+    s.qa(".pt5").forEach((p, i) => { const x = (i * 397) % VW, y = (VH + 40) - ((T * (30 + (i % 5) * 18) + i * 173) % (VH + 80)); css(p, `left:${x}px;top:${y}px;opacity:${osc * (.3 + (i % 4) * .15)}`); });
+    // «Y aquí viene lo mejor…» palabra por palabra
+    s.qa(".w5").forEach((w, i) => { const a = lin(T, Lk["05"].ini + PW["05"][i][0] - .05, Lk["05"].ini + PW["05"][i][0] + .25); css(w, `opacity:${eo(a) * (1 - lin(T, DROP - .25, DROP))};transform:translateY(${(1 - eoq(a)) * 40}px) scale(${1 + lin(T, 24.8, DROP) * .08})`); });
+    // caída: logo de la IA
+    const a = lin(T, DROP - .02, DROP + .55), arriba = eio(lin(T, 26.7, 27.4));
+    const cx = P(VW / 2, VW / 2, VW / 2), cy = P(470, 820, 470);
+    const tx = P(M, M, M), ty = P(70, 250, 56), sc = 1 - arriba * P(.55, .45, .55);
+    const ia = s.q("#ia5"); const iw = ia.offsetWidth, ih = ia.offsetHeight;
+    const x0 = cx - iw / 2, y0 = cy - ih / 2; const x = x0 + (tx - x0) * arriba, y = y0 + (ty - y0) * arriba;
+    css(ia, `left:${x}px;top:${y}px;transform-origin:0 0;transform:scale(${(a <= 0 ? .3 : .3 + .7 * back(a)) * sc});opacity:${cl(a * 4)}`);
+    css(s.q("#iso5"), `transform:rotate(${(1 - eoq(a)) * 200}deg)`);
+    css(s.q("#sb5"), `opacity:${eo(lin(T, DROP + .55, DROP + 1.0))}`);
+    s.qa(".aro5").forEach((r, i) => { const k = lin(T, DROP + i * .15, DROP + 1.2 + i * .15); const d = eoq(k) * P(2000, 1700, 1300); css(r, `left:${VW / 2}px;top:${cy}px;width:${d}px;height:${d}px;transform:translate(-50%,-50%);opacity:${k > 0 ? 1 - k : 0}`); });
+    // la IA respondiendo de verdad
+    const e = eoq(lin(T, 26.9, 27.5)), p = s.q("#p5");
+    caja(p, R5[0], R5[1] + (1 - e) * VH * .8, R5[2], R5[3], `opacity:${T < 26.85 ? 0 : 1};box-shadow:0 0 0 ${6 * e}px rgba(94,234,212,.35),0 60px 120px -40px rgba(0,0,0,.6)`);
+    if (T > 26.6) { const [fx, fy, z] = tramo(T, C5); ver(p, "ia", tramo(T, K5, false)[0], fx, fy, z); }
+    const PCH = P([[110, 520], [110, 640], [110, 760]], [[90, 1410], [90, 1510], [90, 1610]], [[40, 380], [40, 520], [40, 660]]);
+    s.qa(".ch5").forEach((c, i) => pop(c, T, W("07", CH5[i][1]) - .1, `left:${PCH[i][0]}px;top:${PCH[i][1]}px;transform-origin:0 50%`));
+    const fin = eio(lin(T, 34.75, 35.25)); s.el.style.transform = `scale(${1 + fin * .15})`; s.el.style.opacity = 1 - fin;
+  });
+golpes.push(DROP); sfx(23.6, "subida", 1); sfx(DROP - .02, "ia", 1); sfx(26.9, "whoosh", .7); for (const c of CH5) sfx(W("07", c[1]) - .1, "pop", .55); sfx(34.7, "whoosh", .8);
+
+// ═════ 6 · CONTROL (34,92 – 45,25): alertas, temperatura, control especial, indicadores… y el remate
+const P6 = [["Alertas INVIMA", "alertas", "Alertas", 20, 1000, 270, 1.45, "alertas"], ["Temperatura y humedad", "temperatura", "temperatura", 40, 820, 480, 1.3, "temperatura"],
+  ["Control especial", "control", "control", 10, 1000, 330, 1.4, "control-especial"], ["Indicadores", "resultados", "indicadores", 30, 1100, 330, 1.35, "reportes/resultados"]];
+const G6 = P([[96, 70, 846, 470], [978, 70, 846, 470], [96, 570, 846, 470], [978, 570, 846, 470]],
+  [[60, 330, 465, 660], [555, 330, 465, 660], [60, 1030, 465, 660], [555, 1030, 465, 660]],
+  [[50, 60, 480, 470], [550, 60, 480, 470], [50, 560, 480, 470], [550, 560, 480, 470]]);
+const R6 = [["Menos enredos.", "color:var(--tinta)"], ["Más control.", "color:var(--turq)"], ["¡Más tiempo", "color:var(--tinta)"], ["para crecer!", "color:var(--tinta)"]];
+esc(34.7, 45.6, P6.map((p, i) => PAN("g6" + i, "regenta.pro/" + p[7]) + `<div class="pill e6" style="font-size:${P(32, 30, 24)}px"><b>✓</b>${p[0]}</div>`).join("") +
+  `<div class="abs" id="vel6" style="inset:0;background:rgba(244,251,249,.86)"></div>` + KT(R6, P(150, 132, 112), `left:0;right:0;top:${P(170, 560, 170)}px;text-align:center`),
+  (T, t, s) => {
+    const tw = P6.map((p) => W("08", p[2]) - .12), tr = W("09", "Menos") - .25;
+    const atr = eio(lin(T, tr, tr + .6));
+    P6.forEach((p, i) => { const el = s.q("#g6" + i), g = G6[i], a = eoq(lin(T, tw[i], tw[i] + .5));
+      caja(el, g[0], g[1] + (1 - a) * 120, g[2], g[3], `opacity:${cl(a * 2)};transform:scale(${.85 + .15 * a - atr * .06}) rotate(${(1 - a) * (i % 2 ? 4 : -4)}deg)`);
+      ver(el, p[1], p[3] + Math.max(0, T - tw[i]) * 30, p[4], p[5], p[6]);
+      const e = s.qa(".e6")[i]; pop(e, T, tw[i] + .2, `left:${g[0] + 24}px;top:${g[1] + g[3] - P(80, 80, 70)}px`); });
+    css(s.q("#vel6"), `opacity:${atr}`);
+    subir(s.q(".k"), T, [W("09", "Menos") - .08, W("09", "Más") - .08, W("09", "Y") - .05, W("09", "para") - .05], 45.2);
+  });
+P6.forEach((p) => sfx(W("08", p[2]) - .12, "pop", .6)); sfx(W("09", "Menos") - .25, "whoosh", .8); sfx(W("09", "Más") - .08, "impacto", .45);
+
+// ═════ 7 · CIERRE (45,25 – 54): marca, promesa y CTA con remate final
+const tC = W("11", "pruébala"), GOLPE = MARCAS.golpes[7];
+esc(44.95, TL.total + 1, `<div class="abs" id="v7" style="inset:0"></div>
+  ${Array.from({ length: 70 }, (_, i) => `<div class="abs cf" style="width:${10 + (i % 3) * 6}px;height:${16 + (i % 4) * 5}px;border-radius:3px;background:${["#14b8a6", "#fbbf24", "#22c55e", "#3b82f6", "#5eead4"][i % 5]}"></div>`).join("")}
+  <div class="abs" id="lg7" style="left:0;right:0;top:${P(150, 470, 130)}px;display:flex;justify-content:center;align-items:center;gap:${P(34, 28, 24)}px">
+    <div id="iso7">${ISO(P(150, 150, 120), "c")}</div><div class="k" style="font-size:${P(170, 160, 128)}px;text-transform:none;letter-spacing:-.035em">Regenta</div></div>
+  ${KT([["Tu droguería,"], ["en orden.", "color:var(--turq)"]], P(92, 96, 76), `left:0;right:0;top:${P(370, 700, 320)}px;text-align:center`)}
+  <div class="abs" id="ct7" style="left:0;right:0;top:${P(640, 1060, 560)}px;text-align:center">
+    <div class="k" style="font-size:${P(84, 96, 74)}px;color:var(--tinta)">¡Pruébala gratis!</div>
+    <div id="bt7" style="display:inline-block;margin-top:${P(28, 34, 24)}px;padding:${P("22px 70px", "26px 70px", "20px 56px")};border-radius:999px;background:linear-gradient(135deg,#14b8a6,#0e7490);color:#fff;font-weight:800;font-size:${P(72, 80, 62)}px;letter-spacing:-.01em;box-shadow:0 30px 60px -20px rgba(14,116,144,.7)">regenta.pro</div>
+    <div style="margin-top:${P(22, 28, 18)}px;font-weight:600;font-size:${P(32, 36, 28)}px;color:var(--gris)">Demo gratis, sin registro</div></div>`,
+  (T, t, s) => {
+    css(s.q("#v7"), `background:${fondoClaro(T)};clip-path:circle(${eio(lin(T, 44.95, 45.5)) * 120}% at 50% 50%)`);
+    const a = lin(T, W("10", "Regenta") - .1, W("10", "Regenta") + .45); css(s.q("#lg7"), `opacity:${cl(a * 4)};transform:scale(${a <= 0 ? .5 : .5 + .5 * back(a)})`);
+    css(s.q("#iso7"), `transform:rotate(${(1 - eoq(a)) * -90}deg)`);
+    subir(s.q(".k.abs"), T, [W("10", "Tu") - .08, W("10", "en") - .08]);
+    const c = lin(T, W("11", "Entra") - .1, W("11", "Entra") + .45); css(s.q("#ct7"), `opacity:${cl(c * 3)};transform:translateY(${(1 - eoq(c)) * 60}px)`);
+    const pul = Math.max(0, 1 - Math.abs(T - GOLPE) / .25), lat = T > tC ? .03 * Math.max(0, Math.sin((T - tC) * Math.PI * 2 / (2 * B))) : 0;
+    css(s.q("#bt7"), `transform:scale(${1 + pul * .12 + lat})`);
+    s.qa(".cf").forEach((f, i) => { const k = T - GOLPE; if (k < 0) { f.style.opacity = 0; return; }
+      const ang = (i / 70) * Math.PI * 2, v = 700 + (i * 137 % 600), x = VW / 2 + Math.cos(ang) * v * k, y = P(780, 1200, 700) + Math.sin(ang) * v * k * .8 + 900 * k * k;
+      css(f, `left:${x}px;top:${y}px;opacity:${1 - lin(k, 1.2, 1.85)};transform:rotate(${k * (300 + i * 20)}deg)`); });
+  });
+golpes.push(GOLPE); sfx(44.95, "whoosh", .9); sfx(W("10", "Regenta") - .1, "impacto", .8); sfx(W("11", "Entra") - .1, "pop", .7); sfx(GOLPE, "final", 1);
+
+// ═════ render
+window.SFX = SFX.sort((a, b) => a.t - b.t);
+window.render = async (T) => {
+  document.getElementById("bg").style.background = fondoClaro(T);
+  let fl = 0; for (const c of golpes) { const d = T - (c - .02); if (d >= 0 && d < .28) fl = Math.max(fl, (1 - d / .28) * .55); }
+  document.getElementById("flash").style.opacity = fl;
+  for (const e of E) {
+    const on = T >= e.ini && T < e.fin; e.el.style.display = on ? "block" : "none";
+    if (on) e.dib(T, T - e.ini, e);
+  }
+  await Promise.all(pend.splice(0));
+};
+window.listo = document.fonts.ready.then(() => Promise.all([...document.fonts].map((f) => f.load())));
+</script></body></html>
