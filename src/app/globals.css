@@ -116,3 +116,20 @@ kbd { font-family: "Barlow Semi Condensed", sans-serif; font-weight: 600; font-s
   .btn-vidrio { @apply btn border-2 border-white/25 text-white hover:border-white hover:bg-white/5; }
   .pastilla { @apply inline-flex items-center gap-2 rounded-full px-3.5 min-h-9 py-1 text-[14px] leading-tight font-semibold; }
 }
+
+/*
+ * Pantallas táctiles (celular, tableta; vertical u horizontal): todo lo que se toca mide al menos 44 px (guía de Apple y
+ * WCAG 2.5.5). Con ratón no cambia nada. Los enlaces dentro de un párrafo no entran (los reconoce el resto del texto);
+ * sí los enlaces sueltos (menús, chips, logos, tarjetas), que siempre llevan una clase de disposición.
+ */
+@media (pointer: coarse) {
+  button, [role="button"], [role="tab"], summary, select, textarea,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]):not([type="file"]),
+  a:is(.flex, .inline-flex, .block, .inline-block, .grid, .btn, .btn-primario, .btn-oscuro, .btn-borde, .btn-peligro, .btn-cta, .btn-vidrio) {
+    min-height: 44px;
+    align-content: center;
+  }
+  button, [role="button"], [role="tab"] { min-width: 44px; }
+  input[type="checkbox"], input[type="radio"] { width: 1.375rem; height: 1.375rem; }
+  label:has(> input[type="checkbox"], > input[type="radio"]) { min-height: 44px; align-content: center; }
+}
