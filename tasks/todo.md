@@ -427,3 +427,5 @@ Muestras de Oscar: ZIP de Distribuidora Pasteur (resultó ser una NOTA CRÉDITO 
 - [ ] UI en Nueva compra: «Cargar desde la factura» (archivo o cámara) → rellena el formulario existente; líneas por emparejar con buscador; avisos de vencidos y de diferencias
 - [ ] Regenta IA: herramienta de costos por proveedor (quién vende más barato cada producto) con los datos de las compras
 - [ ] Pruebas: unitarias del lector (ZIP real de Pasteur + factura de prueba), e2e de compras desde XML y foto (IA simulada), endpoints, dispositivos; batería completa
+
+- [ ] Consola: React 418 intermitente (1 vez en ~750 pantallas, /admin/clientes en iPhone 15 Pro Max). Arreglo: exigir la sesión en src/app/admin/layout.tsx (fuera de Suspense) y luego loading.tsx; probar admin, consola-clave, demo-visitas y bucle de 400 visitas
