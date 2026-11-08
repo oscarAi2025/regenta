@@ -95,7 +95,7 @@ export default async function ControlEspecial({ searchParams }: { searchParams: 
             </div>
             <ul className="mt-3 md:hidden grid gap-2">{d.saldos.map((x) => (
               <li key={x.id} className="rounded-xl border border-line p-3">
-                <Link href={`/control-especial?desde=${r.desde}&hasta=${r.hasta}&producto=${x.id}`} className="font-semibold leading-snug">{x.nombre}</Link>
+                <Link href={`/control-especial?desde=${r.desde}&hasta=${r.hasta}&producto=${x.id}`} className="block font-semibold leading-snug">{x.nombre}</Link>
                 <dl className="mt-2 grid grid-cols-3 gap-x-2 gap-y-1 text-sm num">
                   <div><dt className="text-muted text-[12px]">Inicial</dt><dd>{x.inicial}</dd></div>
                   <div><dt className="text-muted text-[12px]">Entradas</dt><dd>{x.entradas}</dd></div>

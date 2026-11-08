@@ -155,7 +155,7 @@ export default function Precios() {
         <section className="max-w-3xl mx-auto px-4 sm:px-6 py-16">
           <h2 className="font-cond text-[36px] leading-none" style={{ fontWeight: 700 }}>Preguntas sobre tarifas</h2>
           <dl className="mt-5 grid gap-4">{PREGUNTAS.map(([q, a]) => <div key={q} className="tarjeta p-5"><dt className="font-semibold text-lg">{q}</dt><dd className="mt-1 text-muted leading-relaxed">{a}</dd></div>)}</dl>
-          <p className="mt-6"><Link href="/guias/cuanto-cuesta-software-drogueria" className="font-semibold text-cruz underline underline-offset-4">¿Cuánto cuesta un software para droguería en Colombia? Comparativa con fuentes</Link></p>
+          <p className="mt-6"><Link href="/guias/cuanto-cuesta-software-drogueria" className="inline-block font-semibold text-cruz underline underline-offset-4">¿Cuánto cuesta un software para droguería en Colombia? Comparativa con fuentes</Link></p>
         </section>
       </main>
       <Pie />

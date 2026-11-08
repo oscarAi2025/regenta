@@ -186,7 +186,7 @@ export function Planilla({ mes, hoy, jornada, registros: deServidor, rangos, ini
                   {(Object.keys(JORNADAS) as Jornada[]).map((j) => {
                     const c = js[j], v = c.vigente, sel = elegida && igual(elegida, { fecha: dia, jornada: j, area: vista });
                     const corregido = c.historial.length > 1;
-                    const base = `w-full min-h-10 rounded-lg px-2 py-1 text-left leading-tight transition-colors ${sel ? "ring-2 ring-ink" : ""}`;
+                    const base = `w-full min-h-11 rounded-lg px-2 py-1 text-left leading-tight transition-colors ${sel ? "ring-2 ring-ink" : ""}`;
                     const etiqueta = `${diaLargo(dia)}, ${JORNADAS[j].toLowerCase()}`;
                     return (
                       <td key={j} className="py-1 px-1">

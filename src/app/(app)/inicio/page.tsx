@@ -106,7 +106,7 @@ export default async function Inicio() {
         {ganancia !== null ? <Dato titulo="Ganancia bruta hoy" valor={pesos(ganancia)} nota={<>{d.margen!.margen !== null ? `Margen ${Math.round(d.margen!.margen)} % sobre la venta sin IVA` : "Sin ventas con costo todavía"}
             {d.margen!.sin_costo.netas > 0 && <span className="block text-aviso">{pesos(d.margen!.sin_costo.netas)} vendidos sin costo registrado</span>}</>} />
           : <Dato titulo="Ventas de hoy" valor={d.hoy.ventas} />}
-        <Dato titulo="Por vencer en 30 días" valor={d.alertas.vencen} tono={d.alertas.vencen ? "alerta" : undefined} nota={<Link className="underline" href="/inventario">Ver lotes</Link>} />
+        <Dato titulo="Por vencer en 30 días" valor={d.alertas.vencen} tono={d.alertas.vencen ? "alerta" : undefined} nota={<Link className="inline-block underline" href="/inventario">Ver lotes</Link>} />
       </section>
 
       {d.invima.pendientes > 0 && (
@@ -122,9 +122,9 @@ export default async function Inicio() {
           <div>
             <div className="flex items-center gap-2"><Isotipo size={26} claro /><h2 className="titulo text-2xl">Tus prioridades de hoy</h2></div>
             <ol className="mt-4 grid gap-3 text-white/85">
-              {d.invima.lote > 0 && <li><Link href="/alertas" className="hover:underline"><b className="text-[#ffb4ab]">Separa el lote con alerta del INVIMA</b> que tienes en existencias.</Link></li>}
-              {d.pred.agotan > 0 && <li><Link href="/prediccion" className="hover:underline"><b className="text-white">{d.pred.agotan} productos se agotan esta semana</b>{d.pred.agotan_top.length ? `: ${d.pred.agotan_top.map((x) => x.nombre.split(" ").slice(0, 3).join(" ")).join(", ")}` : ""}. Tu pedido sugerido tiene {d.pred.pedir} productos.</Link></li>}
-              {d.pred.top_riesgo && <li><Link href="/prediccion?ver=vencimiento" className="hover:underline"><b className="text-white">Mueve el lote {d.pred.top_riesgo.lote}</b> de {d.pred.top_riesgo.nombre.split(" ").slice(0, 4).join(" ")}: vence en {d.pred.top_riesgo.dias} días y {d.pred.top_riesgo.unidades} unidades no alcanzarían a venderse{d.pred.top_riesgo.valor ? ` (${pesos(d.pred.top_riesgo.valor)})` : ""}.</Link></li>}
+              {d.invima.lote > 0 && <li><Link href="/alertas" className="block hover:underline"><b className="text-[#ffb4ab]">Separa el lote con alerta del INVIMA</b> que tienes en existencias.</Link></li>}
+              {d.pred.agotan > 0 && <li><Link href="/prediccion" className="block hover:underline"><b className="text-white">{d.pred.agotan} productos se agotan esta semana</b>{d.pred.agotan_top.length ? `: ${d.pred.agotan_top.map((x) => x.nombre.split(" ").slice(0, 3).join(" ")).join(", ")}` : ""}. Tu pedido sugerido tiene {d.pred.pedir} productos.</Link></li>}
+              {d.pred.top_riesgo && <li><Link href="/prediccion?ver=vencimiento" className="block hover:underline"><b className="text-white">Mueve el lote {d.pred.top_riesgo.lote}</b> de {d.pred.top_riesgo.nombre.split(" ").slice(0, 4).join(" ")}: vence en {d.pred.top_riesgo.dias} días y {d.pred.top_riesgo.unidades} unidades no alcanzarían a venderse{d.pred.top_riesgo.valor ? ` (${pesos(d.pred.top_riesgo.valor)})` : ""}.</Link></li>}
               {d.hoyPatron?.frente_al_promedio != null && Math.abs(d.hoyPatron.frente_al_promedio) >= 10 && <li>Los {d.hoyPatron.nombre}{d.hoyPatron.nombre.endsWith("s") ? "" : "s"} sueles vender <b className="text-white">{d.hoyPatron.frente_al_promedio > 0 ? "+" : ""}{d.hoyPatron.frente_al_promedio} %</b> frente a tu promedio.</li>}
             </ol>
           </div>

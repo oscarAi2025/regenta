@@ -302,7 +302,7 @@ export default function Portada() {
                 </li>
               ))}
             </ul>
-            <p className="mt-6 text-center"><Link href="/precios#socio" className="font-semibold text-teal-700 underline underline-offset-4">Ver cuánto pagas como socio de Farmagenéricos</Link></p>
+            <p className="mt-6 text-center"><Link href="/precios#socio" className="inline-block font-semibold text-teal-700 underline underline-offset-4">Ver cuánto pagas como socio de Farmagenéricos</Link></p>
           </div>
         </section>
 
