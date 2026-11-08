@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MEDIOS_PAGO, calcularLinea, leerNumero, margen, miles, pesosExactos } from "@/lib/compras";
+import { CargarFactura, type FacturaCargada, type LineaFactura } from "./CargarFactura";
 
 type Prod = { id: string; nombre: string; laboratorio: string | null; ean: string | null; unidades_por_caja: number; unidades: number; iva: number; precio_caja: number; precio_unidad: number | null };
-type Linea = { key: number; p: Prod; lote: string; vence: string; cajas: string; sueltas: string; bonif: string; costo: string; por: "caja" | "unidad"; desc: string; iva: number; precio: string; precioUnd: string };
+type Linea = { key: number; p: Prod; lote: string; vence: string; cajas: string; sueltas: string; bonif: string; costo: string; por: "caja" | "unidad"; desc: string; iva: number; precio: string; precioUnd: string;
+  factura?: { descripcion: string; por: LineaFactura["por"]; revisar: boolean; claves: string[] } };
 export type ProveedorOpcion = { id: string; nombre: string; nit: string | null; plazo_dias: number | null };
 type Guardada = { id: string; numero: number; estado: string; total: number; unidades: number; diferencia: number | null; pagada: boolean };
 
@@ -12,6 +14,8 @@ const milesCampo = (s: string) => (s.replace(/\D/g, "") ? miles(Number(s.replace
 const sumarDias = (f: string, d: number) => new Date(Date.parse(f + "T12:00:00Z") + d * 864e5).toISOString().slice(0, 10);
 // Mientras se escribe un decimal se deja el texto como está (con coma); solo se quitan letras.
 const decimal = (s: string) => s.replace(/[^\d.,]/g, "");
+const coma = (n: number | null | undefined) => (n === null || n === undefined ? "" : String(n).replace(".", ","));
+const POR: Record<string, string> = { codigo: "por código de barras", memoria: "como en tu última factura de este proveedor", nombre: "por nombre: revisa que sea el mismo" };
 
 export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: boolean; proveedores: ProveedorOpcion[]; hoy: string }) {
   const [proveedores, setProveedores] = useState(iniciales);
@@ -31,6 +35,10 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
   const [error, setError] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [hecho, setHecho] = useState<Guardada | null>(null);
+  const [cufe, setCufe] = useState("");
+  const [archivoId, setArchivoId] = useState<string | null>(null);
+  const [avisos, setAvisos] = useState<string[]>([]);
+  const [porEmparejar, setPorEmparejar] = useState<{ key: number; l: LineaFactura }[]>([]);
   const buscar = useRef<HTMLInputElement>(null);
   const clave = useRef(0);
   const idem = useRef(crypto.randomUUID()); // misma clave si se reintenta tras un corte; nueva tras guardar
@@ -59,6 +67,45 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
     setQ(""); setRes([]); setHecho(null);
     setTimeout(() => document.getElementById(`lote-${key}`)?.focus(), 0);
   }
+  // Línea de la compra a partir de la línea leída de la factura y el producto del catálogo.
+  function desdeFactura(l: LineaFactura, p: Prod): Linea {
+    const upc = p.unidades_por_caja, enCaja = l.como === "caja" && upc > 1, q = l.cantidad;
+    const cant = Number.isInteger(q) ? { cajas: enCaja ? String(q) : "", sueltas: enCaja ? "" : String(q) } : { cajas: "", sueltas: String(Math.round(q * (enCaja ? upc : 1))) };
+    return {
+      key: ++clave.current, p, lote: (l.lote ?? "").toUpperCase(), vence: l.vence ?? "",
+      ...(l.bonificada ? { cajas: "", sueltas: "", bonif: String(Math.round(q * (enCaja ? upc : 1))) } : { ...cant, bonif: "" }),
+      costo: dinero ? (l.bonificada ? "0" : coma(l.precio)) : "", por: enCaja ? "caja" : "unidad", desc: l.descuento_pct ? coma(l.descuento_pct) : "",
+      iva: [0, 5, 19].includes(l.iva_pct) ? l.iva_pct : Number(p.iva) || 0, precio: "", precioUnd: "",
+      factura: { descripcion: l.descripcion, por: l.por, revisar: l.revisar_como || l.por === "nombre", claves: l.claves },
+    };
+  }
+  function cargarFactura(r: FacturaCargada) {
+    const d = r.documento;
+    setHecho(null); setError("");
+    if (r.proveedor) { setProveedor(r.proveedor.nombre); setNit(""); if (!proveedores.some((x) => x.id === r.proveedor!.id)) setProveedores((ps) => [...ps, r.proveedor!]); }
+    else { setProveedor(d.proveedor.nombre); setNit(d.proveedor.nit ?? ""); }
+    setFactura(d.numero.toUpperCase());
+    setFecha(d.fecha && d.fecha <= hoy ? d.fecha : hoy);
+    if (dinero) {
+      if (d.vence_pago && d.vence_pago > (d.fecha ?? hoy)) { setCondicion("credito"); setVence(d.vence_pago); }
+      setPapel(d.totales.total !== null ? coma(d.totales.total) : "");
+    }
+    setCufe(d.cufe ?? ""); setArchivoId(r.archivo_id);
+    const listas = d.lineas.filter((l) => l.producto).map((l) => desdeFactura(l, l.producto as Prod));
+    setLineas(listas);
+    setPorEmparejar(d.lineas.filter((l) => !l.producto).map((l) => ({ key: ++clave.current, l })));
+    const sinLote = d.lineas.filter((l) => !l.lote).length;
+    setAvisos([...r.avisos,
+      `Factura ${d.numero} de ${d.proveedor.nombre}: ${r.resumen.lineas} producto${r.resumen.lineas === 1 ? "" : "s"}, ${r.resumen.emparejadas} ya encontrado${r.resumen.emparejadas === 1 ? "" : "s"} en tu catálogo${r.resumen.lineas > r.resumen.emparejadas ? `, ${r.resumen.lineas - r.resumen.emparejadas} por emparejar abajo` : ""}.`,
+      ...(sinLote ? [`${sinLote} producto${sinLote === 1 ? "" : "s"} sin lote en la factura: escríbelo desde la caja.`] : []),
+      ...(d.origen === "ia" ? ["Leída de la foto con Regenta IA: confirma cantidades, lotes y costos contra el papel."] : [])]);
+  }
+  function emparejarLinea(key: number, p: Prod) {
+    const x = porEmparejar.find((y) => y.key === key);
+    if (!x) return;
+    setPorEmparejar((xs) => xs.filter((y) => y.key !== key));
+    setLineas((ls) => [...ls, desdeFactura({ ...x.l, por: null, revisar_como: x.l.revisar_como || p.unidades_por_caja > 1 }, p)]);
+  }
   const cambiar = <K extends keyof Linea>(key: number, k: K, v: Linea[K]) => setLineas((ls) => ls.map((l) => (l.key === key ? { ...l, [k]: v } : l)));
   const pagadas = (l: Linea) => ent(l.cajas) * l.p.unidades_por_caja + ent(l.sueltas);
   const entran = (l: Linea) => pagadas(l) + ent(l.bonif);
@@ -78,6 +125,7 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
     setError("");
     if (!proveedor.trim()) { setError("Elige o escribe el proveedor."); document.getElementById("proveedor")?.focus(); return; }
     if (!factura.trim()) { setError("Escribe el número de la factura del proveedor."); document.getElementById("factura")?.focus(); return; }
+    if (porEmparejar.length) { setError(`Faltan ${porEmparejar.length} producto${porEmparejar.length === 1 ? "" : "s"} de la factura por emparejar con tu catálogo (o quítalos si no son mercancía).`); document.getElementById("por-emparejar")?.scrollIntoView({ block: "center" }); return; }
     const mal = lineas.find((l) => !l.lote.trim() || entran(l) <= 0);
     if (mal) { setError(`Falta ${!mal.lote.trim() ? "el lote" : "la cantidad"} de ${mal.p.nombre}.`); document.getElementById(`${!mal.lote.trim() ? "lote" : "sueltas"}-${mal.key}`)?.focus(); return; }
     const vencida = lineas.find((l) => l.vence && l.vence < hoy);
@@ -93,7 +141,8 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
       r = await fetch("/api/compras", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
         idem_key: idem.current, ...(elegido ? { proveedor_id: elegido.id } : { proveedor_nuevo: { nombre: proveedor.trim(), nit: nit.trim() || null } }),
         numero_factura: factura.trim(), fecha_factura: fecha, condicion: dinero ? condicion : "contado", vence_pago: dinero && condicion === "credito" ? vence : null,
-        total_papel: dinero && conCosto ? totalPapel : null,
+        total_papel: dinero && conCosto ? totalPapel : null, cufe_proveedor: cufe || null, archivo_id: archivoId,
+        recordar: lineas.flatMap((l) => (l.factura?.claves ?? []).map((k) => ({ clave: k, producto_id: l.p.id, como: ent(l.cajas) > 0 ? "caja" : "unidad" }))),
         lineas: lineas.map((l) => ({ producto_id: l.p.id, lote: l.lote.trim(), vence: l.vence || null, unidades: pagadas(l), bonificadas: ent(l.bonif),
           ...(dinero && leerNumero(l.costo) !== null ? { costo: leerNumero(l.costo), costo_por: l.por, descuento_pct: leerNumero(l.desc) ?? 0, iva_pct: l.iva,
             precio_venta_nuevo: ent(l.precio) || null, precio_unidad_nuevo: ent(l.precioUnd) || null } : {}) })),
@@ -105,7 +154,7 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
     if (!r.ok) { setError(j.error ?? "No se pudo guardar la compra"); return; }
     setHecho({ id: j.id, numero: j.numero, estado: j.estado, total: Number(j.total), unidades: unidadesTotal, diferencia: j.diferencia === null || j.diferencia === undefined ? null : Number(j.diferencia), pagada: !!j.pago });
     if (!elegido && j.detalle?.compra) setProveedores((ps) => [...ps, { id: j.detalle.compra.proveedor_id, nombre: j.detalle.compra.proveedor, nit: j.detalle.compra.proveedor_nit, plazo_dias: null }]);
-    setLineas([]); setFactura(""); setPapel(""); setNit(""); setPagada(false); idem.current = crypto.randomUUID();
+    setLineas([]); setFactura(""); setPapel(""); setNit(""); setPagada(false); setCufe(""); setArchivoId(null); setAvisos([]); setPorEmparejar([]); idem.current = crypto.randomUUID();
     window.scrollTo({ top: 0 });
     buscar.current?.focus();
   }
@@ -124,6 +173,13 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
         </div>
       )}
 
+      <CargarFactura alCargar={cargarFactura} />
+      {avisos.length > 0 && (
+        <ul role="status" className="rounded-xl bg-cruz-soft text-ink px-4 py-3 grid gap-1">
+          {avisos.map((a, i) => <li key={i} className={/^(Ojo|Esta factura ya)/.test(a) ? "font-semibold text-alerta" : i === 0 ? "font-semibold" : ""}>{a}</li>)}
+        </ul>
+      )}
+
       <section className="tarjeta p-4 sm:p-5 grid gap-3" aria-labelledby="factura-t">
         <h2 id="factura-t" className="titulo text-xl">Factura del proveedor</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
@@ -136,6 +192,7 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
           </div>
           <div><label htmlFor="factura" className="etiqueta">N.º de factura</label><input id="factura" value={factura} onChange={(e) => setFactura(e.target.value.toUpperCase())} className="campo" placeholder="FE-1234" autoComplete="off" /></div>
           <div><label htmlFor="fecha-factura" className="etiqueta">Fecha de la factura</label><input id="fecha-factura" type="date" max={hoy} value={fecha} onChange={(e) => { setFecha(e.target.value); if (elegido?.plazo_dias && condicion === "credito") setVence(sumarDias(e.target.value, elegido.plazo_dias)); }} className="campo" /></div>
+          {cufe && <p className="text-sm text-muted sm:col-span-2 lg:col-span-3 break-all">CUFE {cufe}</p>}
           {proveedor.trim().length >= 2 && !elegido && <div><label htmlFor="nit-nuevo" className="etiqueta">NIT del proveedor nuevo (opcional)</label><input id="nit-nuevo" inputMode="numeric" value={nit} onChange={(e) => setNit(e.target.value)} className="campo" placeholder="Sin dígito de verificación" /></div>}
         </div>
         {dinero && (
@@ -164,6 +221,14 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
         )}
       </section>
 
+      {porEmparejar.length > 0 && (
+        <section id="por-emparejar" className="tarjeta p-4 sm:p-5 grid gap-3 border-2 border-aviso" aria-labelledby="emparejar-t">
+          <div><h2 id="emparejar-t" className="titulo text-xl">Por emparejar ({porEmparejar.length})</h2>
+            <p className="text-muted">Estos productos de la factura no tienen un igual seguro en tu catálogo. Elige cuál es: Regenta lo recuerda para la próxima factura de este proveedor.</p></div>
+          {porEmparejar.map(({ key, l }) => <Emparejar key={key} l={l} dinero={dinero} alElegir={(p) => emparejarLinea(key, p)} alQuitar={() => setPorEmparejar((xs) => xs.filter((y) => y.key !== key))} />)}
+        </section>
+      )}
+
       <section className="tarjeta p-4 sm:p-5 grid gap-2" aria-labelledby="productos-t">
         <h2 id="productos-t" className="titulo text-xl">Productos recibidos</h2>
         <div className="relative">
@@ -187,7 +252,9 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
             const precioNuevo = ent(l.precio), m = costoUnd !== null ? margen(costoUnd, precioNuevo || l.p.precio_caja, Number(l.p.iva) || 0, upc) : null;
             return (
               <article key={l.key} className="tarjeta p-4 grid gap-3 min-w-0">
-                <div className="flex items-start gap-3"><div className="flex-1 min-w-0"><p className="font-semibold">{l.p.nombre}</p><p className="text-sm text-muted">{l.p.laboratorio ?? "Genérico"}{upc > 1 ? ` · caja x ${upc}` : ""}{dinero ? ` · precio actual ${pesosExactos(l.p.precio_caja)}${upc > 1 ? " la caja" : ""}` : ""}</p></div>
+                <div className="flex items-start gap-3"><div className="flex-1 min-w-0"><p className="font-semibold">{l.p.nombre}</p><p className="text-sm text-muted">{l.p.laboratorio ?? "Genérico"}{upc > 1 ? ` · caja x ${upc}` : ""}{dinero ? ` · precio actual ${pesosExactos(l.p.precio_caja)}${upc > 1 ? " la caja" : ""}` : ""}</p>
+                  {l.factura && <p className="text-sm text-muted mt-0.5">En la factura: «{l.factura.descripcion}»{l.factura.por ? ` · encontrado ${POR[l.factura.por]}` : " · elegido por ti"}</p>}
+                  {l.factura?.revisar && upc > 1 && <p className="text-sm font-semibold text-aviso mt-0.5">Revisa si la factura trae cajas (x {upc}) o unidades sueltas.</p>}</div>
                   <button onClick={() => setLineas((ls) => ls.filter((x) => x.key !== l.key))} className="text-sm text-alerta underline" aria-label={`Quitar ${l.p.nombre}`}>Quitar</button></div>
                 <div className={gruposCampo}>
                   <div><label htmlFor={`lote-${l.key}`} className="etiqueta">Lote</label><input id={`lote-${l.key}`} value={l.lote} onChange={(e) => cambiar(l.key, "lote", e.target.value.toUpperCase())} className="campo" /></div>
@@ -237,5 +304,35 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
         </section>
       )}
     </div>
+  );
+}
+
+/** Una línea de la factura sin producto seguro: candidatos parecidos, buscador del catálogo u omitir. */
+function Emparejar({ l, dinero, alElegir, alQuitar }: { l: LineaFactura; dinero: boolean; alElegir: (p: Prod) => void; alQuitar: () => void }) {
+  const [q, setQ] = useState("");
+  const [res, setRes] = useState<Prod[]>([]);
+  useEffect(() => {
+    if (q.trim().length < 2) { setRes([]); return; }
+    const ctl = new AbortController();
+    const t = setTimeout(() => fetch(`/api/productos?q=${encodeURIComponent(q)}`, { signal: ctl.signal }).then((r) => r.json()).then((j) => setRes((j.productos ?? []).slice(0, 6))).catch(() => {}), 160);
+    return () => { clearTimeout(t); ctl.abort(); };
+  }, [q]);
+  const id = `emp-${l.n}`;
+  return (
+    <article className="rounded-xl border border-line p-3 grid gap-2 min-w-0">
+      <div className="flex items-start gap-3"><div className="flex-1 min-w-0">
+        <p className="font-semibold">«{l.descripcion}»</p>
+        <p className="text-sm text-muted num">{miles(l.cantidad)} {l.como === "caja" ? "en la factura" : "und"}{l.lote ? ` · lote ${l.lote}` : ""}{l.vence ? ` · vence ${l.vence}` : ""}{dinero && l.precio !== null ? ` · ${pesosExactos(l.precio)} c/u` : ""}</p>
+      </div><button type="button" onClick={alQuitar} className="text-sm text-alerta underline">Quitar</button></div>
+      {l.candidatos.length > 0 && <div className="flex flex-wrap gap-2">{l.candidatos.map((p) => (
+        <button type="button" key={p.id} onClick={() => alElegir(p)} className="pastilla bg-surface border border-line hover:border-cruz text-left">Es {p.nombre}{p.laboratorio ? ` · ${p.laboratorio}` : ""}</button>))}</div>}
+      <div className="relative">
+        <label htmlFor={id} className="sr-only">Buscar el producto en tu catálogo</label>
+        <input id={id} value={q} onChange={(e) => setQ(e.target.value)} className="campo" placeholder="Busca el producto en tu catálogo" autoComplete="off" />
+        {res.length > 0 && <ul className="absolute z-10 mt-1 w-full tarjeta shadow-lg divide-y divide-line max-h-72 overflow-auto">{res.map((p) => (
+          <li key={p.id}><button type="button" onClick={() => alElegir(p)} className="w-full text-left px-4 py-2.5 hover:bg-paper"><span className="font-semibold">{p.nombre}</span><span className="block text-sm text-muted">{p.laboratorio ?? "Genérico"} · hay {p.unidades} und</span></button></li>))}</ul>}
+        {q.trim().length >= 2 && res.length === 0 && <p className="text-sm text-muted mt-1">¿No existe? Créalo en <a href="/productos/nuevo" target="_blank" rel="noopener" className="underline">Productos → Agregar</a> y búscalo aquí.</p>}
+      </div>
+    </article>
   );
 }

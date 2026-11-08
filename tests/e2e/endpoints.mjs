@@ -152,6 +152,7 @@ const R = [
   // Bloque 2-A · compras, proveedores y cuentas por pagar (dueño/admin/bodega; dinero solo dueño/admin)
   { m: "GET", p: "/api/compras", acceso: "sesion", rol: ["cajero", 403], vendedor: 403 },
   { m: "POST", p: "/api/compras", acceso: "sesion", basura: true, rol: ["cajero", 403] },
+  { m: "POST", p: "/api/compras/leer-factura", acceso: "sesion", basura: true, rol: ["cajero", 403] },
   { m: "GET", p: `/api/compras/${U}`, acceso: "sesion", rol: ["cajero", 403], espera: 404 },
   { m: "GET", p: "/api/compras/no-es-uuid", acceso: "sesion", espera: 400 },
   { m: "PATCH", p: `/api/compras/${U}`, acceso: "sesion", basura: true, rol: ["bodega", 403] },

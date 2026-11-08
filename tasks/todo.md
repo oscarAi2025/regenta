@@ -412,3 +412,18 @@ Tres frentes en paralelo (3-A regenta_3a, 3-B regenta_3b, 3-C regenta_3c); integ
 - [x] Prueba e2e demo-visitas + batería afectada (embudo, admin, ia); build; preview; publicar
 - [ ] Oscar: aplicar db/produccion/bloque4-039.sql en Supabase (sin él la consola avisa y la demo funciona igual)
 - [ ] Comprobar en producción que Netlify entrega la ciudad (cabecera x-nf-geo) en la primera visita real
+
+## 08/11/2026 · Compras desde la factura del proveedor (XML/ZIP de la DIAN, PDF o foto) — pedido de Oscar
+Objetivo: el proveedor manda la factura → Regenta arma la compra sola (proveedor, número, CUFE, productos, lote, vencimiento, cantidades, costo, IVA) y la persona solo revisa y guarda. Sin romper el flujo actual de Nueva compra.
+Muestras de Oscar: ZIP de Distribuidora Pasteur (resultó ser una NOTA CRÉDITO de descuento, no una factura) y foto de un tiquete POS de Farmagenéricos (Alegra) con «(FECHA VENCIMIENTO: dd/mm/aaaa)(LOTE: …)» dentro de la descripción.
+- [ ] Lector puro (src/lib/factura-proveedor.ts, sin dependencias): ZIP (inflateRaw de Node), AttachedDocument → Invoice/CreditNote/DebitNote, proveedor y NIT, número, fecha, CUFE, líneas (código, descripción, cantidad, precio, descuento, IVA), totales; lote y vencimiento desde campos UBL (LotIdentification) o desde la descripción
+- [ ] Notas crédito/débito: se reconocen y NO cargan inventario (aviso claro)
+- [ ] La factura debe ser para esta droguería (NIT del comprador) — aviso si no coincide
+- [ ] Emparejar con el catálogo: código de barras/alterno → lo aprendido de ese proveedor → nombre (puntaje); si no hay certeza, la persona elige (nunca se adivina en silencio)
+- [ ] Memoria por droguería y proveedor (SQL 040: proveedor_productos) que se guarda al registrar la compra: la próxima factura sale emparejada sola
+- [ ] Foto o PDF: Regenta IA (visión) devuelve el mismo formato; la imagen se reduce en el navegador antes de subir; con tope diario por droguería
+- [ ] Archivo original guardado en el espacio privado de la droguería (SQL 040: compra_archivos, RLS por empresa, 12 MB máx.) y enlazado a la compra
+- [ ] Bodega: recibe productos/lotes/cantidades sin costos (como hoy)
+- [ ] UI en Nueva compra: «Cargar desde la factura» (archivo o cámara) → rellena el formulario existente; líneas por emparejar con buscador; avisos de vencidos y de diferencias
+- [ ] Regenta IA: herramienta de costos por proveedor (quién vende más barato cada producto) con los datos de las compras
+- [ ] Pruebas: unitarias del lector (ZIP real de Pasteur + factura de prueba), e2e de compras desde XML y foto (IA simulada), endpoints, dispositivos; batería completa

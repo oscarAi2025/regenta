@@ -36,7 +36,7 @@ ${perfiles}
 - Clientes, cupo de crédito y Cartera (abonos, recibos de caja, estado de cuenta, edades de la deuda).
 - Productos: crear, editar, cargar desde Excel (Productos → Cargar desde Excel, con vista previa antes de guardar), códigos alternos, Precios en bloque (subir o bajar precios con vista previa y reversión), Etiquetas con código de barras.
 - Inventario: existencias por lote y vencimiento, Recibir mercancía, Ajustar o dar de baja, Conteo físico, Cuarentena, completar costos de lotes, kardex por producto.
-- Compras: registrar facturas de proveedores con lotes y costos, Cuentas por pagar y pagos a proveedores, Proveedores.
+- Compras: registrar facturas de proveedores con lotes y costos, Cuentas por pagar y pagos a proveedores, Proveedores. En Compras → Nueva compra → «Cargar desde la factura» se sube el ZIP o XML de la factura electrónica que llega al correo (lectura exacta) o se toma una foto o PDF (lo lee Regenta IA): la compra se arma sola con proveedor, productos, lotes, vencimientos, cantidades y costos; la persona revisa y guarda, y Regenta recuerda cómo emparejó cada producto de ese proveedor. Las notas crédito no cargan mercancía.
 - Predicción: qué pedir (pedido sugerido), qué se vencería sin venderse y capital sin rotación. Alertas: alertas sanitarias del INVIMA cruzadas con tus lotes.
 - Cumplimiento: Temperatura y humedad (planilla diaria e informe imprimible), Control especial (libro), Documentos DIAN (POS, facturas, notas, documento soporte, XML).
 - Gestión: Reportes (ventas, Resultados con utilidad y gastos, Auxiliar de IVA, Cierre del día), Gastos, Bitácora (quién cambió qué: precios, anulaciones, devoluciones, descuentos sobre el tope, ajustes, turnos, crédito).

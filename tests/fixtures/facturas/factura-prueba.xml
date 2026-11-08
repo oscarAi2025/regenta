@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Factura de PRUEBA para tests/factura-proveedor.test.mjs (datos ficticios, con la estructura UBL 2.1 de la DIAN). -->
+<AttachedDocument xmlns="urn:oasis:names:specification:ubl:schema:xsd:AttachedDocument-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:ID>FEP4521</cbc:ID>
+  <cac:SenderParty><cac:PartyTaxScheme><cbc:RegistrationName>DROGUERIA MAYORISTA DE PRUEBA S.A.S.</cbc:RegistrationName><cbc:CompanyID schemeID="7">900123456</cbc:CompanyID></cac:PartyTaxScheme></cac:SenderParty>
+  <cac:Attachment><cac:ExternalReference><cbc:MimeCode>text/xml</cbc:MimeCode><cbc:Description><![CDATA[<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:ID>FEP4521</cbc:ID>
+  <cbc:UUID schemeName="CUFE-SHA384">a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90</cbc:UUID>
+  <cbc:IssueDate>2026-11-05</cbc:IssueDate>
+  <cbc:DueDate>2026-12-05</cbc:DueDate>
+  <cac:AccountingSupplierParty><cac:Party><cac:PartyName><cbc:Name>MAYORISTA PRUEBA</cbc:Name></cac:PartyName>
+    <cac:PartyTaxScheme><cbc:RegistrationName>DROGUERIA MAYORISTA DE PRUEBA S.A.S.</cbc:RegistrationName><cbc:CompanyID schemeID="7" schemeName="31">900123456</cbc:CompanyID></cac:PartyTaxScheme></cac:Party></cac:AccountingSupplierParty>
+  <cac:AccountingCustomerParty><cac:Party><cac:PartyTaxScheme><cbc:RegistrationName>DROGUERIA DEMO</cbc:RegistrationName><cbc:CompanyID schemeID="1" schemeName="31">900000001</cbc:CompanyID></cac:PartyTaxScheme></cac:Party></cac:AccountingCustomerParty>
+  <cac:PaymentMeans><cbc:ID>2</cbc:ID><cbc:PaymentMeansCode>ZZZ</cbc:PaymentMeansCode><cbc:PaymentDueDate>2026-12-05</cbc:PaymentDueDate></cac:PaymentMeans>
+  <cac:TaxTotal><cbc:TaxAmount currencyID="COP">1520.00</cbc:TaxAmount><cac:TaxSubtotal><cbc:TaxableAmount currencyID="COP">8000.00</cbc:TaxableAmount><cbc:TaxAmount currencyID="COP">1520.00</cbc:TaxAmount><cac:TaxCategory><cbc:Percent>19.00</cbc:Percent><cac:TaxScheme><cbc:ID>01</cbc:ID><cbc:Name>IVA</cbc:Name></cac:TaxScheme></cac:TaxCategory></cac:TaxSubtotal></cac:TaxTotal>
+  <cac:LegalMonetaryTotal><cbc:LineExtensionAmount currencyID="COP">206000.00</cbc:LineExtensionAmount><cbc:AllowanceTotalAmount currencyID="COP">0.00</cbc:AllowanceTotalAmount><cbc:PayableAmount currencyID="COP">207520.00</cbc:PayableAmount></cac:LegalMonetaryTotal>
+  <cac:InvoiceLine><cbc:ID>1</cbc:ID><cbc:InvoicedQuantity unitCode="94">10</cbc:InvoicedQuantity><cbc:LineExtensionAmount currencyID="COP">198000.00</cbc:LineExtensionAmount>
+    <cac:AllowanceCharge><cbc:ChargeIndicator>false</cbc:ChargeIndicator><cbc:MultiplierFactorNumeric>10.00</cbc:MultiplierFactorNumeric><cbc:Amount currencyID="COP">22000.00</cbc:Amount><cbc:BaseAmount currencyID="COP">220000.00</cbc:BaseAmount></cac:AllowanceCharge>
+    <cac:TaxTotal><cbc:TaxAmount currencyID="COP">0.00</cbc:TaxAmount><cac:TaxSubtotal><cbc:TaxableAmount currencyID="COP">198000.00</cbc:TaxableAmount><cbc:TaxAmount currencyID="COP">0.00</cbc:TaxAmount><cac:TaxCategory><cbc:Percent>0.00</cbc:Percent><cac:TaxScheme><cbc:ID>01</cbc:ID><cbc:Name>IVA</cbc:Name></cac:TaxScheme></cac:TaxCategory></cac:TaxSubtotal></cac:TaxTotal>
+    <cac:Item><cbc:Description>ACETAMINOFEN 500 MG X 100 TABLETAS (FECHA VENCIMIENTO: 18/04/2029)(LOTE: 26312018)</cbc:Description><cac:SellersItemIdentification><cbc:ID>MP-0042</cbc:ID></cac:SellersItemIdentification><cac:StandardItemIdentification><cbc:ID schemeID="999">MP-0042</cbc:ID></cac:StandardItemIdentification></cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="COP">22000.00</cbc:PriceAmount><cbc:BaseQuantity unitCode="94">1</cbc:BaseQuantity></cac:Price></cac:InvoiceLine>
+  <cac:InvoiceLine><cbc:ID>2</cbc:ID><cbc:InvoicedQuantity unitCode="94">2</cbc:InvoicedQuantity><cbc:LineExtensionAmount currencyID="COP">8000.00</cbc:LineExtensionAmount>
+    <cac:TaxTotal><cbc:TaxAmount currencyID="COP">1520.00</cbc:TaxAmount><cac:TaxSubtotal><cbc:TaxableAmount currencyID="COP">8000.00</cbc:TaxableAmount><cbc:TaxAmount currencyID="COP">1520.00</cbc:TaxAmount><cac:TaxCategory><cbc:Percent>19.00</cbc:Percent><cac:TaxScheme><cbc:ID>01</cbc:ID><cbc:Name>IVA</cbc:Name></cac:TaxScheme></cac:TaxCategory></cac:TaxSubtotal></cac:TaxTotal>
+    <cac:Item><cbc:Description>Crema antipañalitis &amp; óxido de zinc 60 g</cbc:Description><cac:StandardItemIdentification><cbc:ID schemeID="010">7702057000016</cbc:ID></cac:StandardItemIdentification>
+      <cac:ItemInstance><cac:LotIdentification><cbc:LotNumberID>l-77a</cbc:LotNumberID><cbc:ExpiryDate>2028-03-31</cbc:ExpiryDate></cac:LotIdentification></cac:ItemInstance></cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="COP">4000.00</cbc:PriceAmount><cbc:BaseQuantity unitCode="94">1</cbc:BaseQuantity></cac:Price></cac:InvoiceLine>
+  <cac:InvoiceLine><cbc:ID>3</cbc:ID><cbc:InvoicedQuantity unitCode="94">1</cbc:InvoicedQuantity><cbc:LineExtensionAmount currencyID="COP">0.00</cbc:LineExtensionAmount>
+    <cac:PricingReference><cac:AlternativeConditionPrice><cbc:PriceAmount currencyID="COP">22000.00</cbc:PriceAmount><cbc:PriceTypeCode>01</cbc:PriceTypeCode></cac:AlternativeConditionPrice></cac:PricingReference>
+    <cac:Item><cbc:Description>ACETAMINOFEN 500 MG X 100 TABLETAS BONIFICADO F.V. 2029-04-18 LOTE 26312018</cbc:Description><cac:SellersItemIdentification><cbc:ID>MP-0042</cbc:ID></cac:SellersItemIdentification></cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="COP">0.00</cbc:PriceAmount><cbc:BaseQuantity unitCode="94">1</cbc:BaseQuantity></cac:Price></cac:InvoiceLine>
+</Invoice>]]></cbc:Description></cac:ExternalReference></cac:Attachment>
+  <cac:ParentDocumentLineReference><cbc:LineID>1</cbc:LineID><cac:DocumentReference><cbc:ID>FEP4521</cbc:ID><cbc:UUID schemeName="CUFE-SHA384">a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90</cbc:UUID></cac:DocumentReference></cac:ParentDocumentLineReference>
+</AttachedDocument>

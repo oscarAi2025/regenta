@@ -23,6 +23,8 @@ export const HERRAMIENTAS: Herramienta[] = [
     input_schema: { type: "object", properties: {} } },
   { name: "resumen_inventario", description: "Foto del inventario de hoy: productos activos, productos con existencias, unidades vendibles, lotes vencidos o bloqueados, lotes que vencen en 30 y 90 días, productos agotados y, para el dueño o el administrador, el valor del inventario a costo y los lotes sin costo (como en Inventario).",
     input_schema: { type: "object", properties: {} } },
+  { name: "costos_proveedores", description: "Lo que le cuesta cada producto según las facturas de compra registradas (últimos 12 meses): por proveedor, el último costo por unidad sin IVA, el más bajo y la fecha; quién lo vende más barato y cuánto subió el costo. Úsala para «¿a quién le compro más barato…?», «¿subió el precio de…?» o para comparar proveedores.",
+    input_schema: { type: "object", properties: { texto: { type: "string", description: "Producto o principio activo (opcional; sin texto, los productos con más compras)" }, proveedor: { type: "string", description: "Nombre del proveedor (opcional)" } } } },
   { name: "patron_semanal", description: "Qué días de la semana vende más o menos la droguería (últimas 8 semanas), como porcentaje frente al promedio.",
     input_schema: { type: "object", properties: {} } },
 ];
@@ -32,7 +34,7 @@ const limite = (n: unknown, def = 20) => Math.max(1, Math.min(50, Math.floor(Num
 
 /** Ejecuta una herramienta y devuelve datos en JSON (o un error legible para la IA). */
 /** Cifras del negocio (ventas totales, patrón semanal): solo dueño y administrador. */
-const SOLO_GERENCIA = new Set(["resumen_ventas", "patron_semanal"]);
+const SOLO_GERENCIA = new Set(["resumen_ventas", "patron_semanal", "costos_proveedores"]);
 export const herramientasPara = (rol: string) => (puede.verCostos(rol as Sesion["rol"]) ? HERRAMIENTAS : HERRAMIENTAS.filter((h) => !SOLO_GERENCIA.has(h.name)));
 
 export async function ejecutar(s: Sesion, nombre: string, entrada: Record<string, unknown>): Promise<unknown> {
@@ -113,6 +115,25 @@ export async function ejecutar(s: Sesion, nombre: string, entrada: Record<string
             count(*) filter (where lc.lote_id is null)::int lotes_sin_costo
           from v_stock_vigente s left join lote_costos lc on lc.lote_id = s.lote_id where s.empresa_id = $1 and s.unidades > 0`, [s.empresa])).rows[0];
         return { ...r, valor_inventario_a_costo: v.valor, lotes_sin_costo: v.lotes_sin_costo, nota: "El valor a costo no incluye los lotes sin costo." };
+      }
+      case "costos_proveedores": {
+        const palabras = String(entrada.texto ?? "").toLowerCase().split(/\s+/).filter(Boolean).slice(0, 5).map(sinComodines);
+        const prov = sinComodines(String(entrada.proveedor ?? "").trim().toLowerCase());
+        const filas = (await c.query(`
+          with l as (
+            select p.id producto_id, p.nombre producto, p.laboratorio, pr.nombre proveedor, c.fecha_factura, cl.costo_unidad_sin_iva::float costo
+              from compra_lineas cl join compras c on c.id = cl.compra_id and c.estado <> 'anulada' join productos p on p.id = cl.producto_id
+              join proveedores pr on pr.id = c.proveedor_id
+             where c.empresa_id = $1 and c.fecha_factura >= current_date - 365 and cl.costo_unidad_sin_iva > 0
+               and (cardinality($2::text[]) = 0 or (select bool_and(sin_tildes(lower(p.nombre || ' ' || coalesce(p.laboratorio, ''))) like '%' || sin_tildes(w) || '%') from unnest($2::text[]) w))
+               and ($3 = '' or sin_tildes(lower(pr.nombre)) like '%' || sin_tildes($3) || '%'))
+          select producto, laboratorio, proveedor, count(*)::int compras, min(costo) costo_minimo,
+                 (array_agg(costo order by fecha_factura desc))[1] ultimo_costo, max(fecha_factura)::text ultima_compra,
+                 (array_agg(costo order by fecha_factura asc))[1] primer_costo
+            from l group by producto_id, producto, laboratorio, proveedor
+            order by producto, ultimo_costo limit 60`, [s.empresa, palabras, prov])).rows;
+        if (!filas.length) return { nota: "No hay compras con costo registradas para eso en los últimos 12 meses (las compras «por costear» no cuentan)." };
+        return { costos_por_unidad_sin_iva: filas, nota: "Costos por unidad pagada, sin IVA, de las facturas registradas en Compras. «primer_costo» frente a «ultimo_costo» muestra si subió." };
       }
       case "patron_semanal":
         return (await c.query(`select * from patron_semanal($1)`, [s.empresa])).rows;
