@@ -2,6 +2,7 @@ import { z } from "zod";
 import { conSesion, ipCliente, json, limitador, limiteBD } from "@/lib/api";
 import { sinRLS } from "@/lib/db";
 import { iaActiva, mensajeError, responder } from "@/lib/ia/claude";
+import { registrarEvento, visitaActual } from "@/lib/visitas-demo";
 
 // Las respuestas de la IA pueden ser largas (tablas, pedidos): el historial las acepta y el servidor las recorta para el
 // modelo. Antes una respuesta de más de 2.000 caracteres hacía fallar la pregunta siguiente («Escribe tu pregunta»).
@@ -43,6 +44,8 @@ export const POST = conSesion(async (s, req) => {
   if (!empresasDemo.has(s.empresa)) empresasDemo.set(s.empresa, !!(await sinRLS(async (c) => (await c.query(`select demo from empresas where id = $1`, [s.empresa])).rows[0]?.demo)));
   if (empresasDemo.get(s.empresa) && (!porIp(ipCliente(req)) || !diario("demo")
     || !(await limiteBD(`ia-demo:ip:${ipCliente(req)}`, 40, "1 day")) || !(await limiteBD("ia-demo:total", 400, "1 day")))) return json({ error: "La demo tiene un límite de preguntas a Regenta IA. Escríbenos por WhatsApp y te la mostramos completa." }, 429);
+  // Consola → Visitas a la demo: qué le pregunta el visitante a la IA (primeros 200 caracteres).
+  if (empresasDemo.get(s.empresa)) await registrarEvento(await visitaActual(), "ia", String(mensajes.at(-1)!.content).slice(0, 200));
   // Cuentas de pago: tope diario por droguería (costo de la IA acotado; de sobra para el uso normal de un equipo).
   if (!empresasDemo.get(s.empresa) && !(await limiteBD(`ia:empresa:${s.empresa}`, IA_DIARIA, "1 day")))
     return json({ error: `Tu droguería llegó a las ${IA_DIARIA} preguntas de hoy a Regenta IA. Mañana sigues; si lo necesitas antes, escríbenos.` }, 429);

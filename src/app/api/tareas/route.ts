@@ -42,6 +42,7 @@ export async function POST(req: Request) {
     intentos: (await c.query(`delete from intentos_acceso where creado < now() - interval '1 day'`)).rowCount,
     invitaciones: (await c.query(`delete from invitaciones where expira < now() - interval '30 days'`)).rowCount,
   })));
+  await paso("visitas_demo", () => sinRLS(async (c) => (await c.query(`select purgar_visitas_demo() n`)).rows[0]?.n ?? 0)); // 12 meses
   if (new URL(req.url).searchParams.get("invima") === "1" || (new Date().getUTCHours() % 6 === 0 && minuto < 15)) await paso("invima", sincronizarInvima);
   return NextResponse.json(r);
 }

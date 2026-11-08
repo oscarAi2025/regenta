@@ -220,3 +220,9 @@
 ## 2026-11-07 · Regenta IA «se cortaba»
 - La API rechazaba el historial si cualquier mensaje pasaba de 2.000 caracteres: tras una respuesta larga de la IA (tablas, pedido), la pregunta siguiente fallaba con «Escribe tu pregunta». Validar la pregunta nueva, no el historial; el historial se limpia (orden, vacíos, errores) y se recorta en el servidor.
 - Probar siempre una conversación de varios turnos con respuestas largas, no solo una pregunta suelta. Reproducido en la demo publicada antes de corregir.
+
+## 08/11/2026 · Visitas a la demo
+- La batería reutiliza el mismo servidor: los limitadores en memoria (por IP «local») se llenan con endpoints y luego fallan suites como admin («Demasiados intentos»). Reiniciar el servidor antes de una suite que activa cuentas, o correr admin antes que endpoints. No es un fallo del código.
+- npm test (db.test) exige la base recién reiniciada (db-reset): tras la batería e2e da 36 fallos falsos.
+- Cada ruta nueva de src/app/api debe añadirse al contrato de tests/e2e/endpoints.mjs o la suite falla («todas las rutas de la API están en el contrato»).
+- Las cookies de primer contacto se escriben en un efecto del cliente: en las pruebas, esperar a que exista antes de navegar.

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { sinRLS } from "@/lib/db";
 import { mismoOrigen } from "@/lib/api";
 import { crearSesion, demoActiva, leerSesion, USUARIOS_DEMO, type Rol } from "@/lib/sesion";
+import { crearVisita } from "@/lib/visitas-demo";
 
 // «Probar la demo»: un clic (formulario POST desde el propio sitio) entra a la droguería de demostración, sin registro.
 // Es POST con verificación de origen para que otro sitio no pueda cambiarle la sesión a nadie, y nunca reemplaza
@@ -24,6 +25,8 @@ export async function POST(req: Request) {
   const m = await sinRLS(async (c) => (await c.query(`select m.empresa_id, m.nombre, m.rol from miembros m join empresas e on e.id = m.empresa_id where m.user_id = $1 and m.activo and e.demo limit 1`, [uid])).rows[0]);
   if (!m) return ir("/entrar");
   await crearSesion({ uid, empresa: m.empresa_id, nombre: m.nombre, rol: m.rol as Rol });
+  // Consola → Visitas a la demo: de dónde viene, ciudad, dispositivo y qué hace dentro (nunca bloquea la entrada).
+  await crearVisita(req, String(form?.get("rol") ?? "dueno"));
   return ir(m.rol === "cajero" ? "/caja" : "/inicio");
 }
 

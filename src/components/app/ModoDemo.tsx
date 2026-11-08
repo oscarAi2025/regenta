@@ -17,6 +17,8 @@ const PASOS: Paso[] = [
 ];
 
 const CLAVE = "regenta_demo_v1";
+/** Consola → Visitas a la demo (08/11/2026): cada paso del visitante (pantallas, ventas, ofertas, clics). Nunca bloquea. */
+const evento = (tipo: string, detalle?: string) => { try { void fetch("/api/demo/evento", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tipo, detalle: detalle?.slice(0, 240) }), keepalive: true }).catch(() => {}); } catch {} };
 type Estado = { hechos: string[]; ofertas: string[]; cerrada?: boolean; inicio: number };
 const leer = (): Estado => {
   try { const j = JSON.parse(sessionStorage.getItem(CLAVE) ?? "null"); if (j?.inicio) return j; } catch {}
@@ -45,9 +47,23 @@ export function ModoDemo({ rol, precio, garantia }: { rol: string; precio: numbe
     if (x.ofertas.includes(k) || x.ofertas.length >= 2) return; // nunca más de dos ofertas por visita
     actualizar((y) => ({ ...y, ofertas: [...y.ofertas, k] }));
     setOferta(k);
+    evento("oferta", k);
   }, [actualizar]);
 
   useEffect(() => { const x = leer(); guardar(x); setE(x); setAbierta(!x.cerrada && window.innerWidth >= 640); }, []); // en el celular empieza minimizado
+
+  useEffect(() => { evento("pagina", ruta); }, [ruta]);
+  // Clics a Contratar o WhatsApp desde cualquier parte de la demo.
+  useEffect(() => {
+    const clic = (ev: MouseEvent) => {
+      const a = (ev.target as HTMLElement | null)?.closest?.("a");
+      const h = a?.getAttribute("href") ?? "";
+      if (h.startsWith("/contratar")) evento("contratar", h);
+      else if (/wa\.me|whatsapp/i.test(h)) evento("whatsapp", ruta);
+    };
+    document.addEventListener("click", clic, true);
+    return () => document.removeEventListener("click", clic, true);
+  }, [ruta]);
 
   // Paso cumplido al visitar la pantalla (la venta se cumple al vender).
   useEffect(() => {
@@ -59,6 +75,7 @@ export function ModoDemo({ rol, precio, garantia }: { rol: string; precio: numbe
     const venta = (ev: Event) => {
       const total = Number((ev as CustomEvent).detail?.total ?? 0);
       actualizar((x) => (x.hechos.includes("venta") ? x : { ...x, hechos: [...x.hechos, "venta"] }));
+      evento("venta", pesos(total));
       setAviso(`Venta de ${pesos(total)} registrada, con su tiquete POS electrónico y el inventario descontado del lote que vence antes. Así de rápido en tu mostrador.`);
     };
     window.addEventListener("regenta:venta", venta);
@@ -153,10 +170,43 @@ export function ModoDemo({ rol, precio, garantia }: { rol: string; precio: numbe
               <Link href={`/contratar?plan=pro&origen=demo-${oferta}`} className="btn-cta h-14 text-lg">Contratar ahora</Link>
               <a href={msjWa} className="btn-vidrio h-14">Hablar por WhatsApp</a>
             </div>
+            <DatosContacto />
             <form method="dialog" className="mt-4 text-center"><button className="text-white/65 hover:text-white underline underline-offset-4">Seguir probando la demo</button></form>
           </div>
         )}
       </dialog>
     </>
+  );
+}
+
+/** «Prefiero que me llamen»: datos mínimos dentro de la oferta; van a Solicitudes de demo unidos a esta visita. */
+function DatosContacto() {
+  const [abierto, setAbierto] = useState(false);
+  const [estado, setEstado] = useState<"" | "enviando" | "ok">("");
+  const [error, setError] = useState("");
+  async function enviar(ev: React.FormEvent<HTMLFormElement>) {
+    ev.preventDefault(); setError(""); setEstado("enviando");
+    const f = new FormData(ev.currentTarget);
+    try {
+      const r = await fetch("/api/demo", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ nombre: f.get("nombre"), drogueria: f.get("drogueria"), ciudad: f.get("ciudad"), telefono: f.get("telefono"), origen: "demo-oferta", web: f.get("web") }) });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok) { setEstado("ok"); return; }
+      setError(j.error ?? "No se pudo enviar. Escríbenos por WhatsApp."); setEstado("");
+    } catch { setError("Sin conexión. Inténtalo de nuevo."); setEstado(""); }
+  }
+  if (estado === "ok") return <p role="status" className="mt-5 rounded-xl bg-white/10 p-3 text-center font-semibold">Listo. Te contactamos para ponerlo en tu droguería.</p>;
+  if (!abierto) return <p className="mt-4 text-center"><button type="button" onClick={() => setAbierto(true)} className="text-white/85 hover:text-white font-semibold underline underline-offset-4">Prefiero que me llamen</button></p>;
+  const campo = "h-11 w-full rounded-lg bg-white text-[#0b1f33] px-3";
+  return (
+    <form onSubmit={enviar} className="mt-5 grid gap-2 sm:grid-cols-2" aria-label="Tus datos para llamarte">
+      <label className="grid gap-1 text-sm">Tu nombre<input name="nombre" required minLength={2} maxLength={120} autoComplete="name" className={campo} /></label>
+      <label className="grid gap-1 text-sm">Droguería<input name="drogueria" required minLength={2} maxLength={160} autoComplete="organization" className={campo} /></label>
+      <label className="grid gap-1 text-sm">Ciudad<input name="ciudad" maxLength={80} autoComplete="address-level2" className={campo} /></label>
+      <label className="grid gap-1 text-sm">Celular o WhatsApp<input name="telefono" required inputMode="tel" pattern="[0-9 +()-]{7,20}" autoComplete="tel" className={campo} /></label>
+      <input name="web" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
+      {error && <p role="alert" className="sm:col-span-2 text-amber-200 text-sm">{error}</p>}
+      <button disabled={estado === "enviando"} className="sm:col-span-2 btn-cta h-12">{estado === "enviando" ? "Enviando…" : "Que me llamen"}</button>
+      <p className="sm:col-span-2 text-xs text-white/60">Usamos tus datos solo para contactarte por Regenta. <a href="/privacidad" className="underline">Privacidad</a>.</p>
+    </form>
   );
 }

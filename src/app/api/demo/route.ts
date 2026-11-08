@@ -4,6 +4,7 @@ import { sinRLS } from "@/lib/db";
 import { ipCliente, limitador, limiteBD, mismoOrigen } from "@/lib/api";
 import { avisar, encolarEmbudo, enviarAhora } from "@/lib/correo";
 import { TEXTO_CORREOS } from "@/lib/sitio";
+import { registrarEvento, visitaActual } from "@/lib/visitas-demo";
 
 const Solicitud = z.object({
   nombre: z.string().trim().min(2, "Escribe tu nombre").max(120),
@@ -46,5 +47,11 @@ export async function POST(req: Request) {
     return id;
   });
   await enviarAhora(`solicitud:${id}`);
+  // Si dejó sus datos desde dentro de la demo, la solicitud queda unida a su visita (consola → Visitas a la demo).
+  const visita = await visitaActual();
+  if (visita) {
+    await sinRLS((c) => c.query(`update demo_visitas set solicitud_id = $1 where id = $2`, [id, visita])).catch(() => null);
+    await registrarEvento(visita, "datos", `${d.nombre} · ${d.drogueria}${d.ciudad ? ` · ${d.ciudad}` : ""}`);
+  }
   return NextResponse.json({ ok: true }, { status: 201 });
 }

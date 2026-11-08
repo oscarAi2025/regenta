@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const ITEMS = [["/admin", "Resumen"], ["/admin/clientes", "Clientes"], ["/admin/clientes/nuevo", "Nuevo cliente"], ["/admin/pagos", "Pagos"], ["/admin/solicitudes", "Solicitudes de demo"], ["/admin/correos", "Correos"], ["/admin/sistema", "Sistema"], ["/admin/bitacora", "Bitácora"]] as const;
+const ITEMS = [["/admin", "Resumen"], ["/admin/clientes", "Clientes"], ["/admin/clientes/nuevo", "Nuevo cliente"], ["/admin/pagos", "Pagos"], ["/admin/solicitudes", "Solicitudes de demo"], ["/admin/demo", "Visitas a la demo"], ["/admin/correos", "Correos"], ["/admin/sistema", "Sistema"], ["/admin/bitacora", "Bitácora"]] as const;
 
 export function NavAdmin() {
   const p = usePathname();

@@ -401,3 +401,14 @@ Tres frentes en paralelo (3-A regenta_3a, 3-B regenta_3b, 3-C regenta_3c); integ
 - [ ] Segundo factor (TOTP: Google Authenticator/Authy + códigos de respaldo) para la consola de administración: Oscar lo quiere en ~1 semana (pedido 06/11)
 - [ ] Oscar: aplicar bloque3-034-036a.sql en Supabase y desplegar (un solo despliegue)
 - [ ] Pendiente: activar el envío real de documento soporte y nota débito en MATIAS por droguería (consola) tras probar en su sandbox; la consola (/admin) sigue sin loading.tsx (no se midió 418 allí)
+
+## 08/11/2026 · Consola: quién entra a la demo, desde dónde y qué hace (pedido de Oscar)
+- [x] SQL 039: demo_visitas (ubicación aproximada por IP de Netlify a nivel ciudad, dispositivo, origen, rol, lead) + demo_eventos; IP solo como hash
+- [x] Origen de la visita (utm, gclid, referente y primera página) en cookie de primer contacto; POST /demo crea la visita y su cookie
+- [x] /api/demo/evento: páginas, ventas, preguntas a la IA (primeros 200 caracteres), ofertas, clics a Contratar y WhatsApp
+- [x] Datos de contacto dentro de la demo (formulario corto en la oferta) → solicitudes_demo + visita
+- [x] Consola /admin/demo: cifras (7 y 30 días), por ciudad, dispositivo y origen; lista de visitas; detalle con la línea de tiempo
+- [x] Privacidad: explicar la analítica de la demo; conservación 12 meses
+- [x] Prueba e2e demo-visitas + batería afectada (embudo, admin, ia); build; preview; publicar
+- [ ] Oscar: aplicar db/produccion/bloque4-039.sql en Supabase (sin él la consola avisa y la demo funciona igual)
+- [ ] Comprobar en producción que Netlify entrega la ciudad (cabecera x-nf-geo) en la primera visita real

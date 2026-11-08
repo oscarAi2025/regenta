@@ -63,6 +63,7 @@ const R = [
   { m: "POST", p: "/api/activar", acceso: "publico", basura: true },
   { m: "POST", p: "/api/restablecer", acceso: "publico", basura: true },
   { m: "POST", p: "/api/demo", acceso: "publico", basura: true },
+  { m: "POST", p: "/api/demo/evento", acceso: "sesion", basura: true },
   { m: "POST", p: "/api/pagos", acceso: "publico", basura: true },
   { m: "GET", p: "/api/pagos/estado?ref=RG-X-1-ABCDEF12", acceso: "publico" },
   { m: "GET", p: "/api/pagos/estado?ref=hola", acceso: "publico", espera: 400 },
