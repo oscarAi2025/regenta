@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { deflateRawSync } from "node:zlib";
-import { abrirZip, leerArchivoXml, leerDocumento, leerXml, loteEnDescripcion, fechaIso, fichas, parecido } from "../src/lib/factura-proveedor.ts";
+import { numeroLocal, precioDeLinea, abrirZip, leerArchivoXml, leerDocumento, leerXml, loteEnDescripcion, fechaIso, fichas, parecido } from "../src/lib/factura-proveedor.ts";
 
 const fx = (n) => readFileSync(new URL(`./fixtures/facturas/${n}`, import.meta.url));
 
@@ -98,4 +98,27 @@ test("Emparejar por nombre: el producto correcto puntúa alto; otra concentraci�
   assert.deepEqual(fichas("ACETAMINOFEN 150MG/5ML JBE"), ["acetaminofen", "150mg", "5ml", "jarabe"]);
   assert.ok(parecido("ACETAMINOFEN 500 MG TAB X 100", { nombre: "Acetaminofén 500 mg x 100 tabletas", laboratorio: null }) >= 0.75);
   assert.ok(parecido("ACETAMINOFEN JARABE 120 ML", { nombre: "Acetaminofén 500 mg x 100 tabletas", laboratorio: null }) < 0.6);
+});
+
+test("Factura real de Distribuidora Pasteur (ZIP): 18 líneas con precio de lista, descuento y lote que cuadran con su PDF", () => {
+  const [d] = leerArchivoXml("fv.zip", fx("pasteur-factura.zip"));
+  assert.equal(d.tipo, "factura"); assert.equal(d.numero, "400876456"); assert.equal(d.fecha, "2026-11-05");
+  assert.equal(d.proveedor.nit, "890941663"); assert.equal(d.lineas.length, 18);
+  assert.deepEqual(d.totales, { base: 1549065, iva: 10250.91, descuentos: null, total: 1559315.91 });
+  const [a, , , , , , alka, redoxon] = d.lineas;
+  assert.deepEqual([a.codigo, a.cantidad, a.precio, a.descuento_pct, a.lote, a.iva_pct], ["004011", 5, 9370, 6, "91985", 0]);
+  assert.deepEqual([alka.precio, alka.descuento_pct, alka.lote], [69832, 15, "X268K0"]);
+  assert.deepEqual([redoxon.precio, redoxon.descuento_pct, redoxon.lote, redoxon.iva_pct], [31007, 13, "ARLUW5", 19]);
+  for (const l of d.lineas) assert.ok(Math.abs(l.precio * l.cantidad * (1 - l.descuento_pct / 100) - l.base) < 1, `línea ${l.n} cuadra`);
+  assert.ok(d.lineas.every((l) => l.lote && l.vence === null), "Pasteur manda lote pero no vencimiento");
+});
+
+test("Números con formato colombiano o inglés y precio que cuadra con la línea", () => {
+  assert.deepEqual(["9.370,00", "8,808.00", "6,00", "44039", "1.000", "$ 12.500", "UND", "91985A"].map(numeroLocal), [9370, 8808, 6, 44039, 1000, 12500, null, null]);
+  // Emisor que repite la cantidad en BaseQuantity con el precio unitario neto.
+  assert.deepEqual(precioDeLinea({ cantidad: 5, base: 44040, precioXml: 8808, bq: 5, desc: 0, conDescuento: false, props: [] }), { precio: 8808, descuento: 0 });
+  // Emisor con precio por la cantidad base.
+  assert.deepEqual(precioDeLinea({ cantidad: 4, base: 2000, precioXml: 1000, bq: 2, desc: 0, conDescuento: false, props: [] }), { precio: 500, descuento: 0 });
+  // Nada cuadra: valor de la línea entre la cantidad.
+  assert.deepEqual(precioDeLinea({ cantidad: 3, base: 3000, precioXml: 7, bq: 1, desc: 0, conDescuento: false, props: [] }), { precio: 1000, descuento: 0 });
 });

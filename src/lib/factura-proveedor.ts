@@ -114,6 +114,52 @@ export function loteEnDescripcion(desc: string) {
   return { lote: lote && lote.length >= 2 ? lote : null, vence, nombre: nombre || desc.trim() };
 }
 
+// ── Precio, descuento y lote de cada línea ──────────────────────────────────────────────────────────────────
+/** «9.370,00», «8,808.00», «6,00» o «44039» → número (null si no es un número). */
+export function numeroLocal(v: string): number | null {
+  const t = v.replace(/[$\s]/g, "");
+  if (!/^\d{1,3}([.,]\d{3})*([.,]\d{1,4})?$|^\d+([.,]\d{1,4})?$/.test(t)) return null;
+  const coma = t.lastIndexOf(","), punto = t.lastIndexOf(".");
+  const dec = Math.max(coma, punto);
+  const decimales = dec >= 0 && t.length - dec - 1 !== 3 ? t[dec] : null; // un separador seguido de 3 cifras es de miles
+  const limpio = decimales ? t.slice(0, dec).replace(/[.,]/g, "") + "." + t.slice(dec + 1) : t.replace(/[.,]/g, "");
+  const n = Number(limpio);
+  return Number.isFinite(n) ? n : null;
+}
+const cuadra = (a: number, b: number) => Math.abs(a - b) <= Math.max(1, Math.abs(b) * 0.0005);
+
+/**
+ * Precio unitario sin IVA y descuento %, comprobados contra el valor de la línea (LineExtensionAmount):
+ *  1. descuento explícito (AllowanceCharge) sobre el precio;  2. precio de lista y descuento en campos adicionales del
+ *  proveedor (p. ej. «9.370,00» y «6,00» → 8.808 × 5 = 44.039);  3. PriceAmount por unidad o por la cantidad base
+ *  (hay emisores que repiten la cantidad en BaseQuantity);  4. si nada cuadra, el valor de la línea entre la cantidad.
+ */
+export function precioDeLinea(x: { cantidad: number; base: number | null; precioXml: number | null; bq: number; desc: number; conDescuento: boolean; props: { nombre: string; valor: string }[] }) {
+  const { cantidad: q, base, precioXml, bq } = x;
+  if (!q || base === null) return { precio: precioXml === null ? null : r2(precioXml / bq), descuento: x.desc };
+  if (base === 0) return { precio: 0, descuento: 0 };
+  const opciones = precioXml === null ? [] : [precioXml, precioXml / bq];
+  if (x.conDescuento) for (const p of opciones) if (cuadra(p * q * (1 - x.desc / 100), base)) return { precio: r2(p), descuento: x.desc };
+  const nums = x.props.map((p) => numeroLocal(p.valor)).filter((n): n is number => n !== null && n > 0);
+  for (const p of nums) for (const d of nums) if (d < 100 && p > d && cuadra(p * q * (1 - d / 100), base)) return { precio: r2(p), descuento: r2(d) };
+  for (const p of opciones) if (cuadra(p * q, base)) return { precio: r2(p), descuento: 0 };
+  return { precio: r2(base / q), descuento: 0 };
+}
+
+// Campos adicionales con el lote o el vencimiento: por su nombre («Lote», «Fecha vencimiento») o, en proveedores
+// conocidos que usan campos numerados, por el campo que su factura impresa muestra como LOTE.
+const CAMPOS_PROVEEDOR: Record<string, { lote?: string; vence?: string }> = {
+  "890941663": { lote: "Opcional32" }, // Distribuidora Pasteur: comprobado con su PDF (columna LOTE), 08/11/2026
+};
+export function loteEnPropiedades(props: { nombre: string; valor: string }[], nit: string | null) {
+  const conocido = nit ? CAMPOS_PROVEEDOR[nit] : undefined;
+  const por = (re: RegExp, exacto?: string) => props.find((p) => (exacto && p.nombre === exacto) || re.test(sinTildes(p.nombre)))?.valor ?? null;
+  const lote = por(/^(n(o|umero)?\.?\s*(de\s*)?)?lote|^lot(e)?\b|batch/, conocido?.lote);
+  const v = por(/venc|expir|caduc|\bf\.?\s*v\b/, conocido?.vence);
+  const m = v ? /(\d{1,4})[/\-.](\d{1,2})[/\-.](\d{1,4})/.exec(v) : null;
+  return { lote: lote && /^[A-Z0-9][A-Z0-9\-/]{1,29}$/i.test(lote) ? lote.toUpperCase() : null, vence: m ? fechaIso(m[1], m[2], m[3]) : null };
+}
+
 // ── Documento UBL ───────────────────────────────────────────────────────────────────────────────────────────
 const TIPOS: Record<string, { tipo: TipoDocumento; linea: string; cantidad: string }> = {
   Invoice: { tipo: "factura", linea: "InvoiceLine", cantidad: "InvoicedQuantity" },
@@ -144,6 +190,8 @@ export function leerDocumento(xml: string): DocumentoLeido {
   }
   const def = TIPOS[raiz?.n ?? ""];
   if (!def) throw new Error("Este XML no es una factura electrónica (ni nota crédito o débito)");
+  const prov = tercero(hijo(raiz, "AccountingSupplierParty"));
+  const nitProveedor = prov.nit;
   const lineas: LineaLeida[] = hijos(raiz, def.linea).map((l, k) => {
     const item = hijo(l, "Item");
     const descripcion = (texto(item, "Description") ?? texto(item, "Name") ?? "").replace(/\s+/g, " ").trim();
@@ -156,27 +204,30 @@ export function leerDocumento(xml: string): DocumentoLeido {
     const base = num(texto(l, "LineExtensionAmount"));
     const precioNodo = hijo(l, "Price");
     const bq = num(texto(precioNodo, "BaseQuantity")) || 1;
-    const precio = num(texto(precioNodo, "PriceAmount"));
-    const precioUnd = precio === null ? null : r2(precio / bq);
-    let desc = 0;
+    const precioXml = num(texto(precioNodo, "PriceAmount"));
+    const props = hijos(item, "AdditionalItemProperty").map((x) => ({ nombre: (texto(x, "Name") ?? "").trim(), valor: (texto(x, "Value") ?? "").trim() })).filter((x) => x.valor);
+    let desc = 0, conDescuento = false;
     for (const ac of hijos(l, "AllowanceCharge")) {
       if (texto(ac, "ChargeIndicator") !== "false") continue;
       const pct = num(texto(ac, "MultiplierFactorNumeric")), monto = num(texto(ac, "Amount")), sobre = num(texto(ac, "BaseAmount"));
-      desc += pct ?? (monto && (sobre || (precioUnd && cantidad ? precioUnd * cantidad : 0)) ? (monto / (sobre || precioUnd! * cantidad)) * 100 : 0);
+      const pBruto = precioXml === null ? 0 : precioXml / bq;
+      desc += pct ?? (monto && (sobre || (pBruto && cantidad ? pBruto * cantidad : 0)) ? (monto / (sobre || pBruto * cantidad)) * 100 : 0);
+      conDescuento = true;
     }
-    let iva = 0;
+    const { precio, descuento } = precioDeLinea({ cantidad, base, precioXml, bq, desc, conDescuento, props });    let iva = 0;
     for (const tt of hijos(l, "TaxTotal")) for (const st of hijos(tt, "TaxSubtotal")) {
       const cat = hijo(st, "TaxCategory");
       if (texto(cat, "TaxScheme", "ID") === "01") iva = num(texto(cat, "Percent")) ?? num(texto(st, "Percent")) ?? 0;
     }
     const instancia = hijo(item, "ItemInstance", "LotIdentification");
     const enDesc = loteEnDescripcion(descripcion);
+    const extra = loteEnPropiedades(props, nitProveedor);
     const venceUbl = texto(instancia, "ExpiryDate");
     return {
       n: k + 1, codigo: vendedor ?? codigoStd, ean, descripcion, nombre: enDesc.nombre, cantidad,
-      precio: precioUnd, descuento_pct: r2(Math.min(99.99, Math.max(0, desc))), iva_pct: iva, base,
-      lote: texto(instancia, "LotNumberID")?.toUpperCase() ?? enDesc.lote,
-      vence: (venceUbl && /^\d{4}-\d{2}-\d{2}/.test(venceUbl) ? venceUbl.slice(0, 10) : null) ?? enDesc.vence,
+      precio, descuento_pct: r2(Math.min(99.99, Math.max(0, descuento))), iva_pct: iva, base,
+      lote: texto(instancia, "LotNumberID")?.toUpperCase() ?? extra.lote ?? enDesc.lote,
+      vence: (venceUbl && /^\d{4}-\d{2}-\d{2}/.test(venceUbl) ? venceUbl.slice(0, 10) : null) ?? extra.vence ?? enDesc.vence,
       bonificada: texto(hijo(l, "PricingReference"), "AlternativeConditionPrice", "PriceTypeCode") === "01" || (base === 0 && cantidad > 0),
     };
   });
@@ -188,7 +239,7 @@ export function leerDocumento(xml: string): DocumentoLeido {
     fecha: texto(raiz, "IssueDate"),
     cufe: texto(raiz, "UUID") ?? cufeContenedor,
     vence_pago: texto(raiz, "PaymentMeans", "PaymentDueDate") ?? texto(raiz, "DueDate"),
-    proveedor: (() => { const t = tercero(hijo(raiz, "AccountingSupplierParty")); return { nombre: t.nombre ?? "Proveedor sin nombre", nit: t.nit, dv: t.dv }; })(),
+    proveedor: { nombre: prov.nombre ?? "Proveedor sin nombre", nit: prov.nit, dv: prov.dv },
     comprador: (() => { const t = tercero(hijo(raiz, "AccountingCustomerParty")); return { nombre: t.nombre, nit: t.nit }; })(),
     referencia: texto(raiz, "BillingReference", "InvoiceDocumentReference", "ID") ?? texto(raiz, "DiscrepancyResponse", "ReferenceID"),
     lineas,

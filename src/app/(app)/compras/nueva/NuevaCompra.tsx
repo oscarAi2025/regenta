@@ -96,10 +96,11 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
     const listas = d.lineas.filter((l) => l.producto).map((l) => desdeFactura(l, l.producto as Prod));
     setLineas(listas);
     setPorEmparejar(d.lineas.filter((l) => !l.producto).map((l) => ({ key: ++clave.current, l })));
-    const sinLote = d.lineas.filter((l) => !l.lote).length;
+    const sinLote = d.lineas.filter((l) => !l.lote).length, sinVence = d.lineas.filter((l) => !l.vence).length;
     setAvisos([...r.avisos,
       `Factura ${d.numero} de ${d.proveedor.nombre}: ${r.resumen.lineas} producto${r.resumen.lineas === 1 ? "" : "s"}, ${r.resumen.emparejadas} ya encontrado${r.resumen.emparejadas === 1 ? "" : "s"} en tu catálogo${r.resumen.lineas > r.resumen.emparejadas ? `, ${r.resumen.lineas - r.resumen.emparejadas} por emparejar abajo` : ""}.`,
-      ...(sinLote ? [`${sinLote} producto${sinLote === 1 ? "" : "s"} sin lote en la factura: escríbelo desde la caja.`] : []),
+      ...(sinLote ? [`${sinLote} producto${sinLote === 1 ? "" : "s"} sin lote en la factura: escríbelo desde la caja o el empaque.`] : []),
+      ...(sinVence ? [`${sinVence === d.lineas.length ? "La factura no trae vencimientos" : `${sinVence} producto${sinVence === 1 ? "" : "s"} sin vencimiento en la factura`}: ponlo desde el empaque (semaforización y FEFO lo necesitan).`] : []),
       ...(d.origen === "ia" ? ["Leída de la foto con Regenta IA: confirma cantidades, lotes y costos contra el papel."] : [])]);
   }
   function emparejarLinea(key: number, p: Prod) {
@@ -122,6 +123,8 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
   const r2 = (n: number) => Math.round(n * 100) / 100;
   const total = r2(tot.total), totalPapel = leerNumero(papel), diferencia = totalPapel === null || !conCosto ? null : r2(totalPapel - total);
   const unidadesTotal = lineas.reduce((a, l) => a + entran(l), 0);
+  // Menos de un peso: el proveedor redondea cada línea al peso; no es una diferencia que haya que revisar.
+  const redondeo = diferencia !== null && diferencia !== 0 && Math.abs(diferencia) < 1;
 
   async function guardar() {
     setError("");
@@ -291,8 +294,8 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
               </dl>
               <div><label htmlFor="total-papel" className="etiqueta">Total de la factura (papel)</label><input id="total-papel" inputMode="decimal" value={papel} onChange={(e) => setPapel(decimal(e.target.value))} className="campo num" placeholder="Para cuadrar" /></div>
               {diferencia !== null && (
-                <p role="note" className={`sm:col-span-2 rounded-xl px-4 py-2.5 font-semibold ${diferencia === 0 ? "bg-cruz-soft text-cruz" : "bg-aviso-soft text-aviso"}`}>
-                  {diferencia === 0 ? "Cuadra con la factura." : `Diferencia con la factura: ${pesosExactos(diferencia)}. Revisa costos, descuentos, IVA y bonificadas antes de guardar.`}
+                <p role="note" className={`sm:col-span-2 rounded-xl px-4 py-2.5 font-semibold ${diferencia === 0 || redondeo ? "bg-cruz-soft text-cruz" : "bg-aviso-soft text-aviso"}`}>
+                  {diferencia === 0 ? "Cuadra con la factura." : redondeo ? `Cuadra con la factura (${pesosExactos(diferencia)} de redondeo del proveedor).` : `Diferencia con la factura: ${pesosExactos(diferencia)}. Revisa costos, descuentos, IVA y bonificadas antes de guardar.`}
                 </p>
               )}
             </section>
@@ -300,7 +303,7 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
           {error && <p role="alert" className="text-alerta font-semibold">{error}</p>}
           <div className="tarjeta p-4 flex flex-wrap items-center gap-3 sticky bottom-3">
             <p className="flex-1 min-w-0 font-semibold num">{lineas.length} producto{lineas.length === 1 ? "" : "s"} · {miles(unidadesTotal)} unidades{dinero && conCosto === lineas.length ? ` · ${pesosExactos(total)}` : ""}</p>
-            <button onClick={guardar} disabled={enviando} className="btn-primario">{enviando ? "Guardando…" : diferencia ? "Guardar con diferencia" : "Guardar compra"}</button>
+            <button onClick={guardar} disabled={enviando} className="btn-primario">{enviando ? "Guardando…" : diferencia && !redondeo ? "Guardar con diferencia" : "Guardar compra"}</button>
           </div>
           {dinero && conCosto === 0 && <p className="text-sm text-muted">Sin costos la compra queda «por costear»: entra al inventario y completas los costos después en la compra.</p>}
         </section>

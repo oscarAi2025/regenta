@@ -136,6 +136,12 @@ const XML1 = Buffer.from(factura(`FP-${R}`));
   const nc = await leer(p, "ad0890.zip", "application/zip", fx("pasteur-nota-credito.zip"));
   ok(nc.status === 422 && nc.j.nota?.tipo === "nota_credito" && /nota crédito/.test(nc.j.error) && /no mete mercancía/.test(nc.j.error), "nota crédito (ZIP real de Pasteur): explicada y rechazada", nc.j.error);
   ok(Number((await q1(`select count(*) n from compras where empresa_id = $1`, [DEMO.id])).n) === antes, "la nota crédito no creó ninguna compra");
+  // Factura real de Pasteur (ZIP): 18 líneas con precio de lista, descuento y lote; avisa que no es de esta droguería.
+  const pf = await leer(p, "fv0890.zip", "application/zip", fx("pasteur-factura.zip"));
+  const pd = pf.j.documento;
+  ok(pf.status === 200 && pd?.numero === "400876456" && pd.lineas.length === 18 && pd.totales.total === 1559315.91, "factura real de Pasteur leída (18 líneas)", `${pf.status} ${pf.j.error ?? ""}`);
+  ok(pd?.lineas.every((l) => l.lote) && pd.lineas[0].precio === 9370 && pd.lineas[0].descuento_pct === 6, "Pasteur: lote, precio de lista y descuento de cada línea");
+  ok(pf.j.avisos.some((a) => /no de tu droguería/.test(a)) && pf.j.avisos.length >= 1, "Pasteur: avisa que está a nombre de otro comprador");
   // Archivos que no son facturas.
   ok((await leer(p, "x.txt", "text/plain", Buffer.from("hola"))).status === 415, "texto plano → 415");
   ok((await leer(p, "x.xml", "text/xml", Buffer.from("<Otro/>"))).status === 422, "XML que no es factura → 422");
