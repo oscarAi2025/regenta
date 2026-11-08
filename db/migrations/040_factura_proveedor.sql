@@ -36,6 +36,8 @@ create index if not exists compra_archivos_creado on compra_archivos (empresa_id
 
 alter table proveedor_productos enable row level security;
 alter table compra_archivos enable row level security;
+drop policy if exists inventario_lee on proveedor_productos;
+drop policy if exists inventario_lee on compra_archivos;
 create policy inventario_lee on proveedor_productos for select to authenticated using (empresa_id in (select mis_empresas(array['dueno', 'admin', 'bodeguero'])));
 create policy inventario_lee on compra_archivos for select to authenticated using (empresa_id in (select mis_empresas(array['dueno', 'admin', 'bodeguero'])));
 revoke all on proveedor_productos, compra_archivos from anon, authenticated;
