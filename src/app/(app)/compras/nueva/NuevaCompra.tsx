@@ -43,6 +43,8 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
   const clave = useRef(0);
   const idem = useRef(crypto.randomUUID()); // misma clave si se reintenta tras un corte; nueva tras guardar
 
+  // Con lector de código de barras (PC) el buscador queda listo; en el celular no: abriría el teclado y bajaría la página.
+  useEffect(() => { if (window.matchMedia("(pointer: fine)").matches) buscar.current?.focus({ preventScroll: true }); }, []);
   const elegido = useMemo(() => proveedores.find((x) => x.nombre.trim().toLowerCase() === proveedor.trim().toLowerCase()) ?? null, [proveedor, proveedores]);
   // Con el proveedor elegido, su plazo propone la condición y el vencimiento.
   useEffect(() => {
@@ -233,7 +235,7 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
         <h2 id="productos-t" className="titulo text-xl">Productos recibidos</h2>
         <div className="relative">
           <label htmlFor="buscar-recibir" className="etiqueta">Producto</label>
-          <input id="buscar-recibir" ref={buscar} autoFocus value={q} onChange={(e) => setQ(e.target.value)} className="campo h-12 text-lg" placeholder="Escanea o escribe el nombre" autoComplete="off" />
+          <input id="buscar-recibir" ref={buscar} value={q} onChange={(e) => setQ(e.target.value)} className="campo h-12 text-lg" placeholder="Escanea o escribe el nombre" autoComplete="off" />
           {res.length > 0 && (
             <ul aria-label="Resultados" className="absolute z-10 mt-1 w-full tarjeta shadow-lg divide-y divide-line max-h-80 overflow-auto">
               {res.map((p) => <li key={p.id}><button onClick={() => agregar(p)} className="w-full text-left px-4 py-2.5 hover:bg-paper"><span className="font-semibold">{p.nombre}</span><span className="block text-sm text-muted">{p.laboratorio ?? "Genérico"} · hay {p.unidades} und</span></button></li>)}

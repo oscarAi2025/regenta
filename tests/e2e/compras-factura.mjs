@@ -197,11 +197,14 @@ const XML1 = Buffer.from(factura(`FP-${R}`));
   const c = await pool.connect();
   try {
     const duenoDemo = (await c.query(`select user_id from miembros where empresa_id = $1 and rol = 'dueno' limit 1`, [DEMO.id])).rows[0].user_id;
-    await c.query(`begin; select set_config('request.jwt.claims', $1, true); set local role authenticated`, [JSON.stringify({ sub: duenoDemo, role: "authenticated" })]);
+    await c.query("begin");
+    await c.query(`select set_config('request.jwt.claims', $1, true)`, [JSON.stringify({ sub: duenoDemo, role: "authenticated" })]);
+    await c.query("set local role authenticated");
     const vistos = (await c.query(`select count(*)::int n from compra_archivos where empresa_id = $1`, [EB.id])).rows[0].n;
     const memoria = (await c.query(`select count(*)::int n from proveedor_productos where empresa_id = $1`, [EB.id])).rows[0].n;
     ok(vistos === 0 && memoria === 0, "aislamiento: otra droguería no ve el archivo ni la memoria de proveedores (RLS)", `${vistos}/${memoria}`);
     let negado = false;
+    await c.query("savepoint s");
     try { await c.query(`select guardar_archivo_compra($1, 'x', 'application/xml', '\\x3c'::bytea, $2, null)`, [EB.id, "a".repeat(64)]); } catch (e) { negado = /permiso|cargan/i.test(e.message); }
     ok(negado, "aislamiento: no puede guardar archivos en el espacio de otra droguería");
     await c.query("rollback");

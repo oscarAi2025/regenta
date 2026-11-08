@@ -234,3 +234,9 @@
 - Los enlaces `inline` no aceptan min-height: si un enlace va solo (no dentro de un párrafo), darle `block` o `inline-block`, o que su contenedor sea flex/grid.
 - En globals.css no usar selectores de clase de Tailwind (.flex, .block…) en reglas propias: Tailwind copia la regla en cada `@apply` de esa utilidad (quedó 15 veces y alcanzó clases por accidente). Usar `[class~="flex"]`. Las clases de componente con display propio (.pastilla) hay que nombrarlas.
 - Flotantes (position: fixed): en celular horizontal (342 px de alto) el panel «Pruébalo en 3 minutos» se salía por arriba y no se podía minimizar. Todo panel flotante lleva `max-h-[calc(100dvh-…)] overflow-y-auto`; la suite de dispositivos comprueba que todo flotante visible cabe entero en la pantalla, también con el recorrido abierto.
+
+## 08/11/2026 · Compras desde la factura del proveedor
+- Una muestra de «factura» puede ser otra cosa: el ZIP de Pasteur era una NOTA CRÉDITO. Leer el tipo del documento (Invoice/CreditNote/DebitNote) y nunca cargar inventario con una nota.
+- Muchos programas meten lote y vencimiento DENTRO de la descripción («(FECHA VENCIMIENTO: dd/mm/aaaa)(LOTE: x)»): sacarlos y limpiar el nombre antes de buscar en el catálogo.
+- Emparejar por nombre: coincidir solo en cifras («500mg», «x100») o en la forma («tableta») no es el mismo producto; ante la duda, la persona elige y se recuerda por proveedor.
+- autoFocus en un buscador: en el celular abre el teclado y baja la página, escondiendo lo de arriba. Enfocar solo con puntero fino (PC con lector).

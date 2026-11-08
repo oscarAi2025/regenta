@@ -93,6 +93,7 @@ test("Emparejar por nombre: el producto correcto puntúa alto; otra concentraci�
   assert.ok(bien >= 0.75, `bien ${bien}`);
   assert.ok(bien - otraDosis >= 0.15, `otra dosis ${otraDosis}`);
   assert.ok(otro < 0.3, `otro ${otro}`);
+  assert.equal(parecido(desc, { nombre: "Metronidazol tabletas 500 mg caja x 100", laboratorio: "Ecar" }), 0, "solo coinciden las cifras");
   assert.deepEqual(fichas("Crema 60 G X 3 Und"), ["crema", "60g", "x3"]);
   assert.deepEqual(fichas("ACETAMINOFEN 150MG/5ML JBE"), ["acetaminofen", "150mg", "5ml", "jarabe"]);
   assert.ok(parecido("ACETAMINOFEN 500 MG TAB X 100", { nombre: "Acetaminofén 500 mg x 100 tabletas", laboratorio: null }) >= 0.75);
