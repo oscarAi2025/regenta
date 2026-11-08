@@ -52,15 +52,19 @@ const HERRAMIENTA = {
 
 const fechaOk = (v: unknown) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? fechaIso(v.slice(0, 4), v.slice(5, 7), v.slice(8, 10)) : null);
 const n = z.number().finite().nullish().catch(null);
+const num = (v: unknown) => (typeof v === "string" ? Number(v.replace(/\$|\s/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".")) : v);
+const LineaIA = z.object({
+  descripcion: z.string().min(1).max(300), codigo: z.string().max(40).nullish().catch(null), cantidad: z.preprocess(num, z.number().finite().positive().max(1_000_000)),
+  precio_unitario: z.preprocess(num, z.number().finite()).nullish().catch(null), descuento_pct: z.preprocess(num, z.number().finite()).nullish().catch(null),
+  iva_pct: z.preprocess(num, z.number().finite()).nullish().catch(null), total_linea: z.preprocess(num, z.number().finite()).nullish().catch(null),
+  lote: z.string().max(40).nullish().catch(null), vence: z.unknown(),
+});
 const Leida = z.object({
-  es_factura: z.boolean(),
+  es_factura: z.boolean().catch(true),
   tipo: z.enum(["factura", "nota_credito", "nota_debito"]).nullish().catch("factura"),
   numero: z.string().max(60).nullish().catch(null), fecha: z.unknown(), vence_pago: z.unknown(), cufe: z.string().max(120).nullish().catch(null),
   proveedor_nombre: z.string().max(160).nullish().catch(null), proveedor_nit: z.string().max(20).nullish().catch(null), comprador_nit: z.string().max(20).nullish().catch(null),
-  lineas: z.array(z.object({
-    descripcion: z.string().min(1).max(300), codigo: z.string().max(40).nullish().catch(null), cantidad: z.number().finite().min(0).max(1_000_000),
-    precio_unitario: n, descuento_pct: n, iva_pct: n, total_linea: n, lote: z.string().max(40).nullish().catch(null), vence: z.unknown(),
-  })).max(300),
+  lineas: z.array(z.unknown()).max(300).transform((xs) => xs.flatMap((x) => { const r = LineaIA.safeParse(x); return r.success ? [r.data] : []; })),
   subtotal: n, iva: n, total: n,
 });
 
@@ -78,24 +82,33 @@ export async function leerFacturaConIA(datos: Uint8Array, tipo: string): Promise
     tools: [HERRAMIENTA], tool_choice: { type: "tool", name: HERRAMIENTA.name },
     messages: [{ role: "user", content: [archivo, { type: "text", text: "Lee esta factura del proveedor y devuélvela con la herramienta factura_leida. Una línea por producto, en el mismo orden." }] }],
   };
-  const pedir = (sinRazonar: boolean) => fetch(URL_API(), {
+  const pedir = (extra: Record<string, unknown>) => fetch(URL_API(), {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY!, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify(sinRazonar ? { ...cuerpo, thinking: { type: "disabled" } } : cuerpo),
+    body: JSON.stringify({ ...cuerpo, ...extra }),
     signal: AbortSignal.timeout(90000),
   });
-  // Herramienta obligatoria: sin razonamiento extendido. Si el modelo no acepta ese campo, se repite sin él.
-  let r = await pedir(true);
-  if (r.status === 400) { const t = await r.clone().text().catch(() => ""); if (/thinking/i.test(t)) r = await pedir(false); }
-  if (!r.ok) {
-    const t = await r.text().catch(() => "");
-    let m = t.slice(0, 300); try { m = JSON.parse(t)?.error?.message ?? m; } catch {}
-    throw new ErrorIA(r.status, m);
+  // Según el modelo configurado: (1) herramienta obligatoria sin razonamiento extendido; (2) sin ese campo, si el modelo no
+  // lo acepta; (3) herramienta a elección del modelo, si no admite forzarla junto con el razonamiento. Un 400 pasa al siguiente.
+  const intentos: Record<string, unknown>[] = [{ thinking: { type: "disabled" } }, {}, { tool_choice: { type: "auto" } }];
+  let r: Response | null = null, ultimo = "";
+  for (const extra of intentos) {
+    r = await pedir(extra);
+    if (r.status !== 400) break;
+    ultimo = await r.text().catch(() => "");
+    console.error("factura IA 400", Object.keys(extra).join(",") || "sin campo", ultimo.slice(0, 300));
   }
-  const j = (await r.json()) as { content?: { type: string; name?: string; input?: unknown }[] };
-  const uso = j.content?.find((b) => b.type === "tool_use" && b.name === HERRAMIENTA.name);
-  const p = Leida.safeParse(uso?.input);
-  if (!p.success) throw new ErrorIA(502, "La lectura de la factura llegó incompleta");
+  if (!r || !r.ok) {
+    const t = r && r.status !== 400 ? await r.text().catch(() => "") : ultimo;
+    let m = t.slice(0, 300); try { m = JSON.parse(t)?.error?.message ?? m; } catch {}
+    throw new ErrorIA(r?.status ?? 502, m);
+  }
+  const j = (await r.json()) as { content?: { type: string; name?: string; input?: unknown; text?: string }[] };
+  // La herramienta; si el modelo respondió en texto, el JSON que venga en él.
+  let entrada: unknown = j.content?.find((b) => b.type === "tool_use" && b.name === HERRAMIENTA.name)?.input;
+  if (!entrada) { const t = j.content?.filter((b) => b.type === "text").map((b) => b.text).join("") ?? ""; const m = /\{[\s\S]*\}/.exec(t); try { entrada = m ? JSON.parse(m[0]) : null; } catch { entrada = null; } }
+  const p = Leida.safeParse(entrada);
+  if (!p.success) { console.error("factura IA formato", JSON.stringify(p.error.issues.slice(0, 3))); throw new ErrorIA(502, "La lectura de la factura llegó incompleta"); }
   const d = p.data;
   if (!d.es_factura || !d.lineas.length) throw new NoEsFactura("No se ve una factura con productos en el archivo");
   const nit = (v: string | null | undefined) => (v ? v.replace(/\D/g, "").replace(/^(\d{9})\d$/, "$1") || null : null);

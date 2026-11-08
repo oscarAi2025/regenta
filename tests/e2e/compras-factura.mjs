@@ -35,6 +35,14 @@ const FOTO = {
 const mock = http.createServer((req, res) => {
   let body = ""; req.on("data", (d) => (body += d)); req.on("end", () => {
     const b = JSON.parse(body || "{}"); iaPedidos.push(b);
+    // «estricto»: un modelo que no acepta el campo thinking ni forzar la herramienta, y que responde en texto.
+    if (iaModo === "estricto") {
+      const err = (m) => { res.writeHead(400, { "content-type": "application/json" }); res.end(JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: m } })); };
+      if (b.thinking) return err("thinking: Extra inputs are not permitted");
+      if (b.tool_choice?.type === "tool") return err("Thinking may not be enabled when tool_choice forces tool use.");
+      res.writeHead(200, { "content-type": "application/json" });
+      return res.end(JSON.stringify({ id: "m", role: "assistant", stop_reason: "end_turn", content: [{ type: "text", text: "Aquí está: " + JSON.stringify({ ...FOTO, lineas: FOTO.lineas.map((l) => ({ ...l, cantidad: String(l.cantidad), precio_unitario: "$" + l.precio_unitario.toLocaleString("es-CO") })) }) }] }));
+    }
     const input = iaModo === "factura" ? FOTO : { es_factura: false, lineas: [] };
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({ id: "m", role: "assistant", stop_reason: "tool_use", content: [{ type: "tool_use", id: "t1", name: "factura_leida", input }] }));
@@ -158,6 +166,11 @@ const XML1 = Buffer.from(factura(`FP-${R}`));
   ok(fd?.lineas[0].lote === "26312018" && fd.lineas[0].vence === "2029-04-18" && fd.lineas[3].lote === "L2226" && fd.lineas[3].vence === "2028-07-31", "lotes y vencimientos de la foto", JSON.stringify(fd?.lineas.map((l) => [l.lote, l.vence])));
   ok(fd?.lineas[0].nombre === "acetaminofen delta" && fd.lineas[2].precio === 2350, "nombre limpio y precio de la foto");
   ok(f.j.avisos.some((a) => /no de tu droguería/.test(a)), "avisa que la factura está a nombre de otro comprador");
+  // Modelo que no admite razonamiento desactivado ni herramienta obligatoria y contesta en texto: se adapta solo.
+  iaPedidos = []; iaModo = "estricto";
+  const fe = await leer(p, "foto2.jpg", "image/jpeg", jpg);
+  ok(fe.status === 200 && fe.j.documento?.lineas.length === 4 && fe.j.documento.lineas[2].precio === 2350 && fe.j.documento.lineas[0].cantidad === 50, "IA con otro modelo: reintenta sin forzar y lee la respuesta en texto (cantidades y precios con formato)", `${fe.status} ${fe.j.error ?? ""}`);
+  ok(iaPedidos.length === 3 && iaPedidos[2].tool_choice?.type === "auto", "tres intentos: sin razonamiento, sin el campo, herramienta a elección", String(iaPedidos.length));
   iaModo = "no";
   const nf = await leer(p, "gato.jpg", "image/jpeg", jpg);
   ok(nf.status === 422 && /no se ve una factura/i.test(nf.j.error), "foto que no es factura → mensaje claro", nf.j.error);
