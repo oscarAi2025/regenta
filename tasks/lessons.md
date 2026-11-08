@@ -240,3 +240,4 @@
 - Muchos programas meten lote y vencimiento DENTRO de la descripción («(FECHA VENCIMIENTO: dd/mm/aaaa)(LOTE: x)»): sacarlos y limpiar el nombre antes de buscar en el catálogo.
 - Emparejar por nombre: coincidir solo en cifras («500mg», «x100») o en la forma («tableta») no es el mismo producto; ante la duda, la persona elige y se recuerda por proveedor.
 - autoFocus en un buscador: en el celular abre el teclado y baja la página, escondiendo lo de arriba. Enfocar solo con puntero fino (PC con lector).
+- La consola (/admin) también necesitaba su `loading.tsx`: la batería del 08/11 sacó un React 418 en /admin/clientes (iPhone 15 Pro Max). Con él: 0 de 420 visitas en bucle. Todo segmento con páginas dinámicas lleva su límite de Suspense.
