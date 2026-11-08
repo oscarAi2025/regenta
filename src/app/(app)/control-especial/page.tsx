@@ -86,7 +86,7 @@ export default async function ControlEspecial({ searchParams }: { searchParams: 
                 </tr></thead>
                 <tbody className="divide-y divide-line">{d.saldos.map((x) => (
                   <tr key={x.id}>
-                    <td className="py-2.5 pr-3 font-sans"><Link href={`/control-especial?desde=${r.desde}&hasta=${r.hasta}&producto=${x.id}`} className="font-semibold hover:underline">{x.nombre}</Link></td>
+                    <td className="py-2.5 pr-3 font-sans"><Link href={`/control-especial?desde=${r.desde}&hasta=${r.hasta}&producto=${x.id}`} className="inline-block font-semibold hover:underline">{x.nombre}</Link></td>
                     <td className="py-2.5 px-2 text-right">{x.inicial}</td><td className="py-2.5 px-2 text-right">{x.entradas}</td><td className="py-2.5 px-2 text-right">{x.salidas}</td>
                     <td className="py-2.5 px-2 text-right font-semibold">{x.final}</td><td className="py-2.5 px-2 text-right">{x.dispensado}</td><td className="py-2.5 pl-2 text-right">{x.reintegrado}</td>
                   </tr>

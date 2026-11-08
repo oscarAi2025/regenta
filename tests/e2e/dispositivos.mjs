@@ -2,7 +2,7 @@
 // celulares pequeños y grandes (iPhone SE 320 px, Galaxy S8 360, iPhone 13 390, Pixel 7 412, iPhone 15 Pro Max 430),
 // celular horizontal, tabletas (iPad 810, iPad Pro 834) y PC (1366 y 1920). En cada una: estado 200, sin errores de
 // consola, sin desborde horizontal, ningún elemento visible que se salga de la pantalla, y en táctiles los botones y
-// campos con al menos 32 px de alto (aviso, no fallo, entre 24 y 32 px; fallo por debajo de 24).
+// todo lo que se toca con al menos 44 px de alto (fallo por debajo; 08/11/2026).
 // Uso: servidor con REGENTA_DEMO=1 → BASE=… DATABASE_URL=… node tests/e2e/dispositivos.mjs
 import { chromium, devices } from "playwright-core";
 import { execFileSync } from "node:child_process";
@@ -28,7 +28,7 @@ const APP = {
   cajero: ["/inicio", "/caja", "/ventas", "/clientes", "/pedidos", "/turno", "/productos", "/inventario", "/temperatura", "/cuenta"],
   bodega: ["/inicio", "/inventario", "/inventario/ajustes", "/inventario/conteos", "/etiquetas", "/inventario/cuarentena", "/compras", "/productos", "/cuenta"],
 };
-const ADMIN = ["/admin", "/admin/clientes", "/admin/clientes/nuevo", "/admin/solicitudes", "/admin/pagos", "/admin/correos", "/admin/sistema", "/admin/bitacora"];
+const ADMIN = ["/admin", "/admin/demo", "/admin/clientes", "/admin/clientes/nuevo", "/admin/solicitudes", "/admin/pagos", "/admin/correos", "/admin/sistema", "/admin/bitacora"];
 
 // Superadmin local de prueba (misma vía que tests/e2e/admin.mjs).
 const adm = { email: `disp${Date.now().toString(36)}@regenta.test`, clave: "ConsolaPrueba2026" };
@@ -52,15 +52,19 @@ async function revisar(p, errs, ruta, etiqueta, tactil) {
       if (!visible(el) || el.closest("[aria-hidden=true], .sr-only, svg")) continue;
       const r = el.getBoundingClientRect();
       if ((r.right > W + 1 || r.left < -1) && !dentroDeScroll(el)) fuera.push(nombre(el) + ` ${Math.round(r.left)}–${Math.round(r.right)}`);
-      if (tactil && el.matches("button, input:not([type=hidden]):not([type=checkbox]):not([type=radio]), select, textarea, [role=button]") && !el.closest("nav[aria-label='Migas'], .sr-only")) {
-        if (r.height < 24) diminutos.push(nombre(el) + ` ${Math.round(r.height)}px`); else if (r.height < 32) chicos.push(nombre(el) + ` ${Math.round(r.height)}px`);
+      // Táctiles: todo lo que se toca mide al menos 44 px (botones, campos, pestañas, desplegables, enlaces sueltos y
+      // casillas con su etiqueta). Los enlaces dentro de un párrafo quedan fuera (WCAG 2.5.5, excepción «en línea»).
+      const enTexto = el.tagName === "A" && el.parentElement && (el.parentElement.innerText || "").trim().length > (el.innerText || "").trim().length + 3 && getComputedStyle(el).display === "inline";
+      if (tactil && el.matches("button, a[href], summary, input:not([type=hidden]), select, textarea, [role=button], [role=tab], label:has(input[type=checkbox],input[type=radio])") && !enTexto && !el.closest(".sr-only") && !(el.matches("input[type=checkbox],input[type=radio]") && el.closest("label"))) {
+        const t = el.matches("input[type=checkbox],input[type=radio]") ? Math.max(r.height, r.width) : r.height;
+        if (t < 44) diminutos.push(nombre(el) + ` ${Math.round(t)}px`);
       }
     }
     return { desborde: document.documentElement.scrollWidth - W, fuera: fuera.slice(0, 4), nf: fuera.length, chicos: chicos.slice(0, 3), nc: chicos.length, diminutos: diminutos.slice(0, 3), nd: diminutos.length };
   }, tactil);
   ok(m.desborde <= 0, `${etiqueta}: ${ruta} desborde horizontal`, `${m.desborde}px`);
   ok(m.nf === 0, `${etiqueta}: ${ruta} ${m.nf} elemento(s) fuera de pantalla`, m.fuera.join(" · "));
-  ok(m.nd === 0, `${etiqueta}: ${ruta} ${m.nd} control(es) de menos de 24 px`, m.diminutos.join(" · "));
+  ok(m.nd === 0, `${etiqueta}: ${ruta} ${m.nd} control(es) táctil(es) de menos de 44 px`, m.diminutos.join(" · "));
   if (m.nc) { avisos++; console.log(`AVISO ${etiqueta}: ${ruta} ${m.nc} control(es) entre 24 y 32 px — ${m.chicos.join(" · ")}`); }
 }
 

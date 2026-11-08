@@ -226,3 +226,9 @@
 - npm test (db.test) exige la base recién reiniciada (db-reset): tras la batería e2e da 36 fallos falsos.
 - Cada ruta nueva de src/app/api debe añadirse al contrato de tests/e2e/endpoints.mjs o la suite falla («todas las rutas de la API están en el contrato»).
 - Las cookies de primer contacto se escriben en un efecto del cliente: en las pruebas, esperar a que exista antes de navegar.
+
+## 08/11/2026 · UX táctil: 44 px para todo lo que se toca
+- Oscar: «nada debe ser grande o pequeño, debe ser perfecto para todos los dispositivos». La suite de dispositivos solo avisaba entre 24 y 32 px y solo miraba botones y campos: dejaba pasar enlaces sueltos (pestañas, filtros, «Ver todas») de 16–34 px.
+- Regla: en pantallas táctiles (pointer: coarse) todo lo que se toca mide ≥ 44 px; la regla vive en globals.css (una sola vez, no clase por clase) y la suite falla por debajo de 44. Con ratón no cambia nada.
+- Un `min-h-*` de Tailwind en un control gana a la regla global (clase > elemento): no usar alturas mínimas menores de 11 en controles.
+- Los enlaces `inline` no aceptan min-height: si un enlace va solo (no dentro de un párrafo), darle `block` o `inline-block`, o que su contenedor sea flex/grid.
