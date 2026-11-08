@@ -232,3 +232,5 @@
 - Regla: en pantallas táctiles (pointer: coarse) todo lo que se toca mide ≥ 44 px; la regla vive en globals.css (una sola vez, no clase por clase) y la suite falla por debajo de 44. Con ratón no cambia nada.
 - Un `min-h-*` de Tailwind en un control gana a la regla global (clase > elemento): no usar alturas mínimas menores de 11 en controles.
 - Los enlaces `inline` no aceptan min-height: si un enlace va solo (no dentro de un párrafo), darle `block` o `inline-block`, o que su contenedor sea flex/grid.
+- En globals.css no usar selectores de clase de Tailwind (.flex, .block…) en reglas propias: Tailwind copia la regla en cada `@apply` de esa utilidad (quedó 15 veces y alcanzó clases por accidente). Usar `[class~="flex"]`. Las clases de componente con display propio (.pastilla) hay que nombrarlas.
+- Flotantes (position: fixed): en celular horizontal (342 px de alto) el panel «Pruébalo en 3 minutos» se salía por arriba y no se podía minimizar. Todo panel flotante lleva `max-h-[calc(100dvh-…)] overflow-y-auto`; la suite de dispositivos comprueba que todo flotante visible cabe entero en la pantalla, también con el recorrido abierto.

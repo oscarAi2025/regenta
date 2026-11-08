@@ -121,12 +121,13 @@ kbd { font-family: "Barlow Semi Condensed", sans-serif; font-weight: 600; font-s
  * Pantallas táctiles (celular, tableta; vertical u horizontal): todo lo que se toca mide al menos 44 px (guía de Apple y
  * WCAG 2.5.5). Con ratón no cambia nada. Los enlaces dentro de un párrafo no entran (los reconoce el resto del texto);
  * sí los enlaces sueltos (menús, chips, logos, tarjetas), que siempre llevan una clase de disposición.
+ * Selectores de atributo ([class~=…]) y no de clase: con .flex o .block Tailwind copia la regla en cada @apply.
  */
 @media (pointer: coarse) {
   button, [role="button"], [role="tab"], summary, select, textarea,
   input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]):not([type="file"]),
-  a:is(.flex, .inline-flex, .block, .inline-block, .grid, .btn, .btn-primario, .btn-oscuro, .btn-borde, .btn-peligro, .btn-cta, .btn-vidrio),
-  :is(.flex, .inline-flex, .grid) > a {
+  a:is([class~="flex"], [class~="inline-flex"], [class~="block"], [class~="inline-block"], [class~="grid"], [class*="btn"], [class~="pastilla"]),
+  :is([class~="flex"], [class~="inline-flex"], [class~="grid"]) > a {
     min-height: 44px;
     align-content: center;
   }

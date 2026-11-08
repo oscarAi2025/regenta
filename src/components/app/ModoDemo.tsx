@@ -111,8 +111,8 @@ export function ModoDemo({ rol, precio, garantia }: { rol: string; precio: numbe
       {e && pasos.length > 0 && (
         <div role="complementary" aria-label="Recorrido de la demo" className="fixed z-30 left-3 bottom-3 sm:left-auto sm:right-auto lg:left-[248px] max-w-[calc(100vw-96px)] sm:max-w-sm">
           {abierta ? (
-            <div className="rounded-2xl bg-[#0b1f33] text-white shadow-[0_24px_48px_-20px_rgba(0,0,0,.7)] p-4">
-              <div className="flex items-start justify-between gap-3">
+            <div className="rounded-2xl bg-[#0b1f33] text-white shadow-[0_24px_48px_-20px_rgba(0,0,0,.7)] p-4 max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain">
+              <div className="flex items-center justify-between gap-3">
                 <p className="font-cond text-xl leading-tight" style={{ fontWeight: 700 }}>Pruébalo en 3 minutos</p>
                 <button onClick={() => { setAbierta(false); actualizar((x) => ({ ...x, cerrada: true })); }} className="text-white/60 hover:text-white text-sm shrink-0" aria-label="Minimizar el recorrido">Minimizar</button>
               </div>

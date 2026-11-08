@@ -11,6 +11,7 @@ const B = process.env.BASE ?? "http://localhost:4500";
 let fallos = 0, revisadas = 0, avisos = 0;
 const ok = (c, m, x = "") => { if (!c) { console.log(`FAIL ${m}${x ? " — " + x : ""}`); fallos++; } };
 const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw-browsers/chromium" });
+const nc0 = b.newContext.bind(b);
 { const nc = b.newContext.bind(b); b.newContext = async (o) => { const c = await nc(o); await c.addInitScript(() => { try { sessionStorage.setItem("regenta_demo_v1", JSON.stringify({ hechos: [], ofertas: ["prueba", "prueba"], cerrada: true, inicio: Date.now() })); } catch {} }); return c; }; }
 
 const EQUIPOS = [
@@ -60,6 +61,13 @@ async function revisar(p, errs, ruta, etiqueta, tactil) {
         if (t < 44) diminutos.push(nombre(el) + ` ${Math.round(t)}px`);
       }
     }
+    // Paneles y botones flotantes (position: fixed) visibles: enteros dentro de la pantalla, también en horizontal.
+    const H = window.innerHeight;
+    for (const el of document.querySelectorAll("body *")) {
+      const s = getComputedStyle(el); if (s.position !== "fixed" || !visible(el) || +s.opacity < 0.5) continue;
+      const r = el.getBoundingClientRect(); if (r.height >= H - 2 && r.top <= 1) continue; // capas a pantalla completa
+      if (r.top < -1 || r.bottom > H + 1) fuera.push(nombre(el) + ` flotante ${Math.round(r.top)}–${Math.round(r.bottom)} de ${H}`);
+    }
     return { desborde: document.documentElement.scrollWidth - W, fuera: fuera.slice(0, 4), nf: fuera.length, chicos: chicos.slice(0, 3), nc: chicos.length, diminutos: diminutos.slice(0, 3), nd: diminutos.length };
   }, tactil);
   ok(m.desborde <= 0, `${etiqueta}: ${ruta} desborde horizontal`, `${m.desborde}px`);
@@ -85,6 +93,12 @@ for (const [equipo, opts] of EQUIPOS.filter(([n]) => !SOLO || SOLO.includes(n)))
     for (const ruta of rutas) await revisar(p, errs, ruta, `${equipo} ${rol}`, tactil);
     await c.close();
   }
+  // Recorrido de la demo abierto (primera visita, sin el estado guardado): cabe entero en la pantalla y se puede minimizar.
+  if (tactil) { const c = await nc0(opts); const p = await c.newPage(); const errs = [];
+    p.on("pageerror", (e) => errs.push(e.message));
+    await p.request.post(B + "/demo", { form: { rol: "dueno" } });
+    await revisar(p, errs, "/inicio", `${equipo} demo con el recorrido abierto`, tactil);
+    await c.close(); }
   // Consola de administración
   { const c = await b.newContext(opts); const p = await c.newPage(); const errs = [];
     p.on("pageerror", (e) => errs.push(e.message)); p.on("console", (x) => x.type() === "error" && errs.push(x.text()));
