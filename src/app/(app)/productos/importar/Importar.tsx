@@ -149,7 +149,7 @@ export function Importar() {
           onChange={(e) => { void abrir(e.target.files?.[0]); e.target.value = ""; }} />
         {archivo && <span className="text-sm text-muted truncate max-w-full">{archivo}</span>}
       </label>
-      <p className="text-sm text-muted -mt-2">¿Empiezas de cero? <button onClick={plantilla} className="font-semibold text-cruz py-1">Descarga la plantilla</button>: una fila por producto; lote, vencimiento y existencias son opcionales.</p>
+      <div className="-mt-2 flex flex-wrap items-center gap-x-4 gap-y-2"><p className="text-sm text-muted">¿Empiezas de cero? Usa la plantilla: una fila por producto; lote, vencimiento y existencias son opcionales.</p><button type="button" onClick={plantilla} className="btn-borde h-11 text-sm">Descargar la plantilla</button></div>
 
       {error && <p role="alert" className="rounded-xl bg-alerta-soft text-alerta px-4 py-3 font-semibold">{error}</p>}
       {(estado === "leyendo" || estado === "revisando") && <p className="text-muted" role="status">{estado === "leyendo" ? "Leyendo el archivo…" : "Revisando fila por fila…"}</p>}
