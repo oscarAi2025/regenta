@@ -77,7 +77,7 @@ export function FormContratar({ plan: inicial, planes, activos }: { plan: "esenc
           {activos.stripe && (
             <button type="button" aria-pressed={proveedor === "stripe"} onClick={() => setProveedor("stripe")} className={`rounded-2xl border-2 p-4 text-left ${proveedor === "stripe" ? "border-teal-600 bg-teal-50" : "border-line"}`}>
               <span className="block font-semibold">Tarjeta con renovación automática</span>
-              <span className="block text-sm text-muted">Visa, Mastercard o American Express; se cobra solo cada {periodo === "anio" ? "año" : "mes"}. Pasarela Stripe.</span>
+              <span className="block text-sm text-muted">Visa, Mastercard o American Express; se cobra solo cada {periodo === "anio" ? "año" : "mes"}. Pasarela Stripe; en tu extracto aparece IA DEV INVESTMENTS LLC.</span>
             </button>
           )}
         </div>
