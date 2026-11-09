@@ -5,9 +5,10 @@ import { ipCliente, mismoOrigen } from "@/lib/api";
 import { claveCorrecta } from "@/lib/claves";
 import { crearSesion, type Rol } from "@/lib/sesion";
 import { crearSesionAdmin } from "@/lib/admin";
+import { descifrar, verificarTotp } from "@/lib/totp";
 
 const Acceso = z.object({ email: z.string().trim().toLowerCase().email().max(160), clave: z.string().min(1).max(200), consola: z.boolean().optional(),
-  empresa: z.string().uuid().optional() });
+  empresa: z.string().uuid().optional(), codigo: z.string().trim().max(12).optional() });
 // Límites de intentos FALLIDOS en 15 minutos, guardados en la base (valen para todas las instancias):
 // por IP, por correo desde esa IP y por correo en total (ataque repartido). Un acierto limpia los de esa IP y correo.
 const LIMITES = { ip: 30, correo_ip: 8, correo: 40 };
@@ -26,11 +27,20 @@ export async function POST(req: Request) {
   // bloquean las IP que ya fallaron con ese correo; desde su equipo de siempre la persona sigue entrando.
   if (n.correo >= LIMITES.correo) await new Promise((r) => setTimeout(r, 3000));
   if (n.ip >= LIMITES.ip || n.correo_ip >= LIMITES.correo_ip || (n.correo >= LIMITES.correo && n.correo_ip >= 2)) return NextResponse.json({ error: "Demasiados intentos fallidos. Espera 15 minutos o pide un enlace nuevo por WhatsApp." }, { status: 429 });
-  const c = (await sinRLS((x) => x.query(`select c.id, c.nombre, c.clave_hash, c.activa, exists (select 1 from superadmins s where s.user_id = c.id) super from cuentas c where lower(c.email) = $1`, [email]))).rows[0];
+  const c = (await sinRLS((x) => x.query(`select c.id, c.nombre, c.clave_hash, c.activa, c.totp_secreto, c.totp_ultimo, exists (select 1 from superadmins s where s.user_id = c.id) super from cuentas c where lower(c.email) = $1`, [email]))).rows[0];
   const ok = await claveCorrecta(clave, c?.activa ? c.clave_hash : null);
   if (!ok) {
     await sinRLS((x) => x.query(`insert into intentos_acceso (clave) select unnest(array[$1, $2, $3]::text[])`, [claves.ip, claves.correo_ip, claves.correo]));
     return NextResponse.json({ error: "Correo o contraseña incorrectos" }, { status: 401 });
+  }
+  const fallo = async () => { await sinRLS((x) => x.query(`insert into intentos_acceso (clave) select unnest(array[$1, $2, $3]::text[])`, [claves.ip, claves.correo_ip, claves.correo])); };
+  // Consola: además de la contraseña, el código de 6 cifras de la app de autenticación (verificación en dos pasos).
+  const aConsola = c.super && (consola || !(await sinRLS(async (x) => (await x.query(`select 1 from miembros where user_id = $1 and activo`, [c.id])).rowCount)));
+  if (aConsola && c.totp_secreto) {
+    if (!p.data.codigo) return NextResponse.json({ codigo: true });
+    const paso = verificarTotp(descifrar(c.totp_secreto), p.data.codigo, c.totp_ultimo === null ? null : Number(c.totp_ultimo));
+    if (paso === null) { await fallo(); return NextResponse.json({ codigo: true, error: "Código incorrecto o vencido: escribe el que muestra ahora tu app" }, { status: 401 }); }
+    await sinRLS((x) => x.query(`update cuentas set totp_ultimo = $2 where id = $1`, [c.id, paso]));
   }
   await sinRLS(async (x) => {
     await x.query(`update cuentas set ultimo_ingreso = now() where id = $1`, [c.id]);
@@ -44,7 +54,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ elegir: activas.map((x) => ({ id: x.empresa_id, nombre: x.nombre, rol: x.rol })) });
   const m = empresa ? todas.find((x) => x.empresa_id === empresa) : todas[0];
   if (empresa && !m) return NextResponse.json({ error: "No perteneces a esa droguería" }, { status: 403 });
-  if (c.super && (consola || !m)) { await crearSesionAdmin({ uid: c.id, nombre: c.nombre }); return NextResponse.json({ destino: "/admin" }); }
+  if (c.super && (consola || !m)) {
+    // Sin verificación en dos pasos todavía: la consola solo deja activarla (/admin/dos-pasos) antes de cualquier otra cosa.
+    await crearSesionAdmin({ uid: c.id, nombre: c.nombre }, !c.totp_secreto);
+    return NextResponse.json({ destino: c.totp_secreto ? "/admin" : "/admin/dos-pasos" });
+  }
   if (!m) return NextResponse.json({ error: "Tu usuario no tiene una droguería asignada. Escríbenos por WhatsApp." }, { status: 403 });
   if (m.estado !== "activa") {
     // Suspendida por falta de pago: el dueño renueva en línea y la cuenta se reactiva sola al aprobarse el pago.

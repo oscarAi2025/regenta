@@ -20,6 +20,8 @@ export default {
     return [
       { source: "/((?!tiquete/).*)", headers: [{ key: "Content-Security-Policy", value: csp("'none'") }, { key: "X-Frame-Options", value: "DENY" }, ...comunes] },
       { source: "/tiquete/:path*", headers: [{ key: "Content-Security-Policy", value: csp("'self'") }, { key: "X-Frame-Options", value: "SAMEORIGIN" }, ...comunes] },
+      // Respuestas de la API: datos de la droguería, nunca en cachés intermedias ni en el historial del navegador.
+      { source: "/api/:path*", headers: [{ key: "Cache-Control", value: "private, no-store" }] },
     ];
   },
 };

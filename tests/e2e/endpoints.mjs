@@ -7,6 +7,7 @@ import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { SignJWT } from "jose";
 import pg from "pg";
+import { codigoTotp, TOTP } from "../ayudas/totp.mjs";
 
 const B = process.env.BASE ?? "http://localhost:4500";
 const DB = process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp";
@@ -23,8 +24,8 @@ async function sesion(rol) {
 }
 const S = { dueno: await sesion("dueno"), cajero: await sesion("cajero"), bodega: await sesion("bodega") };
 const ADMIN = { email: `ep${Date.now().toString().slice(-7)}@regenta.test`, clave: "ConsolaEndpoints2026" };
-execFileSync("node", ["scripts/crear-superadmin.mjs", ADMIN.email, "Admin Endpoints"], { env: { ...process.env, REGENTA_CLAVE_PRUEBA: ADMIN.clave, DATABASE_URL: DB } });
-const ra = await fetch(B + "/api/acceso", { method: "POST", headers: { origin: B, "content-type": "application/json", "x-real-ip": IP }, body: JSON.stringify({ ...ADMIN, consola: true }) });
+execFileSync("node", ["scripts/crear-superadmin.mjs", ADMIN.email, "Admin Endpoints"], { env: { ...process.env, REGENTA_CLAVE_PRUEBA: ADMIN.clave, REGENTA_TOTP_PRUEBA: TOTP, DATABASE_URL: DB } });
+const ra = await fetch(B + "/api/acceso", { method: "POST", headers: { origin: B, "content-type": "application/json", "x-real-ip": IP }, body: JSON.stringify({ ...ADMIN, consola: true, codigo: codigoTotp() }) });
 S.admin = ra.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
 // Vendedor (rol del mostrador; la demo no lo trae): miembro de la droguería demo con sesión firmada como la de /api/acceso.
 {
@@ -217,6 +218,7 @@ const R = [
   { m: "POST", p: `/api/admin/clientes/${U}/entrar`, acceso: "admin" },
   { m: "POST", p: `/api/admin/clientes/${U}/numeraciones`, acceso: "admin", basura: true },
   { m: "PATCH", p: `/api/admin/clientes/${U}`, acceso: "admin", basura: true },
+  { m: "POST", p: "/api/admin/dos-pasos", acceso: "admin", basura: true },
   { m: "DELETE", p: `/api/admin/clientes/${U}`, acceso: "admin", basura: true },
   { m: "GET", p: `/api/admin/clientes/${U}/exportar`, acceso: "admin" },
   { m: "POST", p: `/api/admin/clientes/${U}/pagos`, acceso: "admin", basura: true },

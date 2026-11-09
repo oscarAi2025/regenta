@@ -11,6 +11,7 @@ import { chromium, devices } from "playwright-core";
 import { createHmac } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import pg from "pg";
+import { codigoTotp, olvidarUltimo } from "../ayudas/totp.mjs";
 
 const B = process.env.BASE ?? "http://localhost:4500";
 const DB = process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp";
@@ -51,6 +52,21 @@ await p.getByRole("button", { name: "Entrar" }).click();
 await p.locator("form [role=alert]").waitFor();
 ok(/incorrectos/.test(await p.locator("form [role=alert]").textContent()), "contraseña mala rechazada");
 await p.fill("#a-clave", ADMIN.clave); await p.getByRole("button", { name: "Entrar" }).click();
+// Primera vez: la consola solo deja activar la verificación en dos pasos (QR + clave para la app de autenticación).
+await p.waitForURL(/\/admin\/dos-pasos$/);
+ok(await p.getByRole("img", { name: /Código QR/ }).count() === 1, "dos pasos: muestra el código QR para la app");
+{
+  const r = await p.request.get(B + "/admin/clientes", { maxRedirects: 0 });
+  ok([307, 308].includes(r.status()) && (r.headers()["location"] ?? "").includes("/admin/dos-pasos"), "dos pasos: sin activarla, la consola no abre otras páginas", String(r.status()));
+  const api = await p.request.get(B + "/api/admin/clientes", { headers: { origin: B } });
+  ok(api.status() === 403 || api.status() === 405, "dos pasos: sin activarla, la API de la consola no responde", String(api.status()));
+  ok(!(await pool.query(`select totp_pendiente is not null x from cuentas where email = $1`, [ADMIN.email])).rows[0].x || !/^[A-Z2-7]+$/.test((await pool.query(`select totp_pendiente t from cuentas where email = $1`, [ADMIN.email])).rows[0].t), "dos pasos: la clave pendiente se guarda cifrada");
+}
+const claveTotp = (await p.locator("[data-clave]").textContent()).trim();
+await p.fill("#codigo-2p", "000000"); await p.getByRole("button", { name: "Activar y entrar a la consola" }).click();
+await p.locator("form [role=alert]").waitFor();
+ok(/no coincide/.test(await p.locator("form [role=alert]").textContent()), "dos pasos: un código malo no la activa");
+await p.fill("#codigo-2p", codigoTotp(claveTotp)); await p.getByRole("button", { name: "Activar y entrar a la consola" }).click();
 await p.waitForURL(/\/admin$/);
 ok(await p.getByRole("heading", { name: "Resumen" }).count() === 1, "entra al resumen de la consola");
 await p.screenshot({ path: "test-results/admin-resumen.png" });
@@ -425,9 +441,28 @@ for (const r of ["/admin", "/admin/clientes", `/admin/clientes/${emp.id}`, "/adm
   ok(ancho <= 0, `consola en celular sin desborde: ${r}`, `${ancho}px`);
 }
 await p.goto(B + "/admin");
+const cookieConsola = (await ctx.cookies()).filter((x) => x.name === "regenta_admin");
 await p.getByRole("button", { name: "Salir de la consola" }).click();
 await p.waitForURL(/\/admin\/entrar/);
 ok(true, "sale de la consola");
+// Salir revoca la sesión: una copia de la cookie ya no entra (computador compartido, cookie robada).
+{
+  const c3 = await b.newContext(); await c3.addCookies(cookieConsola);
+  const r = await c3.request.get(B + "/admin", { maxRedirects: 0 });
+  ok(cookieConsola.length === 1 && [307, 308].includes(r.status()), "salir revoca la sesión de la consola: la copia de la cookie ya no entra", String(r.status()));
+  await c3.close();
+}
+// Volver a entrar: contraseña y código; un código ya usado no vale otra vez.
+await p.fill("#a-email", ADMIN.email); await p.fill("#a-clave", ADMIN.clave); await p.getByRole("button", { name: "Entrar" }).click();
+await p.locator("#a-codigo").waitFor();
+ok(true, "con la verificación activa, la consola pide el código");
+await p.fill("#a-codigo", "123456"); await p.getByRole("button", { name: "Entrar" }).click();
+await p.locator("form [role=alert]").waitFor();
+ok(/Código incorrecto/.test(await p.locator("form [role=alert]").textContent()), "código malo rechazado");
+await olvidarUltimo(pool, ADMIN.email);
+await p.fill("#a-codigo", codigoTotp(claveTotp));
+await Promise.all([p.waitForURL(/\/admin$/), p.getByRole("button", { name: "Entrar" }).click()]);
+ok(true, "con el código correcto entra");
 ok([307, 308].includes((await p.request.get(B + "/inicio", { maxRedirects: 0 })).status()), "salir de la consola cierra también la sesión de soporte");
 ok(errs.length === 0, "sin errores en consola del navegador", errs.join(" | "));
 

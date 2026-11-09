@@ -6,6 +6,7 @@
 // Uso: servidor con REGENTA_DEMO=1 → BASE=… DATABASE_URL=… node tests/e2e/dispositivos.mjs
 import { chromium, devices } from "playwright-core";
 import { execFileSync } from "node:child_process";
+import { codigoTotp, TOTP } from "../ayudas/totp.mjs";
 
 const B = process.env.BASE ?? "http://localhost:4500";
 let fallos = 0, revisadas = 0, avisos = 0;
@@ -33,7 +34,7 @@ const ADMIN = ["/admin", "/admin/demo", "/admin/clientes", "/admin/clientes/nuev
 
 // Superadmin local de prueba (misma vía que tests/e2e/admin.mjs).
 const adm = { email: `disp${Date.now().toString(36)}@regenta.test`, clave: "ConsolaPrueba2026" };
-execFileSync("node", ["scripts/crear-superadmin.mjs", adm.email, "Admin Dispositivos"], { env: { ...process.env, REGENTA_CLAVE_PRUEBA: adm.clave }, stdio: "ignore" });
+execFileSync("node", ["scripts/crear-superadmin.mjs", adm.email, "Admin Dispositivos"], { env: { ...process.env, REGENTA_CLAVE_PRUEBA: adm.clave, REGENTA_TOTP_PRUEBA: TOTP }, stdio: "ignore" });
 
 async function revisar(p, errs, ruta, etiqueta, tactil) {
   errs.length = 0;
@@ -103,6 +104,10 @@ for (const [equipo, opts] of EQUIPOS.filter(([n]) => !SOLO || SOLO.includes(n)))
   { const c = await b.newContext(opts); const p = await c.newPage(); const errs = [];
     p.on("pageerror", (e) => errs.push(e.message)); p.on("console", (x) => x.type() === "error" && errs.push(x.text()));
     await p.goto(B + "/admin/entrar"); await p.fill("#a-email", adm.email); await p.fill("#a-clave", adm.clave);
+    await p.getByRole("button", { name: "Entrar" }).click(); await p.locator("#a-codigo").waitFor({ timeout: 30000 });
+    // Un código no vale dos veces: cada equipo entra con el del siguiente intervalo de 30 s si hace falta.
+    execFileSync("psql", [process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta_3int?host=/tmp", "-qc", `update cuentas set totp_ultimo = null where email = '${adm.email}'`], { stdio: "ignore" });
+    await p.fill("#a-codigo", codigoTotp());
     await Promise.all([p.waitForURL(/\/admin$/, { timeout: 30000 }), p.getByRole("button", { name: "Entrar" }).click()]);
     for (const ruta of ADMIN) await revisar(p, errs, ruta, `${equipo} superadmin`, tactil);
     await c.close(); }

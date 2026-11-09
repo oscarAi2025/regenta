@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { pesos, MEDIO } from "@/lib/formato";
 import { imprimirRuta } from "@/lib/impresion";
@@ -20,6 +20,7 @@ export function Turno({ estado, dueno }: { estado: Estado; dueno: boolean }) {
   const [mov, setMov] = useState({ tipo: "egreso", valor: "", concepto: "" });
   const [contado, setContado] = useState("");
   const [obs, setObs] = useState("");
+  const idemMov = useRef(crypto.randomUUID()); // un doble clic no registra dos salidas de caja
   const [cierre, setCierre] = useState<null | { turno: string; diferencia: number; esperado: number; contado: number }>(null);
 
   async function enviar(cuerpo: Record<string, unknown>) {
@@ -99,7 +100,7 @@ export function Turno({ estado, dueno }: { estado: Estado; dueno: boolean }) {
           <h2 className="titulo text-xl">Entradas y salidas de efectivo</h2>
           <form className="grid sm:grid-cols-[auto_140px_1fr_auto] gap-2 items-end" onSubmit={async (e) => {
             e.preventDefault();
-            if (await enviar({ accion: "movimiento", turno: t.id, tipo: mov.tipo, valor: entero(mov.valor), concepto: mov.concepto })) setMov({ ...mov, valor: "", concepto: "" });
+            if (await enviar({ accion: "movimiento", turno: t.id, tipo: mov.tipo, valor: entero(mov.valor), concepto: mov.concepto, idem_key: idemMov.current })) { idemMov.current = crypto.randomUUID(); setMov({ ...mov, valor: "", concepto: "" }); }
           }}>
             <div className="grid grid-cols-2 gap-1 rounded-xl bg-paper p-1" role="group" aria-label="Tipo">
               {(["egreso", "ingreso"] as const).map((k) => (

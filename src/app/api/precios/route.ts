@@ -1,5 +1,5 @@
 import { comoUsuario } from "@/lib/db";
-import { conSesion, json } from "@/lib/api";
+import { conSesion, demoProtegida, json, NO_EN_DEMO } from "@/lib/api";
 import { puedePrecios } from "@/lib/precios";
 import { CambioPrecios, historialPrecios } from "@/lib/precios-datos";
 
@@ -15,6 +15,7 @@ export const POST = conSesion(async (s, req) => {
   const p = CambioPrecios.safeParse(await req.json().catch(() => null));
   if (!p.success) return json({ error: p.error.issues[0]?.message ?? "Revisa los datos del cambio" }, 400);
   if (!p.data.firma) return json({ error: "Primero mira la vista previa del cambio" }, 400);
+  if (await demoProtegida(s.empresa)) return json({ error: NO_EN_DEMO }, 403);
   const r = await comoUsuario(s, async (c) => (await c.query(`select aplicar_cambio_precios($1) r`, [{ ...p.data, empresa_id: s.empresa, simular: false }])).rows[0].r);
   return json({ cambio: r }, r.repetido ? 200 : 201);
 });

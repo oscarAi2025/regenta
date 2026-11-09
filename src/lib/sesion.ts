@@ -26,7 +26,7 @@ export const USUARIOS_DEMO = { dueno: "00000000-0000-4000-8000-000000000001", ca
 export async function crearSesion(s: Sesion) {
   const v = (await sinRLS((c) => c.query(`select version_sesion v from cuentas where id = $1`, [s.uid]))).rows[0]?.v ?? 0;
   const horas = s.soporte ? 1 : 12;
-  const jwt = await new SignJWT({ ...s, v }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime(`${horas}h`).sign(clave());
+  const jwt = await new SignJWT({ ...s, v }).setProtectedHeader({ alg: "HS256" }).setJti(crypto.randomUUID()).setIssuedAt().setExpirationTime(`${horas}h`).sign(clave());
   (await cookies()).set(COOKIE, jwt, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: horas * 3600 });
 }
 
@@ -42,15 +42,27 @@ export const leerSesion = cache(async (): Promise<Sesion | null> => {
   if (!/^[0-9a-f-]{36}$/i.test(uid) || !/^[0-9a-f-]{36}$/i.test(empresa)) return null;
   const f = (await sinRLS((c) => c.query(
     `select m.rol, e.estado, cu.activa, coalesce(cu.version_sesion, 0) v,
-            ($3::uuid is null or exists (select 1 from superadmins s join cuentas a on a.id = s.user_id where s.user_id = $3::uuid and a.activa)) soporte_ok
+            ($3::uuid is null or exists (select 1 from superadmins s join cuentas a on a.id = s.user_id where s.user_id = $3::uuid and a.activa)) soporte_ok,
+            ($4::text is not null and exists (select 1 from sesiones_cerradas x where x.jti = $4::text)) cerrada
      from miembros m join empresas e on e.id = m.empresa_id left join cuentas cu on cu.id = m.user_id
-     where m.empresa_id = $1 and m.user_id = $2 and m.activo`, [empresa, uid, soporte ?? null]))).rows[0];
-  if (!f || f.estado !== "activa" || f.activa === false || !f.soporte_ok || f.v !== Number(payload.v ?? 0)) return null;
+     where m.empresa_id = $1 and m.user_id = $2 and m.activo`, [empresa, uid, soporte ?? null, payload.jti ?? null]))).rows[0];
+  if (!f || f.estado !== "activa" || f.activa === false || !f.soporte_ok || f.cerrada || f.v !== Number(payload.v ?? 0)) return null;
   return { uid, empresa, nombre: String(payload.nombre), rol: f.rol as Rol, soporte };
 });
 
+/** Cerrar sesión la invalida de verdad: el identificador de la sesión queda en sesiones_cerradas hasta que vence, así
+ *  una cookie copiada antes de salir ya no sirve (computador de mostrador compartido). */
 export async function cerrarSesion() {
-  (await cookies()).delete(COOKIE);
+  const jar = await cookies();
+  await revocar(jar.get(COOKIE)?.value, clave());
+  jar.delete(COOKIE);
+}
+export async function revocar(t: string | undefined, k: Uint8Array) {
+  if (!t) return;
+  try {
+    const { payload } = await jwtVerify(t, k);
+    if (payload.jti && payload.exp) await sinRLS((c) => c.query(`insert into sesiones_cerradas (jti, vence) values ($1, to_timestamp($2)) on conflict do nothing`, [payload.jti, payload.exp]));
+  } catch { /* token vencido o ajeno: no hay nada que revocar */ }
 }
 
 /** Permisos de interfaz por rol (la base de datos vuelve a comprobarlos siempre). */

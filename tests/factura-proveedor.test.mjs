@@ -176,3 +176,21 @@ test("Allers: lote y vencimiento en el XML («VencimientoLote»), una línea con
   assert.equal(Math.round(d.lineas.reduce((a, l) => a + l.base, 0)), 551010, "la suma sigue cuadrando tras partir la línea");
   assert.deepEqual(["FLETE CLIENTE NACIONAL", "Domicilio", "Transporte urgente", "Seguro de mercancía", "Flexamina"].map(esCargo), [true, true, true, true, false]);
 });
+
+test("ZIP «bomba»: varias entradas que apuntan al mismo bloque comprimido no se inflan en memoria", async () => {
+  const { deflateRawSync } = await import("node:zlib");
+  const plano = Buffer.alloc(14 * 1024 * 1024, 0x61); plano.write("<Invoice>", 0);
+  const comp = deflateRawSync(plano, { level: 9 });
+  const nombre = Buffer.from("f.xml");
+  const local = Buffer.alloc(30); local.writeUInt32LE(0x04034b50, 0); local.writeUInt16LE(8, 8); local.writeUInt32LE(comp.length, 18); local.writeUInt32LE(plano.length, 22); local.writeUInt16LE(nombre.length, 26);
+  const cuerpo = Buffer.concat([local, nombre, comp]);
+  const cds = [];
+  for (let k = 0; k < 40; k++) { const cd = Buffer.alloc(46); cd.writeUInt32LE(0x02014b50, 0); cd.writeUInt16LE(8, 10); cd.writeUInt32LE(comp.length, 20); cd.writeUInt32LE(plano.length, 24); cd.writeUInt16LE(nombre.length, 28); cd.writeUInt32LE(0, 42); cds.push(cd, nombre); }
+  const dir = Buffer.concat(cds);
+  const fin = Buffer.alloc(22); fin.writeUInt32LE(0x06054b50, 0); fin.writeUInt16LE(40, 8); fin.writeUInt16LE(40, 10); fin.writeUInt32LE(dir.length, 12); fin.writeUInt32LE(cuerpo.length, 16);
+  const zip = new Uint8Array(Buffer.concat([cuerpo, dir, fin]));
+  assert.ok(zip.length < 40_000);
+  const antes = process.memoryUsage().rss;
+  assert.throws(() => leerArchivoXml("bomba.zip", zip), /demasiado grande|dañado/);
+  assert.ok(process.memoryUsage().rss - antes < 200 * 1024 * 1024, "no debe inflar cientos de MB");
+});

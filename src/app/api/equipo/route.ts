@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { sinRLS } from "@/lib/db";
-import { conSesion, json } from "@/lib/api";
+import { conSesion, json, limiteBD } from "@/lib/api";
 import { enlaceInvitacion, invitar } from "@/lib/admin-datos";
 import { encolar, enviarAhora } from "@/lib/correo";
 import { limite } from "@/lib/planes";
@@ -41,6 +41,8 @@ export const POST = conSesion(async (s, req) => {
   if (s.rol !== "dueno") return json({ error: "Solo el dueño administra el equipo" }, 403);
   const p = Nuevo.safeParse(await req.json().catch(() => null));
   if (!p.success) return json({ error: p.error.issues[0]?.message ?? "Revisa los datos" }, 400);
+  // Tope de invitaciones por droguería: el aviso «ese correo ya tiene cuenta» no debe servir para revisar correos en masa.
+  if (!(await limiteBD(`equipo:invitar:${s.empresa}`, 30, "1 day"))) return json({ error: "Llegaste al tope de invitaciones de hoy. Mañana sigues, o escríbenos por WhatsApp." }, 429);
   try {
     const r = await sinRLS(async (c) => {
       const e = await base(c, s.empresa);
@@ -80,7 +82,7 @@ export const PATCH = conSesion(async (s, req) => {
       if (p.data.enlace) {
         const cu = await cuentaAjena(c, s.empresa, "cu.id", p.data.cuenta_id);
         if (cu?.otra) throw negar("Ese usuario también pertenece a otra droguería: el enlace se lo enviamos desde soporte. Escríbenos por WhatsApp.", 409);
-        enlace = await enlaceInvitacion(c, p.data.cuenta_id);
+        enlace = await enlaceInvitacion(c, p.data.cuenta_id, m.tenia ? 24 : 7 * 24);
         clave = `${m.tenia ? "restablecer" : "invitacion"}:${p.data.cuenta_id}:${Date.now()}`;
         await encolar(c, { clave, para: m.email, plantilla: m.tenia ? "restablecer" : "invitacion", empresa: s.empresa, datos: { nombre: m.nombre, empresa: e.nombre, enlace } });
       }

@@ -43,7 +43,7 @@ export const POST = conSesion(async (s, req) => {
   if (!permitido(s.uid)) return json({ error: "Muchas preguntas seguidas: espera un minuto." }, 429);
   if (!empresasDemo.has(s.empresa)) empresasDemo.set(s.empresa, !!(await sinRLS(async (c) => (await c.query(`select demo from empresas where id = $1`, [s.empresa])).rows[0]?.demo)));
   if (empresasDemo.get(s.empresa) && (!porIp(ipCliente(req)) || !diario("demo")
-    || !(await limiteBD(`ia-demo:ip:${ipCliente(req)}`, 40, "1 day")) || !(await limiteBD("ia-demo:total", 400, "1 day")))) return json({ error: "La demo tiene un límite de preguntas a Regenta IA. Escríbenos por WhatsApp y te la mostramos completa." }, 429);
+    || !(await limiteBD(`ia-demo:ip:${ipCliente(req)}`, 40, "1 day", false)) || !(await limiteBD("ia-demo:total", 400, "1 day", false)))) return json({ error: "La demo tiene un límite de preguntas a Regenta IA. Escríbenos por WhatsApp y te la mostramos completa." }, 429);
   // Consola → Visitas a la demo: qué le pregunta el visitante a la IA (primeros 200 caracteres).
   if (empresasDemo.get(s.empresa)) await registrarEvento(await visitaActual(), "ia", String(mensajes.at(-1)!.content).slice(0, 200));
   // Cuentas de pago: tope diario por droguería (costo de la IA acotado; de sobra para el uso normal de un equipo).

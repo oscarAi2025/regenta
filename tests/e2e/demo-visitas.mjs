@@ -5,6 +5,7 @@
 import { execFileSync } from "node:child_process";
 import pg from "pg";
 import { chromium } from "playwright-core";
+import { codigoTotp, olvidarUltimo, TOTP } from "../ayudas/totp.mjs";
 
 const B = process.env.BASE ?? "http://localhost:4500", DB = process.env.DATABASE_URL;
 let fallos = 0;
@@ -12,7 +13,18 @@ const ok = (c, m, x = "") => { console.log(`${c ? "PASS" : "FAIL"} ${m}${x ? " �
 const pool = new pg.Pool({ connectionString: DB });
 const sufijo = String(Date.now()).slice(-6);
 const ADMIN = { email: `admin-visitas${sufijo}@regenta.test`, clave: "ConsolaVisitas2026" };
-execFileSync("node", ["scripts/crear-superadmin.mjs", ADMIN.email, "Admin Visitas"], { env: { ...process.env, REGENTA_CLAVE_PRUEBA: ADMIN.clave, DATABASE_URL: DB } });
+execFileSync("node", ["scripts/crear-superadmin.mjs", ADMIN.email, "Admin Visitas"], { env: { ...process.env, REGENTA_CLAVE_PRUEBA: ADMIN.clave, REGENTA_TOTP_PRUEBA: TOTP, DATABASE_URL: DB } });
+
+/** Entrar a la consola por la pantalla: contraseña y, cuando la pide, el código de la app de autenticación. */
+async function entrarConsolaUI(pg_, a, pool_) {
+  await pg_.goto(B + "/admin/entrar"); await pg_.fill("#a-email", a.email); await pg_.fill("#a-clave", a.clave);
+  await pg_.getByRole("button", { name: "Entrar" }).click();
+  await pg_.locator("#a-codigo").waitFor({ timeout: 15000 });
+  await olvidarUltimo(pool_, a.email);
+  await pg_.fill("#a-codigo", codigoTotp());
+  await Promise.all([pg_.waitForURL(/\/admin$/, { timeout: 30000 }), pg_.getByRole("button", { name: "Entrar" }).click()]);
+}
+
 const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw-browsers/chromium" });
 
 // ── El visitante: llega por una campaña, entra a la demo desde el celular y recorre pantallas
@@ -71,9 +83,7 @@ ok(hay("contratar"), "registra el clic en Contratar");
 const c2 = await b.newContext({ viewport: { width: 1440, height: 900 } });
 const a = await c2.newPage();
 const errsA = []; a.on("pageerror", (e) => errsA.push(e.message));
-await a.goto(B + "/admin/entrar");
-await a.fill("#a-email", ADMIN.email); await a.fill("#a-clave", ADMIN.clave);
-await a.getByRole("button", { name: "Entrar" }).click(); await a.waitForURL(/\/admin$/);
+await entrarConsolaUI(a, ADMIN, pool);
 await a.getByRole("link", { name: "Visitas a la demo" }).click(); await a.waitForURL(/\/admin\/demo/);
 const t = await a.locator("main").innerText();
 ok(/Visitas a la demo/.test(t) && /Mostraron interés/.test(t), "la consola muestra las cifras de la demo");

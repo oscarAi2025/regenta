@@ -38,6 +38,11 @@ export const POST = conSesion(async (s, req) => {
     return { empresa: e as { nit: string }, demo: !!e?.demo };
   });
 
+  // Cupo diario de lecturas con Regenta IA (cuestan dinero). En la demo, si la base no responde, no se lee.
+  const cupoIA = async () => demo
+    ? (await limiteBD(`ia-factura-demo:ip:${ipCliente(req)}`, 5, "1 day", false)) && (await limiteBD("ia-factura-demo:total", 100, "1 day", false))
+    : limiteBD(`ia-factura:empresa:${s.empresa}`, 150, "1 day");
+
   // 1. Leer el documento.
   let docs: DocumentoLeido[];
   if (tipo === "application/zip" || tipo === "application/xml") {
@@ -45,10 +50,7 @@ export const POST = conSesion(async (s, req) => {
     catch (e) { return json({ error: (e as Error).message || "No se pudo leer el XML de la factura" }, 422); }
   } else {
     if (!iaActiva()) return json({ error: "La lectura de fotos y PDF con Regenta IA no está disponible en este momento. Sube el ZIP o XML que te llegó al correo." }, 503);
-    const cupo = demo
-      ? (await limiteBD(`ia-factura-demo:ip:${ipCliente(req)}`, 5, "1 day")) && (await limiteBD("ia-factura-demo:total", 100, "1 day"))
-      : await limiteBD(`ia-factura:empresa:${s.empresa}`, 150, "1 day");
-    if (!cupo) return json({ error: demo ? "En la demo puedes leer hasta 5 facturas con foto por día. Escríbenos por WhatsApp y te la mostramos completa." : "Tu droguería llegó al tope de facturas leídas con foto hoy. Mañana sigues; mientras, sube el ZIP o XML." }, 429);
+    if (!(await cupoIA())) return json({ error: demo ? "En la demo puedes leer hasta 5 facturas con foto por día. Escríbenos por WhatsApp y te la mostramos completa." : "Tu droguería llegó al tope de facturas leídas con foto hoy. Mañana sigues; mientras, sube el ZIP o XML." }, 429);
     try { docs = [await leerFacturaConIA(datos, tipo)]; }
     catch (e) {
       if (e instanceof NoEsFactura) return json({ error: "No se ve una factura con productos. Toma la foto de frente, con buena luz y la factura completa." }, 422);
@@ -63,8 +65,7 @@ export const POST = conSesion(async (s, req) => {
   const faltan = doc.tipo === "factura" && doc.lineas.some((l) => !l.lote && !l.cargo && !l.bonificada);
   const pdf = faltan ? pdfDelZip(f.name, datos) : null;
   if (pdf && iaActiva()) {
-    const cupo = demo ? (await limiteBD(`ia-factura-demo:ip:${ipCliente(req)}`, 5, "1 day")) && (await limiteBD("ia-factura-demo:total", 100, "1 day")) : await limiteBD(`ia-factura:empresa:${s.empresa}`, 150, "1 day");
-    if (cupo) {
+    if (await cupoIA()) {
       try {
         const leidos = await leerLotesDelPdf(pdf);
         const antes = doc.lineas.filter((l) => l.lote).length;

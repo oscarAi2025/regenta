@@ -1,3 +1,4 @@
+import { claveIdem, idempotente } from "@/lib/idem";
 import { puede } from "@/lib/sesion";
 import { z } from "zod";
 import { cajaElegida } from "@/lib/caja-elegida";
@@ -18,7 +19,8 @@ export const GET = conSesion(async (s) => { const caja = await cajaElegida(); re
 
 export const POST = conSesion(async (s, req) => {
   if (!puede.vender(s.rol)) return json({ error: "Solo quien vende maneja el turno de caja" }, 403); // el permiso se mira antes que los datos
-  const p = Accion.safeParse(await req.json().catch(() => null));
+  const cuerpo = await req.json().catch(() => null);
+  const p = Accion.safeParse(cuerpo);
   if (!p.success) return json({ error: p.error.issues[0]?.message ?? "Datos incompletos" }, 400);
   const a = p.data;
   const caja = await cajaElegida();
@@ -36,7 +38,8 @@ export const POST = conSesion(async (s, req) => {
       if (s.rol === "cajero" && t.caja_id !== (await puestoDeTrabajo(c, s.empresa, caja)).caja_id)
         throw Object.assign(new Error("Ese turno es de otra caja: lo maneja quien trabaja en ella, el dueño o el administrador"), { code: "42501" });
     }
-    if (a.accion === "movimiento") return { id: (await c.query(`select movimiento_caja($1, $2, $3, $4) id`, [a.turno, a.tipo, a.valor, a.concepto])).rows[0].id };
+    if (a.accion === "movimiento") return idempotente(c, s.empresa, claveIdem(cuerpo?.idem_key), async () =>
+      ({ id: (await c.query(`select movimiento_caja($1, $2, $3, $4) id`, [a.turno, a.tipo, a.valor, a.concepto])).rows[0].id }));
     if (a.accion === "cerrar") return { cierre: (await c.query(`select cerrar_turno($1, $2, $3) r`, [a.turno, a.contado, a.observaciones ?? null])).rows[0].r, turno: a.turno };
     await c.query(`select exigir_turno($1, $2)`, [s.empresa, a.valor]);
     return { ok: true };

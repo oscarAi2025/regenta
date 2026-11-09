@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MEDIO } from "@/lib/formato";
 
@@ -12,6 +12,7 @@ export function Abonar({ venta, saldo, numero }: { venta: string; saldo: number;
   const [error, setError] = useState("");
   const [enviando, setEnviando] = useState(false);
   const router = useRouter();
+  const idem = useRef(crypto.randomUUID()); // un doble clic no registra dos abonos
   const n = Number(valor.replace(/\D/g, "")) || 0;
 
   async function guardar(e: React.FormEvent) {
@@ -19,10 +20,11 @@ export function Abonar({ venta, saldo, numero }: { venta: string; saldo: number;
     if (enviando) return;
     setEnviando(true); setError("");
     try {
-      const r = await fetch("/api/cartera", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ venta_id: venta, medio, valor: n, referencia: ref || null }) });
+      const r = await fetch("/api/cartera", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ venta_id: venta, medio, valor: n, referencia: ref || null, idem_key: idem.current }) });
       const j = await r.json();
       if (!r.ok) { setError(j.error ?? "No se pudo registrar el abono"); return; }
       window.dispatchEvent(new CustomEvent("regenta:abono", { detail: { venta, abonado: Number(j.abonado), saldo: Number(j.saldo) } }));
+      idem.current = crypto.randomUUID();
       setAbierto(false); setValor(""); setRef(""); router.refresh();
     } catch { setError("Sin conexión con el servidor: vuelve a intentarlo"); } finally { setEnviando(false); }
   }

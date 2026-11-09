@@ -6,6 +6,7 @@
 // rol y correo desde la consola (nunca sin dueño).
 // Uso: servidor en :4500 con REGENTA_SESSION_SECRET y REGENTA_CRON_KEY de pruebas → node tests/e2e/ingresos.mjs
 import pg from "pg";
+import { codigoTotp, TOTP } from "../ayudas/totp.mjs";
 import { createHash, randomBytes, scrypt, randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 
@@ -27,7 +28,7 @@ async function llamar(metodo, ruta, cuerpo, cookie) {
 }
 // HTML de una página tal como se lee (React separa trozos de texto con comentarios <!-- -->).
 const pagina = async (ruta, cookie) => (await (await fetch(B + ruta, { headers: cookie ? { cookie } : {} })).text()).replace(/<!--.*?-->/g, "").replace(/&amp;/g, "&");
-const entrar = async (email, clave, consola = false) => (await llamar("POST", "/api/acceso", { email, clave, consola })).cookie;
+const entrar = async (email, clave, consola = false) => (await llamar("POST", "/api/acceso", { email, clave, consola, ...(consola ? { codigo: codigoTotp() } : {}) })).cookie;
 const tarea = () => fetch(`${B}/api/tareas?operacion=1`, { method: "POST", headers: { authorization: `Bearer ${CRON}` } }).then((r) => r.json());
 const correo = async (para, plantilla) => (await q(`select estado, datos from correos where lower(para) = lower($1) and plantilla = $2 order by id desc limit 1`, [para, plantilla]))[0];
 
@@ -48,7 +49,7 @@ for (const [tipo, prefijo] of [["pos", "IGP"], ["factura", "IGF"], ["nota_credit
 
 // ── Consola
 const ADMIN = `admin${suf}@ingresos.test`;
-execFileSync("node", ["scripts/crear-superadmin.mjs", ADMIN, "Admin Ingresos"], { env: { ...process.env, REGENTA_CLAVE_PRUEBA: "ConsolaIngresos2026", DATABASE_URL: DB } });
+execFileSync("node", ["scripts/crear-superadmin.mjs", ADMIN, "Admin Ingresos"], { env: { ...process.env, REGENTA_CLAVE_PRUEBA: "ConsolaIngresos2026", REGENTA_TOTP_PRUEBA: TOTP, DATABASE_URL: DB } });
 const adm = await entrar(ADMIN, "ConsolaIngresos2026", true);
 ok(adm.startsWith("regenta_admin="), "la consola entra");
 

@@ -25,10 +25,12 @@ export async function invitar(c: Tx, empresa: string, d: { nombre: string; email
   return { cuenta_id: cuenta.id as string, enlace };
 }
 
-export async function enlaceInvitacion(c: Tx, cuenta: string) {
+/** Enlace de un solo uso para poner contraseña. Invitación: 7 días; «olvidé mi contraseña»: 1 hora (un correo reenviado
+ *  o filtrado no debe servir para tomar la cuenta durante una semana). */
+export async function enlaceInvitacion(c: Tx, cuenta: string, horas = 7 * 24) {
   await exigirNoSuper(c, cuenta);
   const t = nuevoToken();
   await c.query(`update invitaciones set usada = now() where cuenta_id = $1 and usada is null`, [cuenta]); // solo vale el último enlace
-  await c.query(`insert into invitaciones (token_hash, cuenta_id, expira) values ($1, $2, now() + interval '7 days')`, [hashToken(t), cuenta]);
+  await c.query(`insert into invitaciones (token_hash, cuenta_id, expira) values ($1, $2, now() + make_interval(hours => $3))`, [hashToken(t), cuenta, horas]);
   return `${SITIO}/activar?t=${t}`;
 }

@@ -93,7 +93,7 @@ export const PLANTILLAS = {
     previa: "Crea una contraseña nueva para Regenta.", titulo: hola(d.nombre),
     parrafos: ["Pediste una contraseña nueva para entrar a Regenta. Créala con este enlace:"],
     boton: { texto: "Crear contraseña nueva", href: enlace(d.enlace) },
-    despues: ["El enlace vence en 7 días y sirve una sola vez. Si no lo pediste tú, avísanos."] }) }),
+    despues: ["El enlace vence en 1 hora y sirve una sola vez. Si se vence, pide otro desde «Olvidé mi contraseña». Si no lo pediste tú, avísanos."] }) }),
 
   bienvenida: (d: Datos): Correo => ({ asunto: "Bienvenido a Regenta: tus primeros 3 pasos", ...marco({
     previa: "Carga tus productos y haz tu primera venta hoy.", titulo: primer(d.nombre) ? `¡Bienvenido, ${primer(d.nombre)}!` : "¡Bienvenido a Regenta!",

@@ -23,6 +23,7 @@ export function RecibirAbono({ cliente, abierto: abiertoInicial = false }: { cli
   const [enviando, setEnviando] = useState(false);
   const [hecho, setHecho] = useState<Hecho | null>(null);
   const buscar = useRef<HTMLInputElement>(null);
+  const idem = useRef(crypto.randomUUID()); // un doble clic no registra dos recibos
   const router = useRouter();
 
   useEffect(() => {
@@ -45,10 +46,11 @@ export function RecibirAbono({ cliente, abierto: abiertoInicial = false }: { cli
     setEnviando(true); setError("");
     try {
       const r = await fetch("/api/recibos", { method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ cliente_id: elegido.id, medio, valor: entero(valor), referencia: ref.trim() || null }) });
+        body: JSON.stringify({ cliente_id: elegido.id, medio, valor: entero(valor), referencia: ref.trim() || null, idem_key: idem.current }) });
       const j = await r.json();
       if (!r.ok) { setError(j.error ?? "No se pudo registrar el pago"); return; }
       const rc: Hecho = { ...j.recibo, aplicado: (j.recibo.aplicado ?? []).map((a: { factura: string; valor: unknown; saldo: unknown }) => ({ factura: a.factura, valor: Number(a.valor), saldo: Number(a.saldo) })) };
+      idem.current = crypto.randomUUID();
       setHecho(rc);
       imprimirRuta(`/tiquete/recibo/${rc.id}`);
       router.refresh(); // el resto de la pantalla (turno, estado de cuenta); lo guardado ya se ve aquí

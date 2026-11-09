@@ -11,6 +11,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { SignJWT } from "jose";
 import pg from "pg";
+import { codigoTotp, olvidarUltimo, TOTP } from "../ayudas/totp.mjs";
 
 const B = process.env.BASE ?? "http://localhost:4500";
 const DB = process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp";
@@ -258,11 +259,13 @@ for (const quien of ["Laura", "Andrés"]) {
 // ───────────── Consola: carga la numeración de documento soporte de una droguería
 {
   const ADMIN = { email: `admin-ds${R}@regenta.test`, clave: "ConsolaSoporte2026" };
-  execFileSync("node", ["scripts/crear-superadmin.mjs", ADMIN.email, "Admin Soporte"], { env: { ...process.env, REGENTA_CLAVE_PRUEBA: ADMIN.clave, DATABASE_URL: DB } });
+  execFileSync("node", ["scripts/crear-superadmin.mjs", ADMIN.email, "Admin Soporte"], { env: { ...process.env, REGENTA_CLAVE_PRUEBA: ADMIN.clave, REGENTA_TOTP_PRUEBA: TOTP, DATABASE_URL: DB } });
   const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
   const q = await ctx.newPage(); const errs = vigilar(q);
   await q.goto(B + "/admin/entrar");
   await q.fill("#a-email", ADMIN.email); await q.fill("#a-clave", ADMIN.clave);
+  await q.getByRole("button", { name: "Entrar" }).click(); await q.locator("#a-codigo").waitFor();
+  await olvidarUltimo(pool, ADMIN.email); await q.fill("#a-codigo", codigoTotp());
   await Promise.all([q.waitForURL(/\/admin$/), q.getByRole("button", { name: "Entrar" }).click()]);
   await ir(q, `/admin/clientes/${EB.id}`);
   const fac = q.getByRole("region", { name: "Facturación electrónica" });

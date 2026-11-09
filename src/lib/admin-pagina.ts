@@ -4,9 +4,11 @@ import { leerAdmin } from "./admin";
 import { PLANES } from "./planes";
 
 /** Para las páginas de la consola: sin sesión de superadministrador, a la entrada. */
-export async function exigirAdmin() {
+export async function exigirAdmin({ inscribir = false } = {}) {
   const a = await leerAdmin();
   if (!a) redirect("/admin/entrar");
+  // Sin verificación en dos pasos activa, la única página de la consola es la que la activa.
+  if (a.inscribir && !inscribir) redirect("/admin/dos-pasos");
   return a;
 }
 export const NOMBRE_PLAN: Record<string, string> = { esencial: "Esencial", pro: "Pro", cadena: "Cadena", socio: "Socio" };

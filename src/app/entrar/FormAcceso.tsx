@@ -6,13 +6,16 @@ export function FormAcceso({ consola = false }: { consola?: boolean }) {
   const [email, setEmail] = useState(""), [clave, setClave] = useState("");
   const [error, setError] = useState(""), [enviando, setEnviando] = useState(false), [renovar, setRenovar] = useState("");
   const [opciones, setOpciones] = useState<{ id: string; nombre: string; rol: string }[] | null>(null);
+  // Consola: después de la contraseña, el código de 6 cifras de la app de autenticación.
+  const [pideCodigo, setPideCodigo] = useState(false), [codigo, setCodigo] = useState("");
   async function entrar(e: React.FormEvent | null, empresa?: string) {
     e?.preventDefault();
     if (enviando) return;
     setEnviando(true); setError("");
     try {
-      const r = await fetch("/api/acceso", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, clave, consola, empresa }) });
+      const r = await fetch("/api/acceso", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, clave, consola, empresa, ...(pideCodigo ? { codigo } : {}) }) });
       const j = await r.json();
+      if (j.codigo) { setPideCodigo(true); setCodigo(""); if (j.error) setError(j.error); return; }
       if (!r.ok) { setError(j.error ?? "No se pudo entrar"); setRenovar(typeof j.renovar === "string" && j.renovar.startsWith("/contratar") ? j.renovar : ""); return; }
       if (j.elegir) { setOpciones(j.elegir); return; }
       location.href = j.destino;
@@ -31,6 +34,8 @@ export function FormAcceso({ consola = false }: { consola?: boolean }) {
     <form onSubmit={entrar} className="mt-5 grid gap-3" aria-label="Entrar con tu cuenta">
       <div><label htmlFor="a-email" className="etiqueta">Correo</label><input id="a-email" type="email" required autoComplete="username" className="campo" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
       <div><label htmlFor="a-clave" className="etiqueta">Contraseña</label><input id="a-clave" type="password" required autoComplete="current-password" className="campo" value={clave} onChange={(e) => setClave(e.target.value)} /></div>
+      {pideCodigo && <div><label htmlFor="a-codigo" className="etiqueta">Código de tu app de autenticación</label>
+        <input id="a-codigo" inputMode="numeric" autoComplete="one-time-code" required autoFocus maxLength={7} className="campo num text-xl tracking-[0.3em]" value={codigo} onChange={(e) => setCodigo(e.target.value.replace(/[^\d ]/g, ""))} /></div>}
       {error && <p role="alert" className="text-alerta text-sm font-semibold">{error}</p>}
       {error && renovar && <a href={renovar} className="btn-primario h-12">Renovar mi plan</a>}
       <button disabled={enviando} className="btn-oscuro h-12 disabled:opacity-60">{enviando ? "Entrando…" : "Entrar"}</button>

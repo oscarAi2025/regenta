@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { pesos } from "@/lib/formato";
 import { imprimirRuta } from "@/lib/impresion";
 
@@ -25,10 +25,11 @@ export function Devolver({ id, lineas, credito }: { id: string; lineas: Linea[];
   const total = lineas.reduce((s, l, i) => s + Math.round((cant[i] ?? 0) * l.unitario), 0);
   const elegidas = lineas.map((l, i) => ({ l, q: cant[i] ?? 0 })).filter((x) => x.q > 0);
 
+  const idem = useRef(crypto.randomUUID()); // un doble clic no hace dos devoluciones
   async function devolver() {
     setEnviando(true); setError("");
     const r = await fetch(`/api/ventas/${id}/devolucion`, { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ motivo, medio, destino, lineas: elegidas.map(({ l, q }) => ({ producto_id: l.producto_id, presentacion: l.presentacion, cantidad: q })) }) }).catch(() => null);
+      body: JSON.stringify({ idem_key: idem.current, motivo, medio, destino, lineas: elegidas.map(({ l, q }) => ({ producto_id: l.producto_id, presentacion: l.presentacion, cantidad: q })) }) }).catch(() => null);
     if (!r) { setError("Sin conexión: revisa internet e intenta de nuevo."); setEnviando(false); return; }
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { setError(j.error ?? "No se pudo registrar la devolución"); setEnviando(false); return; }

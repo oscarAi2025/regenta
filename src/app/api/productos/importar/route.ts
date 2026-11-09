@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { comoUsuario, puestoDeTrabajo, sinRLS } from "@/lib/db";
-import { conSesion, json } from "@/lib/api";
+import { conSesion, demoProtegida, json, NO_EN_DEMO } from "@/lib/api";
 import { CAMPOS, claveNombre, leerFilas, type Campo, type Nota, type Producto } from "@/lib/importar";
 
 export const maxDuration = 26;
@@ -29,6 +29,7 @@ export const POST = conSesion(async (s, req) => {
   if (!filas.some((f) => "nombre" in f)) return json({ error: "Falta la columna del nombre del producto" }, 400);
   if (!filas.some((f) => "precio_caja" in f || "precio_unidad" in f)) return json({ error: "Falta la columna del precio de venta" }, 400);
 
+  if (!p.data.simular && (await demoProtegida(s.empresa))) return json({ error: NO_EN_DEMO }, 403);
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
   const lec = leerFilas(filas, hoy, p.data.primera_fila ?? 2);
   const avisos: Nota[] = [...lec.avisos];

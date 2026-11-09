@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { sinRLS } from "@/lib/db";
-import { mismoOrigen } from "@/lib/api";
+import { ipCliente, limiteBD, mismoOrigen } from "@/lib/api";
 import { crearSesion, demoActiva, leerSesion, USUARIOS_DEMO, type Rol } from "@/lib/sesion";
 import { crearVisita } from "@/lib/visitas-demo";
 
@@ -15,6 +15,8 @@ const ir = (ruta: string) => new NextResponse(null, { status: 303, headers: { Lo
 
 export async function POST(req: Request) {
   if (!demoActiva() || !mismoOrigen(req)) return ir("/#demo");
+  // Tope de entradas por conexión: la demo es pública y cada entrada crea una sesión y una visita.
+  if (!(await limiteBD(`demo:entrar:${ipCliente(req)}`, 40, "1 hour"))) return ir("/#demo");
   const form = await req.formData().catch(() => null);
   const actual = await leerSesion();
   if (actual) {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { claveIdem, idempotente } from "@/lib/idem";
 import { comoUsuario, puestoDeTrabajo } from "@/lib/db";
 import { conSesion, json } from "@/lib/api";
 import { puede } from "@/lib/sesion";
@@ -32,13 +33,15 @@ const Abono = z.object({
  *  computadora y, si tiene turno abierto, en ese turno. */
 export const POST = conSesion(async (s, req) => {
   if (!puede.cartera(s.rol)) return json({ error: "Solo el dueño o el administrador registran abonos" }, 403);
-  const p = Abono.safeParse(await req.json().catch(() => null));
+  const cuerpo = await req.json().catch(() => null);
+  const p = Abono.safeParse(cuerpo);
   if (!p.success) return json({ error: p.error.issues[0]?.message ?? "Datos del abono incompletos" }, 400);
   const caja = await cajaElegida();
   const r = await comoUsuario(s, async (c) => {
     if (!(await c.query(`select 1 from ventas where id = $1 and empresa_id = $2`, [p.data.venta_id, s.empresa])).rowCount) return null;
     const puesto = await puestoDeTrabajo(c, s.empresa, caja);
-    return (await c.query(`select registrar_abono($1, $2, $3, $4, $5) r`, [p.data.venta_id, p.data.medio, p.data.valor, p.data.referencia ?? null, puesto.caja_id])).rows[0].r;
+    return idempotente(c, s.empresa, claveIdem(cuerpo?.idem_key), async () =>
+      (await c.query(`select registrar_abono($1, $2, $3, $4, $5) r`, [p.data.venta_id, p.data.medio, p.data.valor, p.data.referencia ?? null, puesto.caja_id])).rows[0].r);
   });
   if (!r) return json({ error: "Esa venta no existe en tu droguería" }, 404);
   return json(r, 201);

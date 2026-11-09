@@ -26,8 +26,11 @@ export type DocumentoLeido = {
 };
 
 // ── ZIP ───────────────────────────────────────────────────────────────────────────────────────────────────────
-/** Archivos de un ZIP (solo «guardado» y «deflate», que es lo que usan los proveedores). Tope: 40 archivos de 15 MB. */
-export function abrirZip(zip: Uint8Array): { nombre: string; datos: Uint8Array }[] {
+/** Archivos de un ZIP (solo «guardado» y «deflate», que es lo que usan los proveedores). Solo se descomprimen los que
+ *  pide `quiere` (XML o PDF), con un tope de 15 MB por archivo y 25 MB entre todos: un ZIP «bomba» de pocos KB no
+ *  puede inflarse en memoria. Dos entradas que apuntan al mismo bloque comprimido se rechazan. */
+const TOPE_ARCHIVO = 15 * 1024 * 1024, TOPE_ZIP = 25 * 1024 * 1024;
+export function abrirZip(zip: Uint8Array, quiere: (nombre: string) => boolean = () => true): { nombre: string; datos: Uint8Array }[] {
   const b = Buffer.from(zip.buffer, zip.byteOffset, zip.byteLength);
   let fin = -1;
   for (let i = b.length - 22; i >= Math.max(0, b.length - 65557); i--) if (b.readUInt32LE(i) === 0x06054b50) { fin = i; break; }
@@ -35,6 +38,8 @@ export function abrirZip(zip: Uint8Array): { nombre: string; datos: Uint8Array }
   const total = b.readUInt16LE(fin + 10);
   let p = b.readUInt32LE(fin + 16);
   const salida: { nombre: string; datos: Uint8Array }[] = [];
+  const vistos = new Set<number>();
+  let usado = 0;
   for (let k = 0; k < total && k < 40; k++) {
     if (b.readUInt32LE(p) !== 0x02014b50) throw new Error("El ZIP está dañado");
     const metodo = b.readUInt16LE(p + 10);
@@ -56,12 +61,23 @@ export function abrirZip(zip: Uint8Array): { nombre: string; datos: Uint8Array }
       e += 4 + largo;
     }
     p += 46 + ln + le + lc;
-    if (nombre.endsWith("/")) continue;
-    if (tamano > 15 * 1024 * 1024) throw new Error("Un archivo dentro del ZIP es demasiado grande");
+    if (nombre.endsWith("/") || !quiere(nombre)) continue;
+    if (tamano > TOPE_ARCHIVO || usado + tamano > TOPE_ZIP) throw new Error("Un archivo dentro del ZIP es demasiado grande");
+    if (vistos.has(local) || local + 30 > b.length || b.readUInt32LE(local) !== 0x04034b50) throw new Error("El ZIP está dañado");
+    vistos.add(local);
     const ini = local + 30 + b.readUInt16LE(local + 26) + b.readUInt16LE(local + 28);
     const crudo = b.subarray(ini, ini + comprimido);
-    if (metodo === 0) salida.push({ nombre, datos: new Uint8Array(crudo) });
-    else if (metodo === 8) salida.push({ nombre, datos: new Uint8Array(inflateRawSync(crudo, { maxOutputLength: 15 * 1024 * 1024 })) });
+    const tope = Math.min(TOPE_ARCHIVO, TOPE_ZIP - usado);
+    let datos: Uint8Array | null = null;
+    if (metodo === 0) datos = new Uint8Array(crudo);
+    else if (metodo === 8) {
+      try { datos = new Uint8Array(inflateRawSync(crudo, { maxOutputLength: tope })); }
+      catch { throw new Error("Un archivo dentro del ZIP es demasiado grande o está dañado"); }
+    }
+    if (!datos) continue;
+    if (datos.length > tope) throw new Error("Un archivo dentro del ZIP es demasiado grande");
+    usado += datos.length;
+    salida.push({ nombre, datos });
   }
   return salida;
 }
@@ -330,13 +346,13 @@ export function leerDocumento(xml: string): DocumentoLeido {
 /** El PDF que viene dentro del ZIP de la factura (para leer lo que el XML no trae, como lotes y vencimientos). */
 export function pdfDelZip(nombre: string, datos: Uint8Array): Uint8Array | null {
   if (!(/\.zip$/i.test(nombre) || (datos[0] === 0x50 && datos[1] === 0x4b))) return null;
-  try { return abrirZip(datos).find((f) => /\.pdf$/i.test(f.nombre) && f.datos.length < 10 * 1024 * 1024)?.datos ?? null; } catch { return null; }
+  try { return abrirZip(datos, (n) => /\.pdf$/i.test(n)).find((f) => f.datos.length < 10 * 1024 * 1024)?.datos ?? null; } catch { return null; }
 }
 
 /** Del archivo subido (ZIP o XML) al documento. Un ZIP puede traer varias facturas: se devuelven todas. */
 export function leerArchivoXml(nombre: string, datos: Uint8Array): DocumentoLeido[] {
   const xmls = /\.zip$/i.test(nombre) || (datos[0] === 0x50 && datos[1] === 0x4b)
-    ? abrirZip(datos).filter((f) => /\.xml$/i.test(f.nombre)).map((f) => Buffer.from(f.datos).toString("utf8"))
+    ? abrirZip(datos, (n) => /\.xml$/i.test(n)).map((f) => Buffer.from(f.datos).toString("utf8"))
     : [Buffer.from(datos).toString("utf8")];
   if (!xmls.length) throw new Error("El ZIP no trae el XML de la factura (solo PDF). Sube el XML, o el PDF/foto para leerlo con Regenta IA");
   const docs: DocumentoLeido[] = [];

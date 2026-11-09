@@ -9,7 +9,7 @@ const Pedido = z.object({ email: z.string().trim().toLowerCase().email().max(160
 const permitido = limitador(5, 600000);
 const RESPUESTA = "Si ese correo tiene cuenta en Regenta, te llegó un enlace para crear una contraseña nueva. Revisa también la carpeta de spam.";
 
-/** «Olvidé mi contraseña»: envía un enlace de un solo uso (7 días). La contraseña actual sigue sirviendo hasta que se
+/** «Olvidé mi contraseña»: envía un enlace de un solo uso (1 hora). La contraseña actual sigue sirviendo hasta que se
  *  cree la nueva, así nadie bloquea una cuenta ajena pidiendo enlaces. La respuesta es la misma exista o no la cuenta. */
 export async function POST(req: Request) {
   if (!mismoOrigen(req)) return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
       where lower(cu.email) = $1 and cu.activa and not exists (select 1 from superadmins s where s.user_id = cu.id)
       order by m.creado limit 1`, [email])).rows[0];
     if (!cu) return null;
-    const enlace = await enlaceInvitacion(c, cu.id);
+    const enlace = await enlaceInvitacion(c, cu.id, 1);
     const k = `restablecer:${cu.id}:${Date.now()}`;
     await encolar(c, { clave: k, para: email, plantilla: "restablecer", empresa: cu.empresa_id, datos: { nombre: cu.nombre, empresa: cu.empresa, enlace } });
     return k;
