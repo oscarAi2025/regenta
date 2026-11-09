@@ -467,3 +467,18 @@ Funciones nuevas (no son arreglos de una línea):
 - [ ] NCF1 rechazada por falta de resolution_number: corregido (nota lleva la resolución del original + resolución de notas en MATIAS); publicar, «Configurar las notas en MATIAS» y reenviar NCF1
 - [x] Farmagenéricos solo factura (decisión de Oscar 09/11/2026): la caja no ofrece POS y el servidor lo rechaza mientras el POS esté en pruebas
 - [ ] Idea UX: botón «Consumidor final» (CC 222222222222) en el cliente de la factura
+
+## 09/11/2026 · Migración Alegra → Regenta (Farmagenéricos) — pedido de Oscar
+Medido en Alegra hoy (MCP): bodega FARMAGENERICOS (id 2) con 872 productos; 259 clientes; 7 proveedores; 2.146 facturas
+(POSF hasta 1034, FA1 hasta 1728); cartera abierta $4.001.462 en 7 facturas; cuentas por pagar $0.
+Lote y vencimiento en Alegra son campos personalizados del producto (uno por producto, no por lote).
+Límites: el MCP de Alegra devuelve ~4 KB por producto (872 → inviable por consulta) y la sesión de Chrome tiene perfil
+limitado (sin acceso a Productos); la API no se puede llamar sin token (regla: no manejo tokens).
+- [ ] Oscar exporta de Alegra (Excel): Productos, Valor de inventario de la bodega FARMAGENERICOS, Contactos, Facturas
+- [ ] Decisión de Oscar: inventario de Alegra reemplaza o suma a lo que ya hay en Regenta
+- [ ] Decisión de Oscar: historial de ventas como consulta (no mueve existencias ni crea documentos DIAN)
+- [ ] Simular la carga de productos y existencias (importador actual) y revisar diferencias
+- [ ] Importador de clientes y proveedores (sin duplicar por documento) + pruebas
+- [ ] Cartera abierta: 7 facturas como saldo inicial por cliente (sin documento DIAN nuevo)
+- [ ] Historial de ventas de solo lectura + pruebas
+- [ ] Verificar: totales de unidades, valor a costo y cartera iguales a Alegra
