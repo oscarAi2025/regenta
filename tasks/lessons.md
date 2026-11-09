@@ -253,3 +253,4 @@
 - No correr una prueba suelta mientras la batería usa el mismo puerto y la misma base: los resultados de ambas quedan inválidos (500 y «RESET FALLÓ» falsos).
 - Cambiar la regla de un dato compartido (la demo es «no responsable de IVA») cambia lo que esperan otras pruebas: la de compras pasa a declarar explícitamente si la droguería es responsable, y el otro caso se prueba aparte.
 - Un ZIP de 17 KB puede inflarse a 1,4 GB: descomprimir solo lo que se va a leer y con un tope total, nunca confiar en el tamaño que declara el ZIP ni en entradas repetidas.
+- Al insertar código en una línea que ya tenía más instrucciones, un comentario «// …» añadido a mitad de línea se tragó el resto (setCobrando, setCobrado, setPedido): la caja seguía «cobrando» y no decía «quedó cobrado». Los comentarios van en su propia línea; tras cada edición automática, buscar «// .*; \w+(» en la línea.

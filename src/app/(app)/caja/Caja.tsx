@@ -322,7 +322,8 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, r
         setRecibido(""); setError(j.error); return;
       }
       if (!r.ok) { setError(typeof j.error === "string" ? j.error : "No se pudo registrar la venta"); return; }
-      setHecho(j); setTimeout(() => buscador.current?.focus(), 0); // el lector queda listo para el siguiente cliente setCobrando(false); setCobrado(pedido ? etiquetaPedido(pedido) : null); setPedido(null); setAviso("");
+      setHecho(j); setCobrando(false); setCobrado(pedido ? etiquetaPedido(pedido) : null); setPedido(null); setAviso("");
+      setTimeout(() => buscador.current?.focus(), 0); // el lector queda listo para el siguiente cliente
       window.dispatchEvent(new CustomEvent("regenta:venta", { detail: { total: Number(j.venta?.total ?? 0), documento: j.documento?.estado ?? null } }));
       if (impresora.auto && j.venta?.venta_id) imprimirTiquete(j.venta.venta_id, impresora.ancho);
     } catch (e) {
