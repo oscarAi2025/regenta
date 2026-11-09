@@ -18,7 +18,7 @@ export function Abonar({ venta, saldo, numero }: { venta: string; saldo: number;
   async function guardar(e: React.FormEvent) {
     e.preventDefault();
     if (enviando) return;
-    if (n > Math.round(saldo)) { setError(`El abono no puede ser mayor que el saldo (${pesos(saldo)})`); return; }
+    if (n > Math.round(saldo)) { setError(`El abono supera el saldo de la factura (${pesos(saldo)})`); return; }
     setEnviando(true); setError("");
     try {
       const r = await fetch("/api/cartera", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ venta_id: venta, medio, valor: n, referencia: ref || null, idem_key: idem.current }) });
