@@ -45,7 +45,9 @@ create or replace function fecha_venta_sin_conexion() returns trigger language p
 declare v text := nullif(current_setting('regenta.venta_creado', true), ''); t timestamptz;
 begin
   if v is null then return new; end if;
-  if tg_table_name = 'movimientos' and new.tipo <> 'venta' then return new; end if;
+  if tg_table_name = 'movimientos' then
+    if to_jsonb(new) ->> 'tipo' <> 'venta' then return new; end if;   -- ventas no tiene «tipo»: se lee sin nombrar el campo
+  end if;
   begin t := v::timestamptz; exception when others then return new; end;
   if t > now() or t < now() - interval '72 hours' then return new; end if;
   new.creado := t;

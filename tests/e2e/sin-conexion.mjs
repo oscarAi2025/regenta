@@ -56,6 +56,12 @@ await ctx.setOffline(false);
 await p.getByText(/quedaron registradas/).waitFor({ timeout: 30000 }).catch(() => {});
 const despues = (await pool.query(`select v.id, v.total, d.estado from ventas v left join documentos_dian d on d.venta_id = v.id where v.idem_key = any($1)`, [cola.map((v) => v.idem_key)])).rows;
 ok(despues.length === 2, "al volver internet las dos ventas quedan registradas", String(despues.length));
+{
+  // Cada una con la hora en que se vendió (no la de la sincronización): queda en su día, su turno y su arqueo.
+  const horas = (await pool.query(`select idem_key, creado from ventas where idem_key = any($1)`, [cola.map((v) => v.idem_key)])).rows;
+  ok(horas.length === 2 && horas.every((h) => Math.abs(new Date(h.creado).getTime() - new Date(cola.find((v) => v.idem_key === h.idem_key).creado).getTime()) < 2000),
+    "cada venta queda con la hora real en que se hizo sin internet");
+}
 ok(despues.every((v) => v.estado), "y cada una con su documento electrónico en camino", despues.map((v) => v.estado).join(","));
 ok(despues.reduce((a, v) => a + Number(v.total), 0) === cola.reduce((a, v) => a + v.total, 0), "los totales registrados son los cobrados");
 ok((await p.evaluate(() => JSON.parse(localStorage.getItem("regenta.cola_ventas") ?? "[]").length)) === 0, "la cola queda vacía");
