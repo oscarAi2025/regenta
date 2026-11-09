@@ -433,3 +433,6 @@ Muestras de Oscar: ZIP de Distribuidora Pasteur (resultó ser una NOTA CRÉDITO 
 - [x] Comprobado EN VIVO en regenta.pro (demo, dueño): XML leído en 0,5 s con lote/vencimiento y producto encontrado; foto leída por la IA real de producción en 7 s, 2 líneas, proveedor, NIT, número, total, lotes y vencimientos exactos
 - [ ] Oscar: probar con una foto real de una factura en papel y con ZIP de otros proveedores (además de Pasteur)
 - [ ] UX demo: el panel «Pruébalo en 3 minutos» abierto tapa los botones de «Cargar desde la factura» en pantallas bajas de PC (se puede minimizar)
+- [x] SQL 041 aplicado por Oscar (09/11 10:11) y comprobado EN VIVO: «PRUEBA-657246» registrada; «PRUEBA 657246» y «PRUEBA657246» rechazadas (409). Compra de prueba anulada.
+- [x] Comprobado EN VIVO con IA real: ZIP de AXA (24/24 lotes del PDF), Zanecol (4/4), Allers y Pasteur; fotos de Zanecol, AXA (pág. 1) y tiquete real: todas las líneas exactas.
+- [ ] Fotos de Pasteur y Allers con la IA real (tope de 5 lecturas/día en la demo agotado el 09/11)
