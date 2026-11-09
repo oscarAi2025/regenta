@@ -9,7 +9,7 @@ type Estado = {
   certificado?: { nombre: string; vence: string } | null; software?: Software[]; resoluciones?: Resolucion[];
 };
 
-const TIPO: Record<number, string> = { 1: "Factura electrónica y notas", 3: "Documento soporte", 4: "POS electrónico" };
+const TIPO: Record<number, string> = { 1: "Factura electrónica y notas", 2: "Nómina electrónica", 3: "Documento soporte", 4: "POS electrónico" };
 const DOC: Record<number, string> = { 7: "Factura", 4: "Nota débito", 5: "Nota crédito", 11: "Documento soporte", 15: "Nota de ajuste DS", 20: "POS electrónico", 93: "Nota débito POS", 94: "Nota crédito POS" };
 
 /** Habilitación DIAN del cliente en MATIAS: certificado, software, set de pruebas y numeraciones, sin salir de la consola. */
@@ -37,7 +37,7 @@ export function Habilitacion({ empresa }: { empresa: string }) {
     if (r?.ok) { if (clave === "software") setF({ tipo: 1, identificacion: "", pin: "", testsetid: "" }); await cargar(); if (clave === "principal") setTimeout(() => location.reload(), 900); }
   }
 
-  const registrados = new Set((e?.software ?? []).map((s) => s.tipo));
+  const registrados = new Set((e?.software ?? []).filter((s) => s.identificacion || s.produccion).map((s) => s.tipo));
   const tipoSel = registrados.has(f.tipo) ? [1, 3, 4].find((t) => !registrados.has(t)) ?? f.tipo : f.tipo;
   return (
     <section className="tarjeta p-5 grid gap-4" aria-label="Habilitación DIAN">
@@ -73,10 +73,10 @@ export function Habilitacion({ empresa }: { empresa: string }) {
                         <span className="font-semibold">{TIPO[s.tipo] ?? `Tipo ${s.tipo}`}</span>
                         <span className={`pastilla h-8 text-[13px] ${s.produccion ? "bg-cruz-soft text-cruz" : "bg-aviso-soft text-aviso"}`}>{s.produccion ? "Producción" : "Habilitación (pruebas)"}</span>
                       </div>
-                      <span className="num text-muted break-all">{s.identificacion}</span>
+                      <span className="num text-muted break-all">{s.identificacion || "Sin el ID de la DIAN todavía"}</span>
                       <span>Set de pruebas: <b>{s.estado ?? "sin iniciar"}</b>{s.detalle ? <span className="text-muted"> · {s.detalle}</span> : null}</span>
-                      {!s.produccion && <div><button onClick={() => accion({ accion: "pruebas", software: s.id }, `pruebas${s.id}`)} disabled={!!ocupado} className="btn-oscuro h-9 text-sm mt-1">{ocupado === `pruebas${s.id}` ? "Iniciando…" : "Iniciar set de pruebas"}</button></div>}
-                      {s.produccion && <div><button onClick={() => accion({ accion: "sincronizar", tipo: s.tipo }, `sinc${s.tipo}`)} disabled={!!ocupado} className="btn-borde h-9 text-sm mt-1">{ocupado === `sinc${s.tipo}` ? "Consultando la DIAN…" : "Traer numeraciones de la DIAN"}</button></div>}
+                      {!s.produccion && !!s.identificacion && s.tipo !== 2 && <div><button onClick={() => accion({ accion: "pruebas", software: s.id }, `pruebas${s.id}`)} disabled={!!ocupado} className="btn-oscuro h-9 text-sm mt-1">{ocupado === `pruebas${s.id}` ? "Iniciando…" : "Iniciar set de pruebas"}</button></div>}
+                      {s.produccion && s.tipo !== 2 && <div><button onClick={() => accion({ accion: "sincronizar", tipo: s.tipo }, `sinc${s.tipo}`)} disabled={!!ocupado} className="btn-borde h-9 text-sm mt-1">{ocupado === `sinc${s.tipo}` ? "Consultando la DIAN…" : "Traer numeraciones de la DIAN"}</button></div>}
                     </li>
                   ))}</ul>
                 ) : <p className="text-sm text-muted mt-1">Ningún software registrado todavía.</p>}

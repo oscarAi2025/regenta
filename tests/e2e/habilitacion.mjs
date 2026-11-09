@@ -25,6 +25,8 @@ const CLIENTE_B = randomUUID();
 const llamadas = [];
 const estado = new Map(); // empresa (uuid o "principal") → { cert, software: [], res: [] }
 const de = (k) => { if (!estado.has(k)) estado.set(k, { cert: null, software: [], res: [] }); return estado.get(k); };
+// Como en la cuenta real: MATIAS crea los software vacíos (sin ID de la DIAN), uno por tipo.
+de("principal").software = [1, 2, 3, 4].map((t) => ({ id: 5062 + t, type_id: t, environment_id: 2, identification: "", test_process_status: "INITIAL", test_process: null }));
 de("principal").cert = { id: 1, name: "9018453705.p12", description: "IA DEV", extension: ".p12", expiration_date: "08-11-2028 01:23:23 pm" };
 const srv = http.createServer(async (req, res) => {
   let cuerpo = ""; for await (const ch of req) cuerpo += ch;
@@ -44,6 +46,12 @@ const srv = http.createServer(async (req, res) => {
     if (e.software.some((s) => s.type_id === x.type_id)) return enviar(400, { success: false, message: "Ya existe un software registrado para esta compañía con el mismo tipo." });
     const s = { id: 27 + e.software.length + (cliente ? 100 : 0), ...x, test_process_status: "INITIAL", test_process: null }; e.software.push(s);
     return enviar(200, { message: "Registro creado correctamente.", record: s, success: true });
+  }
+  if (req.method === "PUT" && ruta.startsWith("/software/")) {
+    const s = e.software.find((z) => z.id === Number(ruta.split("/")[2]));
+    if (!s) return enviar(404, { success: false, message: "No se encontró el software para la compañía especificada." });
+    const x = JSON.parse(JSON.parse(cuerpo).records); delete x.type_id; Object.assign(s, x);
+    return enviar(200, { message: "Software actualizado correctamente.", dataRecords: s, success: true });
   }
   if (req.method === "POST" && ruta === "/document/run-test") {
     const s = e.software.find((z) => z.id === JSON.parse(cuerpo).software_id);
@@ -105,7 +113,8 @@ ok((await q(`select 1 from admin_eventos where empresa_id = $1 and accion = 'mat
 // ── Estado de A: certificado de la cuenta principal, sin client_uuid
 let n = llamadas.length;
 r = await llamar("GET", `/api/admin/clientes/${A}/habilitacion`, undefined, adm);
-ok(r.s === 200 && r.j.principal.es_este && r.j.certificado?.vence === "08-11-2028 01:23:23 pm" && r.j.software.length === 0, "A: certificado cargado y sin software aún", JSON.stringify(r.j));
+ok(r.s === 200 && r.j.principal.es_este && r.j.certificado?.vence === "08-11-2028 01:23:23 pm" && r.j.software.length === 4 && r.j.software.every((x) => !x.identificacion), "A: certificado cargado y los 4 software vacíos que crea MATIAS", JSON.stringify(r.j));
+ok((await llamar("POST", `/api/admin/clientes/${A}/habilitacion`, { accion: "pruebas", software: 5063 }, adm)).s === 409, "sin el ID de la DIAN no se lanza el set de pruebas");
 ok(llamadas.slice(n).length >= 3 && llamadas.slice(n).every((l) => !l.cliente), "A: ninguna llamada lleva client_uuid (MATIAS lo rechazaría)");
 
 // ── Registrar el software de la DIAN (validación y lo que recibe MATIAS)
@@ -114,36 +123,40 @@ ok((await llamar("POST", `/api/admin/clientes/${A}/habilitacion`, { accion: "sof
 ok((await llamar("POST", `/api/admin/clientes/${A}/habilitacion`, { accion: "software", ...SW, testsetid: "no-es" }, adm)).s === 400, "TestSetId mal escrito: rechazado");
 ok((await llamar("POST", `/api/admin/clientes/${A}/habilitacion`, { accion: "software", ...SW, tipo: 2 }, adm)).s === 400, "nómina (tipo 2) no se registra desde aquí");
 r = await llamar("POST", `/api/admin/clientes/${A}/habilitacion`, { accion: "software", ...SW }, adm);
-const reg = llamadas.filter((l) => l.metodo === "POST" && l.ruta === "/software").at(-1);
+const reg = llamadas.filter((l) => l.ruta.startsWith("/software") && l.metodo !== "GET").at(-1);
 const rec = reg ? JSON.parse(reg.cuerpo.records) : {};
-ok(r.s === 200 && r.j.software === 27, "software registrado", `${r.s} ${r.j.error ?? ""}`);
+ok(r.s === 200 && r.j.software === 5063 && reg?.metodo === "PUT" && reg.ruta === "/software/5063", "completa el software vacío de factura (PUT), no crea otro", `${r.s} ${r.j.error ?? ""} ${reg?.metodo} ${reg?.ruta}`);
 ok(!reg?.cliente && rec.type_id === 1 && rec.environment_id === 2 && rec.integration_type === 1 && rec.pin === "12345" && rec.identification === SW.identificacion && rec.testsetid === SW.testsetid, "MATIAS recibe records como texto JSON: tipo 1, pruebas, software propio, PIN, ID y TestSetId", JSON.stringify(rec));
 const ev = (await q(`select datos from admin_eventos where empresa_id = $1 and accion = 'matias_registrar_software'`, [A]))[0]?.datos;
 ok(ev && !JSON.stringify(ev).includes("12345"), "la bitácora no guarda el PIN del software");
-r = await llamar("POST", `/api/admin/clientes/${A}/habilitacion`, { accion: "software", ...SW }, adm);
-ok(r.s === 400 && /mismo tipo/.test(r.j.error), "el mismo tipo dos veces: MATIAS lo rechaza y se muestra su mensaje", `${r.s} ${r.j.error}`);
+r = await llamar("POST", `/api/admin/clientes/${A}/habilitacion`, { accion: "software", ...SW, pin: "54321" }, adm);
+ok(r.s === 200 && de("principal").software.filter((x) => x.type_id === 1).length === 1 && de("principal").software.find((x) => x.type_id === 1).pin === "54321", "corregir el PIN en pruebas actualiza el mismo software", `${r.s} ${r.j.error ?? ""}`);
 
 // ── Set de pruebas
 ok((await llamar("POST", `/api/admin/clientes/${A}/habilitacion`, { accion: "pruebas", software: 999 }, adm)).s === 404, "set de pruebas de un software ajeno: 404");
 n = llamadas.length;
-r = await llamar("POST", `/api/admin/clientes/${A}/habilitacion`, { accion: "pruebas", software: 27 }, adm);
+r = await llamar("POST", `/api/admin/clientes/${A}/habilitacion`, { accion: "pruebas", software: 5063 }, adm);
 const rt = llamadas.slice(n).find((l) => l.ruta === "/document/run-test");
-ok(r.s === 200 && rt?.cuerpo?.software_id === 27 && !rt.cliente, "set de pruebas iniciado con el software_id", `${r.s} ${r.j.error ?? r.j.mensaje}`);
+ok(r.s === 200 && rt?.cuerpo?.software_id === 5063 && !rt.cliente, "set de pruebas iniciado con el software_id", `${r.s} ${r.j.error ?? r.j.mensaje}`);
 r = await llamar("GET", `/api/admin/clientes/${A}/habilitacion`, undefined, adm);
-ok(r.j.software?.[0]?.estado === "En ejecución" && !r.j.software[0].produccion, "el estado del set se ve en la consola", JSON.stringify(r.j.software));
+const f1 = () => r.j.software?.find((x) => x.tipo === 1);
+ok(f1()?.estado === "En ejecución" && !f1().produccion, "el estado del set se ve en la consola", JSON.stringify(r.j.software));
 
 // ── Antes de producción no sincroniza; al terminar el set (MATIAS lo pasa a producción) trae la numeración de la DIAN
 r = await llamar("POST", `/api/admin/clientes/${A}/habilitacion`, { accion: "sincronizar", tipo: 1 }, adm);
 ok(r.s === 200 && /aún no está en producción/.test(r.j.mensaje), "sin producción: avisa que no hay nada que sincronizar", r.j.mensaje);
-Object.assign(de("principal").software[0], { environment_id: 1, test_process: { status: "FINISHED", status_description: "Finalizado", error_message: { string: "El proceso de habilitación ha sido finalizado con éxito." } } });
+Object.assign(de("principal").software.find((x) => x.type_id === 1), { environment_id: 1, test_process: { status: "FINISHED", status_description: "Finalizado", error_message: { string: "El proceso de habilitación ha sido finalizado con éxito." } } });
 r = await llamar("GET", `/api/admin/clientes/${A}/habilitacion`, undefined, adm);
-ok(r.j.software?.[0]?.produccion && r.j.software[0].estado === "Finalizado" && /finalizado con éxito/.test(r.j.software[0].detalle), "set terminado: el software sale en producción", JSON.stringify(r.j.software));
+ok(f1()?.produccion && f1().estado === "Finalizado" && /finalizado con éxito/.test(f1().detalle), "set terminado: el software sale en producción", JSON.stringify(r.j.software));
 n = llamadas.length;
 r = await llamar("POST", `/api/admin/clientes/${A}/habilitacion`, { accion: "sincronizar", tipo: 1 }, adm);
 const nr = llamadas.slice(n).find((l) => l.ruta === "/numbering-range");
 ok(r.s === 200 && /nuevas 1/.test(r.j.mensaje) && nr?.query.includes("type_id=1") && nr.query.includes("sync=1"), "trae la numeración autorizada de la DIAN", `${r.j.mensaje} ${nr?.query}`);
 r = await llamar("GET", `/api/admin/clientes/${A}/habilitacion`, undefined, adm);
 ok(r.j.resoluciones?.[0]?.numero === "18764112492320" && r.j.resoluciones[0].prefijo === "FGE", "la consola muestra las numeraciones que tiene MATIAS", JSON.stringify(r.j.resoluciones));
+
+r = await llamar("POST", `/api/admin/clientes/${A}/habilitacion`, { accion: "software", ...SW }, adm);
+ok(r.s === 409 && /producción/.test(r.j.error), "un software ya en producción no se cambia desde la consola", `${r.s} ${r.j.error}`);
 
 // ── B: con su UUID de cliente, todas las llamadas llevan client_uuid
 r = await llamar("PATCH", `/api/admin/clientes/${Bx}`, { matias: { cliente: CLIENTE_B, resoluciones: [] } }, adm);
@@ -152,8 +165,12 @@ n = llamadas.length;
 r = await llamar("GET", `/api/admin/clientes/${Bx}/habilitacion`, undefined, adm);
 const deB = llamadas.slice(n).filter((l) => l.ruta !== "/company");
 ok(r.s === 200 && !r.j.principal.es_este && r.j.certificado === null && deB.length === 3 && deB.every((l) => l.cliente === CLIENTE_B), "B: sin certificado y cada consulta con su client_uuid", JSON.stringify({ c: r.j.certificado, q: deB.map((l) => l.query) }));
-r = await llamar("POST", `/api/admin/clientes/${Bx}/habilitacion`, { accion: "pruebas", software: 27 }, adm);
+r = await llamar("POST", `/api/admin/clientes/${Bx}/habilitacion`, { accion: "pruebas", software: 5063 }, adm);
 ok(r.s === 404, "B no lanza el set de pruebas del software de A", String(r.s));
+
+r = await llamar("POST", `/api/admin/clientes/${Bx}/habilitacion`, { accion: "software", ...SW, tipo: 4 }, adm);
+const regB = llamadas.filter((l) => l.ruta.startsWith("/software") && l.metodo !== "GET").at(-1);
+ok(r.s === 200 && regB?.metodo === "POST" && regB.cliente === CLIENTE_B, "B sin software de ese tipo: se crea (POST) con su client_uuid", `${r.s} ${r.j.error ?? ""}`);
 
 // ── Cliente sin conectar: no registra software
 const C = randomUUID();

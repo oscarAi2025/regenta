@@ -70,7 +70,9 @@ export const POST = conAdmin(async (a, req, ctx) => {
     }
     if (d.accion === "pruebas") {
       // El software tiene que ser de este cliente (MATIAS lo comprueba también: 404 si no es suyo).
-      if (!(await softwares(e.cliente)).some((s) => s.id === d.software)) return NextResponse.json({ error: "Ese software no es de este cliente" }, { status: 404 });
+      const sw = (await softwares(e.cliente)).find((s) => s.id === d.software);
+      if (!sw) return NextResponse.json({ error: "Ese software no es de este cliente" }, { status: 404 });
+      if (!sw.identificacion) return NextResponse.json({ error: "Primero registra el ID, el PIN y el TestSetId que dio la DIAN para ese software" }, { status: 409 });
       const m = await iniciarPruebas(e.cliente, d.software);
       await evento(a, "matias_set_pruebas", id, { software: d.software });
       return NextResponse.json({ ok: true, mensaje: `${m}. Tarda unos minutos: pulsa «Actualizar» para ver el resultado` });

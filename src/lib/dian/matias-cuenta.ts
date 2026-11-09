@@ -11,7 +11,7 @@ export type Software = { id: number; tipo: number; produccion: boolean; identifi
 export type Resolucion = { tipo_documento: number; prefijo: string; numero: string; desde: number; hasta: number; vence: string | null; activa: boolean };
 
 /** Tipos de software DIAN en MATIAS (type_id): 1 factura y notas, 3 documento soporte, 4 POS electrónico. */
-export const TIPO_SOFTWARE: Record<number, string> = { 1: "Factura electrónica y notas", 3: "Documento soporte", 4: "POS electrónico" };
+export const TIPO_SOFTWARE: Record<number, string> = { 1: "Factura electrónica y notas", 2: "Nómina electrónica", 3: "Documento soporte", 4: "POS electrónico" };
 
 const base = () => (process.env.MATIAS_URL ?? "https://sandbox-api.matias-api.com").replace(/\/$/, "") + "/api/ubl2.1";
 export const matiasConfigurado = () => process.env.REGENTA_DIAN === "matias" && !!process.env.MATIAS_TOKEN;
@@ -20,7 +20,7 @@ export class ErrorMatias extends Error { constructor(m: string, public status = 
 
 type Json = Record<string, unknown> & { message?: unknown; success?: boolean; dataRecords?: { data?: unknown } & Record<string, unknown> };
 
-async function llamar(metodo: "GET" | "POST", ruta: string, cuerpo?: unknown): Promise<Json> {
+async function llamar(metodo: "GET" | "POST" | "PUT", ruta: string, cuerpo?: unknown): Promise<Json> {
   const token = process.env.MATIAS_TOKEN;
   if (!token) throw new ErrorMatias("Falta MATIAS_TOKEN en el servidor", 503);
   const r = await fetch(base() + ruta, {
@@ -90,9 +90,16 @@ export async function resoluciones(cliente: string): Promise<Resolucion[]> {
     desde: Number(r.range_from), hasta: Number(r.range_up), vence: texto(r.date_up) || null, activa: Number(r.active ?? 1) === 1 }));
 }
 
-/** Registra en MATIAS el software que la DIAN asignó al facturador (portal de habilitación, modo «Software propio»). */
+/** Registra en MATIAS el software que la DIAN asignó al facturador (portal de habilitación, modo «Software propio»).
+ *  MATIAS crea la cuenta con los software vacíos (sin ID): si ya hay uno de ese tipo se actualiza (PUT), si no se crea. */
 export async function registrarSoftware(cliente: string, s: { tipo: 1 | 3 | 4; identificacion: string; pin: string; testsetid: string }) {
+  const actual = (await softwares(cliente)).find((x) => x.tipo === s.tipo);
+  if (actual?.produccion) throw new ErrorMatias("Ese software ya está en producción: no se cambia desde aquí", 409);
   const records = { environment_id: 2, type_id: s.tipo, integration_type: 1, identification: s.identificacion, pin: s.pin, testsetid: s.testsetid, initial_number: 1 };
+  if (actual) {
+    await llamar("PUT", `/software/${actual.id}` + (await consulta(cliente)), { records: JSON.stringify(records) });
+    return actual.id;
+  }
   const j = await llamar("POST", "/software" + (await consulta(cliente)), { records: JSON.stringify(records) });
   const rec = (j.record ?? datos(j)) as Record<string, unknown> | null;
   return Number(rec?.id) || null;
