@@ -108,7 +108,7 @@ export async function registrarSoftware(cliente: string, s: { tipo: 1 | 3 | 4; i
 /** Inicia el set de pruebas de habilitación (corre en segundo plano en MATIAS; al terminar bien, el software pasa a producción). */
 export async function iniciarPruebas(cliente: string, software: number) {
   const j = await llamar("POST", "/document/run-test" + (await consulta(cliente)), { software_id: software });
-  return texto(j.message) || "Set de pruebas iniciado";
+  return (texto(j.message) || "Set de pruebas iniciado").replace(/\.+$/, "");
 }
 
 /** Trae de la DIAN las numeraciones autorizadas al software (solo en producción) y las guarda en MATIAS. */
