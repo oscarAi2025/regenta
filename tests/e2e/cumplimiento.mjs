@@ -78,10 +78,13 @@ const docDe = async (venta, nc = false) => (await pool.query(`select prefijo || 
   ok(/emisión simulada/i.test(await fila(D.pos.n).innerText()), "muestra el CUDE y aclara que la emisión es simulada");
 
   // Contadores = base
-  const cuenta = (await pool.query(`select count(*) filter (where d.estado = 'aceptado')::int a, count(*) filter (where d.estado in ('pendiente','enviando'))::int p, count(*) filter (where d.estado = 'rechazado')::int r
+  const cuenta = (await pool.query(`select count(*) filter (where d.estado = 'aceptado' and not d.simulado)::int a, count(*) filter (where d.estado = 'aceptado' and d.simulado)::int s, count(*) filter (where d.estado in ('pendiente','enviando'))::int p, count(*) filter (where d.estado = 'rechazado')::int r
     from documentos_dian d join ventas v on v.id = d.venta_id where d.empresa_id = $1 and ((case when d.tipo = 'nota_credito' then d.creado else v.creado end) at time zone 'America/Bogota')::date = $2::date`, [emp, hoy])).rows[0];
-  const contadores = (await p.getByRole("region", { name: "Por estado" }).getByRole("link").allInnerTexts()).map((x) => Number(x.split("\n")[1]?.replace(/\D/g, "")));
-  ok(contadores[0] === cuenta.a && contadores[1] === cuenta.p && contadores[2] === cuenta.r, "los contadores cuadran con la base", `${contadores} vs ${cuenta.a},${cuenta.p},${cuenta.r}`);
+  // Aceptados = aceptados de verdad por la DIAN; los simulados van en su propio contador.
+  const textos = await p.getByRole("region", { name: "Por estado" }).getByRole("link").allInnerTexts();
+  const valor = (t) => { const x = textos.find((y) => y.startsWith(t)); return x ? Number(x.split("\n")[1]?.replace(/\D/g, "")) : 0; };
+  const contadores = [valor("Aceptados"), valor("Simulados"), valor("Enviando"), valor("Rechazados")];
+  ok(contadores[0] === cuenta.a && contadores[1] === cuenta.s && contadores[2] === cuenta.p && contadores[3] === cuenta.r, "los contadores cuadran con la base", `${contadores} vs ${cuenta.a},${cuenta.s},${cuenta.p},${cuenta.r}`);
 
   // Filtro por tipo
   await p.locator('select[name="tipo"]').selectOption("factura");
