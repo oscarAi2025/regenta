@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { ErrorIA } from "./claude";
-import { fechaIso, loteEnDescripcion, type DocumentoLeido } from "../factura-proveedor";
+import { esCargo, fechaIso, loteEnDescripcion, type DocumentoLeido } from "../factura-proveedor";
 
 // Foto o PDF de la factura del proveedor → el mismo DocumentoLeido que da el XML, con Regenta IA (visión).
 // La IA solo transcribe lo que ve: no completa, no calcula ni adivina; lo que no se lee queda vacío y lo revisa la persona.
@@ -70,18 +70,15 @@ const Leida = z.object({
 
 export class NoEsFactura extends Error {}
 
-/** Lee la imagen (jpeg/png/webp) o el PDF con Regenta IA. Lanza NoEsFactura si no lo es; ErrorIA si la IA falla. */
-export async function leerFacturaConIA(datos: Uint8Array, tipo: string): Promise<DocumentoLeido> {
+const SISTEMA = "Transcribes facturas de proveedores de droguerías colombianas. Copias exactamente lo que está escrito: no inventas, no completas, no calculas valores que no aparecen. Si un dato no se lee con claridad, lo dejas en null. Los precios en Colombia usan punto para miles: $4.950 son 4950 pesos. Los valores tachados o corregidos a mano: usa el valor final legible.";
+const bloque = (datos: Uint8Array, tipo: string) => {
   const b64 = Buffer.from(datos).toString("base64");
-  const archivo = tipo === "application/pdf"
-    ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: b64 } }
-    : { type: "image", source: { type: "base64", media_type: tipo, data: b64 } };
-  const cuerpo = {
-    model: MODELO(), max_tokens: 8000,
-    system: "Transcribes facturas de proveedores de droguerías colombianas. Copias exactamente lo que está escrito: no inventas, no completas, no calculas valores que no aparecen. Si un dato no se lee con claridad, lo dejas en null. Los precios en Colombia usan punto para miles: $4.950 son 4950 pesos. Los valores tachados o corregidos a mano: usa el valor final legible.",
-    tools: [HERRAMIENTA], tool_choice: { type: "tool", name: HERRAMIENTA.name },
-    messages: [{ role: "user", content: [archivo, { type: "text", text: "Lee esta factura del proveedor y devuélvela con la herramienta factura_leida. Una línea por producto, en el mismo orden." }] }],
-  };
+  return tipo === "application/pdf" ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: b64 } } : { type: "image", source: { type: "base64", media_type: tipo, data: b64 } };
+};
+
+/** Llama a Regenta IA con una herramienta y devuelve lo que puso en ella (o el JSON de su texto). */
+async function conHerramienta(herramienta: { name: string }, contenido: unknown[]): Promise<unknown> {
+  const cuerpo = { model: MODELO(), max_tokens: 8000, system: SISTEMA, tools: [herramienta], tool_choice: { type: "tool", name: herramienta.name }, messages: [{ role: "user", content: contenido }] };
   const pedir = (extra: Record<string, unknown>) => fetch(URL_API(), {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY!, "anthropic-version": "2023-06-01" },
@@ -104,9 +101,41 @@ export async function leerFacturaConIA(datos: Uint8Array, tipo: string): Promise
     throw new ErrorIA(r?.status ?? 502, m);
   }
   const j = (await r.json()) as { content?: { type: string; name?: string; input?: unknown; text?: string }[] };
-  // La herramienta; si el modelo respondió en texto, el JSON que venga en él.
-  let entrada: unknown = j.content?.find((b) => b.type === "tool_use" && b.name === HERRAMIENTA.name)?.input;
+  let entrada: unknown = j.content?.find((b) => b.type === "tool_use" && b.name === herramienta.name)?.input;
   if (!entrada) { const t = j.content?.filter((b) => b.type === "text").map((b) => b.text).join("") ?? ""; const m = /\{[\s\S]*\}/.exec(t); try { entrada = m ? JSON.parse(m[0]) : null; } catch { entrada = null; } }
+  return entrada;
+}
+
+// Solo lotes y vencimientos del PDF de una factura cuyo XML no los trae (p. ej. Distribuciones AXA, Zanecol).
+const HERRAMIENTA_LOTES = {
+  name: "lotes_leidos",
+  description: "Devuelve, por cada producto de la factura, el lote y la fecha de vencimiento tal como están impresos. Si un producto trae varios lotes, una entrada por lote con su cantidad.",
+  input_schema: {
+    type: "object",
+    properties: {
+      lineas: { type: "array", items: { type: "object", properties: {
+        descripcion: { type: "string", description: "Descripción del producto tal cual" },
+        codigo: { type: ["string", "null"], description: "Código o código de barras del producto si aparece" },
+        lote: { type: "string" },
+        vence: { type: ["string", "null"], description: "Vencimiento del lote en AAAA-MM-DD" },
+        cantidad: { type: ["number", "null"], description: "Cantidad de ese lote, si la factura la separa por lote" },
+      }, required: ["descripcion", "lote"] } },
+    },
+    required: ["lineas"],
+  },
+} as const;
+const LoteIA = z.object({ descripcion: z.string().min(1).max(300), codigo: z.string().max(40).nullish().catch(null), lote: z.string().trim().min(1).max(40), vence: z.unknown(), cantidad: z.preprocess(num, z.number().finite().positive()).nullish().catch(null) });
+
+export async function leerLotesDelPdf(pdf: Uint8Array) {
+  const entrada = await conHerramienta(HERRAMIENTA_LOTES, [bloque(pdf, "application/pdf"), { type: "text", text: "De esta factura, devuelve con lotes_leidos el lote y el vencimiento de cada producto. Solo lo impreso; si un producto no tiene lote, no lo incluyas." }]);
+  const xs = z.object({ lineas: z.array(z.unknown()).max(400) }).safeParse(entrada);
+  if (!xs.success) return [];
+  return xs.data.lineas.flatMap((x) => { const r = LoteIA.safeParse(x); return r.success ? [{ ...r.data, codigo: r.data.codigo ?? null, cantidad: r.data.cantidad ?? null, vence: fechaOk(r.data.vence), lote: r.data.lote.toUpperCase() }] : []; });
+}
+
+/** Lee la imagen (jpeg/png/webp) o el PDF con Regenta IA. Lanza NoEsFactura si no lo es; ErrorIA si la IA falla. */
+export async function leerFacturaConIA(datos: Uint8Array, tipo: string): Promise<DocumentoLeido> {
+  const entrada = await conHerramienta(HERRAMIENTA, [bloque(datos, tipo), { type: "text", text: "Lee esta factura del proveedor y devuélvela con la herramienta factura_leida. Una línea por producto, en el mismo orden." }]);
   const p = Leida.safeParse(entrada);
   if (!p.success) { console.error("factura IA formato", JSON.stringify(p.error.issues.slice(0, 3))); throw new ErrorIA(502, "La lectura de la factura llegó incompleta"); }
   const d = p.data;
@@ -125,7 +154,7 @@ export async function leerFacturaConIA(datos: Uint8Array, tipo: string): Promise
         descripcion: l.descripcion.replace(/\s+/g, " ").trim(), nombre: enDesc.nombre, cantidad: l.cantidad, precio,
         descuento_pct: Math.min(99.99, Math.max(0, l.descuento_pct ?? 0)), iva_pct: [0, 5, 19].includes(l.iva_pct ?? 0) ? l.iva_pct ?? 0 : 0,
         base: l.total_linea ?? null, lote: (l.lote?.trim().toUpperCase() || enDesc.lote) ?? null, vence: fechaOk(l.vence) ?? enDesc.vence,
-        bonificada: l.cantidad > 0 && (l.total_linea === 0 || l.precio_unitario === 0),
+        bonificada: l.cantidad > 0 && (l.total_linea === 0 || l.precio_unitario === 0), cargo: esCargo(l.descripcion),
       };
     }),
     totales: { base: d.subtotal ?? null, iva: d.iva ?? null, descuentos: null, total: d.total ?? null },

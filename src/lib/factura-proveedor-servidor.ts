@@ -61,6 +61,7 @@ export async function emparejar(c: Tx, empresa: string, proveedor: string | null
   const salida: Emparejada[] = [];
   for (const l of lineas) {
     const claves = clavesLinea(l);
+    if (l.cargo) { salida.push({ ...l, producto: null, por: null, como: "unidad", revisar_como: false, candidatos: [], claves }); continue; }
     let producto: ProductoCompra | null = null, por: Emparejada["por"] = null, como: "caja" | "unidad" | null = null;
     let candidatos: (ProductoCompra & { puntaje: number })[] = [];
     const cod = [l.ean, l.codigo].filter((x): x is string => !!x).map(normalizarCodigo).find((k) => porCodigo.has(k));

@@ -88,17 +88,22 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
     else { setProveedor(d.proveedor.nombre); setNit(d.proveedor.nit ?? ""); }
     setFactura(d.numero.toUpperCase());
     setFecha(d.fecha && d.fecha <= hoy ? d.fecha : hoy);
+    // Cargos (flete, domicilio…): no son mercancía. El total a cuadrar es el de la factura sin ellos (con su IVA).
+    const cargos = d.lineas.filter((l) => l.cargo);
+    const valorCargos = cargos.reduce((a, l) => a + (l.base ?? 0) * (1 + (l.iva_pct || 0) / 100), 0);
     if (dinero) {
       if (d.vence_pago && d.vence_pago > (d.fecha ?? hoy)) { setCondicion("credito"); setVence(d.vence_pago); }
-      setPapel(d.totales.total !== null ? coma(d.totales.total) : "");
+      setPapel(d.totales.total !== null ? coma(Math.round((d.totales.total - valorCargos) * 100) / 100) : "");
     }
     setCufe(d.cufe ?? ""); setArchivoId(r.archivo_id);
-    const listas = d.lineas.filter((l) => l.producto).map((l) => desdeFactura(l, l.producto as Prod));
+    const mercancia = d.lineas.filter((l) => !l.cargo);
+    const listas = mercancia.filter((l) => l.producto).map((l) => desdeFactura(l, l.producto as Prod));
     setLineas(listas);
-    setPorEmparejar(d.lineas.filter((l) => !l.producto).map((l) => ({ key: ++clave.current, l })));
-    const sinLote = d.lineas.filter((l) => !l.lote).length, sinVence = d.lineas.filter((l) => !l.vence).length;
+    setPorEmparejar(mercancia.filter((l) => !l.producto).map((l) => ({ key: ++clave.current, l })));
+    const sinLote = mercancia.filter((l) => !l.lote).length, sinVence = mercancia.filter((l) => !l.vence).length;
     setAvisos([...r.avisos,
-      `Factura ${d.numero} de ${d.proveedor.nombre}: ${r.resumen.lineas} producto${r.resumen.lineas === 1 ? "" : "s"}, ${r.resumen.emparejadas} ya encontrado${r.resumen.emparejadas === 1 ? "" : "s"} en tu catálogo${r.resumen.lineas > r.resumen.emparejadas ? `, ${r.resumen.lineas - r.resumen.emparejadas} por emparejar abajo` : ""}.`,
+      `Factura ${d.numero} de ${d.proveedor.nombre}: ${mercancia.length} producto${mercancia.length === 1 ? "" : "s"}, ${listas.length} ya encontrado${listas.length === 1 ? "" : "s"} en tu catálogo${mercancia.length > listas.length ? `, ${mercancia.length - listas.length} por emparejar abajo` : ""}.`,
+      ...cargos.map((l) => `«${l.descripcion}»${dinero && l.base !== null ? ` (${pesosExactos(l.base)}${l.iva_pct ? ` + IVA ${l.iva_pct} %` : ""})` : ""} es un cargo de la factura, no mercancía: no entra al inventario${dinero ? " y se descuenta del total a cuadrar" : ""}.`),
       ...(sinLote ? [`${sinLote} producto${sinLote === 1 ? "" : "s"} sin lote en la factura: escríbelo desde la caja o el empaque.`] : []),
       ...(sinVence ? [`${sinVence === d.lineas.length ? "La factura no trae vencimientos" : `${sinVence} producto${sinVence === 1 ? "" : "s"} sin vencimiento en la factura`}: ponlo desde el empaque (semaforización y FEFO lo necesitan).`] : []),
       ...(d.origen === "ia" ? ["Leída de la foto con Regenta IA: confirma cantidades, lotes y costos contra el papel."] : [])]);

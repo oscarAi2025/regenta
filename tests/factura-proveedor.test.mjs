@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { deflateRawSync } from "node:zlib";
-import { numeroLocal, precioDeLinea, abrirZip, leerArchivoXml, leerDocumento, leerXml, loteEnDescripcion, fechaIso, fichas, parecido } from "../src/lib/factura-proveedor.ts";
+import { aplicarLotes, esCargo, pdfDelZip, numeroLocal, precioDeLinea, abrirZip, leerArchivoXml, leerDocumento, leerXml, loteEnDescripcion, fechaIso, fichas, parecido } from "../src/lib/factura-proveedor.ts";
 
 const fx = (n) => readFileSync(new URL(`./fixtures/facturas/${n}`, import.meta.url));
 
@@ -121,4 +121,58 @@ test("Números con formato colombiano o inglés y precio que cuadra con la líne
   assert.deepEqual(precioDeLinea({ cantidad: 4, base: 2000, precioXml: 1000, bq: 2, desc: 0, conDescuento: false, props: [] }), { precio: 500, descuento: 0 });
   // Nada cuadra: valor de la línea entre la cantidad.
   assert.deepEqual(precioDeLinea({ cantidad: 3, base: 3000, precioXml: 7, bq: 1, desc: 0, conDescuento: false, props: [] }), { precio: 1000, descuento: 0 });
+});
+
+// ── Facturas reales de tres proveedores más (09/11/2026): cada uno manda el lote distinto.
+const AXA_PDF = [ // lo que trae el PDF de AXA (la IA lo lee del PDF del ZIP); en otro orden a propósito
+  ["7702195076510", "690D03", "2029-03-01"], ["7707236128814", "A260682", "2028-06-14"], ["7707355053776", "02990225", "2027-02-01"], ["7702057070731", "6E1919A", "2027-11-29"],
+  ["7703712031784", "G18976", "2029-06-01"], ["7707019413816", "404926", "2028-07-01"], ["7703712035799", "G18395", "2027-08-01"], ["7702132008444", "1613425", "2028-06-01"],
+  ["7702057700836", "6J2488A", "2028-07-29"], ["7702057071073", "6E6696A", "2027-11-15"], ["7704412186057", "39826", "2028-09-01"], ["7705137110013", "0595", "2028-09-01"],
+  ["7707232095868", "1990326", "2028-03-01"], ["7703712035492", "G11056", "2028-09-01"], ["7702896933754", "A191G26", "2028-02-01"], ["7702605337606", "G00729A", "2029-04-01"],
+  ["7702184030158", "G070207", "2028-07-01"], ["7709482273362", "K260056", "2029-08-14"], ["7707236126858", "N260455", "2029-05-19"], ["7702896001774", "E111G26", "2029-07-01"],
+  ["7709193551063", "A260712", "2029-06-24"], ["7501303495447", "XB30X8E", "2030-06-01"], ["7703546927468", "2608001299", "2029-08-01"], ["7702605101146", "G00981A", "2028-05-01"],
+];
+
+test("Distribuciones AXA (ZIP64): 25 líneas que cuadran, ninguna bonificada por error; lotes del PDF casados por código", () => {
+  const [d] = leerArchivoXml("z.zip", fx("axa-factura.zip"));
+  assert.equal(d.numero, "AXBF929200"); assert.equal(d.proveedor.nit, "800052534"); assert.equal(d.lineas.length, 25);
+  assert.deepEqual(d.totales, { base: 2441357.96, iva: 11646.76, descuentos: null, total: 2453004.72 });
+  assert.ok(d.lineas.every((l) => !l.bonificada), "el precio de referencia que AXA pone en todas las líneas no las vuelve bonificadas");
+  for (const l of d.lineas) assert.ok(Math.abs(l.precio * l.cantidad * (1 - l.descuento_pct / 100) - l.base) < 1, `línea ${l.n} cuadra`);
+  assert.deepEqual([d.lineas[14].descuento_pct, d.lineas[19].descuento_pct, d.lineas[10].iva_pct], [8, 15, 19]);
+  assert.ok(d.lineas.every((l) => !l.lote), "el XML de AXA no trae lotes");
+  assert.ok(pdfDelZip("z.zip", fx("axa-factura.zip"))?.length > 30000, "el PDF viene en el ZIP");
+  const con = aplicarLotes(d.lineas, AXA_PDF.map(([c, lote, vence]) => ({ descripcion: "x", codigo: c, lote, vence, cantidad: null })));
+  assert.equal(con.length, 25);
+  assert.deepEqual([con[0].lote, con[0].vence, con[24].lote, con[24].vence], ["A260682", "2028-06-14", "690D03", "2029-03-01"]);
+  assert.equal(con.filter((l) => l.lote).length, 24, "24 con lote; el jabón no trae lote ni en el PDF");
+  assert.equal(con[10].lote, null);
+  assert.ok(con.every((l, k) => l.cantidad === d.lineas[k].cantidad && l.precio === d.lineas[k].precio), "cantidades y precios siguen siendo los del XML");
+});
+
+test("Zanecol: 4 líneas; el PDF trae los lotes en otro orden y sin códigos: se casan por nombre", () => {
+  const [d] = leerArchivoXml("z.zip", fx("zanecol-factura.zip"));
+  assert.equal(d.numero, "FVZ7037"); assert.equal(d.totales.total, 1228650);
+  assert.deepEqual(d.lineas.map((l) => [l.codigo, l.cantidad, l.precio]), [["SOPH001", 50, 10980], ["EXPO002", 50, 2890], ["GNFR002", 50, 7590], ["IMPO001", 50, 3113]]);
+  const pdf = [ // orden del PDF (alfabético), como lo leería la IA
+    { descripcion: "IBUPROFENO 800 MG CJA X 50 TAB GENFAR", codigo: null, lote: "G01497D", vence: "2028-09-30", cantidad: 50 },
+    { descripcion: "IMPOMEL- X 15 MG CJA X 10 TAB", codigo: null, lote: "IM-162-26", vence: "2028-08-30", cantidad: 50 },
+    { descripcion: "LOSARTAN 50 MG CJA X 30 TAB EXPOFARMA", codigo: null, lote: "2600294", vence: "2029-06-01", cantidad: 50 },
+    { descripcion: "NAZIL GOTAS X 15 ML", codigo: null, lote: "4034118", vence: "2028-06-08", cantidad: 50 },
+  ];
+  const con = aplicarLotes(d.lineas, pdf);
+  assert.deepEqual(con.map((l) => [l.codigo, l.lote, l.vence]), [["SOPH001", "4034118", "2028-06-08"], ["EXPO002", "2600294", "2029-06-01"], ["GNFR002", "G01497D", "2028-09-30"], ["IMPO001", "IM-162-26", "2028-08-30"]]);
+});
+
+test("Allers: lote y vencimiento en el XML («VencimientoLote»), una línea con dos lotes se parte, el flete es un cargo", () => {
+  const [d] = leerArchivoXml("z.zip", fx("allers-factura.zip"));
+  assert.equal(d.numero, "FEC918739"); assert.deepEqual([d.totales.base, d.totales.iva, d.totales.total], [551010, 12709, 563719]);
+  assert.equal(d.lineas.length, 16, "15 productos + 1 partido en 2 lotes = 16 líneas (con el flete)");
+  assert.deepEqual([d.lineas[0].lote, d.lineas[0].vence, d.lineas[0].cantidad], ["26016847", "2029-01-31", 70]);
+  assert.deepEqual(d.lineas.filter((l) => l.codigo === "17913").map((l) => [l.cantidad, l.base, l.lote, l.vence]), [[3, 2889, "25126782", "2028-12-31"], [11, 10593, "26016807", "2029-01-31"]]);
+  const flete = d.lineas.find((l) => /FLETE/.test(l.descripcion));
+  assert.deepEqual([flete.cargo, flete.lote, flete.iva_pct], [true, null, 19]);
+  assert.ok(d.lineas.filter((l) => !l.cargo).every((l) => l.lote && l.vence), "todos los productos con lote y vencimiento");
+  assert.equal(Math.round(d.lineas.reduce((a, l) => a + l.base, 0)), 551010, "la suma sigue cuadrando tras partir la línea");
+  assert.deepEqual(["FLETE CLIENTE NACIONAL", "Domicilio", "Transporte urgente", "Seguro de mercancía", "Flexamina"].map(esCargo), [true, true, true, true, false]);
 });

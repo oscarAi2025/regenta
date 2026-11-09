@@ -12,6 +12,8 @@ export type LineaLeida = {
   n: number; codigo: string | null; ean: string | null; descripcion: string; nombre: string;
   cantidad: number; precio: number | null; descuento_pct: number; iva_pct: number; base: number | null;
   lote: string | null; vence: string | null; bonificada: boolean;
+  /** Flete, domicilio, seguro…: va en la factura pero no es mercancía, no entra al inventario. */
+  cargo: boolean;
 };
 export type DocumentoLeido = {
   tipo: TipoDocumento; numero: string; fecha: string | null; cufe: string | null; vence_pago: string | null;
@@ -35,9 +37,24 @@ export function abrirZip(zip: Uint8Array): { nombre: string; datos: Uint8Array }
   const salida: { nombre: string; datos: Uint8Array }[] = [];
   for (let k = 0; k < total && k < 40; k++) {
     if (b.readUInt32LE(p) !== 0x02014b50) throw new Error("El ZIP está dañado");
-    const metodo = b.readUInt16LE(p + 10), comprimido = b.readUInt32LE(p + 20), tamano = b.readUInt32LE(p + 24);
-    const ln = b.readUInt16LE(p + 28), le = b.readUInt16LE(p + 30), lc = b.readUInt16LE(p + 32), local = b.readUInt32LE(p + 42);
+    const metodo = b.readUInt16LE(p + 10);
+    let comprimido = b.readUInt32LE(p + 20), tamano = b.readUInt32LE(p + 24);
+    const ln = b.readUInt16LE(p + 28), le = b.readUInt16LE(p + 30), lc = b.readUInt16LE(p + 32);
+    let local = b.readUInt32LE(p + 42);
     const nombre = b.toString("utf8", p + 46, p + 46 + ln);
+    // ZIP64 (lo usan algunos programas de facturación aunque el archivo sea pequeño): los tamaños reales van en el campo
+    // extra 0x0001, en este orden y solo los que en la cabecera valen 0xFFFFFFFF.
+    for (let e = p + 46 + ln; e + 4 <= p + 46 + ln + le;) {
+      const id = b.readUInt16LE(e), largo = b.readUInt16LE(e + 2);
+      if (id === 0x0001) {
+        let k = e + 4;
+        const leer = () => { const v = Number(b.readBigUInt64LE(k)); k += 8; return v; };
+        if (tamano === 0xffffffff) tamano = leer();
+        if (comprimido === 0xffffffff) comprimido = leer();
+        if (local === 0xffffffff) local = leer();
+      }
+      e += 4 + largo;
+    }
     p += 46 + ln + le + lc;
     if (nombre.endsWith("/")) continue;
     if (tamano > 15 * 1024 * 1024) throw new Error("Un archivo dentro del ZIP es demasiado grande");
@@ -151,13 +168,70 @@ export function precioDeLinea(x: { cantidad: number; base: number | null; precio
 const CAMPOS_PROVEEDOR: Record<string, { lote?: string; vence?: string }> = {
   "890941663": { lote: "Opcional32" }, // Distribuidora Pasteur: comprobado con su PDF (columna LOTE), 08/11/2026
 };
-export function loteEnPropiedades(props: { nombre: string; valor: string }[], nit: string | null) {
+export function loteEnPropiedades(props: { nombre: string; valor: string }[], nit: string | null): { lote: string | null; vence: string | null; lotes: { lote: string; vence: string | null; cantidad: number | null }[] } {
   const conocido = nit ? CAMPOS_PROVEEDOR[nit] : undefined;
+  const nom = (p: { nombre: string }) => sinTildes(p.nombre).replace(/[^a-z]/g, "");
+  // «VencimientoLote» = «20290131-26016847», varios separados por «;» con sus cantidades en «Cantidad» (p. ej. Allers).
+  const juntos = props.find((p) => /venc\w*lote|lote\w*venc/.test(nom(p)));
+  if (juntos) {
+    const cants = (props.find((p) => nom(p) === "cantidad")?.valor ?? "").split(";").map((x) => numeroLocal(x.trim()));
+    const lotes = juntos.valor.split(";").map((x, k) => {
+      const F = "(\\d{8}|\\d{4}-\\d{2}-\\d{2}|\\d{1,2}\\/\\d{1,2}\\/\\d{4})", L = "([A-Z0-9][A-Z0-9\\-/.]{0,29})";
+      const a = new RegExp(`^\\s*${F}\\s*[-_|]\\s*${L}\\s*$`, "i").exec(x), b = a ? null : new RegExp(`^\\s*${L}\\s*[-_|]\\s*${F}\\s*$`, "i").exec(x);
+      const m = a ? [x, a[1], a[2]] : b ? [x, b[2], b[1]] : null; // [_, fecha, lote]
+      if (!m) return null;
+      const f = m[1].replace(/-/g, "");
+      const vence = /^\d{8}$/.test(f) ? fechaIso(f.slice(0, 4), f.slice(4, 6), f.slice(6, 8)) : (() => { const d = /(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(m[1]); return d ? fechaIso(d[1], d[2], d[3]) : null; })();
+      return { lote: m[2].toUpperCase(), vence, cantidad: cants[k] ?? null };
+    }).filter((x): x is { lote: string; vence: string | null; cantidad: number | null } => !!x);
+    if (lotes.length) return { lote: lotes[0].lote, vence: lotes[0].vence, lotes };
+  }
   const por = (re: RegExp, exacto?: string) => props.find((p) => (exacto && p.nombre === exacto) || re.test(sinTildes(p.nombre)))?.valor ?? null;
   const lote = por(/^(n(o|umero)?\.?\s*(de\s*)?)?lote|^lot(e)?\b|batch/, conocido?.lote);
   const v = por(/venc|expir|caduc|\bf\.?\s*v\b/, conocido?.vence);
-  const m = v ? /(\d{1,4})[/\-.](\d{1,2})[/\-.](\d{1,4})/.exec(v) : null;
-  return { lote: lote && /^[A-Z0-9][A-Z0-9\-/]{1,29}$/i.test(lote) ? lote.toUpperCase() : null, vence: m ? fechaIso(m[1], m[2], m[3]) : null };
+  const m = v ? /(\d{1,4})[/\-.](\d{1,2})[/\-.](\d{1,4})/.exec(v) ?? (/^(\d{4})(\d{2})(\d{2})$/.exec(v.trim())) : null;
+  const l = lote && /^[A-Z0-9][A-Z0-9\-/]{1,29}$/i.test(lote) ? lote.toUpperCase() : null;
+  const vence = m ? fechaIso(m[1], m[2], m[3]) : null;
+  return { lote: l, vence, lotes: l ? [{ lote: l, vence, cantidad: null }] : [] };
+}
+
+/** Flete, transporte, domicilio, seguro, manejo, embalaje: cargos de la factura, no mercancía. */
+export const esCargo = (desc: string) => /^\s*(flete|fletes|transporte|domicilio|env[ií]o|seguro|manejo|embalaje|servicio de (entrega|transporte)|cargo por)\b/i.test(desc);
+
+/**
+ * Parte una línea en varias cuando trae varios lotes con sus cantidades (y suman la cantidad de la línea). El valor de
+ * cada parte es proporcional; la última se ajusta para que la suma sea exacta.
+ */
+export function partirPorLotes(l: LineaLeida, lotes: { lote: string; vence: string | null; cantidad: number | null }[]): LineaLeida[] {
+  const ok = lotes.length > 1 && lotes.every((x) => x.cantidad && x.cantidad > 0) && Math.abs(lotes.reduce((a, x) => a + (x.cantidad ?? 0), 0) - l.cantidad) < 0.001;
+  if (!ok) return [lotes[0] ? { ...l, lote: l.lote ?? lotes[0].lote, vence: l.vence ?? lotes[0].vence } : l];
+  let resto = l.base ?? 0;
+  return lotes.map((x, k) => {
+    const base = l.base === null ? null : k === lotes.length - 1 ? r2(resto) : r2((l.base * x.cantidad!) / l.cantidad);
+    if (base !== null) resto -= base;
+    return { ...l, cantidad: x.cantidad!, base, lote: x.lote, vence: x.vence };
+  });
+}
+
+/**
+ * Lotes leídos aparte (del PDF de la misma factura) → a las líneas del XML que no los traen. Se casan por código y,
+ * si no, por nombre (el PDF puede venir en otro orden); una línea con varios lotes se parte. Nunca cambia cantidades,
+ * precios ni IVA del XML: solo pone lote y vencimiento.
+ */
+export function aplicarLotes(lineas: LineaLeida[], leidos: { descripcion: string; codigo: string | null; lote: string; vence: string | null; cantidad: number | null }[]): LineaLeida[] {
+  const usados = new Set<number>();
+  return lineas.flatMap((l) => {
+    if (l.lote || l.cargo) return [l];
+    const cod = (x: string | null) => (x ? x.replace(/\W/g, "").toUpperCase() : "");
+    let mios = leidos.map((x, i) => ({ x, i })).filter(({ x, i }) => !usados.has(i) && cod(x.codigo) && (cod(x.codigo) === cod(l.codigo) || cod(x.codigo) === cod(l.ean)));
+    if (!mios.length) {
+      const pun = leidos.map((x, i) => ({ x, i, p: usados.has(i) ? 0 : parecido(x.descripcion, { nombre: l.nombre, laboratorio: null }) })).filter((y) => y.p >= 0.6).sort((a, b) => b.p - a.p);
+      if (pun.length) mios = pun.filter((y) => y.p === pun[0].p || cod(y.x.descripcion) === cod(pun[0].x.descripcion));
+    }
+    if (!mios.length) return [l];
+    mios.forEach(({ i }) => usados.add(i));
+    return partirPorLotes(l, mios.map(({ x }) => ({ lote: x.lote.toUpperCase(), vence: x.vence, cantidad: x.cantidad })));
+  });
 }
 
 // ── Documento UBL ───────────────────────────────────────────────────────────────────────────────────────────
@@ -222,15 +296,20 @@ export function leerDocumento(xml: string): DocumentoLeido {
     const instancia = hijo(item, "ItemInstance", "LotIdentification");
     const enDesc = loteEnDescripcion(descripcion);
     const extra = loteEnPropiedades(props, nitProveedor);
+    const cantidadLinea = cantidad;
     const venceUbl = texto(instancia, "ExpiryDate");
     return {
       n: k + 1, codigo: vendedor ?? codigoStd, ean, descripcion, nombre: enDesc.nombre, cantidad,
       precio, descuento_pct: r2(Math.min(99.99, Math.max(0, descuento))), iva_pct: iva, base,
       lote: texto(instancia, "LotNumberID")?.toUpperCase() ?? extra.lote ?? enDesc.lote,
       vence: (venceUbl && /^\d{4}-\d{2}-\d{2}/.test(venceUbl) ? venceUbl.slice(0, 10) : null) ?? extra.vence ?? enDesc.vence,
-      bonificada: texto(hijo(l, "PricingReference"), "AlternativeConditionPrice", "PriceTypeCode") === "01" || (base === 0 && cantidad > 0),
+      // Bonificada (sin costo): el valor de la línea es cero. El «precio de referencia» (PricingReference) no basta:
+      // algunos proveedores lo mandan en todas las líneas (p. ej. Distribuciones AXA).
+      bonificada: cantidadLinea > 0 && (base === 0 || (base === null && precioXml === 0)),
+      cargo: esCargo(descripcion),
+      _lotes: extra.lotes,
     };
-  });
+  }).flatMap(({ _lotes, ...l }) => (_lotes.length > 1 ? partirPorLotes(l, _lotes) : [l])).map((l, k) => ({ ...l, n: k + 1 }));
   const tot = hijo(raiz, "LegalMonetaryTotal");
   const ivaTotal = hijos(raiz, "TaxTotal").reduce((a, t) => a + (hijos(t, "TaxSubtotal").some((s) => texto(hijo(s, "TaxCategory"), "TaxScheme", "ID") === "01") ? num(texto(t, "TaxAmount")) ?? 0 : 0), 0);
   return {
@@ -246,6 +325,12 @@ export function leerDocumento(xml: string): DocumentoLeido {
     totales: { base: num(texto(tot, "LineExtensionAmount")), iva: r2(ivaTotal), descuentos: num(texto(tot, "AllowanceTotalAmount")), total: num(texto(tot, "PayableAmount")) },
     origen: "xml",
   };
+}
+
+/** El PDF que viene dentro del ZIP de la factura (para leer lo que el XML no trae, como lotes y vencimientos). */
+export function pdfDelZip(nombre: string, datos: Uint8Array): Uint8Array | null {
+  if (!(/\.zip$/i.test(nombre) || (datos[0] === 0x50 && datos[1] === 0x4b))) return null;
+  try { return abrirZip(datos).find((f) => /\.pdf$/i.test(f.nombre) && f.datos.length < 10 * 1024 * 1024)?.datos ?? null; } catch { return null; }
 }
 
 /** Del archivo subido (ZIP o XML) al documento. Un ZIP puede traer varias facturas: se devuelven todas. */

@@ -2,10 +2,10 @@ import { createHash } from "node:crypto";
 import { comoUsuario } from "@/lib/db";
 import { conSesion, ipCliente, json, limiteBD } from "@/lib/api";
 import { puedeCompras } from "@/lib/compras";
-import { leerArchivoXml, type DocumentoLeido } from "@/lib/factura-proveedor";
+import { aplicarLotes, leerArchivoXml, pdfDelZip, type DocumentoLeido } from "@/lib/factura-proveedor";
 import { emparejar, proveedorDeFactura } from "@/lib/factura-proveedor-servidor";
 import { iaActiva, mensajeError as mensajeIA } from "@/lib/ia/claude";
-import { leerFacturaConIA, NoEsFactura } from "@/lib/ia/factura";
+import { leerFacturaConIA, leerLotesDelPdf, NoEsFactura } from "@/lib/ia/factura";
 
 // Nueva compra → «Cargar desde la factura»: ZIP/XML de la DIAN (lectura exacta), o PDF/foto (Regenta IA).
 // Devuelve la compra armada para revisar en pantalla; nada entra al inventario hasta que la persona guarda.
@@ -58,6 +58,22 @@ export const POST = conSesion(async (s, req) => {
   }
   const doc = docs.find((d) => d.tipo === "factura") ?? docs[0];
   const avisos: string[] = [];
+  // Lotes que el XML no trae pero sí el PDF del mismo ZIP (Distribuciones AXA, Zanecol…): los lee Regenta IA y se
+  // ponen en sus líneas. Cantidades, precios e IVA siguen siendo los del XML.
+  const faltan = doc.tipo === "factura" && doc.lineas.some((l) => !l.lote && !l.cargo && !l.bonificada);
+  const pdf = faltan ? pdfDelZip(f.name, datos) : null;
+  if (pdf && iaActiva()) {
+    const cupo = demo ? (await limiteBD(`ia-factura-demo:ip:${ipCliente(req)}`, 5, "1 day")) && (await limiteBD("ia-factura-demo:total", 100, "1 day")) : await limiteBD(`ia-factura:empresa:${s.empresa}`, 150, "1 day");
+    if (cupo) {
+      try {
+        const leidos = await leerLotesDelPdf(pdf);
+        const antes = doc.lineas.filter((l) => l.lote).length;
+        doc.lineas = aplicarLotes(doc.lineas, leidos).map((l, k) => ({ ...l, n: k + 1 }));
+        const puestos = doc.lineas.filter((l) => l.lote).length - antes;
+        if (puestos > 0) avisos.push("El XML no trae lotes: se leyeron del PDF de la misma factura con Regenta IA. Confírmalos contra las cajas.");
+      } catch (e) { console.error("lotes del PDF", (e as Error).message); }
+    }
+  }
   if (docs.length > 1) avisos.push(`El ZIP trae ${docs.length} documentos: se cargó ${doc.tipo === "factura" ? "la factura" : "el primero"} ${doc.numero}.`);
   if (doc.tipo !== "factura") {
     return json({ nota: { tipo: doc.tipo, numero: doc.numero, proveedor: doc.proveedor.nombre, referencia: doc.referencia, total: dinero ? doc.totales.total : null },

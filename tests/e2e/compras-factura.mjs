@@ -32,6 +32,12 @@ const FOTO = {
   ],
   total: 1011000,
 };
+const AXA_PDF = [["7702195076510", "690D03", "2029-03-01"], ["7707236128814", "A260682", "2028-06-14"], ["7707355053776", "02990225", "2027-02-01"], ["7702057070731", "6E1919A", "2027-11-29"],
+  ["7703712031784", "G18976", "2029-06-01"], ["7707019413816", "404926", "2028-07-01"], ["7703712035799", "G18395", "2027-08-01"], ["7702132008444", "1613425", "2028-06-01"],
+  ["7702057700836", "6J2488A", "2028-07-29"], ["7702057071073", "6E6696A", "2027-11-15"], ["7704412186057", "39826", "2028-09-01"], ["7705137110013", "0595", "2028-09-01"],
+  ["7707232095868", "1990326", "2028-03-01"], ["7703712035492", "G11056", "2028-09-01"], ["7702896933754", "A191G26", "2028-02-01"], ["7702605337606", "G00729A", "2029-04-01"],
+  ["7702184030158", "G070207", "2028-07-01"], ["7709482273362", "K260056", "2029-08-14"], ["7707236126858", "N260455", "2029-05-19"], ["7702896001774", "E111G26", "2029-07-01"],
+  ["7709193551063", "A260712", "2029-06-24"], ["7501303495447", "XB30X8E", "2030-06-01"], ["7703546927468", "2608001299", "2029-08-01"], ["7702605101146", "G00981A", "2028-05-01"]];
 const mock = http.createServer((req, res) => {
   let body = ""; req.on("data", (d) => (body += d)); req.on("end", () => {
     const b = JSON.parse(body || "{}"); iaPedidos.push(b);
@@ -42,6 +48,10 @@ const mock = http.createServer((req, res) => {
       if (b.tool_choice?.type === "tool") return err("Thinking may not be enabled when tool_choice forces tool use.");
       res.writeHead(200, { "content-type": "application/json" });
       return res.end(JSON.stringify({ id: "m", role: "assistant", stop_reason: "end_turn", content: [{ type: "text", text: "Aquí está: " + JSON.stringify({ ...FOTO, lineas: FOTO.lineas.map((l) => ({ ...l, cantidad: String(l.cantidad), precio_unitario: "$" + l.precio_unitario.toLocaleString("es-CO") })) }) }] }));
+    }
+    if (b.tools?.[0]?.name === "lotes_leidos") { // lotes del PDF de AXA (los de su PDF real, en otro orden)
+      res.writeHead(200, { "content-type": "application/json" });
+      return res.end(JSON.stringify({ id: "m", role: "assistant", stop_reason: "tool_use", content: [{ type: "tool_use", id: "t2", name: "lotes_leidos", input: { lineas: AXA_PDF.map(([codigo, lote, vence]) => ({ descripcion: "según el PDF", codigo, lote, vence })) } }] }));
     }
     const input = iaModo === "factura" ? FOTO : { es_factura: false, lineas: [] };
     res.writeHead(200, { "content-type": "application/json" });
@@ -150,6 +160,24 @@ const XML1 = Buffer.from(factura(`FP-${R}`));
   ok(pf.status === 200 && pd?.numero === "400876456" && pd.lineas.length === 18 && pd.totales.total === 1559315.91, "factura real de Pasteur leída (18 líneas)", `${pf.status} ${pf.j.error ?? ""}`);
   ok(pd?.lineas.every((l) => l.lote) && pd.lineas[0].precio === 9370 && pd.lineas[0].descuento_pct === 6, "Pasteur: lote, precio de lista y descuento de cada línea");
   ok(pf.j.avisos.some((a) => /no de tu droguería/.test(a)) && pf.j.avisos.length >= 1, "Pasteur: avisa que está a nombre de otro comprador");
+  // Distribuciones AXA (ZIP64, sin lotes en el XML): los lotes salen del PDF del ZIP con Regenta IA; nada bonificado por error.
+  iaPedidos = []; iaModo = "factura";
+  const ax = await leer(p, "z0800.zip", "application/zip", fx("axa-factura.zip"));
+  const al = ax.j.documento?.lineas ?? [];
+  ok(ax.status === 200 && al.length === 25 && ax.j.documento.totales.total === 2453004.72, "AXA (ZIP64) leída: 25 líneas", `${ax.status} ${ax.j.error ?? ""}`);
+  ok(al.filter((l) => l.lote).length === 24 && al[0].lote === "A260682" && al[0].vence === "2028-06-14" && al.every((l) => !l.bonificada), "AXA: 24 lotes del PDF en su línea (el jabón no trae) y ninguna bonificada");
+  ok(iaPedidos.some((b) => b.tools[0].name === "lotes_leidos" && b.messages[0].content[0].source?.media_type === "application/pdf"), "AXA: a la IA va solo el PDF, para los lotes");
+  ok(ax.j.avisos.some((a) => /se leyeron del PDF/.test(a)), "AXA: avisa que los lotes salen del PDF y hay que confirmarlos");
+  // Allers en pantalla: lotes del XML, un producto partido en dos lotes y el flete fuera del inventario y del total a cuadrar.
+  await p.goto(B + "/compras/nueva"); await p.waitForLoadState("networkidle");
+  await p.locator('input[aria-label="Archivo de la factura"]').setInputFiles({ name: "z0890.zip", mimeType: "application/zip", buffer: fx("allers-factura.zip") });
+  await p.getByText(/Factura FEC918739/).waitFor({ timeout: 30000 });
+  ok(await p.getByText(/FLETE CLIENTE NACIONAL.*es un cargo de la factura, no mercancía/).isVisible(), "Allers: el flete se avisa como cargo y no entra al inventario");
+  // El cuadre aparece al haber una línea con costo: se empareja la primera con un producto de la demo.
+  await p.locator('[id^="emp-"]').first().fill("acetaminofen");
+  await p.locator("#por-emparejar li button").first().click();
+  ok(await p.locator("#total-papel").inputValue() === "527379,97", "Allers: total a cuadrar = factura − flete con IVA", await p.locator("#total-papel").inputValue());
+  ok(await p.getByText(/15 productos/).isVisible(), "Allers: 15 productos (14 de la factura, uno partido en dos lotes)");
   // Archivos que no son facturas.
   ok((await leer(p, "x.txt", "text/plain", Buffer.from("hola"))).status === 415, "texto plano → 415");
   ok((await leer(p, "x.xml", "text/xml", Buffer.from("<Otro/>"))).status === 422, "XML que no es factura → 422");
