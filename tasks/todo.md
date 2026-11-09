@@ -453,3 +453,4 @@ Funciones nuevas (no son arreglos de una línea):
 - [ ] Reinicio programado de la demo pública (datos de visitantes) o demo en base aparte.
 - [ ] Revisar vigente_desde de la numeración y vencimiento de la numeración de notas crédito en anular/devolver.
 - [ ] Confirmar con MATIAS si resolution_number es opcional en las notas (ya no se exige en Regenta).
+- [ ] Verificación en dos pasos de la consola: hecha y probada, APAGADA por decisión de Oscar (09/11/2026). Se enciende con la variable REGENTA_ADMIN_DOS_PASOS=1 en Netlify.

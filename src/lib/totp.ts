@@ -5,6 +5,10 @@ import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, 
 // Authenticator, Microsoft Authenticator, 1Password… El secreto se guarda cifrado (AES-256-GCM) con una llave
 // derivada de REGENTA_SESSION_SECRET: quien lea la base no puede generar códigos.
 
+/** La verificación en dos pasos de la consola se enciende con REGENTA_ADMIN_DOS_PASOS=1 (apagada por decisión de Oscar,
+ *  09/11/2026: por ahora la consola entra con correo y contraseña). */
+export const dosPasosActivos = () => process.env.REGENTA_ADMIN_DOS_PASOS === "1";
+
 const B32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 export function base32(b: Buffer): string {
   let bits = 0, v = 0, s = "";

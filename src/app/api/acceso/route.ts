@@ -5,7 +5,7 @@ import { ipCliente, mismoOrigen } from "@/lib/api";
 import { claveCorrecta } from "@/lib/claves";
 import { crearSesion, type Rol } from "@/lib/sesion";
 import { crearSesionAdmin } from "@/lib/admin";
-import { descifrar, verificarTotp } from "@/lib/totp";
+import { descifrar, dosPasosActivos, verificarTotp } from "@/lib/totp";
 
 const Acceso = z.object({ email: z.string().trim().toLowerCase().email().max(160), clave: z.string().min(1).max(200), consola: z.boolean().optional(),
   empresa: z.string().uuid().optional(), codigo: z.string().trim().max(12).optional() });
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   const fallo = async () => { await sinRLS((x) => x.query(`insert into intentos_acceso (clave) select unnest(array[$1, $2, $3]::text[])`, [claves.ip, claves.correo_ip, claves.correo])); };
   // Consola: además de la contraseña, el código de 6 cifras de la app de autenticación (verificación en dos pasos).
   const aConsola = c.super && (consola || !(await sinRLS(async (x) => (await x.query(`select 1 from miembros where user_id = $1 and activo`, [c.id])).rowCount)));
-  if (aConsola && c.totp_secreto) {
+  if (dosPasosActivos() && aConsola && c.totp_secreto) {
     if (!p.data.codigo) return NextResponse.json({ codigo: true });
     const paso = verificarTotp(descifrar(c.totp_secreto), p.data.codigo, c.totp_ultimo === null ? null : Number(c.totp_ultimo));
     if (paso === null) { await fallo(); return NextResponse.json({ codigo: true, error: "Código incorrecto o vencido: escribe el que muestra ahora tu app" }, { status: 401 }); }
@@ -56,8 +56,9 @@ export async function POST(req: Request) {
   if (empresa && !m) return NextResponse.json({ error: "No perteneces a esa droguería" }, { status: 403 });
   if (c.super && (consola || !m)) {
     // Sin verificación en dos pasos todavía: la consola solo deja activarla (/admin/dos-pasos) antes de cualquier otra cosa.
-    await crearSesionAdmin({ uid: c.id, nombre: c.nombre }, !c.totp_secreto);
-    return NextResponse.json({ destino: c.totp_secreto ? "/admin" : "/admin/dos-pasos" });
+    const inscribir = dosPasosActivos() && !c.totp_secreto;
+    await crearSesionAdmin({ uid: c.id, nombre: c.nombre }, inscribir);
+    return NextResponse.json({ destino: inscribir ? "/admin/dos-pasos" : "/admin" });
   }
   if (!m) return NextResponse.json({ error: "Tu usuario no tiene una droguería asignada. Escríbenos por WhatsApp." }, { status: 403 });
   if (m.estado !== "activa") {
