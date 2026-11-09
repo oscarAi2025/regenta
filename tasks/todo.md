@@ -460,5 +460,8 @@ Funciones nuevas (no son arreglos de una línea):
 - [x] Consola → cliente → «Habilitación DIAN en MATIAS»: certificado, software (factura, documento soporte, POS), set de pruebas, estado, numeraciones de la DIAN
 - [x] Cuenta principal: el cliente con el NIT de la casa de software (Farmagenéricos) emite sin client_uuid; bloqueado para otros NIT (consola, PATCH y emisión)
 - [x] Pruebas: habilitacion.mjs (MATIAS simulado, 30), matias.test (destino), endpoints, admin, ingresos
-- [ ] Oscar: subir el .p12 en MATIAS; habilitación DIAN «Software propio» → ID, PIN y TestSetId; registrarlo y lanzar el set desde la consola
-- [ ] Numeración de facturación (MUISCA) para Farmagenéricos y sincronizarla desde la consola
+- [x] .p12 en MATIAS; DIAN «Software propio» Regenta (2f505ac7-…, PIN 92380, TestSetId 6711feeb-…); set de pruebas superado → producción (09/11/2026)
+- [x] Resolución 18764118389325: FGE 1–50.000, 24 meses; asociada a Regenta en la DIAN; sincronizada en MATIAS con su clave técnica
+- [x] Regenta (Farmagenéricos): factura FGE y nota crédito NCF en producción; «Emite ante la DIAN»
+- [ ] Primera factura real FGE + nota crédito NCF: confirmar que MATIAS no exige resolución propia para las notas (tipo 5) en producción
+- [ ] POS de Farmagenéricos sigue en pruebas (PRPOS): si va a vender por caja, habilitar software POS (tipo 4) y pedir numeración POS
