@@ -32,7 +32,7 @@ export default async function Inicio() {
     const semana = (await c.query(`
       select to_char(d, 'YYYY-MM-DD') dia, coalesce(sum(v.total), 0)::float total
       from generate_series((now() at time zone 'America/Bogota')::date - 6, (now() at time zone 'America/Bogota')::date, '1 day') d
-      left join ventas v on v.empresa_id = $1 and v.estado = 'cerrada' and (v.creado at time zone 'America/Bogota')::date = d
+      left join ventas v on v.empresa_id = $1 and v.origen is null and v.estado = 'cerrada' and (v.creado at time zone 'America/Bogota')::date = d
       group by d order by d`, [s.empresa])).rows as { dia: string; total: number }[];
     // Utilidad de hoy con las mismas reglas del estado de resultados: neta de devoluciones y sin los lotes sin costo.
     const margen = costos ? await resultados(c, s.empresa, { desde: hoyBogota(), hasta: hoyBogota() }) : null;
@@ -47,7 +47,7 @@ export default async function Inicio() {
     const ultimas = (await c.query(`
       select v.id, v.prefijo || v.numero numero, v.total::float, v.estado, to_char(v.creado at time zone 'America/Bogota', 'HH24:MI') hora, d.estado dian
       from ventas v left join documentos_dian d on d.venta_id = v.id and d.tipo = v.tipo_doc
-      where v.empresa_id = $1 order by v.creado desc limit 6`, [s.empresa])).rows;
+      where v.empresa_id = $1 and v.origen is null order by v.creado desc limit 6`, [s.empresa])).rows;
     // Una sola pasada por la predicción (cada función recorre 8 semanas de movimientos).
     const pred = puede.moverInventario(s.rol) ? (await c.query(`
       with p as materialized (select * from prediccion_productos($1)), r as materialized (select * from riesgo_vencimiento($1))

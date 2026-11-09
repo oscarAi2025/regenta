@@ -469,16 +469,17 @@ Funciones nuevas (no son arreglos de una línea):
 - [ ] Idea UX: botón «Consumidor final» (CC 222222222222) en el cliente de la factura
 
 ## 09/11/2026 · Migración Alegra → Regenta (Farmagenéricos) — pedido de Oscar
-Medido en Alegra hoy (MCP): bodega FARMAGENERICOS (id 2) con 872 productos; 259 clientes; 7 proveedores; 2.146 facturas
-(POSF hasta 1034, FA1 hasta 1728); cartera abierta $4.001.462 en 7 facturas; cuentas por pagar $0.
-Lote y vencimiento en Alegra son campos personalizados del producto (uno por producto, no por lote).
-Límites: el MCP de Alegra devuelve ~4 KB por producto (872 → inviable por consulta) y la sesión de Chrome tiene perfil
-limitado (sin acceso a Productos); la API no se puede llamar sin token (regla: no manejo tokens).
-- [ ] Oscar exporta de Alegra (Excel): Productos, Valor de inventario de la bodega FARMAGENERICOS, Contactos, Facturas
-- [ ] Decisión de Oscar: inventario de Alegra reemplaza o suma a lo que ya hay en Regenta
-- [ ] Decisión de Oscar: historial de ventas como consulta (no mueve existencias ni crea documentos DIAN)
-- [ ] Simular la carga de productos y existencias (importador actual) y revisar diferencias
-- [ ] Importador de clientes y proveedores (sin duplicar por documento) + pruebas
-- [ ] Cartera abierta: 7 facturas como saldo inicial por cliente (sin documento DIAN nuevo)
-- [ ] Historial de ventas de solo lectura + pruebas
-- [ ] Verificar: totales de unidades, valor a costo y cartera iguales a Alegra
+Decisiones de Oscar: «Alegra manda» en existencias; el historial entra solo para consulta.
+Extraído de Alegra (MCP, en paralelo): 872 productos de la bodega FARMAGENERICOS (144 con existencias: 8.670 unidades,
+$51.881.934 a costo), 267 contactos, 2.146 documentos (1.035 son de FARMAGENERICOS: POSF + FA1; los POSD y 2 FA1 son de
+FARMAHUB AMBALA y no se migran). Cartera de Farmagenéricos: 6 facturas por $3.993.462 (la FA11728 de $8.000 es de Ambala).
+- [x] Migración 043: ventas_externas (historial), ventas.origen/externo_id (cartera de Alegra sin caja ni DIAN, no se
+      anula), clientes.direccion/ciudad, productos.externo_id
+- [x] POST /api/admin/clientes/[id]/migracion (simular/aplicar, por partes, repetible) + pantalla en la consola
+- [x] Existencias exactas: lotes nuevos como inventario inicial con costo (vencidos como ajuste), sobrantes en cero con
+      un ajuste numerado, comprobación final producto por producto dentro de la transacción
+- [x] Historial de Alegra (/ventas/historial y detalle), enlace en Ventas y en la ficha del cliente; informes, inicio,
+      ventas del día y Regenta IA excluyen lo de Alegra
+- [x] tests/e2e/migracion.mjs con los datos reales convertidos
+- [ ] Batería completa en verde
+- [ ] Oscar pega db/produccion/bloque4-043.sql en Supabase → publicar → aplicar desde la consola → verificar totales

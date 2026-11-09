@@ -23,6 +23,8 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
       cl.nombre cliente, cl.tipo_doc cli_tipo, cl.numero_doc cli_num, cl.dv cli_dv, to_char(v.vence_pago, 'DD/MM/YYYY') vence
       from ventas v join empresas e on e.id = v.empresa_id left join clientes cl on cl.id = v.cliente_id left join miembros m on m.empresa_id = v.empresa_id and m.user_id = v.usuario_id where v.id = $1 and v.empresa_id = $2`, [id, s.empresa])).rows[0];
     if (!v) return null;
+    // Factura traída de Alegra (cartera abierta): se ve en el historial, con su detalle tal como estaba.
+    if (v.origen) return { externa: (await c.query(`select id from ventas_externas where empresa_id = $1 and origen = $2 and externo_id = $3`, [s.empresa, v.origen, v.externo_id])).rows[0]?.id as string | undefined };
     const lineas = (await c.query(`select vl.producto_id::text, vl.descripcion, vl.presentacion, sum(vl.cantidad)::float cantidad, vl.precio::float, sum(vl.total)::float total, sum(vl.descuento)::float descuento, vl.iva_pct::float, string_agg(l.lote, ', ') lotes, (select p.unidades_por_caja from productos p where p.id = vl.producto_id) upc,
         coalesce(sum((select sum(dl.cantidad) from devolucion_lineas dl where dl.venta_linea_id = vl.id)), 0)::float devuelto
       from venta_lineas vl join lotes l on l.id = vl.lote_id where vl.venta_id = $1 group by vl.descripcion, vl.presentacion, vl.precio, vl.iva_pct, vl.producto_id order by min(vl.id)`, [id])).rows;
@@ -40,6 +42,7 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
     return { v, lineas, pagos, doc, nota, abonos, devoluciones, formulas };
   });
   if (!d) notFound();
+  if ("externa" in d) { if (d.externa) redirect(`/ventas/historial/${d.externa}`); notFound(); }
   const { v } = d;
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[440px_minmax(0,1fr)] gap-6 items-start">

@@ -24,8 +24,9 @@ export default async function Ventas({ searchParams }: { searchParams: Promise<{
            (select count(*) from venta_lineas l where l.venta_id = v.id)::int lineas
     from ventas v left join miembros m on m.empresa_id = v.empresa_id and m.user_id = v.usuario_id
     left join documentos_dian d on d.venta_id = v.id and d.tipo = v.tipo_doc
-    where v.empresa_id = $1 and ${dian ? "d.estado = any($3)" : "(v.creado at time zone 'America/Bogota')::date = $2::date"}
+    where v.empresa_id = $1 and v.origen is null and ${dian ? "d.estado = any($3)" : "(v.creado at time zone 'America/Bogota')::date = $2::date"}
     order by v.creado desc limit 300`, dian ? [s.empresa, dia, dian === "pendiente" ? ["pendiente", "enviando"] : ["rechazado"]] : [s.empresa, dia])).rows);
+  const historial = await comoUsuario(s, async (c) => (await c.query(`select exists (select 1 from ventas_externas where empresa_id = $1) h`, [s.empresa])).rows[0].h as boolean);
   const cerradas = filas.filter((f) => f.estado === "cerrada");
   // Neto: lo devuelto no es venta (igual que «Ventas netas» en el turno).
   const total = cerradas.reduce((a, f) => a + f.total - f.devuelto, 0);
@@ -40,6 +41,7 @@ export default async function Ventas({ searchParams }: { searchParams: Promise<{
         </>}
         {dian && <Link href="/ventas" className="btn-borde">Ver ventas de hoy</Link>}
         {puede.anular(s.rol) && <Link href="/documentos" className="btn-borde">Documentos DIAN</Link>}
+        {historial && <Link href="/ventas/historial" className="btn-borde">Historial de Alegra</Link>}
       </Cabecera>
       {!dian && (
         <section className="grid grid-cols-2 lg:grid-cols-3 gap-3">

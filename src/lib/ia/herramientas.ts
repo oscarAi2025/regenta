@@ -48,7 +48,7 @@ export async function ejecutar(s: Sesion, nombre: string, entrada: Record<string
         // Igual que Reportes (src/lib/reportes.ts, datosReporte): las ventas cerradas por su fecha y las devoluciones restan
         // el día en que se hacen (como su nota crédito). Antes la IA daba las ventas brutas sin restar devoluciones.
         const p = [s.empresa, desde, hasta];
-        const rango = `v.empresa_id = $1 and v.estado = 'cerrada' and (v.creado at time zone 'America/Bogota')::date between $2::date and $3::date`;
+        const rango = `v.empresa_id = $1 and v.origen is null and v.estado = 'cerrada' and (v.creado at time zone 'America/Bogota')::date between $2::date and $3::date`;
         const rangoD = `d.empresa_id = $1 and (d.creado at time zone 'America/Bogota')::date between $2::date and $3::date`;
         const t = (await c.query(`select count(*)::int ventas, coalesce(sum(total), 0)::float bruto from ventas v where ${rango}`, p)).rows[0] as { ventas: number; bruto: number };
         const dev = (await c.query(`select count(*)::int cantidad, coalesce(sum(total), 0)::float total from devoluciones d where ${rangoD}`, p)).rows[0] as { cantidad: number; total: number };

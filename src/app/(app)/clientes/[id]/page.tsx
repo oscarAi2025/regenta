@@ -26,7 +26,8 @@ export default async function FichaCliente({ params, searchParams }: { params: P
     if (!ec) return null;
     const credito = normalizarCredito((await c.query(`select estado_credito($1) e`, [id])).rows[0].e);
     const empresa = (await c.query(`select coalesce(nombre_comercial, razon_social) n from empresas where id = $1`, [s.empresa])).rows[0].n as string;
-    return { ec, credito, empresa };
+    const alegra = (await c.query(`select count(*)::int n, coalesce(sum(total) filter (where estado <> 'anulada'), 0)::float total, max(fecha)::text ultima from ventas_externas where empresa_id = $1 and cliente_id = $2`, [s.empresa, id])).rows[0] as { n: number; total: number; ultima: string | null };
+    return { ec, credito, empresa, alegra };
   });
   if (!d) notFound();
   const { ec, credito } = d;
@@ -41,6 +42,7 @@ export default async function FichaCliente({ params, searchParams }: { params: P
       <Cabecera titulo={cl.nombre} sub={<span className="num">{documento}{cl.email ? ` · ${cl.email}` : ""}{cl.telefono ? ` · ${cl.telefono}` : ""}</span>}>
         <a href={`/tiquete/estado-cuenta/${cl.id}`} target="_blank" rel="noopener" className="btn-borde h-11 inline-flex items-center">Imprimir estado de cuenta</a>
         <a href={wa} target="_blank" rel="noopener" className="btn-borde h-11 inline-flex items-center">{cl.telefono ? "Enviar por WhatsApp" : "Compartir por WhatsApp"}</a>
+        {d.alegra.n > 0 && <Link href={`/ventas/historial?cliente=${cl.id}`} className="btn-borde h-11 inline-flex items-center">Compras en Alegra ({d.alegra.n} · {pesos(d.alegra.total)})</Link>}
       </Cabecera>
       {anulado && /^\d+$/.test(anulado) && <p role="status" className="rounded-xl bg-aviso-soft text-aviso px-4 py-3 font-semibold">Recibo RC-{anulado} anulado: los saldos volvieron a sus facturas.</p>}
 

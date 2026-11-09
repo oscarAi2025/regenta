@@ -15,7 +15,7 @@ import type { Tx } from "./db";
 //   · Los lotes con costo heredado (anterior a las compras de la 031) sí entran, pero se marcan: ese costo puede incluir IVA.
 
 export type Rango = { desde: string; hasta: string };
-const RANGO_V = `v.empresa_id = $1 and (v.creado at time zone 'America/Bogota')::date between $2::date and $3::date`;
+const RANGO_V = `v.empresa_id = $1 and v.origen is null and (v.creado at time zone 'America/Bogota')::date between $2::date and $3::date`;
 const RANGO_D = `d.empresa_id = $1 and (d.creado at time zone 'America/Bogota')::date between $2::date and $3::date`;
 const GRUPO = `case when lc.lote_id is null then 'sin_costo' when lc.heredado then 'heredado' else 'con_costo' end`;
 /** La venta existe para la DIAN: cerrada, o anulada después de emitirse (tiene su nota crédito de anulación). */

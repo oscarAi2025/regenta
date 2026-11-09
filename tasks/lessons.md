@@ -263,3 +263,10 @@
 - Primera factura real (09/11/2026): FGE1 aceptada; la nota crédito NCF1 la rechazó MATIAS («resolution_number es requerido»). Las notas no tienen resolución DIAN, pero MATIAS la exige y la busca por tipo y prefijo: la nota lleva el número de resolución del documento que corrige y la resolución de la nota se registra en MATIAS (tipo 5/4, 94/93). Lección: una prueba con el proveedor simulado no sustituye un documento real de punta a punta (factura **y** su nota).
 - Una droguería puede facturar en producción con el POS en pruebas: «habilitada» = factura o POS en producción, y en ese caso el POS de pruebas se bloquea (no vale ante la DIAN).
 - Regla 90 de la DIAN («documento procesado anteriormente») no es un rechazo: el documento ya está en la DIAN. Se consulta GET /status en MATIAS y, si está validado, se toma como aceptado con su CUFE/CUDE.
+- (09/11, migración Alegra) Las herramientas MCP de Alegra devuelven ~4 KB por producto: extraer en paralelo con
+  subagentes que escriben JSONL compacto en archivos, nunca por el contexto principal. `getInvoices` con `detail: true`
+  trae las líneas de cada factura en la misma página (no hace falta pedir factura por factura).
+- Una cuenta de Alegra puede tener varias bodegas/centros de costo de negocios distintos (FARMAGENERICOS y FARMAHUB AMBALA):
+  filtrar por centro de costo antes de migrar ventas, clientes y cartera.
+- La migración de existencias se comprueba dentro de la misma transacción (producto por producto contra el archivo):
+  si no cuadra, se deshace todo.
