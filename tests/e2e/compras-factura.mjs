@@ -161,7 +161,10 @@ const XML1 = Buffer.from(factura(`FP-${R}`));
     lineas: [{ producto_id: pid, lote: "DOBLE1", vence: "2029-01-31", unidades: 1, bonificadas: 0, costo: 1000, costo_por: "unidad", descuento_pct: 0, iva_pct: 0 }] }) }); return { s: r.status, e: (await r.json()).error }; },
     [(await q1(`select proveedor_id from compras where id = $1`, [c?.id])).proveedor_id, `fp${R}`, P1.id]);
   ok(doble.s === 409 && /ya está registrada/.test(doble.e ?? ""), "no deja registrar dos veces la misma factura con el número escrito distinto (no duplica inventario)", `${doble.s} ${doble.e}`);
-  const XML2 = Buffer.from(factura(`FP-${R}-2`));
+  // Otra factura del mismo proveedor trae su propio CUFE. Con el MISMO CUFE (aunque cambie el número) es la misma factura.
+  const mismoCufe = await leer(p, "mismo-cufe.xml", "application/xml", Buffer.from(factura(`FP-${R}-9`)));
+  ok(mismoCufe.j.duplicada?.id === c?.id, "mismo CUFE con otro número: se reconoce como la ya registrada");
+  const XML2 = Buffer.from(factura(`FP-${R}-2`).replace(`${"c".repeat(40)}${R}`, `${"d".repeat(40)}${R}`));
   const r3 = await leer(p, "otra.xml", "application/xml", XML2);
   ok(r3.status === 200 && !r3.j.duplicada && r3.j.proveedor?.nit === NIT_PROV, "factura nueva del mismo proveedor: lo reconoce por NIT");
 
