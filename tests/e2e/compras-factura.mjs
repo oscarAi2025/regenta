@@ -145,6 +145,13 @@ const XML1 = Buffer.from(factura(`FP-${R}`));
   const r2 = await leer(p, `fp-${R}.xml`, "text/xml", XML1);
   ok(r2.status === 200 && r2.j.duplicada?.id === c?.id && r2.j.avisos.some((a) => /ya está registrada/.test(a)), "factura repetida: avisa con el número de compra");
   ok(r2.j.documento.lineas.every((l) => l.producto) && r2.j.documento.lineas[2].por === "memoria" && r2.j.documento.lineas[2].producto.id === P3.id, "la próxima factura de ese proveedor sale emparejada sola (memoria)");
+  // La misma factura con el número escrito distinto (como lo lee una foto o lo teclea alguien): se reconoce como repetida.
+  const variante = await leer(p, "variante.xml", "text/xml", Buffer.from(factura(`FP-${R}`).replace(`<cbc:ID>FP-${R}</cbc:ID>`, `<cbc:ID>FP ${R}</cbc:ID>`)));
+  ok(variante.j.duplicada?.id === c?.id, "«FP ${R}» se reconoce como la ya registrada «FP-${R}»");
+  const doble = await p.evaluate(async ([prov, n, pid]) => { const r = await fetch("/api/compras", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ idem_key: crypto.randomUUID(), proveedor_id: prov, numero_factura: n, fecha_factura: "2026-11-04",
+    lineas: [{ producto_id: pid, lote: "DOBLE1", vence: "2029-01-31", unidades: 1, bonificadas: 0, costo: 1000, costo_por: "unidad", descuento_pct: 0, iva_pct: 0 }] }) }); return { s: r.status, e: (await r.json()).error }; },
+    [(await q1(`select proveedor_id from compras where id = $1`, [c?.id])).proveedor_id, `fp${R}`, P1.id]);
+  ok(doble.s === 409 && /ya está registrada/.test(doble.e ?? ""), "no deja registrar dos veces la misma factura con el número escrito distinto (no duplica inventario)", `${doble.s} ${doble.e}`);
   const XML2 = Buffer.from(factura(`FP-${R}-2`));
   const r3 = await leer(p, "otra.xml", "application/xml", XML2);
   ok(r3.status === 200 && !r3.j.duplicada && r3.j.proveedor?.nit === NIT_PROV, "factura nueva del mismo proveedor: lo reconoce por NIT");

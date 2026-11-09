@@ -88,7 +88,7 @@ export const POST = conSesion(async (s, req) => {
   const r = await comoUsuario(s, async (c) => {
     const prov = await proveedorDeFactura(c, s.empresa, doc);
     const ya = prov && doc.numero
-      ? (await c.query(`select id, numero from compras where empresa_id = $1 and proveedor_id = $2 and upper(numero_factura) = upper($3) and estado <> 'anulada'`, [s.empresa, prov.id, doc.numero])).rows[0] ?? null
+      ? (await c.query(`select id, numero from compras where empresa_id = $1 and proveedor_id = $2 and regexp_replace(upper(numero_factura), '[^A-Z0-9]', '', 'g') = regexp_replace(upper($3), '[^A-Z0-9]', '', 'g') and estado <> 'anulada'`, [s.empresa, prov.id, doc.numero])).rows[0] ?? null
       : null;
     const lineas = await emparejar(c, s.empresa, prov?.id ?? null, doc.lineas, dinero);
     const archivo = (await c.query(`select guardar_archivo_compra($1, $2, $3, $4, $5, $6) r`, [s.empresa, f.name.slice(0, 160), tipo === "application/xml" ? "application/xml" : tipo, Buffer.from(datos), sha, { ...doc, lineas: doc.lineas }])).rows[0].r;
