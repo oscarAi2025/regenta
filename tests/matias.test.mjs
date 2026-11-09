@@ -3,7 +3,7 @@
 // sandbox de MATIAS el 02/11/2026; el reintento del mismo número respondió 400 «ya se encuentra validado».
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { payloadMatias, interpretar, destinoEmision, payloadComplementario, envioMatias, esComplementario, MATIAS_COMPLEMENTARIOS, xmlEnRespuesta } from "../src/lib/dian/matias.ts";
+import { payloadMatias, interpretar, destinoEmision, esRegla90, recuperarRegla90, payloadComplementario, envioMatias, esComplementario, MATIAS_COMPLEMENTARIOS, xmlEnRespuesta } from "../src/lib/dian/matias.ts";
 import { xmlSimulado, MARCA_SIMULADO, nombreClave } from "../src/lib/dian/xml.ts";
 
 const lineas = [
@@ -178,4 +178,14 @@ test("destino: cliente con su UUID; la cuenta principal sin client_uuid y solo c
   assert.deepEqual(destinoEmision(principal.uuid, "901845370", principal), { q: "" });
   assert.deepEqual(destinoEmision(principal.uuid, "901.845.370", principal), { q: "" });
   assert.ok("error" in destinoEmision(principal.uuid, "900000001", principal));
+});
+
+test("regla 90 (documento procesado anteriormente): se recupera si la DIAN lo tiene validado", () => {
+  assert.ok(esRegla90("Rechazo DIAN 99: Regla: 90, Rechazo: Documento procesado anteriormente."));
+  assert.ok(!esRegla90("Rechazo DIAN 99: Regla: 900, otra cosa"));
+  assert.ok(!esRegla90("Datos inválidos: El campo resolution_number es requerido"));
+  const ok = recuperarRegla90({ document: { is_valid: true, document_key: "abc123", qr: { qrDian: "https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=abc123" } } });
+  assert.equal(ok.ok, true); assert.equal(ok.cufe, "abc123"); assert.equal(ok.simulado, false);
+  assert.equal(recuperarRegla90({ document: { is_valid: false, document_key: "abc123" } }), null);
+  assert.equal(recuperarRegla90(null), null);
 });

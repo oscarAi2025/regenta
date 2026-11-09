@@ -181,6 +181,16 @@ export function xmlEnRespuesta(j: unknown): string | null {
   return null;
 }
 
+/** ¿Rechazo por la regla 90 de la DIAN («documento procesado anteriormente»)? */
+export const esRegla90 = (error: string) => /Regla:?\s*90\b|procesado anteriormente/i.test(error);
+
+/** Con la consulta GET /status de MATIAS: el documento ya validado por la DIAN se toma como aceptado con su CUFE/CUDE. */
+export function recuperarRegla90(k: { document?: { is_valid?: boolean; document_key?: string; qr?: { qrDian?: string } } } | null): Extract<ResultadoEmision, { ok: true }> | null {
+  const doc = k?.document;
+  if (!doc?.is_valid || !doc.document_key) return null;
+  return { ok: true, cufe: doc.document_key, qr: doc.qr?.qrDian ?? `https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=${doc.document_key}`, simulado: false, respuesta: { recuperado: true }, xml: null, pdf: null };
+}
+
 /** Traduce la respuesta HTTP de MATIAS a un resultado de la cola. */
 export function interpretar(status: number, j: Respuesta): ResultadoEmision {
   const errores = (x?: string[] | string) => (Array.isArray(x) ? x : x ? [x] : []).join(" · ");
@@ -234,12 +244,26 @@ export function emisorMatias(): Emisor {
       const dest = destinoEmision(d.matias_cliente, d.emisor.nit, principal);
       if ("error" in dest) return { ok: false, definitivo: true, error: dest.error };
       const q = dest.q;
+      const cuerpo = esComplementario(d.tipo) ? payloadComplementario(d) : payloadMatias(d);
       const r = await fetch(base + ruta + q, {
         method: "POST", headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
-        body: JSON.stringify(esComplementario(d.tipo) ? payloadComplementario(d) : payloadMatias(d)), signal: AbortSignal.timeout(15000),
+        body: JSON.stringify(cuerpo), signal: AbortSignal.timeout(15000),
       });
       const j = (await r.json().catch(() => ({ message: `Respuesta no JSON (${r.status})` }))) as Respuesta;
-      return interpretar(r.status, j);
+      const res = interpretar(r.status, j);
+      // Regla 90 («documento procesado anteriormente»): la DIAN ya tiene ese documento (un envío anterior llegó aunque no
+      // se registró la respuesta). No es un rechazo: se consulta su estado y, si está validado, se toma como aceptado.
+      if (!res.ok && esRegla90(res.error)) {
+        const tipoDoc = (cuerpo as { type_document_id?: number }).type_document_id;
+        const params = new URLSearchParams({ number: `${d.prefijo}${d.numero}`, prefix: d.prefijo, ...(tipoDoc ? { type_document_id: String(tipoDoc) } : {}) });
+        const qs = (q ? q + "&" : "?") + params.toString();
+        const e = await fetch(`${base}/api/ubl2.1/status${qs}`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, signal: AbortSignal.timeout(15000) }).catch(() => null);
+        const k = (await e?.json().catch(() => null)) as { document?: { is_valid?: boolean; document_key?: string; qr?: { qrDian?: string } } } | null;
+        const recuperado = recuperarRegla90(k);
+        if (recuperado) return { ...recuperado, respuesta: { ...(res.respuesta as object), recuperado: true } };
+        return { ok: false, definitivo: false, error: `${res.error} (se consulta de nuevo su estado en la DIAN)`, respuesta: res.respuesta };
+      }
+      return res;
     },
   };
 }
