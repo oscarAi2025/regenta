@@ -6,8 +6,8 @@ import { useRef, useState } from "react";
 
 export type ProductoFactura = { id: string; nombre: string; laboratorio: string | null; ean: string | null; unidades_por_caja: number; unidades: number; iva: number; precio_caja: number; precio_unidad: number | null };
 export type LineaFactura = {
-  n: number; codigo: string | null; descripcion: string; nombre: string; cantidad: number; precio: number | null; descuento_pct: number; iva_pct: number;
-  lote: string | null; vence: string | null; bonificada: boolean; cargo: boolean; base: number | null; producto: ProductoFactura | null; por: "codigo" | "memoria" | "nombre" | null;
+  n: number; codigo: string | null; ean: string | null; descripcion: string; nombre: string; cantidad: number; precio: number | null; descuento_pct: number; iva_pct: number;
+  lote: string | null; vence: string | null; bonificada: boolean; cargo: boolean; base: number | null; producto: ProductoFactura | null; por: "codigo" | "memoria" | "nombre" | "nuevo" | null;
   como: "caja" | "unidad"; revisar_como: boolean; candidatos: (ProductoFactura & { puntaje: number })[]; claves: string[];
 };
 export type FacturaCargada = {

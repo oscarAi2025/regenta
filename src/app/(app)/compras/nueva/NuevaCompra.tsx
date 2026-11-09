@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MEDIOS_PAGO, calcularLinea, leerNumero, margen, miles, pesosExactos } from "@/lib/compras";
 import { CargarFactura, type FacturaCargada, type LineaFactura } from "./CargarFactura";
+import { Emparejar, crearProducto, nuevoDesdeLinea, type Nuevo } from "./Emparejar";
 
 type Prod = { id: string; nombre: string; laboratorio: string | null; ean: string | null; unidades_por_caja: number; unidades: number; iva: number; precio_caja: number; precio_unidad: number | null };
 type Linea = { key: number; p: Prod; lote: string; vence: string; cajas: string; sueltas: string; bonif: string; costo: string; por: "caja" | "unidad"; desc: string; iva: number; precio: string; precioUnd: string;
@@ -15,7 +16,8 @@ const sumarDias = (f: string, d: number) => new Date(Date.parse(f + "T12:00:00Z"
 // Mientras se escribe un decimal se deja el texto como está (con coma); solo se quitan letras.
 const decimal = (s: string) => s.replace(/[^\d.,]/g, "");
 const coma = (n: number | null | undefined) => (n === null || n === undefined ? "" : String(n).replace(".", ","));
-const POR: Record<string, string> = { codigo: "por código de barras", memoria: "como en tu última factura de este proveedor", nombre: "por nombre: revisa que sea el mismo" };
+const POR: Record<string, string> = { codigo: "encontrado por código de barras", memoria: "encontrado como en tu última factura de este proveedor", nombre: "encontrado por nombre: revisa que sea el mismo", nuevo: "producto nuevo creado desde esta factura" };
+type PorEmparejar = { key: number; l: LineaFactura; nuevo: Nuevo | null; error: string; creando: boolean };
 
 export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: boolean; proveedores: ProveedorOpcion[]; hoy: string }) {
   const [proveedores, setProveedores] = useState(iniciales);
@@ -38,7 +40,12 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
   const [cufe, setCufe] = useState("");
   const [archivoId, setArchivoId] = useState<string | null>(null);
   const [avisos, setAvisos] = useState<string[]>([]);
-  const [porEmparejar, setPorEmparejar] = useState<{ key: number; l: LineaFactura }[]>([]);
+  const [porEmparejar, setPorEmparejarEstado] = useState<PorEmparejar[]>([]);
+  // Copia viva para las acciones asíncronas (crear productos en lote) sin leer un estado viejo.
+  const pendientes = useRef<PorEmparejar[]>([]);
+  const setPorEmparejar = (f: PorEmparejar[] | ((xs: PorEmparejar[]) => PorEmparejar[])) =>
+    setPorEmparejarEstado((xs) => { const v = typeof f === "function" ? f(xs) : f; pendientes.current = v; return v; });
+  const [creandoTodos, setCreandoTodos] = useState(false);
   const buscar = useRef<HTMLInputElement>(null);
   const clave = useRef(0);
   const idem = useRef(crypto.randomUUID()); // misma clave si se reintenta tras un corte; nueva tras guardar
@@ -99,7 +106,7 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
     const mercancia = d.lineas.filter((l) => !l.cargo);
     const listas = mercancia.filter((l) => l.producto).map((l) => desdeFactura(l, l.producto as Prod));
     setLineas(listas);
-    setPorEmparejar(mercancia.filter((l) => !l.producto).map((l) => ({ key: ++clave.current, l })));
+    setPorEmparejar(mercancia.filter((l) => !l.producto).map((l) => ({ key: ++clave.current, l, nuevo: null, error: "", creando: false })));
     const sinLote = mercancia.filter((l) => !l.lote).length, sinVence = mercancia.filter((l) => !l.vence).length;
     setAvisos([...r.avisos,
       `Factura ${d.numero} de ${d.proveedor.nombre}: ${mercancia.length} producto${mercancia.length === 1 ? "" : "s"}, ${listas.length} ya encontrado${listas.length === 1 ? "" : "s"} en tu catálogo${mercancia.length > listas.length ? `, ${mercancia.length - listas.length} por emparejar abajo` : ""}.`,
@@ -108,11 +115,43 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
       ...(sinVence ? [`${sinVence === d.lineas.length ? "La factura no trae vencimientos" : `${sinVence} producto${sinVence === 1 ? "" : "s"} sin vencimiento en la factura`}: ponlo desde el empaque (semaforización y FEFO lo necesitan).`] : []),
       ...(d.origen === "ia" ? ["Leída de la foto con Regenta IA: confirma cantidades, lotes y costos contra el papel."] : [])]);
   }
-  function emparejarLinea(key: number, p: Prod) {
-    const x = porEmparejar.find((y) => y.key === key);
+  /** La línea de la factura queda con su producto (elegido o recién creado) y pasa a la compra. */
+  function emparejarLinea(key: number, p: Prod, nuevo?: Nuevo) {
+    const x = pendientes.current.find((y) => y.key === key);
     if (!x) return;
+    // Cajas o unidades: lo que dijo la persona al crearlo; si no, cajas cuando el producto va en caja (se marca para revisar).
+    const como = nuevo ? nuevo.como : p.unidades_por_caja > 1 ? "caja" : "unidad";
     setPorEmparejar((xs) => xs.filter((y) => y.key !== key));
-    setLineas((ls) => [...ls, desdeFactura({ ...x.l, por: null, revisar_como: x.l.revisar_como || p.unidades_por_caja > 1 }, p)]);
+    setLineas((ls) => [...ls, desdeFactura({ ...x.l, como, por: nuevo ? "nuevo" : null, revisar_como: !nuevo && p.unidades_por_caja > 1 }, p)]);
+  }
+  const cambiarPend = (key: number, cambio: Partial<PorEmparejar>) => setPorEmparejar((xs) => xs.map((y) => (y.key === key ? { ...y, ...cambio } : y)));
+  /** Abre el producto nuevo con lo que trae la factura y, si su código de barras está en el catálogo de Regenta, con esos datos. */
+  async function abrirNuevo(key: number) {
+    const x = pendientes.current.find((y) => y.key === key);
+    if (!x || x.nuevo) return;
+    const n = nuevoDesdeLinea(x.l);
+    cambiarPend(key, { nuevo: n, error: "" });
+    if (!n.ean) return;
+    const m = await fetch(`/api/maestro?q=${encodeURIComponent(n.ean)}`).then((r) => r.json()).then((j) => (j.productos ?? []).find((y: { ean: string | null }) => y.ean === n.ean)).catch(() => null);
+    if (m) setPorEmparejar((xs) => xs.map((y) => (y.key === key && y.nuevo ? { ...y, nuevo: { ...y.nuevo, nombre: m.nombre, laboratorio: m.laboratorio ?? "", maestro_id: m.id, del_maestro: true } } : y)));
+  }
+  async function crearUno(key: number) {
+    const x = pendientes.current.find((y) => y.key === key);
+    if (!x?.nuevo || x.creando) return false;
+    cambiarPend(key, { creando: true, error: "" });
+    const r = await crearProducto(x.nuevo);
+    if ("error" in r) { cambiarPend(key, { creando: false, error: r.error }); return false; }
+    emparejarLinea(key, r.p, x.nuevo);
+    return true;
+  }
+  /** «Crear todos»: primero los abre para revisar; con todos abiertos, los crea uno tras otro. */
+  async function crearTodos() {
+    const cerrados = pendientes.current.filter((y) => !y.nuevo);
+    if (cerrados.length) { for (const y of cerrados) void abrirNuevo(y.key); return; }
+    setCreandoTodos(true);
+    for (const y of [...pendientes.current]) await crearUno(y.key);
+    setCreandoTodos(false);
+    if (pendientes.current.length) setError("Algunos productos no se crearon: revisa el mensaje en cada uno.");
   }
   const cambiar = <K extends keyof Linea>(key: number, k: K, v: Linea[K]) => setLineas((ls) => ls.map((l) => (l.key === key ? { ...l, [k]: v } : l)));
   const pagadas = (l: Linea) => ent(l.cajas) * l.p.unidades_por_caja + ent(l.sueltas);
@@ -233,9 +272,23 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
 
       {porEmparejar.length > 0 && (
         <section id="por-emparejar" className="tarjeta p-4 sm:p-5 grid gap-3 border-2 border-aviso" aria-labelledby="emparejar-t">
-          <div><h2 id="emparejar-t" className="titulo text-xl">Por emparejar ({porEmparejar.length})</h2>
-            <p className="text-muted">Estos productos de la factura no tienen un igual seguro en tu catálogo. Elige cuál es: Regenta lo recuerda para la próxima factura de este proveedor.</p></div>
-          {porEmparejar.map(({ key, l }) => <Emparejar key={key} l={l} dinero={dinero} alElegir={(p) => emparejarLinea(key, p)} alQuitar={() => setPorEmparejar((xs) => xs.filter((y) => y.key !== key))} />)}
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 flex-1"><h2 id="emparejar-t" className="titulo text-xl">Por emparejar ({porEmparejar.length})</h2>
+              <p className="text-muted">No tienen un igual seguro en tu catálogo. Elige cuál es o, si es nuevo, créalo aquí mismo con los datos de la factura. Regenta lo recuerda para la próxima factura de este proveedor.</p></div>
+            {dinero && porEmparejar.length > 1 && (
+              <button type="button" onClick={() => void crearTodos()} disabled={creandoTodos} className={porEmparejar.every((y) => y.nuevo) ? "btn-primario" : "btn-borde"}>
+                {creandoTodos ? "Creando productos…" : porEmparejar.every((y) => y.nuevo) ? `Crear los ${porEmparejar.length} productos` : `Son nuevos: crear los ${porEmparejar.length}`}
+              </button>
+            )}
+          </div>
+          {porEmparejar.map((y) => (
+            <Emparejar key={y.key} l={y.l} dinero={dinero} nuevo={y.nuevo} error={y.error} creando={y.creando || creandoTodos}
+              alElegir={(p) => emparejarLinea(y.key, p)} alQuitar={() => setPorEmparejar((xs) => xs.filter((z) => z.key !== y.key))}
+              alAbrirNuevo={() => void abrirNuevo(y.key)} alCambiarNuevo={(c) => cambiarPend(y.key, c === null ? { nuevo: null, error: "" } : { nuevo: y.nuevo ? { ...y.nuevo, ...c } : null })} alCrear={() => void crearUno(y.key)} />
+          ))}
+          {dinero && porEmparejar.length > 1 && porEmparejar.every((y) => y.nuevo) && (
+            <button type="button" onClick={() => void crearTodos()} disabled={creandoTodos} className="btn-primario justify-self-start">{creandoTodos ? "Creando productos…" : `Crear los ${porEmparejar.length} productos y agregarlos`}</button>
+          )}
         </section>
       )}
 
@@ -263,7 +316,7 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
             return (
               <article key={l.key} className="tarjeta p-4 grid gap-3 min-w-0">
                 <div className="flex items-start gap-3"><div className="flex-1 min-w-0"><p className="font-semibold">{l.p.nombre}</p><p className="text-sm text-muted">{l.p.laboratorio ?? "Genérico"}{upc > 1 ? ` · caja x ${upc}` : ""}{dinero ? ` · precio actual ${pesosExactos(l.p.precio_caja)}${upc > 1 ? " la caja" : ""}` : ""}</p>
-                  {l.factura && <p className="text-sm text-muted mt-0.5">En la factura: «{l.factura.descripcion}»{l.factura.por ? ` · encontrado ${POR[l.factura.por]}` : " · elegido por ti"}</p>}
+                  {l.factura && <p className="text-sm text-muted mt-0.5">En la factura: «{l.factura.descripcion}»{l.factura.por ? ` · ${POR[l.factura.por]}` : " · elegido por ti"}</p>}
                   {l.factura?.revisar && upc > 1 && <p className="text-sm font-semibold text-aviso mt-0.5">Revisa si la factura trae cajas (x {upc}) o unidades sueltas.</p>}</div>
                   <button onClick={() => setLineas((ls) => ls.filter((x) => x.key !== l.key))} className="text-sm text-alerta underline" aria-label={`Quitar ${l.p.nombre}`}>Quitar</button></div>
                 <div className={gruposCampo}>
@@ -314,35 +367,5 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
         </section>
       )}
     </div>
-  );
-}
-
-/** Una línea de la factura sin producto seguro: candidatos parecidos, buscador del catálogo u omitir. */
-function Emparejar({ l, dinero, alElegir, alQuitar }: { l: LineaFactura; dinero: boolean; alElegir: (p: Prod) => void; alQuitar: () => void }) {
-  const [q, setQ] = useState("");
-  const [res, setRes] = useState<Prod[]>([]);
-  useEffect(() => {
-    if (q.trim().length < 2) { setRes([]); return; }
-    const ctl = new AbortController();
-    const t = setTimeout(() => fetch(`/api/productos?q=${encodeURIComponent(q)}`, { signal: ctl.signal }).then((r) => r.json()).then((j) => setRes((j.productos ?? []).slice(0, 6))).catch(() => {}), 160);
-    return () => { clearTimeout(t); ctl.abort(); };
-  }, [q]);
-  const id = `emp-${l.n}`;
-  return (
-    <article className="rounded-xl border border-line p-3 grid gap-2 min-w-0">
-      <div className="flex items-start gap-3"><div className="flex-1 min-w-0">
-        <p className="font-semibold">«{l.descripcion}»</p>
-        <p className="text-sm text-muted num">{miles(l.cantidad)} {l.como === "caja" ? "en la factura" : "und"}{l.lote ? ` · lote ${l.lote}` : ""}{l.vence ? ` · vence ${l.vence}` : ""}{dinero && l.precio !== null ? ` · ${pesosExactos(l.precio)} c/u` : ""}</p>
-      </div><button type="button" onClick={alQuitar} className="text-sm text-alerta underline">Quitar</button></div>
-      {l.candidatos.length > 0 && <div className="flex flex-wrap gap-2">{l.candidatos.map((p) => (
-        <button type="button" key={p.id} onClick={() => alElegir(p)} className="pastilla bg-surface border border-line hover:border-cruz text-left">Es {p.nombre}{p.laboratorio ? ` · ${p.laboratorio}` : ""}</button>))}</div>}
-      <div className="relative">
-        <label htmlFor={id} className="sr-only">Buscar el producto en tu catálogo</label>
-        <input id={id} value={q} onChange={(e) => setQ(e.target.value)} className="campo" placeholder="Busca el producto en tu catálogo" autoComplete="off" />
-        {res.length > 0 && <ul className="absolute z-10 mt-1 w-full tarjeta shadow-lg divide-y divide-line max-h-72 overflow-auto">{res.map((p) => (
-          <li key={p.id}><button type="button" onClick={() => alElegir(p)} className="w-full text-left px-4 py-2.5 hover:bg-paper"><span className="font-semibold">{p.nombre}</span><span className="block text-sm text-muted">{p.laboratorio ?? "Genérico"} · hay {p.unidades} und</span></button></li>))}</ul>}
-        {q.trim().length >= 2 && res.length === 0 && <p className="text-sm text-muted mt-1">¿No existe? Créalo en <a href="/productos/nuevo" target="_blank" rel="noopener" className="underline">Productos → Agregar</a> y búscalo aquí.</p>}
-      </div>
-    </article>
   );
 }

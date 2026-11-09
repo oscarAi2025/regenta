@@ -130,8 +130,8 @@ export default async function Inicio() {
           </div>
           <div className="grid content-start gap-3">
             <div className="grid grid-cols-2 gap-3">
-              <Link href="/prediccion" className="rounded-xl bg-white/10 p-3 hover:bg-white/15"><p className="text-sm text-white/70">Para pedir</p><p className="num titulo text-3xl">{d.pred.pedir}</p></Link>
-              <Link href="/prediccion?ver=vencimiento" className="rounded-xl bg-white/10 p-3 hover:bg-white/15"><p className="text-sm text-white/70">Se vencerían</p><p className="num titulo text-3xl">{costos ? pesos(d.pred.riesgo) : `${d.pred.lotes} lotes`}</p></Link>
+              <Link href="/prediccion" className="rounded-xl bg-white/10 p-3 hover:bg-white/15 min-w-0"><p className="text-sm text-white/70">Para pedir</p><p className="num titulo text-[clamp(20px,6.5vw,30px)] leading-tight [overflow-wrap:anywhere]">{d.pred.pedir}</p></Link>
+              <Link href="/prediccion?ver=vencimiento" className="rounded-xl bg-white/10 p-3 hover:bg-white/15 min-w-0"><p className="text-sm text-white/70">Se vencerían</p><p className="num titulo text-[clamp(20px,6.5vw,30px)] leading-tight [overflow-wrap:anywhere]">{costos ? pesos(d.pred.riesgo) : `${d.pred.lotes} lotes`}</p></Link>
             </div>
             <PreguntarIA pregunta="Explícame mis prioridades de hoy en la droguería y qué hago primero" />
           </div>

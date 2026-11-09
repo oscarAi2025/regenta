@@ -120,13 +120,13 @@ const XML1 = Buffer.from(factura(`FP-${R}`));
   ok(await p.locator("#proveedor").inputValue() === `MAYORISTA PRUEBA ${R} S.A.S.` && await p.locator("#factura").inputValue() === `FP-${R}`, "proveedor y número de factura rellenados");
   ok(await p.locator("#nit-nuevo").inputValue() === NIT_PROV, "NIT del proveedor nuevo rellenado");
   ok(await p.getByText(/^CUFE c{40}/).isVisible(), "CUFE visible");
-  ok(await p.locator('article:has-text("En la factura")').count() === 2, "2 líneas armadas con su descripción de la factura");
+  ok(await p.locator('article:has-text("En la factura: «")').count() === 2, "2 líneas armadas con su descripción de la factura");
   ok(await p.getByRole("heading", { name: "Por emparejar (1)" }).isVisible(), "1 producto por emparejar");
   await p.getByRole("button", { name: /^Guardar/ }).click();
   ok(await p.getByRole("alert").filter({ hasText: /por emparejar/ }).isVisible(), "no deja guardar con productos sin emparejar");
   await p.locator('[id^="emp-"]').fill(P3.nombre.split(" ").slice(0, 2).join(" "));
   await p.locator("#por-emparejar li button", { hasText: P3.nombre }).first().click();
-  ok(await p.locator('article:has-text("En la factura")').count() === 3 && await p.locator("#por-emparejar").count() === 0, "emparejado a mano: pasa a la compra");
+  ok(await p.locator('article:has-text("En la factura: «")').count() === 3 && await p.locator("#por-emparejar").count() === 0, "emparejado a mano: pasa a la compra");
   const lote3 = await p.locator('article:has-text("PRODUCTO RARO") input[id^="lote-"]').inputValue();
   ok(lote3 === `F${R}C`, "la línea emparejada conserva su lote", lote3);
   // Revisión: costos y cajas/unidades según cómo viene la factura.
@@ -178,11 +178,64 @@ const XML1 = Buffer.from(factura(`FP-${R}`));
   await p.locator("#por-emparejar li button").first().click();
   ok(await p.locator("#total-papel").inputValue() === "527379,97", "Allers: total a cuadrar = factura − flete con IVA", await p.locator("#total-papel").inputValue());
   ok(await p.getByText(/15 productos/).isVisible(), "Allers: 15 productos (14 de la factura, uno partido en dos lotes)");
+  // ── Productos nuevos sin salir de la compra (Zanecol real): uno a uno, «crear todos», errores y memoria.
+  await p.goto(B + "/compras/nueva"); await p.waitForLoadState("networkidle");
+  await p.locator('input[aria-label="Archivo de la factura"]').setInputFiles({ name: "zanecol.zip", mimeType: "application/zip", buffer: fx("zanecol-factura.zip") });
+  await p.getByText(/Factura FVZ7037/).waitFor({ timeout: 30000 });
+  const tarjetas = p.locator('#por-emparejar article');
+  const pendientesZ = await tarjetas.count();
+  ok(pendientesZ >= 2, "Zanecol: productos nuevos por emparejar", String(pendientesZ));
+  // Uno: se abre con lo de la factura y un precio sugerido; un precio vacío no deja crear.
+  const t1 = tarjetas.first();
+  const desc1 = (await t1.locator("p.font-semibold").first().innerText()).replace(/[«»]/g, "");
+  await t1.getByRole("button", { name: "Es nuevo: crearlo" }).click();
+  ok(await t1.locator('input[id$="-n"]').inputValue() === desc1.trim(), "producto nuevo: nombre de la factura", desc1);
+  const precio1 = await t1.locator('input[id$="-p"]').inputValue();
+  ok(/^\d{1,3}(\.\d{3})*$/.test(precio1) && await t1.getByText(/Margen 2\d,\d % sobre el costo/).isVisible(), "producto nuevo: precio sugerido con su margen", precio1);
+  await t1.locator('input[id$="-p"]').fill("");
+  await t1.getByRole("button", { name: "Crear y agregar", exact: true }).click();
+  ok(await t1.getByRole("alert").filter({ hasText: "Pon el precio de venta" }).isVisible(), "sin precio no se crea: lo dice en el mismo producto");
+  await t1.locator('input[id$="-p"]').fill(precio1);
+  await t1.getByRole("button", { name: "Crear y agregar", exact: true }).click();
+  await p.getByText(new RegExp(`${desc1.slice(0, 12).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}.*producto nuevo creado desde esta factura`)).waitFor({ timeout: 15000 });
+  ok(await tarjetas.count() === pendientesZ - 1, "creado y agregado a la compra sin salir de la pantalla");
+  const creado = await q1(`select nombre, unidades_por_caja upc, precio_caja::int precio, iva::int iva from productos where empresa_id = $1 and nombre = $2`, [DEMO.id, desc1.trim()]);
+  ok(creado && creado.precio === Number(precio1.replace(/\./g, "")), "el producto quedó en el catálogo con su precio", JSON.stringify(creado));
+  // Todos los demás de una vez: primero se abren para revisar; luego se crean.
+  if (pendientesZ - 1 >= 2) {
+    await p.getByRole("button", { name: /Son nuevos: crear los \d+/ }).click();
+    await p.getByRole("button", { name: /^Crear los \d+ productos$/ }).waitFor();
+    const upcs = await tarjetas.locator('input[id$="-u"]').evaluateAll((xs) => xs.map((x) => x.value));
+    ok(upcs.length === pendientesZ - 1, "«crear todos» abre cada producto para revisarlo antes", upcs.join(","));
+    const losartan = tarjetas.filter({ hasText: "LOSARTAN" });
+    if (await losartan.count()) ok(await losartan.locator('input[id$="-u"]').inputValue() === "30" && await losartan.locator('select[id$="-c"]').inputValue() === "caja", "unidades por caja leídas de «CJA X 30 TAB» y la factura trae cajas");
+    await p.getByRole("button", { name: /^Crear los \d+ productos y agregarlos$/ }).click();
+    await p.locator("#por-emparejar").waitFor({ state: "detached", timeout: 30000 });
+    ok(true, "«crear todos»: todos creados y agregados");
+  } else if (pendientesZ - 1 === 1) {
+    await tarjetas.first().getByRole("button", { name: "Es nuevo: crearlo" }).click();
+    await tarjetas.first().getByRole("button", { name: "Crear y agregar", exact: true }).click();
+    await p.locator("#por-emparejar").waitFor({ state: "detached", timeout: 15000 });
+  }
+  const filasZ = await p.locator('article:has-text("En la factura: «")').count();
+  ok(filasZ === 4, "las 4 líneas de Zanecol en la compra", String(filasZ));
+  const losFila = p.locator('article:has-text("LOSARTAN 50 MG CJA X 30 TAB")');
+  if (await losFila.count()) ok(await losFila.locator('input[id^="cajas-"]').inputValue() === "50", "Losartán entra como 50 cajas (no 50 sueltas)", await losFila.locator('input[id^="cajas-"]').inputValue());
+  // Zanecol no trae lotes en el XML (aquí la IA simulada no los lee de su PDF): sin lote no se guarda; se escriben.
+  await p.getByRole("button", { name: /^Guardar/ }).click();
+  ok(await p.getByRole("alert").filter({ hasText: /lote/i }).isVisible(), "sin lote no deja guardar");
+  for (const campo of await p.locator('input[id^="lote-"]').all()) if (!(await campo.inputValue())) await campo.fill(`Z${R}${Math.floor(Math.random() * 1000)}`);
+  await p.getByRole("button", { name: /^Guardar/ }).click();
+  await p.getByText(/Compra N\.º \d+ guardada/).waitFor({ timeout: 30000 });
+  const otraVez = await leer(p, "zanecol.zip", "application/zip", fx("zanecol-factura.zip"));
+  ok(otraVez.j.documento.lineas.every((l) => l.producto) && otraVez.j.duplicada, "Zanecol otra vez: todo emparejado solo (memoria) y avisa que ya está registrada");
   // Archivos que no son facturas.
   ok((await leer(p, "x.txt", "text/plain", Buffer.from("hola"))).status === 415, "texto plano → 415");
   ok((await leer(p, "x.xml", "text/xml", Buffer.from("<Otro/>"))).status === 422, "XML que no es factura → 422");
   ok((await leer(p, "x.zip", "application/zip", Buffer.from("PK\u0003\u0004basura"))).status === 422, "ZIP dañado → 422");
 
+  // La demo deja 5 lecturas con IA al día por persona y la prueba ya gastó varias (lotes de AXA y Zanecol): se reinicia.
+  await q(`delete from limites_uso where clave like 'ia-factura-demo:%'`);
   // Foto: Regenta IA (simulada) transcribe; el lote y el vencimiento salen de la descripción.
   iaPedidos = []; iaModo = "factura";
   const jpg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(2000, 7)]);
@@ -213,6 +266,12 @@ const XML1 = Buffer.from(factura(`FP-${R}`));
   const d = r.j.documento;
   ok(r.status === 200 && d.lineas.length === 3 && d.lineas.every((l) => l.precio === null && l.base === null) && d.totales.total === null, "la bodega recibe la factura sin precios ni totales");
   ok(d.lineas.every((l) => !l.producto || !("costo_unidad" in l.producto)), "ni el costo de los productos");
+  await p.goto(B + "/compras/nueva"); await p.waitForLoadState("networkidle");
+  // Un producto que nadie ha emparejado todavía (el de la factura del dueño ya quedó aprendido).
+  const nuevoB = Buffer.from(factura(`FP-${R}-B2`).replace(`COD-${R}-3`, `COD-${R}-9`).replace(`PRODUCTO RARO ${R} REF ZZ`, `ARTICULO INEDITO ${R} BODEGA`));
+  await p.locator('input[aria-label="Archivo de la factura"]').setInputFiles({ name: "b.xml", mimeType: "text/xml", buffer: nuevoB });
+  await p.getByText(/Factura FP-/).waitFor({ timeout: 30000 });
+  ok(await p.getByRole("button", { name: "Es nuevo: crearlo" }).count() === 0 && await p.getByText(/El dueño o el administrador lo crea desde aquí mismo/).first().isVisible(), "la bodega no crea productos: se le dice quién puede");
   await ctx.close();
 }
 {
@@ -265,6 +324,8 @@ const XML1 = Buffer.from(factura(`FP-${R}`));
   await p.goto(B + "/compras/nueva"); await p.waitForLoadState("networkidle");
   await p.locator('input[aria-label="Archivo de la factura"]').setInputFiles({ name: "m.xml", mimeType: "text/xml", buffer: Buffer.from(factura(`FP-${R}-M`)) });
   await p.getByText(/ya encontrado/).waitFor({ timeout: 30000 });
+  const tm = p.locator("#por-emparejar article").first();
+  if (await tm.count()) await tm.getByRole("button", { name: "Es nuevo: crearlo" }).click();
   const des = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   ok(des <= 0, "celular: sin desborde horizontal", `${des}px`);
   const chicos = await p.evaluate(() => [...document.querySelectorAll("main button, main input:not([type=checkbox]):not([type=radio]):not([type=file]), main select")]
