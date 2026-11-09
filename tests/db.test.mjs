@@ -34,6 +34,13 @@ before(async () => {
   assert.ok(prod, "hay un producto fraccionable con dos lotes en la demo");
 });
 after(() => pool.end());
+/** Pruebas del IVA descontable: la droguería A es responsable de IVA mientras dura la prueba (la demo viene como no
+ *  responsable; para ella el IVA de la compra es costo y la nota débito va sin IVA). */
+async function comoResponsable(t) {
+  const antes = (await pool.query(`select responsable_iva r from empresas where id = $1`, [E.A])).rows[0].r;
+  await pool.query(`update empresas set responsable_iva = true where id = $1`, [E.A]);
+  t.after(() => pool.query(`update empresas set responsable_iva = $2 where id = $1`, [E.A, antes]));
+}
 
 test("el dueño de B no ve nada de A (empresas, productos, ventas, lotes)", async () => {
   const r = await como(U.duenoB, async (c) => ({
@@ -802,7 +809,8 @@ const compra = (prov, lineas, extra = {}) => ({ empresa_id: E.A, sede_id: S.A, p
   fecha_factura: new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" }), condicion: "credito", lineas, ...extra });
 const vence = "2031-06-30";
 
-test("compra: totales al centavo, costo del lote sin IVA, bonificadas prorratean, promedio ponderado al repetir lote", async () => {
+test("compra: totales al centavo, costo del lote sin IVA, bonificadas prorratean, promedio ponderado al repetir lote", async (t) => {
+  await comoResponsable(t);
   await como(U.carlos, async (c) => {
     const prov = await proveedorDe(c, E.A, "Proveedor prueba BD");
     const upc = prod.unidades_por_caja, s0 = await existencias(c, prod.id);
@@ -838,7 +846,8 @@ test("compra: totales al centavo, costo del lote sin IVA, bonificadas prorratean
   });
 });
 
-test("compra: la bodega registra sin costos (por costear, sin ver dinero) y el dueño completa; la cajera y otra empresa no", async () => {
+test("compra: la bodega registra sin costos (por costear, sin ver dinero) y el dueño completa; la cajera y otra empresa no", async (t) => {
+  await comoResponsable(t);
   const prov = await como(U.carlos, (c) => proveedorDe(c, E.A, "Proveedor bodega BD"), { commit: true });
   const r = await como(U.bodega, async (c) => {
     const r = (await c.query("select registrar_compra($1) r", [compra(prov, [{ producto_id: prod.id, lote: "BOD-1", vence, unidades: 8, costo: 999, costo_por: "unidad" }], { condicion: "contado" })])).rows[0].r;
@@ -1478,7 +1487,8 @@ test("documento soporte y notas: la cajera, la bodega y el dueño de otra drogue
   });
 });
 
-test("nota débito: mayor valor con líneas e IVA al centavo, no sobre facturas de ventas anuladas, hereda el modo", async () => {
+test("nota débito: mayor valor con líneas e IVA al centavo, no sobre facturas de ventas anuladas, hereda el modo", async (t) => {
+  await comoResponsable(t);
   await como(U.carlos, async (c) => {
     await numeracionesComplementarias(c, E.A);
     const f = (await c.query(`select d.id, d.venta_id from documentos_dian d join ventas v on v.id = d.venta_id where d.empresa_id = $1 and d.tipo = 'factura' and v.estado = 'cerrada' and d.estado <> 'rechazado' limit 1`, [E.A])).rows[0];
@@ -1631,7 +1641,8 @@ test("revertir avisa si un precio cambió después; con «parcial» revierte sol
   });
 });
 
-test("margen objetivo sobre el último costo SIN IVA de la compra; sin costo queda igual; costo heredado se advierte", async () => {
+test("margen objetivo sobre el último costo SIN IVA de la compra; sin costo queda igual; costo heredado se advierte", async (t) => {
+  await comoResponsable(t);
   await como(U.carlos, async (c) => {
     const p = (await c.query(`select id, unidades_por_caja upc, iva::float iva from productos where empresa_id = $1 and activo and iva = 19 and unidades_por_caja > 1 and not requiere_formula order by nombre limit 1`, [E.A])).rows[0];
     const prov = await proveedorDe(c, E.A, "Proveedor margen BD");
