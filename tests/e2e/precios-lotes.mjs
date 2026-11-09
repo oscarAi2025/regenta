@@ -91,6 +91,9 @@ const revisarEtiquetas = (p) => p.evaluate(() => [...document.querySelectorAll('
 }));
 
 const EMP = await q1(`select e.id, (select id from sedes where empresa_id = e.id order by creado limit 1) sede_id from empresas e where e.demo limit 1`);
+// Precios con margen sobre el costo SIN IVA: la droguería es responsable de IVA (la demo viene como no responsable,
+// y entonces el IVA de la compra es costo: eso se prueba en compras.mjs).
+await pool.query(`update empresas set responsable_iva = true where id = $1`, [EMP.id]);
 const EB = await q1(`select id from empresas where not demo and nit = '900000002'`);
 const DUENO = "00000000-0000-4000-8000-000000000001", DUENO_B = "00000000-0000-4000-8000-000000000004";
 const R = Date.now().toString().slice(-8);
