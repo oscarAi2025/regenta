@@ -167,6 +167,10 @@ await ir(p, `/documentos?tipo=factura&desde=${FAC.dia}&hasta=${FAC.dia}`);
 await p.getByRole("link", { name: `Nota débito de ${FAC.numero}` }).first().waitFor({ timeout: 15000 });
 await Promise.all([p.waitForURL(new RegExp(`/documentos/nota-debito/${FAC.id}`)), p.getByRole("link", { name: `Nota débito de ${FAC.numero}` }).first().click()]);
 await p.waitForLoadState("networkidle");
+// La demo no es responsable de IVA: la nota débito va sin IVA (no se ofrece la tarifa). Para probar el IVA, responsable.
+ok(await p.locator("#nd-iva").count() === 0, "no responsable de IVA: la nota débito no ofrece tarifa de IVA");
+await pool.query(`update empresas set responsable_iva = true where id = $1`, [EMP.id]);
+await p.reload(); await p.waitForLoadState("networkidle");
 await p.fill("#nd-concepto", "Flete del domicilio");
 await p.fill("#nd-valor", "10.000");
 await p.selectOption("#nd-iva", "19");
@@ -179,6 +183,7 @@ await st3.waitFor({ timeout: 15000 });
 const ND = await q1(`select d.id, d.prefijo || d.numero numero, d.estado, d.cufe, d.total::float, d.xml from documentos_dian d where d.origen_id = $1 and d.tipo = 'nota_debito' order by d.creado desc limit 1`, [FAC.id]);
 ok(ND?.estado === "aceptado" && ND.total === 11900 && ND.cufe && ND.xml.includes(`<Referencia numero="${FAC.numero}">`), "nota débito aceptada (simulado) con referencia a la factura", JSON.stringify({ e: ND?.estado, t: ND?.total }));
 ok(await p.getByRole("list").filter({ hasText: ND.numero }).count() >= 1, "la pantalla lista la nota débito sin recargar");
+await pool.query(`update empresas set responsable_iva = false where id = $1`, [EMP.id]);
 
 // 6) /documentos: tipos nuevos, filtro, XML y ZIP
 await ir(p, `/documentos?tipo=soporte&desde=${hoy}&hasta=${hoy}`);
