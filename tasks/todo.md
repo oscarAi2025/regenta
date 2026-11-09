@@ -454,3 +454,11 @@ Funciones nuevas (no son arreglos de una línea):
 - [ ] Revisar vigente_desde de la numeración y vencimiento de la numeración de notas crédito en anular/devolver.
 - [ ] Confirmar con MATIAS si resolution_number es opcional en las notas (ya no se exige en Regenta).
 - [ ] Verificación en dos pasos de la consola: hecha y probada, APAGADA por decisión de Oscar (09/11/2026). Se enciende con la variable REGENTA_ADMIN_DOS_PASOS=1 en Netlify.
+
+## 09/11/2026 · Habilitación DIAN desde la consola (MATIAS)
+- [x] Certificado Viafirma recibido (IA DEV, 09/11/2026–08/11/2028); el .p7b no firma: Oscar sube el .p12 en MATIAS con su contraseña
+- [x] Consola → cliente → «Habilitación DIAN en MATIAS»: certificado, software (factura, documento soporte, POS), set de pruebas, estado, numeraciones de la DIAN
+- [x] Cuenta principal: el cliente con el NIT de la casa de software (Farmagenéricos) emite sin client_uuid; bloqueado para otros NIT (consola, PATCH y emisión)
+- [x] Pruebas: habilitacion.mjs (MATIAS simulado, 30), matias.test (destino), endpoints, admin, ingresos
+- [ ] Oscar: subir el .p12 en MATIAS; habilitación DIAN «Software propio» → ID, PIN y TestSetId; registrarlo y lanzar el set desde la consola
+- [ ] Numeración de facturación (MUISCA) para Farmagenéricos y sincronizarla desde la consola

@@ -7,6 +7,7 @@ import { exigirAdmin, fechaHora, NOMBRE_PLAN } from "@/lib/admin-pagina";
 import { ROLES } from "@/lib/admin-datos";
 import { Usuarios } from "./Usuarios";
 import { Nota } from "./Nota";
+import { Habilitacion } from "./Habilitacion";
 import { Facturacion } from "./Facturacion";
 import { NOMBRE_NUMERACION } from "@/lib/dian/tipos";
 import { Eliminar } from "./Eliminar";
@@ -74,6 +75,7 @@ export default async function Cliente({ params }: { params: Promise<{ id: string
       </div>
       {!e.demo && <Fiscal empresa={id} nitFijo={d.resoluciones.some((r) => !r.pruebas)} inicial={{ razon_social: e.razon_social ?? "", nombre_comercial: e.nombre_comercial ?? "", nit: String(e.nit ?? ""),
         responsable_iva: !!e.responsable_iva, direccion: e.direccion ?? "", ciudad: e.ciudad ?? "", telefono: e.telefono ?? "", email: e.email ?? "" }} />}
+      {!e.demo && <Habilitacion empresa={id} />}
       {!e.demo && <Facturacion empresa={id} cliente={e.matias_cliente ?? ""} emisor={process.env.REGENTA_DIAN ?? "simulado"} complementario={!!e.dian_complementario}
         resoluciones={d.resoluciones.map((r) => ({ tipo: r.tipo, prefijo: r.prefijo, numero: r.numero_resolucion, pruebas: r.pruebas }))} />}
       <div className="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-2 gap-5">

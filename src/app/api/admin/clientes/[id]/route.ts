@@ -8,6 +8,7 @@ import { conAdmin, evento } from "@/lib/admin";
 import { encolar, enviarAhora } from "@/lib/correo";
 import { avisarHabilitacion } from "@/lib/operacion";
 import { limite } from "@/lib/planes";
+import { cuentaPrincipal, matiasConfigurado } from "@/lib/dian/matias-cuenta";
 
 const Fiscal = z.object({ razon_social: z.string().trim().min(3, "Escribe la razón social").max(200), nombre_comercial: z.string().trim().max(160),
   nit: z.string().trim().regex(/^[\d.\s-]{6,15}$/, "El NIT son solo dígitos"), responsable_iva: z.boolean(), direccion: z.string().trim().max(200),
@@ -51,6 +52,13 @@ export const PATCH = conAdmin(async (a, req, ctx) => {
     let habilitado: string[] = [];
     if (!m.cliente && m.resoluciones.some((x) => !x.pruebas))
       return NextResponse.json({ error: "Para pasar a producción la droguería necesita su UUID de cliente en MATIAS (si no, facturaría con el NIT de Regenta)" }, { status: 400 });
+    // El UUID de la cuenta principal de MATIAS solo vale para el cliente con su mismo NIT (si no, facturaría con otro NIT).
+    if (m.cliente && matiasConfigurado()) {
+      const pr = await cuentaPrincipal().catch(() => null);
+      if (!pr) return NextResponse.json({ error: "No se pudo comprobar la cuenta principal en MATIAS: intenta de nuevo" }, { status: 502 });
+      const nit = (await sinRLS((c) => c.query(`select nit from empresas where id = $1`, [id]))).rows[0]?.nit;
+      if (m.cliente === pr.uuid && String(nit) !== pr.nit) return NextResponse.json({ error: `Ese UUID es el de la cuenta principal de MATIAS (NIT ${pr.nit}), no el de este cliente` }, { status: 409 });
+    }
     if (m.resoluciones.some((x) => !x.pruebas && !x.numero))
       return NextResponse.json({ error: "Una numeración en producción necesita su número de resolución DIAN" }, { status: 400 });
     const ok = await sinRLS<boolean | "nc" | "ajuste">(async (c) => {

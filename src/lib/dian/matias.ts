@@ -200,6 +200,14 @@ export function interpretar(status: number, j: Respuesta): ResultadoEmision {
   return { ok: false, definitivo: false, error: `MATIAS ${status}${j.code ? " " + j.code : ""}: ${j.message ?? "sin respuesta"}`.slice(0, 900), respuesta: resumen };
 }
 
+/** A quién se emite: el cliente de la casa de software (?client_uuid=) o la cuenta principal (sin parámetro: MATIAS no acepta
+ *  el client_uuid de su propia empresa). La cuenta principal solo emite documentos con su mismo NIT. */
+export function destinoEmision(cliente: string, nitEmisor: string, principal: { uuid: string; nit: string }): { q: string } | { error: string } {
+  if (cliente !== principal.uuid) return { q: `?client_uuid=${encodeURIComponent(cliente)}` };
+  if (String(nitEmisor).replace(/\D/g, "") !== principal.nit) return { error: `El NIT ${nitEmisor} no es el de la cuenta principal de MATIAS (${principal.nit})` };
+  return { q: "" };
+}
+
 export function emisorMatias(): Emisor {
   const base = (process.env.MATIAS_URL ?? "https://sandbox-api.matias-api.com").replace(/\/$/, "");
   const token = process.env.MATIAS_TOKEN;
@@ -210,7 +218,7 @@ export function emisorMatias(): Emisor {
       // Res. DIAN 165/2023 (arts. 42 y 43): la DIAN autoriza la numeración de la factura, el POS y el documento soporte.
       // Las notas (crédito, débito, de ajuste) llevan un consecutivo propio: no tienen número de resolución.
       if (!d.resolucion && (d.tipo === "pos" || d.tipo === "factura" || d.tipo === "soporte")) return { ok: false, definitivo: true, error: "La numeración no tiene número de resolución DIAN" };
-      // Nunca se emite una droguería con la cuenta propia de MATIAS (saldría con el NIT de Regenta).
+      // Nunca se emite sin decir para quién: el UUID del cliente o el de la cuenta principal (si no, saldría con el NIT de Regenta).
       if (!d.matias_cliente) return { ok: false, definitivo: false, error: "Falta conectar la droguería en MATIAS (UUID del cliente en la consola)" };
       if (d.tipo === "nota_credito" && !d.referencia?.cufe) return { ok: false, definitivo: false, error: "La nota crédito espera a que el documento original tenga CUFE" };
       // Documento soporte, nota de ajuste y nota débito: solo con su configuración verificada (si no, rechazo con mensaje claro).
@@ -220,7 +228,12 @@ export function emisorMatias(): Emisor {
         if (d.tipo !== "soporte" && !d.referencia?.cufe) return { ok: false, definitivo: false, error: "La nota espera a que el documento original tenga su código de la DIAN" };
       }
       const ruta = esComplementario(d.tipo) ? MATIAS_COMPLEMENTARIOS[d.tipo].ruta : d.tipo === "nota_credito" ? "/api/ubl2.1/notes/credit" : "/api/ubl2.1/invoice";
-      const q = d.matias_cliente ? `?client_uuid=${encodeURIComponent(d.matias_cliente)}` : "";
+      let principal: { uuid: string; nit: string };
+      try { principal = await (await import("./matias-cuenta")).cuentaPrincipal(); }
+      catch { return { ok: false, definitivo: false, error: "MATIAS: no se pudo leer la cuenta principal (se reintenta)" }; }
+      const dest = destinoEmision(d.matias_cliente, d.emisor.nit, principal);
+      if ("error" in dest) return { ok: false, definitivo: true, error: dest.error };
+      const q = dest.q;
       const r = await fetch(base + ruta + q, {
         method: "POST", headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify(esComplementario(d.tipo) ? payloadComplementario(d) : payloadMatias(d)), signal: AbortSignal.timeout(15000),

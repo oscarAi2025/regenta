@@ -222,6 +222,8 @@ const R = [
   { m: "POST", p: "/api/admin/dos-pasos", acceso: "admin", basura: true },
   { m: "DELETE", p: `/api/admin/clientes/${U}`, acceso: "admin", basura: true },
   { m: "GET", p: `/api/admin/clientes/${U}/exportar`, acceso: "admin" },
+  { m: "GET", p: `/api/admin/clientes/${U}/habilitacion`, acceso: "admin" },
+  { m: "POST", p: `/api/admin/clientes/${U}/habilitacion`, acceso: "admin", basura: true },
   { m: "POST", p: `/api/admin/clientes/${U}/pagos`, acceso: "admin", basura: true },
   { m: "PATCH", p: "/api/admin/cargos", acceso: "admin", basura: true },
   { m: "POST", p: `/api/admin/clientes/${U}/usuarios`, acceso: "admin", basura: true },

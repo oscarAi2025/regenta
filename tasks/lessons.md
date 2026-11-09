@@ -256,3 +256,7 @@
 - Al insertar código en una línea que ya tenía más instrucciones, un comentario «// …» añadido a mitad de línea se tragó el resto (setCobrando, setCobrado, setPedido): la caja seguía «cobrando» y no decía «quedó cobrado». Los comentarios van en su propia línea; tras cada edición automática, buscar «// .*; \w+(» en la línea.
 
 - Al apagar una función por variable de entorno, revisar también las sesiones ya emitidas con la marca vieja (la cookie «inscribir» de la consola seguía obligando a los dos pasos). Leer la marca condicionada al interruptor.
+
+## Certificado de firma (09/11/2026)
+- El .p7b que manda la ECD (Viafirma) es solo la cadena pública: no firma. MATIAS exige el .p12/.pfx con su contraseña (POST /certificate). En Maticerts el .p12 se descarga de la solicitud procesada; la contraseña sale en esa página y la escribe Oscar, nunca yo.
+- MATIAS no acepta el client_uuid de su propia empresa: Farmagenéricos (mismo NIT que la casa de software) emite con la cuenta principal, sin client_uuid. Regenta lo marca guardando el UUID de la cuenta principal y solo si el NIT coincide (consola y emisión).

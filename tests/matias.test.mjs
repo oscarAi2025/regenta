@@ -3,7 +3,7 @@
 // sandbox de MATIAS el 02/11/2026; el reintento del mismo número respondió 400 «ya se encuentra validado».
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { payloadMatias, interpretar, payloadComplementario, envioMatias, esComplementario, MATIAS_COMPLEMENTARIOS, xmlEnRespuesta } from "../src/lib/dian/matias.ts";
+import { payloadMatias, interpretar, destinoEmision, payloadComplementario, envioMatias, esComplementario, MATIAS_COMPLEMENTARIOS, xmlEnRespuesta } from "../src/lib/dian/matias.ts";
 import { xmlSimulado, MARCA_SIMULADO, nombreClave } from "../src/lib/dian/xml.ts";
 
 const lineas = [
@@ -170,4 +170,12 @@ test("XML: el simulado va marcado y escapado; el de la respuesta se detecta sin 
   assert.equal(xmlEnRespuesta({ message: "sin xml", data: { is_valid: 1 } }), null);
   const ok = interpretar(200, { XmlDocumentKey: "k", response: { IsValid: "true" }, pdf: { url: "https://matias/x.pdf" }, xml_base64: Buffer.from(xml).toString("base64") });
   assert.equal(ok.ok && ok.xml, xml); assert.equal(ok.ok && ok.pdf, "https://matias/x.pdf");
+});
+
+test("destino: cliente con su UUID; la cuenta principal sin client_uuid y solo con su NIT", () => {
+  const principal = { uuid: "11111111-2222-4333-8444-555555555555", nit: "901845370" };
+  assert.deepEqual(destinoEmision("47a1257b-d8d6-428e-b28e-abddce5b8531", "900000001", principal), { q: "?client_uuid=47a1257b-d8d6-428e-b28e-abddce5b8531" });
+  assert.deepEqual(destinoEmision(principal.uuid, "901845370", principal), { q: "" });
+  assert.deepEqual(destinoEmision(principal.uuid, "901.845.370", principal), { q: "" });
+  assert.ok("error" in destinoEmision(principal.uuid, "900000001", principal));
 });
