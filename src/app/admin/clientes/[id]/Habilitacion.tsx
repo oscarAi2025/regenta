@@ -103,7 +103,10 @@ export function Habilitacion({ empresa }: { empresa: string }) {
               )}
               {!!e.resoluciones?.length && (
                 <div>
-                  <h3 className="font-semibold">Numeraciones en MATIAS</h3>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="font-semibold">Numeraciones en MATIAS</h3>
+                    <button onClick={() => accion({ accion: "notas" }, "notas")} disabled={!!ocupado} className="btn-borde h-9 text-sm">{ocupado === "notas" ? "Configurando…" : "Configurar las notas en MATIAS"}</button>
+                  </div>
                   <ul className="mt-2 grid gap-1 text-sm">{e.resoluciones.map((r) => (
                     <li key={`${r.tipo_documento}${r.prefijo}${r.numero}`} className="flex flex-wrap justify-between gap-2"><span className="font-semibold">{DOC[r.tipo_documento] ?? `Tipo ${r.tipo_documento}`} {r.prefijo}</span>
                       <span className="num text-muted">{r.numero} · {r.desde}–{r.hasta}{r.vence ? ` · vence ${r.vence}` : ""}</span></li>

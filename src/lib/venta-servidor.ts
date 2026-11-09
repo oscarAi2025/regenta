@@ -61,6 +61,14 @@ export async function registrarVenta(c: Tx, s: Sesion, d: Venta, cajaElegida: st
   const sinTurno = (await c.query(`select e.exige_turno and not exists (select 1 from turnos t where t.caja_id = $2 and t.estado = 'abierto') falta
     from empresas e where e.id = $1`, [s.empresa, puesto.caja_id])).rows[0]?.falta;
   if (sinTurno && !d.sin_conexion) throw Object.assign(new Error("Abre el turno de caja antes de vender (Caja → Turno)"), { code: "P0001" });
+  // Una droguería que ya factura en producción no puede sacar tiquetes POS con la numeración de pruebas: no valdrían ante
+  // la DIAN. Mientras no tenga su POS habilitado, toda venta va con factura electrónica.
+  if (d.tipo_doc === "pos") {
+    const soloFactura = (await c.query(`select not e.demo and exists (select 1 from resoluciones_dian r where r.empresa_id = e.id and r.activa and r.tipo = 'factura' and not r.pruebas)
+        and not exists (select 1 from resoluciones_dian r where r.empresa_id = e.id and r.activa and r.tipo = 'pos' and not r.pruebas) solo
+      from empresas e where e.id = $1`, [s.empresa])).rows[0]?.solo;
+    if (soloFactura) throw Object.assign(new Error("Esta droguería factura solo con factura electrónica (su tiquete POS no está habilitado ante la DIAN): elige el cliente y cobra con factura"), { code: "P0001" });
+  }
   const { rows: marcas } = await c.query(`select p.nombre, p.requiere_formula, p.control_especial, e.formula_vigencia_dias vigencia_dias, e.formula_exige_datos exige_datos
     from productos p join empresas e on e.id = p.empresa_id where p.empresa_id = $1 and p.id = any($2::uuid[]) and (p.requiere_formula or p.control_especial)`,
     [s.empresa, [...new Set(d.lineas.map((l) => l.producto_id))]]);

@@ -112,6 +112,13 @@ export async function procesarCola(max = 20, venta?: string, documento?: string)
   return r;
 }
 
+/** Número de resolución de la numeración que cubre un documento (tipo, prefijo, número). Las notas no tienen resolución
+ *  propia ante la DIAN, pero el proveedor exige un resolution_number: llevan el del documento que corrigen. */
+async function resolucionDe(c: Tx, empresa: string, tipo: string, prefijo: string, numero: number | string): Promise<string | null> {
+  return (await c.query(`select numero_resolucion from resoluciones_dian where empresa_id = $1 and tipo = $2 and prefijo = $3 and $4::bigint between desde and hasta
+    and numero_resolucion is not null order by activa desc limit 1`, [empresa, tipo, prefijo, numero])).rows[0]?.numero_resolucion ?? null;
+}
+
 async function armar(id: string): Promise<{ documento: DocumentoParaEmitir; resolucionPruebas: boolean | null; demo: boolean; cerrado?: false; esperar?: false } | { cerrado: true; anulado?: boolean; esperar?: false } | { esperar: true; cerrado?: false }> {
   return sinRLS(async (c) => {
     const tipo = (await c.query(`select tipo from documentos_dian where id = $1`, [id])).rows[0]?.tipo;
@@ -145,6 +152,7 @@ async function armar(id: string): Promise<{ documento: DocumentoParaEmitir; reso
        where o.venta_id = $1 and o.tipo <> 'nota_credito'`, [d.venta_id])).rows[0] : null;
     // La nota crédito necesita el CUFE del original: si el original aún no está aceptado, espera (no gasta intentos).
     if (d.tipo === "nota_credito" && !ref?.cufe) return { esperar: true as const };
+    if (ref && !d.resolucion) d.resolucion = await resolucionDe(c, d.empresa_id, ref.tipo, ref.prefijo, ref.numero);
     const cli = d.cliente_id ? (await c.query(`select tipo_doc, numero_doc, dv, nombre, email from clientes where id = $1`, [d.cliente_id])).rows[0] : null;
     return {
       resolucionPruebas: d.pruebas, demo: !!d.demo,
@@ -198,6 +206,7 @@ async function armarComplementario(c: Tx, id: string): Promise<Armado> {
   if (!d) return { cerrado: true as const };
   // La nota (de ajuste o débito) necesita el código del original: si aún no está aceptado, espera (no gasta intentos).
   if (d.tipo !== "soporte" && !d.o_cufe) return { esperar: true as const };
+  if (d.tipo !== "soporte" && !d.resolucion) d.resolucion = await resolucionDe(c, d.empresa_id, d.o_tipo, d.o_prefijo, d.o_numero);
   const lineas = (await c.query(`select descripcion, codigo, cantidad::float, precio::float, iva_pct::float, base::float, iva::float, total::float
     from documento_lineas where documento_id = $1 order by id`, [id])).rows;
   const cli = d.tipo === "nota_debito" && d.cliente_id ? (await c.query(`select tipo_doc, numero_doc, dv, nombre, email from clientes where id = $1`, [d.cliente_id])).rows[0] : null;

@@ -66,7 +66,7 @@ export default async function Inicio() {
         exists (select 1 from productos where empresa_id = $1 and activo) productos,
         exists (select 1 from v_stock_vigente v join productos p on p.id = v.producto_id where p.empresa_id = $1 and v.unidades > 0) inventario,
         (select count(*) from miembros where empresa_id = $1 and activo) > 1 equipo,
-        exists (select 1 from resoluciones_dian where empresa_id = $1 and activa and tipo = 'pos' and not pruebas) dian,
+        exists (select 1 from resoluciones_dian where empresa_id = $1 and activa and tipo in ('pos', 'factura') and not pruebas) dian,
         exists (select 1 from ventas where empresa_id = $1) venta
       from empresas e where e.id = $1`, [s.empresa])).rows[0] : null;
     return { hoy, medios, semana, margen, alertas, ultimas, pred, invima, hoyPatron, pasos };

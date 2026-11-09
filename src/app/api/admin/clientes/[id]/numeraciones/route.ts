@@ -5,6 +5,7 @@ import { esUuid } from "@/lib/api";
 import { conAdmin, evento } from "@/lib/admin";
 import { enviarAhora } from "@/lib/correo";
 import { avisarHabilitacion } from "@/lib/operacion";
+import { asegurarResolucionesNotas, matiasConfigurado, notasParaMatias } from "@/lib/dian/matias-cuenta";
 
 const fecha = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha AAAA-MM-DD").nullish().or(z.literal(""));
 const Numeracion = z.object({
@@ -53,5 +54,12 @@ export const POST = conAdmin(async (a, req, ctx) => {
   }).catch((e) => { if ((e as { status?: number }).status) return { status: (e as { status: number }).status, error: (e as Error).message }; throw e; });
   if (r.error) return NextResponse.json({ error: r.error }, { status: r.status });
   for (const k of ("claves" in r && r.claves) || []) await enviarAhora(k);
-  return NextResponse.json({ ok: true, mensaje: "Numeración guardada: la siguiente venta usa la nueva" }, { status: 201 });
+  // En producción, MATIAS necesita la resolución de las notas (tipo y prefijo) o las rechaza: se configura sola.
+  let aviso = "";
+  if (!n.pruebas && matiasConfigurado()) {
+    const cli = (await sinRLS((c) => c.query(`select matias_cliente::text c from empresas where id = $1`, [id]))).rows[0]?.c;
+    if (cli) await asegurarResolucionesNotas(cli, await notasParaMatias(id))
+      .catch((e) => { aviso = ` · Ojo: no se pudieron configurar las notas en MATIAS (${(e as Error).message}); usa «Configurar las notas en MATIAS»`; });
+  }
+  return NextResponse.json({ ok: true, mensaje: `Numeración guardada: la siguiente venta usa la nueva${aviso}` }, { status: 201 });
 });

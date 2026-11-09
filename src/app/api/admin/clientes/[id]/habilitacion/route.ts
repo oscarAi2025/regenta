@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { sinRLS } from "@/lib/db";
 import { esUuid } from "@/lib/api";
 import { conAdmin, evento } from "@/lib/admin";
-import { certificado, cuentaPrincipal, ErrorMatias, iniciarPruebas, matiasConfigurado, registrarSoftware, resoluciones, sincronizarNumeraciones, softwares } from "@/lib/dian/matias-cuenta";
+import { asegurarResolucionesNotas, certificado, cuentaPrincipal, ErrorMatias, iniciarPruebas, matiasConfigurado, registrarSoftware, resoluciones, sincronizarNumeraciones, softwares, notasParaMatias } from "@/lib/dian/matias-cuenta";
 
 // Habilitación DIAN de un cliente desde la consola, contra MATIAS: estado (certificado, software, set de pruebas,
 // numeraciones en MATIAS), registrar el software que asignó la DIAN, lanzar el set de pruebas, sincronizar numeraciones y
@@ -17,6 +17,7 @@ const Accion = z.discriminatedUnion("accion", [
     testsetid: z.string().trim().uuid("El TestSetId de la DIAN tiene el formato 6142be76-4d36-…") }),
   z.object({ accion: z.literal("pruebas"), software: z.number().int().positive() }),
   z.object({ accion: z.literal("sincronizar"), tipo: z.union([z.literal(1), z.literal(3), z.literal(4)]) }),
+  z.object({ accion: z.literal("notas") }),
 ]);
 
 async function empresa(id: string) {
@@ -77,8 +78,15 @@ export const POST = conAdmin(async (a, req, ctx) => {
       await evento(a, "matias_set_pruebas", id, { software: d.software });
       return NextResponse.json({ ok: true, mensaje: `${m}. Tarda unos minutos: pulsa «Actualizar» para ver el resultado` });
     }
+    if (d.accion === "notas") {
+      const n = await asegurarResolucionesNotas(e.cliente, await notasParaMatias(id));
+      await evento(a, "matias_resoluciones_notas", id, { creadas: n });
+      return NextResponse.json({ ok: true, mensaje: n ? `Notas listas en MATIAS (${n} nueva${n === 1 ? "" : "s"})` : "Las notas ya estaban configuradas en MATIAS" });
+    }
     const m = await sincronizarNumeraciones(e.cliente, d.tipo);
-    await evento(a, "matias_sincronizar_numeraciones", id, { tipo: d.tipo });
-    return NextResponse.json({ ok: true, mensaje: m });
+    // Con la numeración nueva de la DIAN, las notas quedan configuradas también (MATIAS las busca por tipo y prefijo).
+    const n = await asegurarResolucionesNotas(e.cliente, await notasParaMatias(id));
+    await evento(a, "matias_sincronizar_numeraciones", id, { tipo: d.tipo, notas: n });
+    return NextResponse.json({ ok: true, mensaje: n ? `${m}. Notas configuradas en MATIAS: ${n}` : m });
   } catch (x) { return fallo(x); }
 });

@@ -463,5 +463,7 @@ Funciones nuevas (no son arreglos de una línea):
 - [x] .p12 en MATIAS; DIAN «Software propio» Regenta (2f505ac7-…, PIN 92380, TestSetId 6711feeb-…); set de pruebas superado → producción (09/11/2026)
 - [x] Resolución 18764118389325: FGE 1–50.000, 24 meses; asociada a Regenta en la DIAN; sincronizada en MATIAS con su clave técnica
 - [x] Regenta (Farmagenéricos): factura FGE y nota crédito NCF en producción; «Emite ante la DIAN»
-- [ ] Primera factura real FGE + nota crédito NCF: confirmar que MATIAS no exige resolución propia para las notas (tipo 5) en producción
-- [ ] POS de Farmagenéricos sigue en pruebas (PRPOS): si va a vender por caja, habilitar software POS (tipo 4) y pedir numeración POS
+- [x] Primera factura real FGE1 aceptada (09/11/2026)
+- [ ] NCF1 rechazada por falta de resolution_number: corregido (nota lleva la resolución del original + resolución de notas en MATIAS); publicar, «Configurar las notas en MATIAS» y reenviar NCF1
+- [x] Farmagenéricos solo factura (decisión de Oscar 09/11/2026): la caja no ofrece POS y el servidor lo rechaza mientras el POS esté en pruebas
+- [ ] Idea UX: botón «Consumidor final» (CC 222222222222) en el cliente de la factura

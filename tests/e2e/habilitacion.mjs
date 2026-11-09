@@ -65,6 +65,11 @@ const srv = http.createServer(async (req, res) => {
     e.res.push({ id: 813, type_document_id: 7, resolution_number: "18764112492320", prefix: "FGE", range_from: 1, range_up: 5000, date_up: "2028-11-09", active: 1 });
     return enviar(200, { message: "Consulta generada con éxito", sync: { created: 1, updated: 0, failed: 0, errors: [], total: 1 }, success: true });
   }
+  if (req.method === "POST" && ruta === "/resolutions") {
+    const x = JSON.parse(JSON.parse(cuerpo).records);
+    if (e.res.some((r) => r.type_document_id === x.type_document_id && r.prefix === x.prefix && r.resolution_number === x.resolution_number)) return enviar(400, { success: false, message: "Ya existe una resolución con el mismo número" });
+    e.res.push({ id: 900 + e.res.length, ...x }); return enviar(200, { message: "Registro creado correctamente.", record: x, success: true });
+  }
   if (req.method === "GET" && ruta === "/resolutions") return enviar(200, { dataRecords: { current_page: 1, data: e.res, total: e.res.length }, success: true });
   enviar(404, { message: "ruta no simulada" });
 });
@@ -157,6 +162,18 @@ ok(r.j.resoluciones?.[0]?.numero === "18764112492320" && r.j.resoluciones[0].pre
 
 r = await llamar("POST", `/api/admin/clientes/${A}/habilitacion`, { accion: "software", ...SW }, adm);
 ok(r.s === 409 && /producción/.test(r.j.error), "un software ya en producción no se cambia desde la consola", `${r.s} ${r.j.error}`);
+
+// ── Notas: MATIAS exige la resolución de las notas (tipo y prefijo) con el número de la resolución de la factura
+await q(`update resoluciones_dian set activa = false where empresa_id = $1`, [A]);
+await q(`insert into resoluciones_dian (empresa_id, tipo, prefijo, desde, hasta, actual, pruebas, numero_resolucion, vigente_desde, vigente_hasta)
+  values ($1, 'factura', 'FGE', 1, 5000, 0, false, '18764112492320', '2026-11-09', '2028-11-09'), ($1, 'nota_credito', 'NCF', 1, 1000000, 0, false, null, null, null)`, [A]);
+n = llamadas.length;
+r = await llamar("POST", `/api/admin/clientes/${A}/habilitacion`, { accion: "notas" }, adm);
+const rn = llamadas.slice(n).filter((l) => l.metodo === "POST" && l.ruta === "/resolutions").map((l) => JSON.parse(l.cuerpo.records));
+ok(r.s === 200 && rn.length === 1 && rn[0].type_document_id === 5 && rn[0].prefix === "NCF" && rn[0].resolution_number === "18764112492320" && rn[0].date_up === "2028-11-09" && rn[0].range_up === 1000000,
+  "la nota crédito queda en MATIAS: tipo 5, prefijo NCF y el número de la resolución de la factura", `${r.s} ${r.j.mensaje ?? r.j.error} ${JSON.stringify(rn)}`);
+r = await llamar("POST", `/api/admin/clientes/${A}/habilitacion`, { accion: "notas" }, adm);
+ok(r.s === 200 && /ya estaban/.test(r.j.mensaje), "repetirlo no duplica la resolución de las notas", r.j.mensaje);
 
 // ── B: con su UUID de cliente, todas las llamadas llevan client_uuid
 r = await llamar("PATCH", `/api/admin/clientes/${Bx}`, { matias: { cliente: CLIENTE_B, resoluciones: [] } }, adm);

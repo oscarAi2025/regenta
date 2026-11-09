@@ -18,7 +18,8 @@ import { precioDe, unidadesDe, type Linea, type Medio, type PedidoVinculado, typ
 const PLAZOS = [15, 30, 45, 60, 90];
 type DetallePedido = Omit<PedidoGuardado, "lineas"> & PedidoVinculado & { cliente_datos: Cliente | null; lineas: (Omit<PedidoGuardado["lineas"][number], "producto"> & { producto: Producto & { activo?: boolean } })[] };
 
-export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, responsableIva, descuentoMax }: { fiar: boolean;
+export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, responsableIva, descuentoMax, soloFactura = false }: { fiar: boolean;
+  /** La droguería factura en producción pero su POS sigue en pruebas: toda venta va con factura electrónica. */ soloFactura?: boolean;
   /** Dueño o administrador: fían también a clientes sin cupo y se pasan del cupo escribiendo el motivo. */ gerencia: boolean;
   empresa: string; nombreEmpresa: string; formulas: ConfigFormula; caja: string | null;
   /** No responsable de IVA: la venta no discrimina IVA aunque el producto lo tenga (igual que registrar_venta). */ responsableIva: boolean;
@@ -40,7 +41,7 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, r
   useEffect(() => setImpresora(leerImpresora()), []);
   const cambiarImpresora = (i: Impresora) => { setImpresora(i); guardarImpresora(i); };
   const [vencen, setVencen] = useState<Producto[]>([]);
-  const [tipoDoc, setTipoDoc] = useState<"pos" | "factura">("pos");
+  const [tipoDoc, setTipoDoc] = useState<"pos" | "factura">(soloFactura ? "factura" : "pos");
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [credito, setCredito] = useState(false);
   const [plazo, setPlazo] = useState(30);
@@ -225,7 +226,7 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, r
   useEffect(() => {
     const v = leerVentaLocal(empresa, caja);
     if (v) {
-      setLineas(v.lineas); setTipoDoc(v.tipoDoc); setCliente(v.cliente); setCredito(v.credito); setPlazo(v.plazo); setDescGeneral(v.descGeneral);
+      setLineas(v.lineas); setTipoDoc(soloFactura ? "factura" : v.tipoDoc); setCliente(v.cliente); setCredito(v.credito); setPlazo(v.plazo); setDescGeneral(v.descGeneral);
       setFormula(v.formula ?? FORMULA_VACIA); setPedido(v.pedido); idem.current = v.idem; setRecuperada(true);
     }
     listo.current = true;
@@ -331,7 +332,7 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, r
       setEnLinea(false);
       if (pedido) { setError(`Sin internet no se cobra ${etiquetaPedido(pedido)}: espera la conexión (no se duplicará) o suéltalo para venderlo como venta normal y luego cancélalo en Pedidos.`); return; }
       if (ex.datos) { setError("Sin internet no se puede registrar la fórmula médica. Quita esos productos de la venta o espera a que vuelva la conexión."); return; }
-      if (tipoDoc !== "pos" || aCredito) { setError("Sin internet: la factura electrónica necesita conexión. Cobra con tiquete POS y se envía solo al volver internet."); return; }
+      if (tipoDoc !== "pos" || aCredito) { setError(soloFactura ? "Sin internet no se puede facturar: la factura electrónica necesita conexión. Vuelve a confirmar cuando regrese (no se duplicará)." : "Sin internet: la factura electrónica necesita conexión. Cobra con tiquete POS y se envía solo al volver internet."); return; }
       // Sin internet: la venta se guarda en esta caja y se envía sola al volver la conexión (misma clave: no se duplica).
       // Lleva la hora real: al registrarse, queda en el día y el turno en que se vendió (no en el de la sincronización).
       const ahora = new Date().toISOString();
@@ -509,12 +510,14 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, r
               </div>
             )}
             <div className="px-6 pt-3" role="group" aria-label="Documento">
-              <div className="grid grid-cols-2 gap-1 rounded-xl bg-paper p-1">
+              {soloFactura ? (
+                <p className="rounded-xl bg-paper px-3 py-2.5 text-sm"><b>Factura electrónica</b><span className="text-muted"> · esta droguería no tiene tiquete POS habilitado: cada venta lleva el cliente</span></p>
+              ) : <div className="grid grid-cols-2 gap-1 rounded-xl bg-paper p-1">
                 {([["pos", "Tiquete POS"], ["factura", "Factura electrónica"]] as const).map(([k, t]) => (
                   <button key={k} aria-pressed={tipoDoc === k} onClick={() => { setTipoDoc(k); if (k === "pos") setCredito(false); setError(""); }}
                     className={`h-10 rounded-lg text-sm font-semibold ${tipoDoc === k ? "bg-ink text-white" : "text-muted"}`}>{t}</button>
                 ))}
-              </div>
+              </div>}
             </div>
             {tipoDoc === "factura" && <ClienteFactura cliente={cliente} onCambio={(c) => { setCliente(c); setMotivoCredito(""); setError(""); }} total={Math.round(totales.total)} onCredito={setCred} gerencia={gerencia} />}
             {ofreceCredito && (

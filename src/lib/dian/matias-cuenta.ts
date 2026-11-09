@@ -1,4 +1,5 @@
 import "server-only";
+import { sinRLS } from "../db";
 
 // Configuración DIAN en MATIAS desde la consola (casa de software): cuenta principal, certificado, software, set de
 // pruebas y numeraciones. Documentación: docs.matias-api.com → Empresa, Certificado Digital, Software DIAN, Resoluciones.
@@ -122,3 +123,38 @@ export async function sincronizarNumeraciones(cliente: string, tipo: 1 | 3 | 4) 
 
 /** Solo para pruebas: olvida la cuenta principal guardada en memoria. */
 export const _olvidarPrincipal = () => { principal = null; };
+
+export type ResolucionNota = { tipo_documento: 4 | 5 | 93 | 94; prefijo: string; numero: string; desde: number; hasta: number; vigente_desde: string; vence: string; nombre: string };
+
+/** Las notas no tienen resolución propia ante la DIAN, pero MATIAS exige un resolution_number y busca la resolución
+ *  configurada para ese tipo y prefijo: se registra con el número de la resolución del documento que corrigen
+ *  (factura → 5/4, POS → 94/93). Crea solo las que faltan. Devuelve cuántas creó. */
+export async function asegurarResolucionesNotas(cliente: string, notas: ResolucionNota[]): Promise<number> {
+  if (!notas.length) return 0;
+  const hay = await resoluciones(cliente);
+  let creadas = 0;
+  for (const n of notas) {
+    if (hay.some((r) => r.tipo_documento === n.tipo_documento && r.prefijo === n.prefijo && r.numero === n.numero)) continue;
+    const records = { type_document_id: n.tipo_documento, resolution_number: n.numero, prefix: n.prefijo, invoice_name: n.nombre,
+      range_from: n.desde, range_up: n.hasta, date_from: n.vigente_desde, date_up: n.vence, initial_number: n.desde, active: 1 };
+    try { await llamar("POST", "/resolutions" + (await consulta(cliente)), { records: JSON.stringify(records) }); creadas++; }
+    catch (e) { if (!(e instanceof ErrorMatias && /ya existe/i.test(e.message))) throw e; }
+  }
+  return creadas;
+}
+
+/** Resoluciones que MATIAS necesita para las notas de producción del cliente: cada numeración de notas (crédito y débito)
+ *  con el número de la resolución vigente del documento que corrigen (factura y, si tiene POS en producción, POS). */
+export async function notasParaMatias(id: string): Promise<ResolucionNota[]> {
+  const { rows } = await sinRLS((c) => c.query(`select n.tipo, n.prefijo, n.desde::float, n.hasta::float, o.tipo origen, o.numero_resolucion,
+      coalesce(o.vigente_desde, current_date)::text desde_f, o.vigente_hasta::text hasta_f
+    from resoluciones_dian n join resoluciones_dian o on o.empresa_id = n.empresa_id and o.activa and not o.pruebas and o.tipo in ('factura', 'pos')
+      and o.numero_resolucion is not null and o.vigente_hasta is not null
+    where n.empresa_id = $1 and n.activa and not n.pruebas and n.tipo in ('nota_credito', 'nota_debito')
+      and (n.tipo = 'nota_credito' or o.tipo = 'factura')`, [id]));
+  return rows.map((r) => ({
+    tipo_documento: (r.origen === "pos" ? (r.tipo === "nota_credito" ? 94 : 93) : (r.tipo === "nota_credito" ? 5 : 4)) as ResolucionNota["tipo_documento"],
+    prefijo: r.prefijo, numero: r.numero_resolucion, desde: r.desde, hasta: r.hasta, vigente_desde: r.desde_f, vence: r.hasta_f,
+    nombre: r.tipo === "nota_credito" ? "NOTA CRÉDITO" : "NOTA DÉBITO",
+  }));
+}
