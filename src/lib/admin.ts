@@ -6,8 +6,9 @@ import { SignJWT, jwtVerify } from "jose";
 import { sinRLS, type Tx } from "./db";
 import { mismoOrigen } from "./api";
 import { revocar } from "./sesion";
+import { dosPasosActivos } from "./totp";
 
-// Sesión de la consola de superadministración: cookie aparte, 8 horas, SameSite estricto. Cada uso se vuelve a
+// Sesión de la consola de superadministración: cookie aparte, 2 horas, SameSite estricto. Cada uso se vuelve a
 // comprobar contra la tabla superadmins (quitar a alguien de la tabla le corta el acceso al instante).
 /** `inscribir`: entró con contraseña pero aún no activó la verificación en dos pasos; solo puede activarla. */
 export type Admin = { uid: string; nombre: string; inscribir?: boolean };
@@ -42,7 +43,8 @@ export async function leerAdmin(): Promise<Admin | null> {
     const ok = await sinRLS(async (c) => (await c.query(`select 1 from superadmins s join cuentas c on c.id = s.user_id
       where s.user_id = $1 and c.activa and coalesce(c.version_sesion, 0) = $2
         and ($3::text is null or not exists (select 1 from sesiones_cerradas x where x.jti = $3::text))`, [uid, Number(payload.v ?? 0), payload.jti ?? null])).rowCount);
-    return ok ? { uid, nombre: String(payload.nombre), ...(payload.inscribir ? { inscribir: true } : {}) } : null;
+    return ok ? { uid, nombre: String(payload.nombre), // Con los dos pasos apagados, una sesión vieja marcada «inscribir» ya no obliga a activarlos.
+      ...(payload.inscribir && dosPasosActivos() ? { inscribir: true } : {}) } : null;
   } catch { return null; }
 }
 

@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import QRCode from "qrcode";
 import { Marca } from "@/components/Marca";
 import { exigirAdmin } from "@/lib/admin-pagina";
 import { sinRLS } from "@/lib/db";
-import { cifrar, descifrar, nuevoSecretoTotp } from "@/lib/totp";
+import { cifrar, descifrar, dosPasosActivos, nuevoSecretoTotp } from "@/lib/totp";
 import { ActivarDosPasos } from "./ActivarDosPasos";
 
 export const metadata: Metadata = { title: "Verificación en dos pasos", robots: { index: false, follow: false } };
@@ -13,6 +14,7 @@ export const dynamic = "force-dynamic";
 // autenticación. Esta página la activa (y es la única que se puede abrir hasta hacerlo).
 export default async function DosPasos() {
   const a = await exigirAdmin({ inscribir: true });
+  if (!dosPasosActivos()) redirect("/admin"); // apagados: la consola entra con correo y contraseña
   const cuenta = (await sinRLS((c) => c.query(`select email, totp_secreto, totp_pendiente from cuentas where id = $1`, [a.uid]))).rows[0];
   const activa = !!cuenta?.totp_secreto;
   let clave = "", qr = "";
