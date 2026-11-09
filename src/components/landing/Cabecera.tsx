@@ -11,7 +11,7 @@ export function CabeceraPublica() {
       <span className="text-amber-300" aria-hidden="true">✦ </span><span className="sm:hidden">Nuevo: Regenta IA. Pruébala gratis</span><span className="hidden sm:inline">Nuevo: Regenta IA te dice qué pedir, qué se vence y qué vender primero. Pruébala gratis.</span>
     </Link>
     <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-line/70">
-      <div className="max-w-6xl mx-auto px-3 min-[360px]:px-4 sm:px-6 h-[76px] flex items-center justify-between gap-2 min-[360px]:gap-3">
+      <div className="relative max-w-6xl mx-auto px-3 min-[360px]:px-4 sm:px-6 h-[76px] flex items-center justify-between gap-2 min-[360px]:gap-3">
         <Link href="/" aria-label="Regenta, inicio" className="shrink-0"><Marca /></Link>
         <nav className="flex items-center gap-2 sm:gap-4 text-[15px]" aria-label="Página">
           <Link href="/software" className="hidden xl:inline font-medium hover:text-teal-700">Software</Link>
@@ -26,7 +26,7 @@ export function CabeceraPublica() {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
               <span className="hidden sm:inline">Menú</span>
             </summary>
-            <div className="absolute right-3 sm:right-6 top-full mt-1 w-[min(15rem,calc(100vw-1.5rem))] rounded-2xl border border-line bg-white shadow-xl p-2 grid">
+            <div className="absolute right-2 top-full mt-1 w-[min(15rem,calc(100vw-1rem))] rounded-2xl border border-line bg-white shadow-xl p-2 hidden group-open:grid">
               {([["/precios", "Tarifas"], ["/funciones", "Funciones"], ["/software", "Software"], ["/software/distribuidoras-medicamentos", "Distribuidoras"], ["/guias", "Guías"], ["/entrar", "Entrar a mi cuenta"]] as const).map(([h, t]) => (
                 <Link key={h} href={h} className="h-11 px-3 rounded-lg flex items-center font-medium hover:bg-paper">{t}</Link>
               ))}
