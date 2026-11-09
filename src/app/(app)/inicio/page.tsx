@@ -20,7 +20,9 @@ export default async function Inicio() {
   const costos = puede.verCostos(s.rol);
   const d = await comoUsuario(s, async (c) => {
     const hoy = (await c.query(`
-      select count(*)::int ventas, coalesce(sum(total), 0)::float total, coalesce(avg(total), 0)::float promedio
+      select count(*)::int ventas, coalesce(sum(total), 0)::float
+               - coalesce((select sum(d.total) from devoluciones d where d.empresa_id = $1 and d.creado >= date_trunc('day', now() at time zone 'America/Bogota') at time zone 'America/Bogota'), 0)::float total,
+             coalesce(avg(total), 0)::float promedio
       from ventas where empresa_id = $1 and estado = 'cerrada' and creado >= date_trunc('day', now() at time zone 'America/Bogota') at time zone 'America/Bogota'`, [s.empresa])).rows[0];
     const medios = (await c.query(`
       select p.medio, sum(p.valor - case when p.medio = 'efectivo' and p.primero_efectivo then v.cambio else 0 end)::float valor
@@ -77,7 +79,7 @@ export default async function Inicio() {
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
       <Cabecera titulo={`${saludo}, ${s.nombre.split(" (")[0]}`} sub={new Date().toLocaleDateString("es-CO", { timeZone: "America/Bogota", weekday: "long", day: "numeric", month: "long" })}>
-        {puede.vender(s.rol) && <Link href="/caja" className="btn-primario">Abrir caja</Link>}
+        {puede.vender(s.rol) && <Link href="/caja" className="btn-primario">Ir a la caja</Link>}
         {puede.moverInventario(s.rol) && <Link href="/inventario/recibir" className="btn-borde">Recibir mercancía</Link>}
       </Cabecera>
 

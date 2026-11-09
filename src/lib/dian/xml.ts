@@ -21,7 +21,7 @@ export function xmlSimulado(d: DocumentoParaEmitir, clave: string): string {
 <DocumentoSimulado xmlns="urn:regenta:simulado" tipo="${esc(d.tipo)}" simulado="true">
   <Advertencia>${MARCA_SIMULADO}</Advertencia>
   <Numero>${esc(d.prefijo)}${esc(d.numero)}</Numero>
-  <Fecha>${esc(d.fecha)}</Fecha>
+  <Fecha>${esc(fechaBogota(d.fecha))}</Fecha>
   <${k}>${esc(clave)}</${k}>
   <Emisor nit="${esc(d.emisor.nit)}${d.emisor.dv ? "-" + esc(d.emisor.dv) : ""}">${esc(d.emisor.razon_social)}</Emisor>
 ${tercero}${d.periodo ? `  <Periodo desde="${esc(d.periodo.desde)}" hasta="${esc(d.periodo.hasta)}"/>\n` : ""}${d.motivo ? `  <Motivo>${esc(d.motivo)}</Motivo>\n` : ""}${d.referencia ? `  <Referencia numero="${esc(d.referencia.prefijo)}${esc(d.referencia.numero)}">${esc(d.referencia.cufe)}</Referencia>\n` : ""}  <Lineas>
@@ -30,4 +30,11 @@ ${d.lineas.map((l) => `    <Linea cantidad="${esc(l.cantidad)}" base="${p2(l.bas
   <Totales base="${p2(d.totales.base)}" iva="${p2(d.totales.iva)}" total="${p2(d.totales.total)}"/>
 </DocumentoSimulado>
 `;
+}
+
+/** Fecha y hora de Colombia (UTC−5), como la lleva el documento real: «2026-11-09T04:32:07-05:00». */
+function fechaBogota(f: string): string {
+  const t = new Date(f);
+  if (isNaN(t.getTime())) return f;
+  return t.toLocaleString("sv-SE", { timeZone: "America/Bogota", hour12: false }).replace(" ", "T") + "-05:00";
 }

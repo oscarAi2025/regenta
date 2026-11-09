@@ -110,6 +110,7 @@ const R = [
   { m: "GET", p: "/api/exportar", acceso: "sesion", rol: ["cajero", 403] },
   { m: "POST", p: "/api/cuenta", acceso: "sesion", basura: true },
   { m: "PATCH", p: `/api/clientes/${U}`, acceso: "sesion", basura: true, rol: ["cajero", 403] },
+  { m: "POST", p: `/api/clientes/${U}/correo`, acceso: "sesion", basura: true, rol: ["bodega", 403] },
   { m: "POST", p: "/api/inventario/costos", acceso: "sesion", basura: true, rol: ["cajero", 403] },
   // control de inventario: ajustes y bajas, kardex, conteo físico (la cajera nunca)
   { m: "GET", p: `/api/inventario/lotes?producto=${U}`, acceso: "sesion", rol: ["cajero", 403] },

@@ -19,7 +19,8 @@ const ESTADO: Record<string, [string, string]> = {
 const enlace = "font-semibold text-cruz underline-offset-2 hover:underline";
 const decimal = (s: string) => s.replace(/[^\d.,]/g, "");
 
-export function NotaDebito({ inicial }: { inicial: Datos }) {
+/** `responsable`: false para la droguería no responsable de IVA (la nota va sin IVA, como sus ventas). */
+export function NotaDebito({ inicial, responsable = true }: { inicial: Datos; responsable?: boolean }) {
   const [d, setD] = useState(inicial);
   const [modo, setModo] = useState<"concepto" | "lineas">("concepto");
   const [concepto, setConcepto] = useState(""); const [valor, setValor] = useState(""); const [iva, setIva] = useState(0);
@@ -31,7 +32,7 @@ export function NotaDebito({ inicial }: { inicial: Datos }) {
   const valida = f.venta_estado !== "anulada" && f.estado !== "rechazado" && f.estado !== "anulado";
 
   const lineas = modo === "concepto"
-    ? (leerNumero(valor) ? [{ descripcion: concepto.trim(), cantidad: 1, valor: leerNumero(valor)!, iva_pct: iva }] : [])
+    ? (leerNumero(valor) ? [{ descripcion: concepto.trim(), cantidad: 1, valor: leerNumero(valor)!, iva_pct: responsable ? iva : 0 }] : [])
     : d.lineas.flatMap((l, i) => { const v = leerNumero(extra[i] ?? ""); return v ? [{ descripcion: `Mayor valor · ${l.descripcion}`.slice(0, 300), cantidad: 1, valor: v, iva_pct: l.iva_pct }] : []; });
   const total = Math.round(lineas.reduce((s, l) => s + calcularLinea(l.valor, 1, 1, 0, l.iva_pct).total, 0) * 100) / 100;
 
@@ -52,7 +53,7 @@ export function NotaDebito({ inicial }: { inicial: Datos }) {
       setD({ factura: j.factura, lineas: j.lineas, notas: j.notas, bloqueo: j.bloqueo });
       const n = (j.notas as DocSoporte[]).find((x) => x.numero === j.numero);
       setAviso(`Nota débito ${j.numero} por ${pesosExactos(j.total)} generada (${n ? (ESTADO[n.estado]?.[0] ?? n.estado).toLowerCase() : "en cola"}).`);
-      setConcepto(""); setValor(""); setExtra({}); setMotivo("");
+      setConcepto(""); setValor(""); setIva(0); setExtra({}); setMotivo("");
     } catch { setError("Sin conexión: revisa internet y vuelve a intentar."); } finally { setOcupado(false); }
   }
 
@@ -87,7 +88,7 @@ export function NotaDebito({ inicial }: { inicial: Datos }) {
             <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_170px_130px]">
               <div><label htmlFor="nd-concepto" className="etiqueta">Concepto</label><input id="nd-concepto" value={concepto} onChange={(e) => setConcepto(e.target.value)} maxLength={300} className="campo" placeholder="Por ejemplo: flete del domicilio" /></div>
               <div><label htmlFor="nd-valor" className="etiqueta">Valor sin IVA</label><input id="nd-valor" inputMode="decimal" value={valor} onChange={(e) => setValor(decimal(e.target.value))} className="campo num" /></div>
-              <div><label htmlFor="nd-iva" className="etiqueta">IVA</label><select id="nd-iva" value={iva} onChange={(e) => setIva(Number(e.target.value))} className="campo">{[0, 5, 19].map((t) => <option key={t} value={t}>{t} %</option>)}</select></div>
+              {responsable && <div><label htmlFor="nd-iva" className="etiqueta">IVA</label><select id="nd-iva" value={iva} onChange={(e) => setIva(Number(e.target.value))} className="campo">{[0, 5, 19].map((t) => <option key={t} value={t}>{t} %</option>)}</select></div>}
             </div>
           ) : (
             <ul className="grid gap-2" aria-label="Líneas de la factura">

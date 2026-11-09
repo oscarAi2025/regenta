@@ -28,7 +28,7 @@ export default async function Informe({ searchParams }: { searchParams: Promise<
   const th = "py-1.5 px-1.5 text-left font-semibold border-b-2 border-ink";
   const td = "py-1.5 px-1.5 align-top border-b border-line";
   return (
-    <main className="informe max-w-[1200px] mx-auto p-6 sm:p-10 print:p-0 bg-white text-ink grid gap-5 text-[13px]">
+    <main className="informe max-w-[1200px] mx-auto p-4 sm:p-10 print:p-0 bg-white text-ink grid gap-5 text-[13px]">
       <style>{`@page { size: A4 landscape; margin: 12mm; } @media print { html, body { background: #fff; } .informe { font-size: 10.5px; } tr { break-inside: avoid; } }`}</style>
       <header className="flex flex-wrap justify-between gap-4 border-b-2 border-ink pb-3">
         <div>
@@ -45,7 +45,8 @@ export default async function Informe({ searchParams }: { searchParams: Promise<
 
       <section aria-labelledby="inf-saldos">
         <h2 id="inf-saldos" className="titulo text-lg mb-1">Saldo por producto (unidades)</h2>
-        <table className="w-full num">
+        {/* En el celular la tabla se desplaza dentro de su recuadro (la página no se corre de lado); impresa, en A4 horizontal. */}
+        <div className="overflow-x-auto print:overflow-visible"><table className="w-full num min-w-[640px] print:min-w-0">
           <thead><tr><th className={th}>Producto</th><th className={`${th} text-right`}>Saldo inicial</th><th className={`${th} text-right`}>Entradas</th><th className={`${th} text-right`}>Salidas</th>
             <th className={`${th} text-right`}>Saldo final</th><th className={`${th} text-right`}>Dispensado con fórmula</th><th className={`${th} text-right`}>Reintegrado</th><th className={`${th} text-right`}>Conteo físico</th></tr></thead>
           <tbody>{d.saldos.map((x) => (
@@ -53,12 +54,12 @@ export default async function Informe({ searchParams }: { searchParams: Promise<
               <td className={`${td} text-right font-semibold`}>{x.final}</td><td className={`${td} text-right`}>{x.dispensado}</td><td className={`${td} text-right`}>{x.reintegrado}</td><td className={`${td} w-28`} /></tr>
           ))}
           {d.saldos.length === 0 && <tr><td colSpan={8} className={td}>No hay productos de control especial.</td></tr>}</tbody>
-        </table>
+        </table></div>
       </section>
 
       <section aria-labelledby="inf-libro">
         <h2 id="inf-libro" className="titulo text-lg mb-1">Dispensaciones y reintegros ({d.filas.length})</h2>
-        <table className="w-full">
+        <div className="overflow-x-auto print:overflow-visible"><table className="w-full min-w-[900px] print:min-w-0">
           <thead><tr><th className={th}>Fecha</th><th className={th}>Movimiento</th><th className={th}>Producto</th><th className={th}>Lote</th><th className={`${th} text-right`}>Cant.</th>
             <th className={th}>Paciente</th><th className={th}>Médico · registro</th><th className={th}>Fórmula</th><th className={th}>Venta</th><th className={th}>Usuario</th></tr></thead>
           <tbody>{d.filas.map((f) => (
@@ -76,7 +77,7 @@ export default async function Informe({ searchParams }: { searchParams: Promise<
             </tr>
           ))}
           {d.filas.length === 0 && <tr><td colSpan={10} className={td}>No hay dispensaciones en este periodo.</td></tr>}</tbody>
-        </table>
+        </table></div>
       </section>
 
       <footer className="grid sm:grid-cols-2 print:grid-cols-2 gap-10 pt-10">

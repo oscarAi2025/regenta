@@ -48,8 +48,8 @@ export function Cobro({ aCredito, medio, setMedio, otro, setOtro, otroNum, resta
               onKeyDown={(e) => { if (e.key === "Enter") confirmar(); }}
               placeholder={restante.toLocaleString("es-CO")} className="num mt-1 w-full h-14 rounded-xl border-2 border-line focus:border-ink outline-none px-4 text-2xl font-cond" style={{ fontWeight: 700 }} />
             <div className="mt-2 flex flex-wrap gap-2">
-              {[restante, 20000, 50000, 100000].filter((v, i, a) => v >= restante && a.indexOf(v) === i).map((v) => (
-                <button key={v} onClick={() => setRecibido(v.toLocaleString("es-CO"))} className="num px-3 h-9 rounded-lg border border-line text-sm font-semibold">{v === restante ? "Exacto" : pesos(v)}</button>
+              {billetes(restante).map((v) => (
+                <button key={v} type="button" onClick={() => { setRecibido(v.toLocaleString("es-CO")); recibidoRef.current?.focus(); }} className="num px-3 h-9 rounded-lg border border-line text-sm font-semibold">{v === restante ? "Exacto" : pesos(v)}</button>
               ))}
             </div>
             {recibidoNum >= restante && <p className="mt-3 flex justify-between text-lg"><span>Cambio</span><span className="num font-cond text-2xl" style={{ fontWeight: 700 }}>{pesos(cambio)}</span></p>}
@@ -60,7 +60,15 @@ export function Cobro({ aCredito, medio, setMedio, otro, setOtro, otroNum, resta
       <button onClick={confirmar} disabled={enviando} className="mt-4 w-full h-14 rounded-xl bg-cruz text-cruz-ink text-lg font-semibold disabled:opacity-60">
         {enviando ? "Registrando…" : aCredito ? `Facturar a crédito ${pesos(total)}` : tipoDoc === "factura" ? `Facturar ${pesos(total)}` : `Confirmar ${pesos(total)}`}
       </button>
-      <button onClick={volver} className="mt-2 w-full h-10 text-muted text-sm">Volver a la venta <kbd>Esc</kbd></button>
+      <button onClick={volver} className="mt-2 w-full h-10 text-muted text-sm">Volver a la venta <kbd className="hidden sm:inline">Esc</kbd></button>
     </div>
   );
+}
+
+/** Con cuánto suele pagar el cliente: exacto y los billetes que lo cubren (siguiente $1.000, $5.000, $10.000, $50.000 y
+ *  $100.000), sin repetir y como mucho cinco botones. $63.293 → Exacto, $64.000, $65.000, $70.000, $100.000. */
+export function billetes(restante: number): number[] {
+  const arriba = (m: number) => Math.ceil(restante / m) * m;
+  const v = [restante, arriba(1000), arriba(5000), arriba(10000), arriba(50000), arriba(100000)].filter((x) => x >= restante);
+  return [...new Set(v)].slice(0, 5);
 }

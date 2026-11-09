@@ -44,7 +44,7 @@ export function Hecho({ hecho, control, impresora, cambiarImpresora, nombreEmpre
           {hecho.documento?.simulado && <span className="text-muted"> · emisión simulada (pruebas)</span>}
         </span>
       </div>}
-      {hecho.documento?.cufe && <p className="mt-2 text-[11px] text-muted break-all font-cond">CUFE {hecho.documento.cufe}</p>}
+      {hecho.documento?.cufe && <p className="mt-2 text-[11px] text-muted break-all font-cond">{hecho.documento.tipo === "factura" ? "CUFE" : "CUDE"} {hecho.documento.cufe}</p>}
       <div className="mt-6 grid grid-cols-[auto_1fr] gap-2">
         <button onClick={() => hecho.provisional ? imprimirProvisional(hecho.provisional, nombreEmpresa, impresora.ancho) : imprimirTiquete(hecho.venta.venta_id, impresora.ancho)} className="h-14 px-4 rounded-xl border border-line font-semibold">Imprimir <kbd className="ml-1">F8</kbd></button>
         <button onClick={nueva} className="h-14 rounded-xl bg-ink text-white text-lg font-semibold">Nueva venta <kbd className="ml-2 !bg-transparent !text-white/70 !border-white/30">Enter</kbd></button>

@@ -34,7 +34,7 @@ export default async function PaginaGuia({ params }: { params: Promise<{ slug: s
   ];
   const mitad = Math.ceil(g.bloques.length / 2);
   return (
-    <div className="bg-paper text-ink min-h-screen">
+    <div className="bg-paper text-ink min-h-screen pb-20 sm:pb-0">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />
       <CabeceraPublica />
       <main className="max-w-3xl mx-auto px-4 sm:px-6 pt-8 pb-16">

@@ -13,7 +13,7 @@ const fmt = (d: string | null) => (d ? new Date(d + "T00:00:00").toLocaleDateStr
 const dias = (d: string | null) => (d ? Math.round((Date.parse(d + "T00:00:00") - Date.now()) / 864e5) : null);
 
 type Fila = { id: string; nombre: string; laboratorio: string | null; unidades_por_caja: number; precio_caja: number; unidades: number; stock_minimo: number;
-  lotes: { lote: string; vence: string | null; unidades: number; costo: number | null }[] };
+  lotes: { lote: string; vence: string | null; unidades: number; costo: number | null; bloqueado: boolean }[] };
 
 export default async function Inventario({ searchParams }: { searchParams: Promise<{ ver?: string; q?: string }> }) {
   const s = await leerSesion();
@@ -33,12 +33,12 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
     const palabras = q.trim().toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6).map(sinComodines);
     const filas: Fila[] = (await c.query(`
       select p.id, p.nombre, p.laboratorio, p.unidades_por_caja, p.precio_caja::float, p.stock_minimo, coalesce(st.unidades, 0)::int unidades,
-        coalesce((select json_agg(json_build_object('lote', l.lote, 'vence', l.vence, 'unidades', l.unidades, 'costo', ${costos ? "(select costo_unidad::float from lote_costos where lote_id = l.lote_id)" : "null"}) order by l.vence nulls last)
+        coalesce((select json_agg(json_build_object('lote', l.lote, 'vence', l.vence, 'unidades', l.unidades, 'bloqueado', l.bloqueado, 'costo', ${costos ? "(select costo_unidad::float from lote_costos where lote_id = l.lote_id)" : "null"}) order by l.vence nulls last)
                   from v_stock_lotes l where l.producto_id = p.id and l.unidades > 0), '[]') lotes
       from productos p
-      left join lateral (select sum(unidades) filter (where vence is null or vence >= current_date) unidades, min(vence) filter (where unidades > 0) proximo from v_stock_lotes where producto_id = p.id) st on true
+      left join lateral (select sum(unidades) filter (where (vence is null or vence >= current_date) and not bloqueado) unidades, min(vence) filter (where unidades > 0) proximo from v_stock_lotes where producto_id = p.id) st on true
       where p.empresa_id = $1 and p.activo ${filtro}
-        and (cardinality($2::text[]) = 0 or (select bool_and(lower(p.nombre || ' ' || coalesce(p.laboratorio, '')) like '%' || w || '%') from unnest($2::text[]) w))
+        and (cardinality($2::text[]) = 0 or (select bool_and(sin_tildes(p.nombre || ' ' || coalesce(p.laboratorio, '')) like '%' || sin_tildes(w) || '%') from unnest($2::text[]) w))
       order by st.proximo nulls last, p.nombre limit 200`, [s.empresa, palabras])).rows;
     // Lotes con existencias que entraron sin costo (los recibe la bodega): el dueño o el administrador lo completan.
     const sinCosto = costos ? (await c.query(`select l.lote_id, p.nombre, l.lote, l.unidades, p.unidades_por_caja,
@@ -106,8 +106,8 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
                   <ul className="flex flex-wrap gap-1.5">
                     {f.lotes.map((l) => {
                       const d = dias(l.vence);
-                      const tono = d !== null && d <= 30 ? "bg-alerta-soft text-alerta" : d !== null && d <= 90 ? "bg-aviso-soft text-aviso" : "bg-paper text-ink";
-                      return <li key={l.lote} className={`num rounded-md px-2 py-1 ${tono}`}><span className="font-semibold">{l.lote}</span> · {fmt(l.vence)} · {l.unidades} und{l.costo !== null ? ` · ${pesos(l.costo)}/und` : ""}</li>;
+                      const tono = l.bloqueado ? "bg-ink text-white" : d !== null && d <= 30 ? "bg-alerta-soft text-alerta" : d !== null && d <= 90 ? "bg-aviso-soft text-aviso" : "bg-paper text-ink";
+                      return <li key={l.lote} className={`num rounded-md px-2 py-1 ${tono}`}><span className="font-semibold">{l.lote}</span> · {fmt(l.vence)} · {l.unidades} und{l.costo !== null ? ` · ${pesos(l.costo)}/und` : ""}{l.bloqueado ? " · en cuarentena: no se vende" : ""}</li>;
                     })}
                   </ul>
                 </td>

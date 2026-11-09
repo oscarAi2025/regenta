@@ -31,7 +31,9 @@ export const Venta = z.object({
   descuento_pct: z.number().min(0).max(99).optional(),
   pagos: z.array(Pago).max(6),
   sin_conexion: z.boolean().optional(), // venta que ya se hizo en el mostrador sin internet: no se le exige turno abierto
+  creado: z.string().datetime({ offset: true }).nullish(), // hora real de la venta hecha sin internet
   formula: Formula.nullish(),
+  total_mostrado: z.number().min(0).max(10_000_000_000).nullish(), // el total que la caja le mostró a la persona
 }).refine((v) => v.condicion === "credito" ? v.pagos.length === 0 : v.pagos.length > 0, { message: "Datos de pago incompletos" })
   .refine((v) => v.tipo_doc === "pos" || v.cliente_id, { message: "La factura electrónica necesita el cliente" });
 export type Venta = z.infer<typeof Venta>;
@@ -40,6 +42,15 @@ export type Venta = z.infer<typeof Venta>;
 export const errorVenta = (e: z.ZodError) => e.issues.find((i) => i.code === "custom")?.message ?? e.issues.find((i) => i.path.includes("pagos"))?.message ?? "Datos de la venta incompletos";
 
 export type VentaRegistrada = { venta_id: string; repetida: boolean } & Record<string, unknown>;
+
+/** El total que calculó la base (con los precios de hoy) no es el que la caja le mostró a la persona: el precio de algún
+ *  producto cambió con la venta abierta. La venta se deshace (rollback) y la caja recibe los precios de hoy. */
+export class TotalCambio extends Error {
+  constructor(public total: number, public mostrado: number, public precios: { id: string; precio_caja: number; precio_unidad: number | null }[]) {
+    super(`El precio de un producto cambió mientras la venta estaba abierta: el total ahora es $${Math.round(total).toLocaleString("es-CO")} (antes $${Math.round(mostrado).toLocaleString("es-CO")}). Revisa la venta y cobra de nuevo.`);
+  }
+}
+export const respuestaTotalCambio = (e: TotalCambio) => ({ error: e.message, total: e.total, precios: e.precios });
 
 /** Registra la venta dentro de la transacción `c` (como usuario): puesto de trabajo, turno abierto, datos de la fórmula
  *  (antes de tocar la numeración: un dato que falta es un 400) y registrar_venta. Devuelve la venta o el dato que falta. */
@@ -58,7 +69,26 @@ export async function registrarVenta(c: Tx, s: Sesion, d: Venta, cajaElegida: st
     const falta = errorFormula(d.formula, ex, marcas[0]);
     if (falta) return { invalida: ex.control.length ? `${falta} (${ex.control[0]} es de control especial)` : falta };
   }
-  const venta = (await c.query(`select registrar_venta($1) r`, [{ ...d, formula: undefined, empresa_id: s.empresa, sede_id: puesto.sede_id, caja_id: puesto.caja_id }])).rows[0].r as VentaRegistrada;
+  // Una venta hecha sin internet ya se cobró en el mostrador (su diferencia la resuelve la cola); en línea, nunca se
+  // cobra un total distinto del que vio la persona. Con punto de guardado: si el pago ya no cubre el total nuevo, el
+  // error de la base tampoco llega crudo a la caja.
+  const vigilar = d.total_mostrado != null && !d.sin_conexion;
+  const precios = async () => (await c.query(`select id, precio_caja::float, precio_unidad::float from productos where empresa_id = $1 and id = any($2::uuid[])`,
+    [s.empresa, [...new Set(d.lineas.map((l) => l.producto_id))]])).rows;
+  if (vigilar) await c.query("savepoint venta_total");
+  // Venta hecha sin internet: nace con su hora real (día, turno y arqueo en que se vendió), hasta 72 horas atrás (042).
+  if (d.sin_conexion && d.creado) await c.query(`select set_config('regenta.venta_creado', $1, true)`, [d.creado]);
+  let venta: VentaRegistrada;
+  try {
+    venta = (await c.query(`select registrar_venta($1) r`, [{ ...d, formula: undefined, total_mostrado: undefined, creado: undefined, empresa_id: s.empresa, sede_id: puesto.sede_id, caja_id: puesto.caja_id }])).rows[0].r as VentaRegistrada;
+  } catch (e) {
+    const m = /no cubre el total \(([\d.]+)\)/.exec((e as Error).message ?? "");
+    if (!vigilar || !m || Math.abs(Number(m[1]) - d.total_mostrado!) <= 1) throw e;
+    await c.query("rollback to savepoint venta_total");
+    throw new TotalCambio(Number(m[1]), d.total_mostrado!, await precios());
+  }
+  if (vigilar && !venta.repetida && Math.abs(Number(venta.total) - d.total_mostrado!) > 1) throw new TotalCambio(Number(venta.total), d.total_mostrado!, await precios());
+  if (d.sin_conexion && d.creado) await c.query(`select set_config('regenta.venta_creado', '', true)`);
   if (ex && pideFormula(ex) && !venta.repetida) await c.query(`select registrar_formulas_venta($1, $2)`, [venta.venta_id, d.formula]);
   // Una venta hecha sin internet entra aunque hoy no haya turno abierto (ya se hizo en el mostrador), pero queda en la
   // bitácora del dueño: es dinero que no entra en ningún arqueo.

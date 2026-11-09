@@ -64,7 +64,9 @@ export async function ejecutar(s: Sesion, nombre: string, entrada: Record<string
           left join lateral (select sum(dl.unidades) unidades, sum(dl.total) total from devolucion_lineas dl where dl.venta_linea_id = l.id) dv on true
           where ${rango} group by l.producto_id, l.descripcion order by 3 desc limit 10`, p)).rows;
         return { desde, hasta, ventas: t.ventas, ventas_brutas: cent(t.bruto), devoluciones: { cantidad: dev.cantidad, total: cent(dev.total) }, ventas_netas: cent(t.bruto - dev.total),
-          promedio: t.ventas ? Math.round(t.bruto / t.ventas) : 0, por_dia: dias.slice(-62), cobrado_por_medio_de_pago: medios, mas_vendidos: top };
+          promedio: t.ventas ? Math.round(t.bruto / t.ventas) : 0, por_dia: dias.slice(-62),
+          ...(dias.length > 62 ? { nota_por_dia: `Por día van solo los últimos 62 de ${dias.length} días del rango; los totales sí son de todo el rango.` } : {}),
+          cobrado_por_medio_de_pago: medios, mas_vendidos: top };
       }
       case "buscar_producto": {
         const t = String(entrada.texto ?? "").trim().toLowerCase().slice(0, 80);
@@ -74,20 +76,22 @@ export async function ejecutar(s: Sesion, nombre: string, entrada: Record<string
             pr.existencias, pr.venta_dia::float venta_por_dia, pr.dias_cobertura::float, pr.sugerido_cajas,
             (select json_agg(json_build_object('lote', l.lote, 'vence', l.vence, 'unidades', l.unidades) order by l.vence) from v_stock_lotes l where l.producto_id = p.id and l.unidades > 0) lotes
           from productos p join prediccion_productos($1) pr on pr.producto_id = p.id
-          where p.empresa_id = $1 and p.activo and (p.ean = $2 or (select bool_and(lower(p.nombre || ' ' || coalesce(p.laboratorio, '')) like '%' || w || '%') from unnest($3::text[]) w))
+          where p.empresa_id = $1 and p.activo and (p.ean = $2 or (select bool_and(sin_tildes(p.nombre || ' ' || coalesce(p.laboratorio, '')) like '%' || sin_tildes(w) || '%') from unnest($3::text[]) w))
           order by pr.venta_dia desc limit 8`, [s.empresa, t, palabras])).rows;
       }
       case "pedido_sugerido": {
         // Con precio de venta (y, para dueño y administrador, último costo y margen) y el valor del pedido: así una sola
         // consulta responde «qué pido, cuánto vale y qué me deja más», sin buscar producto por producto.
         const filas = (await c.query(`select pr.nombre, pr.laboratorio, pr.unidades_por_caja, pr.existencias, pr.venta_dia::float venta_por_dia,
-            pr.dias_cobertura::float, pr.sugerido_cajas, p.precio_caja::float precio_venta_caja
+            pr.dias_cobertura::float, pr.sugerido_cajas, p.precio_caja::float precio_venta_caja,
+            (case when e.responsable_iva then p.iva else 0 end)::float iva_venta
             ${costos ? `, (select lc.costo_unidad * greatest(pr.unidades_por_caja, 1) from lote_costos lc join lotes l on l.id = lc.lote_id
                  where l.producto_id = pr.producto_id order by l.creado desc limit 1)::float ultimo_costo_caja` : ""}
-          from prediccion_productos($1) pr join productos p on p.id = pr.producto_id
+          from prediccion_productos($1) pr join productos p on p.id = pr.producto_id join empresas e on e.id = p.empresa_id
           where pr.sugerido_unidades > 0 and pr.venta_dia > 0 order by pr.dias_cobertura nulls first limit $2`, [s.empresa, limite(entrada.limite)])).rows;
-        const conMargen = filas.map((f) => costos && f.ultimo_costo_caja && f.precio_venta_caja
-          ? { ...f, margen_pct: Math.round((1 - f.ultimo_costo_caja / f.precio_venta_caja) * 1000) / 10, costo_pedido: Math.round(f.ultimo_costo_caja * f.sugerido_cajas) } : f);
+        // Margen sobre la venta SIN IVA (el costo va sin IVA): igual que Reportes. Con IVA quedaba inflado ~16 puntos al 19 %.
+        const conMargen = filas.map(({ iva_venta, ...f }) => costos && f.ultimo_costo_caja && f.precio_venta_caja
+          ? { ...f, margen_pct: Math.round((1 - f.ultimo_costo_caja / (f.precio_venta_caja / (1 + iva_venta / 100))) * 1000) / 10, costo_pedido: Math.round(f.ultimo_costo_caja * f.sugerido_cajas) } : f);
         return conMargen;   // costo_pedido = último costo registrado × cajas sugeridas (sin costo registrado no viene)
       }
       case "riesgo_vencimiento":

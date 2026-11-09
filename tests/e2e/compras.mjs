@@ -50,6 +50,9 @@ const cortados = (p) => p.evaluate(() => [...document.querySelectorAll("main *")
 }).slice(0, 3).map((el) => `${el.tagName.toLowerCase()}.${String(el.className).slice(0, 40)} (${Math.round(el.getBoundingClientRect().right)}px)`));
 
 const EMP = await q1(`select e.id, (select id from sedes where empresa_id = e.id order by creado limit 1) sede_id from empresas e where e.demo limit 1`);
+// Esta prueba revisa el IVA descontable de las compras: la droguería es responsable de IVA (la demo viene como no
+// responsable; ese caso se prueba al final).
+await pool.query(`update empresas set responsable_iva = true where id = $1`, [EMP.id]);
 const EB = await q1(`select id from empresas where not demo and nit = '900000002'`);
 const DUENO_B = "00000000-0000-4000-8000-000000000004";
 const R = Date.now().toString().slice(-7);
@@ -378,6 +381,17 @@ let C1, C2, CB, L1, L3;
   ok(!!cel && await saldo(cel.id) === 0, "compra de contado pagada al guardar: saldo 0");
   ok(sinProvocados(p, errs).length === 0, "sin errores de consola (celular)", sinProvocados(p, errs).join(" | "));
   await ctx.close();
+}
+// No responsable de IVA: el IVA de la compra es costo (E.T. art. 488). Mismo total de la factura; sin IVA descontable.
+{
+  await pool.query(`update empresas set responsable_iva = false where id = $1`, [EMP.id]);
+  const r = await D.p.request.post(B + "/api/compras", { headers: { origin: B }, data: { idem_key: crypto.randomUUID(), proveedor_id: (await q1(`select id from proveedores where empresa_id = $1 limit 1`, [EMP.id])).id,
+    numero_factura: `NR-${R}`, fecha_factura: hoy, condicion: "credito", vence_pago: en30,
+    lineas: [{ producto_id: prods[0].id, lote: `NR${R}`, vence: VENCE, unidades: 10, bonificadas: 0, costo: 1000, costo_por: "unidad", descuento_pct: 0, iva_pct: 19 }] } });
+  const j = await r.json();
+  const k = await q1(`select c.iva::float, c.total::float, cl.costo_lote::float, cl.iva_pct::float from compras c join compra_lineas cl on cl.compra_id = c.id where c.id = $1`, [j.id]);
+  ok(r.status() === 201 && k?.total === 11900 && k.iva === 0 && k.iva_pct === 0 && Math.abs(k.costo_lote - 1190) < 0.01, "no responsable: el IVA de la compra va al costo (total igual, IVA descontable 0)", JSON.stringify(k));
+  await pool.query(`update empresas set responsable_iva = true where id = $1`, [EMP.id]);
 }
 ok(sinProvocados(D.p, D.errs).length === 0, "sin errores de consola (dueño)", sinProvocados(D.p, D.errs).join(" | "));
 await D.ctx.close();

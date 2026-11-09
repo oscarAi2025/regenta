@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 
-import { TEXTO_CORREOS, WHATSAPP as WA } from "@/lib/sitio";
+import { CORREO, TEXTO_CORREOS, wa } from "@/lib/sitio";
 
 export function FormDemo() {
   const [estado, setEstado] = useState<"" | "enviando" | "ok">("");
@@ -12,6 +12,8 @@ export function FormDemo() {
     e.preventDefault();
     setError(""); setEstado("enviando");
     const d = Object.fromEntries(new FormData(e.currentTarget)) as Record<string, string>;
+    // Autorizar correos sin dejar el correo no sirve de nada: se pide antes de enviar (antes se ignoraba en silencio).
+    if (d.acepta && !String(d.email ?? "").trim()) { setError("Para recibir correos, escribe tu correo (o desmarca la casilla)."); setEstado(""); document.getElementById("d-email")?.focus(); return; }
     const r = await fetch("/api/demo", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...d, origen: typeof location !== "undefined" ? location.pathname + location.search : null }) }).catch(() => null);
     if (!r) { setError("Sin conexión. Escríbenos por WhatsApp."); setEstado(""); return; }
     if (r.ok) { setNombre(d.nombre); setEstado("ok"); return; }
@@ -22,7 +24,7 @@ export function FormDemo() {
     <div role="status" className="rounded-2xl bg-white/10 p-6">
       <p className="font-cond text-3xl" style={{ fontWeight: 700 }}>Listo, {nombre.split(" ")[0]}.</p>
       <p className="mt-2 text-white/80">Te escribimos al celular para agendar la demostración. Si prefieres no esperar, abre WhatsApp y te atendemos de una vez.</p>
-      <a href={`https://wa.me/${WA}?text=${encodeURIComponent("Hola, acabo de pedir la demo de Regenta para mi droguería o distribuidora.")}`} className="btn-cta mt-5">Abrir WhatsApp</a>
+      <a href={wa("Hola, acabo de pedir la demo de Regenta para mi droguería o distribuidora.")} className="btn-cta mt-5">Abrir WhatsApp</a>
     </div>
   );
 
@@ -43,7 +45,7 @@ export function FormDemo() {
       {error && <p role="alert" className="sm:col-span-2 text-[#ffb4ab] font-semibold">{error}</p>}
       <div className="sm:col-span-2 flex flex-wrap items-center gap-3 pt-1">
         <button disabled={estado === "enviando"} className="btn-cta h-12 px-6 text-lg">{estado === "enviando" ? "Enviando…" : "Pedir demostración"}</button>
-        <p className="text-sm text-white/65 max-w-[30em]">Al enviar autorizas a Farmagenéricos Colombia a usar estos datos solo para contactarte sobre Regenta (Ley 1581 de 2012). Puedes pedir que los borremos escribiendo a gerencia@farmagenericoscolombia.com.</p>
+        <p className="text-sm text-white/65 max-w-[30em]">Al enviar autorizas a Farmagenéricos Colombia a usar estos datos solo para contactarte sobre Regenta (Ley 1581 de 2012). Puedes pedir que los borremos escribiendo a {CORREO}.</p>
       </div>
     </form>
   );

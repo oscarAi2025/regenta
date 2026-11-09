@@ -364,7 +364,7 @@ export function leerArchivoXml(nombre: string, datos: Uint8Array): DocumentoLeid
 
 // ── Emparejar con el catálogo ──────────────────────────────────────────────────────────────────────────────
 export type ProductoCatalogo = { id: string; nombre: string; laboratorio: string | null; ean: string | null; codigos: string[] };
-const VACIAS = new Set("x de del la el en con por para y caja cajas cj cja und unid unidad unidades frasco fco sobre sobres blister uso via oral topico topica gr g mg ml mcg lote fecha vencimiento vence f v rx".split(" "));
+const VACIAS = new Set("x de del la el en con por para y caja cajas cj cja und unds un u unid unidad unidades frasco fco sobre sobres blister uso via oral topico topica gr g mg ml mcg lote fecha vencimiento vence f v rx".split(" "));
 // Formas farmacéuticas: distinguen (jarabe ≠ tabletas), con sus abreviaturas de factura.
 const FORMAS: Record<string, string> = { tab: "tableta", tabs: "tableta", tbl: "tableta", tabletas: "tableta", comp: "tableta", comprimido: "tableta", comprimidos: "tableta",
   cap: "capsula", caps: "capsula", capsulas: "capsula", sol: "solucion", soluc: "solucion", susp: "suspension", jbe: "jarabe", crm: "crema", ung: "unguento", amp: "ampolla", ampollas: "ampolla", grageas: "gragea" };
@@ -383,8 +383,11 @@ export function parecido(desc: string, p: Pick<ProductoCatalogo, "nombre" | "lab
   const bs = new Set(b);
   const pesa = (w: string) => (/\d/.test(w) ? 1.5 : w.length >= 5 ? 1.2 : 1);
   const comun = a.filter((w) => bs.has(w) || [...bs].some((x) => x.length >= 5 && w.length >= 5 && (x.startsWith(w) || w.startsWith(x))));
-  // Sin ninguna palabra del nombre en común (solo cifras como «500mg» o la forma, «tableta») no es el mismo producto.
-  if (!comun.some((w) => !/\d/.test(w) && !SOLO_FORMA.has(w))) return 0;
+  // Sin ninguna palabra del NOMBRE en común (solo cifras como «500mg», la forma, «tableta», o el laboratorio: «LAPROFF»
+  // fabrica cientos de productos) no es el mismo producto.
+  const delNombre = new Set(fichas(p.nombre));
+  const enNombre = (w: string) => delNombre.has(w) || [...delNombre].some((x) => x.length >= 5 && w.length >= 5 && (x.startsWith(w) || w.startsWith(x)));
+  if (!comun.some((w) => !/\d/.test(w) && !SOLO_FORMA.has(w) && enNombre(w))) return 0;
   const total = a.reduce((s, w) => s + pesa(w), 0), hay = comun.reduce((s, w) => s + pesa(w), 0);
   // Cantidades distintas (500mg vs 1g, x10 vs x30) bajan mucho: es otro producto.
   const numA = a.filter((w) => /\d/.test(w)), numB = b.filter((w) => /\d/.test(w));

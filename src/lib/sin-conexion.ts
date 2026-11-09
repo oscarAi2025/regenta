@@ -48,14 +48,16 @@ export const catalogo = () => {
  *  Descuenta lo vendido sin internet. */
 export function buscarLocal(q: string): ProductoCaja[] {
   const c = catalogo(); if (!c) return [];
-  const t = q.trim().toLowerCase(); if (!t) return [];
+  // Sin tildes ni eñes, como en el servidor: «acetaminofen» encuentra «Acetaminofén» y «antipanalitis», «Antipañalitis».
+  const plano = (x: string) => x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const t = plano(q.trim()); if (!t) return [];
   const palabras = t.split(/\s+/).slice(0, 6);
   const codigo = q.replace(/\s/g, "").toUpperCase(); // como se guardan los códigos alternos
   const exacto = (p: ProductoCaja) => p.ean === q.trim() || (p.codigos ?? []).includes(codigo);
   const usadas = new Map<string, number>();
   for (const v of cola().filter((x) => !x.error)) for (const l of v.lineas) usadas.set(l.producto_id, (usadas.get(l.producto_id) ?? 0) + l.unidades);
   return c.productos
-    .filter((p) => exacto(p) || palabras.every((w) => `${p.nombre} ${p.laboratorio ?? ""}`.toLowerCase().includes(w)))
+    .filter((p) => exacto(p) || palabras.every((w) => plano(`${p.nombre} ${p.laboratorio ?? ""}`).includes(w)))
     .map((p) => ({ ...p, unidades: Math.max(0, p.unidades - (usadas.get(p.id) ?? 0)), exacto: exacto(p) }))
     .sort((a, b) => Number(b.exacto) - Number(a.exacto) || Number(b.unidades > 0) - Number(a.unidades > 0) || a.nombre.localeCompare(b.nombre))
     .slice(0, 30);
@@ -74,7 +76,11 @@ export function reintentar(idem: string, precioHoy = false) {
     if (x.idem_key !== idem) return x;
     const total = precioHoy ? Number(String(x.error ?? "").match(/no cubre el total \((\d+(?:\.\d+)?)\)/)?.[1] ?? 0) : 0;
     const pagos = (x.cuerpo.pagos as { medio: string; valor: number }[] | undefined) ?? [];
-    const cuerpo = total && pagos.length ? { ...x.cuerpo, pagos: [{ ...pagos[0], valor: Math.ceil(total) }] } : x.cuerpo;
+    // Pago mixto: se conservan todos los medios (el datáfono y Nequi cuadran) y la diferencia va al efectivo, o al
+    // último medio si no hubo efectivo.
+    const falta = Math.ceil(total) - pagos.reduce((a, p) => a + p.valor, 0);
+    const i = Math.max(0, pagos.findIndex((p) => p.medio === "efectivo") >= 0 ? pagos.findIndex((p) => p.medio === "efectivo") : pagos.length - 1);
+    const cuerpo = total && pagos.length && falta > 0 ? { ...x.cuerpo, pagos: pagos.map((p, k) => (k === i ? { ...p, valor: p.valor + falta } : p)) } : x.cuerpo;
     return { ...x, cuerpo, error: undefined, aviso: undefined };
   }));
   avisar();

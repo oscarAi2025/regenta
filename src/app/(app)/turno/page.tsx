@@ -35,7 +35,7 @@ export default async function PaginaTurno() {
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
       <Cabecera titulo="Turno de caja" sub="Abre la caja con la base, registra entradas y salidas de efectivo y ciérrala contando el dinero." />
       {cajas.length > 1 && <ElegirCaja cajas={cajas} actual={estado.caja?.id ?? null} />}
-      <Turno estado={JSON.parse(JSON.stringify(estado))} dueno={s.rol === "dueno"} />
+      <Turno estado={JSON.parse(JSON.stringify(estado))} dueno={s.rol === "dueno"} ciego={s.rol === "cajero"} />
       {estado.caja && (estado.turno || gerencia) && (
         <div className="grid gap-2 justify-items-start [&>section]:w-full [&>section]:max-w-2xl">
           {!estado.turno && <p className="text-sm text-muted">Sin turno abierto, el pago no entra al efectivo de ninguna caja.</p>}

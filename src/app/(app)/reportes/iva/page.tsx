@@ -10,26 +10,29 @@ import { FiltroRango, textoRango } from "../FiltroRango";
 
 export const metadata = { title: "Auxiliar de IVA" };
 
-/** Tabla por tarifa: tres pares de columnas (lo registrado, lo que resta y el neto) y la fila de totales. */
-function TablaIva({ titulo, etiqueta, a, b, neto, nombres }: { titulo: string; etiqueta: string; a: FilaIva[]; b: FilaIva[]; neto: FilaIva[]; nombres: [string, string, string] }) {
-  const fila = (t: string, x: { base: number; iva: number }, y: { base: number; iva: number }, z: { base: number; iva: number }, total = false) => (
+/** Tabla por tarifa: pares de columnas (base e IVA) por grupo —lo registrado, lo que suma o resta y el neto— y la fila de
+ *  totales. El último grupo es el neto. */
+function TablaIva({ titulo, etiqueta, grupos }: { titulo: string; etiqueta: string; grupos: [string, FilaIva[]][] }) {
+  const nombres = grupos.map(([n]) => n), ultimo = grupos.length - 1;
+  const fila = (t: string, vs: { base: number; iva: number }[], total = false) => (
     <tr key={t} className={total ? "font-semibold bg-paper" : ""}>
       <th scope="row" className="text-left font-[inherit] px-4 py-2.5">{t}</th>
-      {[x, y, z].flatMap((v, i) => [<td key={`b${i}`} className="px-4 py-2.5 text-right">{pesosExactos(v.base)}</td>, <td key={`i${i}`} className={`px-4 py-2.5 text-right ${i === 2 ? "font-semibold" : ""}`}>{pesosExactos(v.iva)}</td>])}
+      {vs.flatMap((v, i) => [<td key={`b${i}`} className="px-4 py-2.5 text-right">{pesosExactos(v.base)}</td>, <td key={`i${i}`} className={`px-4 py-2.5 text-right ${i === ultimo ? "font-semibold" : ""}`}>{pesosExactos(v.iva)}</td>])}
     </tr>
   );
+  const a = grupos[0][1];
   return (
     <section className="tarjeta" aria-label={etiqueta}>
       <h2 className="titulo text-xl px-4 pt-4">{titulo}</h2>
       <div className="relative overflow-x-auto mt-2">
-        <table className="w-full text-[15px] num min-w-[820px]" aria-label={etiqueta}>
+        <table className={`w-full text-[15px] num ${grupos.length > 3 ? "min-w-[1080px]" : "min-w-[820px]"}`} aria-label={etiqueta}>
           <thead className="text-sm text-muted border-b border-line">
             <tr><th className="px-4 pt-2 text-left font-semibold" rowSpan={2}>Tarifa</th>{nombres.map((n) => <th key={n} colSpan={2} scope="colgroup" className="px-4 pt-2 text-center font-semibold border-b border-line">{n}</th>)}</tr>
             <tr>{nombres.flatMap((n) => [<th key={n + "b"} className="px-4 pb-2 text-right font-medium">Base</th>, <th key={n + "i"} className="px-4 pb-2 text-right font-medium">IVA</th>])}</tr>
           </thead>
           <tbody className="divide-y divide-line">
-            {a.map((x, i) => fila(`${x.tarifa} %`, x, b[i], neto[i]))}
-            {fila("Total", sumaIva(a), sumaIva(b), sumaIva(neto), true)}
+            {a.map((x, i) => fila(`${x.tarifa} %`, grupos.map(([, f]) => f[i])))}
+            {fila("Total", grupos.map(([, f]) => sumaIva(f)), true)}
           </tbody>
         </table>
       </div>
@@ -57,18 +60,26 @@ export default async function AuxiliarIva({ searchParams }: { searchParams: Prom
         <span className="block font-normal text-[15px] mt-0.5">Resume lo que registró Regenta en el periodo que elijas. Tu contador revisa, completa y decide qué se declara.</span></p>
       <FiltroRango ruta="/reportes/iva" r={r} />
 
+      {!d.responsable && (
+        <p role="note" className="rounded-xl bg-paper px-4 py-3 text-[15px]"><b>Tu droguería no es responsable de IVA.</b> Tus ventas no llevan IVA y el IVA que pagas en las compras es parte del costo (no se descuenta). Aquí ves la base de tus ventas y notas del periodo.</p>
+      )}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3" aria-label="Resumen">
-        <Dato titulo="IVA de ventas (neto)" valor={pesosExactos(generado.iva)} tono="cruz" nota={`base ${pesosExactos(generado.base)}`} />
-        <Dato titulo="IVA de compras (neto)" valor={pesosExactos(descontable.iva)} nota={`base ${pesosExactos(descontable.base)}`} />
-        <Dato titulo="Notas crédito" valor={d.n_notas} nota="devoluciones de clientes" />
-        <Dato titulo="Compras con IVA" valor={d.n_compras} tono={d.por_costear ? "aviso" : undefined} nota={d.por_costear ? `${d.por_costear} por costear (sin IVA registrado)` : "registradas en el periodo"} />
+        <Dato titulo={d.responsable ? "IVA de ventas (neto)" : "Ventas netas"} valor={pesosExactos(d.responsable ? generado.iva : generado.base)} tono="cruz" nota={d.responsable ? `base ${pesosExactos(generado.base)}` : "sin IVA: no responsable"} />
+        {d.responsable
+          ? <Dato titulo="IVA de compras (neto)" valor={pesosExactos(descontable.iva)} nota={`base ${pesosExactos(descontable.base)}`} />
+          : <Dato titulo="Notas débito" valor={d.n_debito} nota="mayor valor cobrado" />}
+        <Dato titulo="Notas crédito" valor={d.n_notas} nota={d.n_anulaciones ? `${d.n_notas - d.n_anulaciones} devoluciones · ${d.n_anulaciones} anulaciones` : "devoluciones de clientes"} />
+        <Dato titulo={d.responsable ? "Compras con IVA" : "Compras"} valor={d.n_compras} tono={d.por_costear ? "aviso" : undefined} nota={d.por_costear ? `${d.por_costear} por costear (sin IVA registrado)` : "registradas en el periodo"} />
       </section>
 
-      <TablaIva titulo="IVA de las ventas, por tarifa" etiqueta="IVA de ventas" a={d.ventas} b={d.notas} neto={d.ventas_netas} nombres={["Ventas", "Notas crédito", "Neto"]} />
-      <p className="text-sm text-muted -mt-2">Ventas cerradas por la fecha de la venta (las anuladas no cuentan); notas crédito de las devoluciones por la fecha de la devolución.</p>
-      <TablaIva titulo="IVA de las compras (descontable), por tarifa" etiqueta="IVA de compras" a={d.compras} b={d.nc_proveedor} neto={d.descontable} nombres={["Compras", "Notas crédito de proveedores", "Neto"]} />
-      <p className="text-sm text-muted -mt-2">Compras registradas por la fecha de la factura del proveedor. Las notas crédito de proveedores (devoluciones) van por la fecha en que se registraron y su IVA se separa según la tarifa de cada producto devuelto.
-        {d.por_costear > 0 && <> Hay <a href="/compras?estado=por_costear" className="underline font-semibold">{d.por_costear} compra{d.por_costear === 1 ? "" : "s"} por costear</a> en el periodo: su IVA aparece cuando completes los costos.</>}</p>
+      <TablaIva titulo={d.responsable ? "IVA de las ventas, por tarifa" : "Ventas del periodo"} etiqueta="IVA de ventas"
+        grupos={[["Ventas", d.ventas], ...(d.n_debito ? [["Notas débito", d.notas_debito] as [string, FilaIva[]]] : []), ["Notas crédito", d.notas], ["Neto", d.ventas_netas]]} />
+      <p className="text-sm text-muted -mt-2">Ventas por su fecha. Las notas van por su propia fecha: la devolución o la anulación resta en el periodo en que se hace (E.T. art. 484), así un mes ya cerrado no cambia. Una venta anulada antes de enviarse a la DIAN no cuenta.</p>
+      {d.responsable && <>
+        <TablaIva titulo="IVA de las compras (descontable), por tarifa" etiqueta="IVA de compras" grupos={[["Compras", d.compras], ["Notas crédito de proveedores", d.nc_proveedor], ["Neto", d.descontable]]} />
+        <p className="text-sm text-muted -mt-2">Compras registradas por la fecha de la factura del proveedor, con sus fletes y otros cargos. Las notas crédito de proveedores (devoluciones) van por la fecha en que se registraron y su IVA se separa según la tarifa de cada producto devuelto.
+          {d.por_costear > 0 && <> Hay <a href="/compras?estado=por_costear" className="underline font-semibold">{d.por_costear} compra{d.por_costear === 1 ? "" : "s"} por costear</a> en el periodo: su IVA aparece cuando completes los costos.</>}</p>
+      </>}
     </main>
   );
 }

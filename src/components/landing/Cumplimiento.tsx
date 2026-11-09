@@ -11,11 +11,11 @@ export function Cumplimiento({ claro = false }: { claro?: boolean }) {
     <section aria-label="Cumplimiento normativo" className={claro ? "bg-surface border-y border-line" : "bg-[#071726] text-white border-y border-white/10"}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         <p className={`text-sm font-semibold ${claro ? "text-teal-700" : "text-teal-300"}`}>Cumple con la normativa colombiana</p>
-        <ul className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-5">
+        <ul className="mt-4 grid grid-cols-1 min-[400px]:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-5">
           {ITEMS.map(([t, d]) => (
-            <li key={t} className="flex items-start gap-3">
+            <li key={t} className="flex items-start gap-3 min-w-0">
               <span className={`mt-1 size-7 shrink-0 rounded-full grid place-items-center text-sm font-bold ${claro ? "bg-teal-600 text-white" : "bg-teal-400 text-[#071726]"}`} aria-hidden="true">✓</span>
-              <span><span className="block font-cond text-[30px] sm:text-[36px] leading-none tracking-tight" style={{ fontWeight: 700 }}>{t}</span>
+              <span className="min-w-0"><span className="block font-cond text-[clamp(24px,7vw,30px)] sm:text-[36px] leading-none tracking-tight [overflow-wrap:anywhere]" style={{ fontWeight: 700 }}>{t}</span>
                 <span className={`block mt-1 text-[13px] leading-snug ${claro ? "text-muted" : "text-white/65"}`}>{d}</span></span>
             </li>
           ))}

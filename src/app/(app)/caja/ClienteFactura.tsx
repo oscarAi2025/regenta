@@ -88,7 +88,7 @@ export function ClienteFactura({ cliente, onCambio, total, onCredito, gerencia }
         <p className="text-xs text-muted">Facturar a</p>
         <p className="font-semibold leading-snug">{cliente.nombre}</p>
         <p className="text-sm text-muted num">{documento(cliente)}{cliente.email ? ` · ${cliente.email}` : ""}</p>
-        {!cliente.email && <p className="text-xs text-aviso mt-1">Sin correo: la factura no le llegará por email</p>}
+        {!cliente.email && <CorreoFaltante id={cliente.id} onListo={(email) => onCambio({ ...cliente, email })} />}
         <CreditoDelCliente id={cliente.id} total={total} onCredito={onCredito} gerencia={gerencia} />
       </div>
       <button onClick={() => { onCambio(null); setTimeout(() => input.current?.focus(), 0); }} className="text-sm font-semibold underline shrink-0">Cambiar</button>
@@ -108,7 +108,7 @@ export function ClienteFactura({ cliente, onCambio, total, onCredito, gerencia }
         <input id="cf-nom" className="campo mt-1" required value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} /></div>
       <div className="grid grid-cols-2 gap-2">
         <div><label htmlFor="cf-mail" className="text-xs font-semibold">Correo para la factura</label>
-          <input id="cf-mail" type="email" className="campo mt-1" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></div>
+          <input id="cf-mail" type="email" required className="campo mt-1" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></div>
         <div><label htmlFor="cf-tel" className="text-xs font-semibold">Teléfono</label>
           <input id="cf-tel" inputMode="tel" className="campo mt-1" value={f.telefono} onChange={(e) => setF({ ...f, telefono: e.target.value })} /></div>
       </div>
@@ -147,6 +147,31 @@ export function ClienteFactura({ cliente, onCambio, total, onCredito, gerencia }
       {buscado && res.length === 0 && <p className="mt-2 text-sm text-muted">No hay clientes con «{q.trim()}».</p>}
       <button onClick={() => { setNuevo(true); setError(""); const t = q.trim(); if (/^\d{5,}$/.test(t)) setF((x) => ({ ...x, numero_doc: t })); else if (t) setF((x) => ({ ...x, nombre: t })); }}
         className="mt-2 text-sm font-semibold underline">+ Crear cliente nuevo</button>
+    </div>
+  );
+}
+
+/** La factura electrónica necesita el correo del cliente: si no lo tiene, se escribe aquí mismo (sin salir de la caja). */
+function CorreoFaltante({ id, onListo }: { id: string; onListo: (email: string) => void }) {
+  const [email, setEmail] = useState(""), [error, setError] = useState(""), [guardando, setGuardando] = useState(false);
+  async function guardar() {
+    if (guardando) return;
+    setGuardando(true); setError("");
+    const r = await fetch(`/api/clientes/${id}/correo`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email }) }).catch(() => null);
+    const j = r ? await r.json().catch(() => ({})) : {};
+    setGuardando(false);
+    if (!r?.ok) { setError(r ? (j.error ?? "No se pudo guardar") : "Sin conexión con el servidor"); return; }
+    onListo(j.email);
+  }
+  return (
+    <div className="mt-2 grid gap-1.5">
+      <label htmlFor="cf-correo-falta" className="text-xs font-semibold text-alerta">Falta el correo: la factura electrónica lo necesita</label>
+      <div className="flex gap-2">
+        <input id="cf-correo-falta" type="email" inputMode="email" className="campo h-10 min-w-0" value={email} placeholder="correo@ejemplo.com"
+          onChange={(e) => { setEmail(e.target.value); setError(""); }} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); void guardar(); } }} />
+        <button type="button" onClick={() => void guardar()} disabled={guardando || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())} className="h-10 px-3 rounded-lg bg-ink text-white text-sm font-semibold disabled:opacity-40 shrink-0">{guardando ? "…" : "Guardar"}</button>
+      </div>
+      {error && <p role="alert" className="text-xs text-alerta">{error}</p>}
     </div>
   );
 }

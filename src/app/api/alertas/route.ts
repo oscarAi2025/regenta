@@ -6,6 +6,8 @@ const Revision = z.object({ alerta_id: z.coerce.number().int().positive().max(Nu
 
 /** Deja constancia de qué hizo la droguería con una alerta (quién y cuándo lo guarda la base de datos). */
 export const POST = conSesion(async (s, req) => {
+  // Mismo permiso que la base (alertas_revision): dueño, administrador o bodega (regente). Se mira antes que los datos.
+  if (!["dueno", "admin", "bodeguero"].includes(s.rol)) return json({ error: "Las alertas las revisa el dueño, el administrador o la bodega" }, 403);
   const p = Revision.safeParse(await req.json().catch(() => null));
   if (!p.success) return json({ error: "Datos no válidos" }, 400);
   await comoUsuario(s, (c) => c.query(`insert into alertas_revision (empresa_id, alerta_id, producto_id, resultado, nota) values ($1, $2, $3, $4, $5)`,

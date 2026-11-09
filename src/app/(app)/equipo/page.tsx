@@ -1,3 +1,4 @@
+import { NOMBRE_NUMERACION } from "@/lib/dian/tipos";
 import { redirect } from "next/navigation";
 import { sinRLS } from "@/lib/db";
 import { leerSesion } from "@/lib/sesion";
@@ -21,7 +22,7 @@ export default async function PaginaEquipo() {
     const e = (await c.query(`select nit, dv, razon_social, nombre_comercial, direccion, ciudad, telefono, email, plan, estado, demo,
         descuento_max_cajero::float, egreso_max_cajero::float, responsable_iva, plan_siguiente from empresas where id = $1`, [s.empresa])).rows[0];
     const miembros = (await c.query(`select m.user_id, m.nombre, m.rol, m.activo, cu.email, cu.clave_hash is not null activo_cuenta
-      from miembros m join cuentas cu on cu.id = m.user_id where m.empresa_id = $1 order by m.rol = 'dueno' desc, m.activo desc, m.nombre`, [s.empresa])).rows;
+      from miembros m left join cuentas cu on cu.id = m.user_id where m.empresa_id = $1 order by m.rol = 'dueno' desc, m.activo desc, m.nombre`, [s.empresa])).rows;
     const plan = (await c.query(`select to_char(max(vence), 'DD/MM/YYYY') vence, max(vence) < current_date vencido from pagos_suscripcion where empresa_id = $1 and estado = 'aprobado'`, [s.empresa])).rows[0];
     // Cuentan para el cupo los documentos reales (numeración de producción); en la demo, todos.
     const mes = (await c.query(`select count(*)::int n from documentos_dian d where d.empresa_id = $1 and d.creado >= date_trunc('month', now() at time zone 'America/Bogota') at time zone 'America/Bogota'
@@ -37,7 +38,7 @@ export default async function PaginaEquipo() {
   }) as any;
   const cupoDocs = CUPO_DOCS[d.e.plan] ?? null;
   const nombrePlan: Record<string, string> = { esencial: "Esencial", pro: "Pro", cadena: "Cadena", socio: "Socio" };
-  const TIPO: Record<string, string> = { pos: "Tiquete POS", factura: "Factura electrónica", nota_credito: "Nota crédito" };
+  const TIPO: Record<string, string> = { ...NOMBRE_NUMERACION, pos: "Tiquete POS" };
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5 max-w-5xl">
       <Cabecera titulo="Mi droguería" sub={`${d.e.razon_social} · NIT ${d.e.nit}${d.e.dv ? `-${d.e.dv}` : ""}`} />
@@ -64,7 +65,8 @@ export default async function PaginaEquipo() {
             <p className="mt-1 text-sm"><b className="text-aviso">En proceso.</b> La caja vende cuando quede cargada tu resolución. Te avisamos por correo.</p>
           ) : (
             <ul className="mt-1 text-sm grid gap-1">
-              {d.res.map((r: any) => <li key={r.tipo}><b>{TIPO[r.tipo] ?? r.tipo}</b> {r.prefijo} · van {Number(r.actual).toLocaleString("es-CO")} de {Number(r.hasta).toLocaleString("es-CO")}{r.vence ? ` · vence ${r.vence}` : ""}</li>)}
+              {d.res.map((r: any) => { const usados = Math.max(0, Number(r.actual) - Number(r.desde) + 1), total = Number(r.hasta) - Number(r.desde) + 1;
+                return <li key={r.tipo}><b>{TIPO[r.tipo] ?? r.tipo}</b> {r.prefijo} · usados {usados.toLocaleString("es-CO")} de {total.toLocaleString("es-CO")}{r.vence ? ` · vence ${r.vence}` : ""}</li>; })}
             </ul>
           )}
         </div>

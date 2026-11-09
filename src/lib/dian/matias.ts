@@ -77,7 +77,7 @@ export function payloadMatias(d: DocumentoParaEmitir) {
 
   const [fecha, hora] = bogota(d.fecha);
   return {
-    uuid: d.id, resolution_number: d.resolucion, prefix: d.prefijo, document_number: String(d.numero),
+    uuid: d.id, ...(d.resolucion ? { resolution_number: d.resolucion } : {}), prefix: d.prefijo, document_number: String(d.numero),
     date: fecha, time: hora, type_document_id, operation_type_id, graphic_representation: 1, send_email: c?.email ? 1 : 0,
     payments, customer, lines, tax_totals,
     legal_monetary_totals,
@@ -136,7 +136,7 @@ export function payloadComplementario(d: DocumentoParaEmitir, cfg: Record<TipoCo
   // Concepto: anulación (2) o corrección/otros; mayor valor en la nota débito. Códigos pendientes de verificar.
   const respuesta = d.tipo === "ajuste_soporte" ? (d.concepto === "anulacion" ? "2" : "5") : "4";
   return {
-    uuid: d.id, resolution_number: d.resolucion, prefix: d.prefijo, document_number: String(d.numero),
+    uuid: d.id, ...(d.resolucion ? { resolution_number: d.resolucion } : {}), prefix: d.prefijo, document_number: String(d.numero),
     date: fecha, time: hora, type_document_id: c.type_document_id, ...(c.operation_type_id ? { operation_type_id: c.operation_type_id } : {}), graphic_representation: 1, send_email: 0,
     ...(d.motivo ? { notes: d.motivo.slice(0, 300) } : {}),
     payments: pagosMatias(d, total), customer, lines, tax_totals, legal_monetary_totals,
@@ -207,7 +207,9 @@ export function emisorMatias(): Emisor {
     nombre: "matias",
     async emitir(d) {
       if (!token) return { ok: false, definitivo: false, error: "Falta MATIAS_TOKEN" };
-      if (!d.resolucion) return { ok: false, definitivo: true, error: "La resolución no tiene número de resolución DIAN" };
+      // Res. DIAN 165/2023 (arts. 42 y 43): la DIAN autoriza la numeración de la factura, el POS y el documento soporte.
+      // Las notas (crédito, débito, de ajuste) llevan un consecutivo propio: no tienen número de resolución.
+      if (!d.resolucion && (d.tipo === "pos" || d.tipo === "factura" || d.tipo === "soporte")) return { ok: false, definitivo: true, error: "La numeración no tiene número de resolución DIAN" };
       // Nunca se emite una droguería con la cuenta propia de MATIAS (saldría con el NIT de Regenta).
       if (!d.matias_cliente) return { ok: false, definitivo: false, error: "Falta conectar la droguería en MATIAS (UUID del cliente en la consola)" };
       if (d.tipo === "nota_credito" && !d.referencia?.cufe) return { ok: false, definitivo: false, error: "La nota crédito espera a que el documento original tenga CUFE" };

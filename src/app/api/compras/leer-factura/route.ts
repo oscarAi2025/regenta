@@ -78,7 +78,7 @@ export const POST = conSesion(async (s, req) => {
   if (docs.length > 1) avisos.push(`El ZIP trae ${docs.length} documentos: se cargó ${doc.tipo === "factura" ? "la factura" : "el primero"} ${doc.numero}.`);
   if (doc.tipo !== "factura") {
     return json({ nota: { tipo: doc.tipo, numero: doc.numero, proveedor: doc.proveedor.nombre, referencia: doc.referencia, total: dinero ? doc.totales.total : null },
-      error: `Es una ${doc.tipo === "nota_credito" ? "nota crédito" : "nota débito"} del proveedor ${doc.proveedor.nombre}${doc.referencia ? ` sobre la factura ${doc.referencia}` : ""}, no una factura de compra: no mete mercancía al inventario. ${doc.tipo === "nota_credito" ? "Aplícala en Cuentas por pagar o en la compra de esa factura." : ""}`.trim() }, 422);
+      error: `Es una ${doc.tipo === "nota_credito" ? "nota crédito" : "nota débito"} del proveedor ${doc.proveedor.nombre}${doc.referencia ? ` sobre la factura ${doc.referencia}` : ""}, no una factura de compra: no mete mercancía al inventario. ${doc.tipo === "nota_credito" ? (dinero ? "Si viene de una devolución, regístrala en la compra de esa factura (Devolución al proveedor)." : "Entrégasela al dueño o al administrador: ellos la registran.") : ""}`.trim() }, 422);
   }
   const nitPropio = String(empresa.nit ?? "").replace(/\D/g, "").replace(/^(\d{9})\d$/, "$1");
   if (doc.comprador.nit && nitPropio && !nitPropio.startsWith(doc.comprador.nit) && !doc.comprador.nit.startsWith(nitPropio))
@@ -88,9 +88,11 @@ export const POST = conSesion(async (s, req) => {
   const sha = createHash("sha256").update(datos).digest("hex");
   const r = await comoUsuario(s, async (c) => {
     const prov = await proveedorDeFactura(c, s.empresa, doc);
-    const ya = prov && doc.numero
-      ? (await c.query(`select id, numero from compras where empresa_id = $1 and proveedor_id = $2 and regexp_replace(upper(numero_factura), '[^A-Z0-9]', '', 'g') = regexp_replace(upper($3), '[^A-Z0-9]', '', 'g') and estado <> 'anulada'`, [s.empresa, prov.id, doc.numero])).rows[0] ?? null
-      : null;
+    // Ya registrada: mismo CUFE (aunque se haya guardado con otro proveedor) o mismo número con este proveedor.
+    const ya = (doc.cufe ? (await c.query(`select id, numero from compras where empresa_id = $1 and lower(cufe_proveedor) = lower($2) and estado <> 'anulada' limit 1`, [s.empresa, doc.cufe])).rows[0] : null)
+      ?? (prov && doc.numero
+        ? (await c.query(`select id, numero from compras where empresa_id = $1 and proveedor_id = $2 and regexp_replace(upper(numero_factura), '[^A-Z0-9]', '', 'g') = regexp_replace(upper($3), '[^A-Z0-9]', '', 'g') and estado <> 'anulada'`, [s.empresa, prov.id, doc.numero])).rows[0] ?? null
+        : null);
     const lineas = await emparejar(c, s.empresa, prov?.id ?? null, doc.lineas, dinero);
     const archivo = (await c.query(`select guardar_archivo_compra($1, $2, $3, $4, $5, $6) r`, [s.empresa, f.name.slice(0, 160), tipo === "application/xml" ? "application/xml" : tipo, Buffer.from(datos), sha, { ...doc, lineas: doc.lineas }])).rows[0].r;
     return { prov, ya, lineas, archivo };

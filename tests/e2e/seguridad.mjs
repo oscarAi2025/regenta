@@ -35,7 +35,7 @@ const EMP = await q1(`select id from empresas where demo limit 1`);
 
 // ── La API no deja datos en cachés
 {
-  const r = await api(D, "/api/productos?q=a");
+  const r = await api(D, "/api/recibos?q=a"); // lectura con sesión (conSesion)
   ok(/no-store/.test(r.h.get("cache-control") ?? ""), "API: Cache-Control no-store", r.h.get("cache-control") ?? "(sin cabecera)");
 }
 

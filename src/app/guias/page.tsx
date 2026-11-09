@@ -10,7 +10,7 @@ export const metadata: Metadata = metaPublica("/guias", "Guías para regentes y 
 
 export default function Guias() {
   return (
-    <div className="bg-paper text-ink min-h-screen">
+    <div className="bg-paper text-ink min-h-screen pb-20 sm:pb-0">
       <CabeceraPublica />
       <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-10 pb-16">
         <h1 className="font-cond text-[44px] sm:text-[60px] leading-[1]" style={{ fontWeight: 700 }}>Guías para regentes y droguerías</h1>

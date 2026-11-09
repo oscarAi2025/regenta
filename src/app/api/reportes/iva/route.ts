@@ -14,8 +14,9 @@ export const GET = conSesion(async (s, req) => {
     const seccion = (nombre: string, f: FilaIva[]) => [...f.map((x) => ({ seccion: nombre, tarifa: `${x.tarifa} %`, base: x.base, iva: x.iva })),
       { seccion: nombre, tarifa: "Total", ...sumaIva(f) }];
     const filas = [
-      ...seccion("Ventas", d.ventas), ...seccion("Notas crédito por devoluciones", d.notas), ...seccion("Ventas netas (IVA generado)", d.ventas_netas),
-      ...seccion("Compras registradas", d.compras), ...seccion("Notas crédito de proveedores", d.nc_proveedor), ...seccion("IVA descontable de compras", d.descontable),
+      ...seccion("Ventas", d.ventas), ...seccion("Notas débito", d.notas_debito), ...seccion("Notas crédito (devoluciones y anulaciones)", d.notas), ...seccion("Ventas netas (IVA generado)", d.ventas_netas),
+      ...(d.responsable ? [...seccion("Compras registradas", d.compras), ...seccion("Notas crédito de proveedores", d.nc_proveedor), ...seccion("IVA descontable de compras", d.descontable)] : []),
+      ...(d.responsable ? [] : [{ seccion: "No responsable de IVA: las ventas no llevan IVA y el IVA de las compras va al costo (no es descontable)", tarifa: "", base: null, iva: null }]),
       { seccion: `Periodo ${r.desde} a ${r.hasta}`, tarifa: "", base: null, iva: null },
       { seccion: "Auxiliar para tu contador, no reemplaza la declaración", tarifa: "", base: null, iva: null },
     ];

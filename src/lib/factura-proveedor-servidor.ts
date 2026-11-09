@@ -72,8 +72,14 @@ export async function emparejar(c: Tx, empresa: string, proveedor: string | null
       // 3. Por nombre: candidatos que contengan alguna de las palabras más significativas, puntuados aquí.
       const ws = fichas(l.nombre).filter((w) => !/^\d/.test(w)).sort((a, b) => b.length - a.length).slice(0, 3);
       if (ws.length) {
-        const r = await c.query(`select ${COLS}, null::float costo_unidad from productos p where p.empresa_id = $1 and p.activo
-           and sin_tildes(lower(p.nombre || ' ' || coalesce(p.laboratorio, ''))) like any ($2::text[]) limit 60`, [empresa, ws.map((w) => `%${w.replace(/[%_\\]/g, "")}%`)]);
+        // Ordenados por cuántas palabras de la línea comparten (concentración incluida) ANTES del límite: con miles de
+        // productos, «tableta» o «x100» traen cientos y el producto exacto quedaba por fuera de los 60.
+        const pat = (w: string) => `%${w.replace(/[%_\\]/g, "")}%`;
+        const todas = fichas(l.nombre).slice(0, 10).map(pat);
+        const r = await c.query(`select ${COLS}, null::float costo_unidad from productos p
+           cross join lateral (select regexp_replace(regexp_replace(sin_tildes(lower(p.nombre || ' ' || coalesce(p.laboratorio, ''))), '(\\d)[.,](\\d)', '\\1\\2', 'g'), '(\\d+)\\s*(mg|ml|g|gr|mcg|ui|%)\\y', '\\1\\2', 'g') t) x
+           where p.empresa_id = $1 and p.activo and x.t like any ($2::text[])
+           order by (select count(*) from unnest($3::text[]) w where x.t like w) desc, length(p.nombre) limit 60`, [empresa, ws.map(pat), todas]);
         candidatos = r.rows.map((p: ProductoCompra) => ({ ...p, puntaje: parecido(l.nombre, p) })).filter((p: { puntaje: number }) => p.puntaje >= 0.3)
           .sort((a: { puntaje: number }, b: { puntaje: number }) => b.puntaje - a.puntaje).slice(0, 4);
         const [a, b] = candidatos;

@@ -194,3 +194,9 @@ test("ZIP «bomba»: varias entradas que apuntan al mismo bloque comprimido no s
   assert.throws(() => leerArchivoXml("bomba.zip", zip), /demasiado grande|dañado/);
   assert.ok(process.memoryUsage().rss - antes < 200 * 1024 * 1024, "no debe inflar cientos de MB");
 });
+
+test("El laboratorio solo no empareja: OROCAL D LAPROFF no propone otro producto del mismo laboratorio", () => {
+  assert.equal(parecido("OROCAL D LAPROFF CAJA X 30 UNDS", { nombre: "METFORMINA 850 MG X 30 TAB", laboratorio: "LAPROFF" }), 0);
+  assert.equal(parecido("AMLODIPINO 5 MG LAPROFF X 10 TAB", { nombre: "ACICLOVIR 800 MG X 10 TAB", laboratorio: "LAPROFF" }), 0);
+  assert.ok(parecido("AMLODIPINO 5 MG LAPROFF X 10 TAB", { nombre: "AMLODIPINO 5 MG X 10 TABLETAS", laboratorio: "LAPROFF" }) >= 0.75);
+});

@@ -36,7 +36,8 @@ export function existencias(p: Producto) {
   return `${c} caja${c === 1 ? "" : "s"}${u ? ` + ${u} und` : ""}`;
 }
 
-export function Fila({ p, activo, onHover, agregar }: { p: Producto; activo: boolean; onHover: () => void; agregar: (p: Producto, pr: "caja" | "unidad") => void }) {
+export function Fila({ p, activo, onHover, agregar, iva = true }: { p: Producto; activo: boolean; onHover: () => void; agregar: (p: Producto, pr: "caja" | "unidad") => void;
+  /** false en una droguería no responsable de IVA: no se le muestra un IVA que no cobra. */ iva?: boolean }) {
   const agotado = p.unidades <= 0;
   return (
     <li role="option" aria-selected={activo} onMouseEnter={onHover}
@@ -50,7 +51,7 @@ export function Fila({ p, activo, onHover, agregar }: { p: Producto; activo: boo
           <span className={agotado ? "text-alerta font-semibold" : p.unidades <= p.stock_minimo * Math.max(1, p.unidades_por_caja) ? "text-aviso font-semibold" : ""}>{existencias(p)}</span>
           <Vence fecha={p.proximo_vence} />
           <MarcaFormula p={p} />
-          {p.iva > 0 && <span className="text-[12px]">IVA {p.iva} %</span>}
+          {iva && p.iva > 0 && <span className="text-[12px]">IVA {p.iva} %</span>}
         </p>
       </div>
       {agotado && <Alternativas id={p.id} agregar={agregar} />}

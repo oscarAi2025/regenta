@@ -36,6 +36,8 @@ const Compra = z.object({
   // Cargada desde la factura del proveedor: el archivo guardado y los emparejamientos que se recuerdan para la próxima.
   archivo_id: z.string().uuid().nullish(),
   recordar: z.array(z.object({ clave: z.string().trim().min(1).max(200), producto_id: z.string().uuid(), como: z.enum(["caja", "unidad"]) })).max(1000).nullish(),
+  // Flete, domicilio, seguro… de la factura: se le deben al proveedor pero no son mercancía.
+  cargos: z.array(z.object({ descripcion: z.string().trim().max(120), base: dinero(1_000_000_000, "Revisa el valor del cargo"), iva: dinero(1_000_000_000, "Revisa el IVA del cargo") })).max(10).nullish(),
   // Compra de contado ya pagada: el pago se registra en la misma transacción.
   pago: z.object({ medio: z.enum(MEDIO_IDS), referencia: z.string().trim().max(60).nullish(), desde_caja: z.boolean().default(true) }).nullish(),
 }).refine((c) => c.proveedor_id || c.proveedor_nuevo, { message: "Elige el proveedor", path: ["proveedor_id"] })
@@ -57,7 +59,7 @@ export const POST = conSesion(async (s, req) => {
   if (!puedeCompras.ver(s.rol)) return json({ error: "Solo el dueño, el administrador o la bodega registran compras" }, 403); // el permiso se mira antes que los datos
   const p = Compra.safeParse(await req.json().catch(() => null));
   if (!p.success) return json({ error: p.error.issues[0]?.message ?? "Datos de la compra incompletos" }, 400);
-  const { proveedor_nuevo, pago, archivo_id, recordar, ...d } = p.data;
+  const { proveedor_nuevo, pago, archivo_id, recordar, cargos, ...d } = p.data;
   const gerencia = puedeCompras.dinero(s.rol);
   if (pago && !gerencia) return json({ error: "Los pagos los registra el dueño o el administrador" }, 403);
   const caja = await cajaElegida();
@@ -67,6 +69,11 @@ export const POST = conSesion(async (s, req) => {
       const prov = await proveedorId(c, s.empresa, d.proveedor_id, proveedor_nuevo ? { ...proveedor_nuevo, dv: proveedor_nuevo.nit ? dvNit(proveedor_nuevo.nit) : null } : null);
       const lineas = gerencia ? d.lineas : d.lineas.map(({ producto_id, lote, vence, unidades, bonificadas }) => ({ producto_id, lote, vence, unidades, bonificadas }));
       const k = (await c.query(`select registrar_compra($1) r`, [{ ...d, lineas, proveedor_id: prov, empresa_id: s.empresa, sede_id: puesto.sede_id }])).rows[0].r;
+      // Los cargos van en la compra registrada (total, IVA y cuenta por pagar), antes del pago de contado.
+      if (!k.repetida && gerencia && k.estado === "registrada" && cargos?.some((x) => x.base > 0)) {
+        const t = (await c.query(`select agregar_cargos_compra($1, $2) r`, [k.id, JSON.stringify(cargos.filter((x) => x.base > 0))])).rows[0].r;
+        k.total = t.total;
+      }
       if (!k.repetida) {
         if (archivo_id) await c.query(`select vincular_archivo_compra($1, $2, $3)`, [s.empresa, archivo_id, k.id]);
         if (recordar?.length) await c.query(`select recordar_productos_proveedor($1, $2, $3)`, [s.empresa, prov, JSON.stringify(recordar)]);

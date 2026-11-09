@@ -122,10 +122,13 @@ export default async function Documentos({ searchParams }: { searchParams: Promi
         </div>
       </form>
 
-      <section className="grid grid-cols-3 gap-3" aria-label="Por estado">
-        {contador("aceptado", "Aceptados", n.aceptado, "text-cruz", n.simulado ? `${n.simulado.toLocaleString("es-CO")} en emisión simulada` : undefined)}
+      {/* Aceptados = aceptados de verdad por la DIAN; los simulados (demostración o numeración de pruebas) van aparte. */}
+      <section className={`grid grid-cols-2 gap-3 ${n.simulado || n.anulado ? "lg:grid-cols-5" : "sm:grid-cols-3"}`} aria-label="Por estado">
+        {contador("aceptado", "Aceptados", n.aceptado, "text-cruz")}
+        {n.simulado > 0 && contador("simulado", "Simulados", n.simulado, "text-sky-900", "Pruebas: no van a la DIAN")}
         {contador("pendiente", "Enviando", n.pendiente, "text-aviso", n.pendiente ? "La cola los reintenta sola" : undefined)}
         {contador("rechazado", "Rechazados", n.rechazado, "text-alerta", n.rechazado ? "Corrige y reenvía" : undefined)}
+        {n.anulado > 0 && contador("anulado", "No emitidos", n.anulado, "text-muted", "Anulados antes de salir")}
       </section>
 
       {n.rechazado > 0 && (

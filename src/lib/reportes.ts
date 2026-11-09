@@ -6,8 +6,10 @@ import type { Tx } from "./db";
 //
 // Reglas de la utilidad (iguales en Reportes, Resultados e Inicio):
 //   · Todo va SIN IVA: ventas = base de las líneas; costo = unidades × costo del lote (sin IVA desde la 031).
-//   · Las devoluciones restan su base y su costo el día en que se hacen (como la nota crédito). Las ventas anuladas no
-//     cuentan en ningún periodo.
+//   · Las devoluciones restan su base y su costo el día en que se hacen (como la nota crédito). Una venta anulada cuenta
+//     en su fecha y su anulación resta el día de la nota crédito de anulación (E.T. art. 484: en el periodo en que
+//     ocurre); así un mes ya cerrado no cambia. La anulada antes de emitirse a la DIAN no cuenta (nunca existió).
+//   · La nota débito (mayor valor cobrado) suma por su fecha.
 //   · Las líneas de lotes sin costo registrado NO entran en la utilidad (contarlas con costo 0 la inflaba): se informan
 //     aparte como «vendidos sin costo registrado».
 //   · Los lotes con costo heredado (anterior a las compras de la 031) sí entran, pero se marcan: ese costo puede incluir IVA.
@@ -16,6 +18,12 @@ export type Rango = { desde: string; hasta: string };
 const RANGO_V = `v.empresa_id = $1 and (v.creado at time zone 'America/Bogota')::date between $2::date and $3::date`;
 const RANGO_D = `d.empresa_id = $1 and (d.creado at time zone 'America/Bogota')::date between $2::date and $3::date`;
 const GRUPO = `case when lc.lote_id is null then 'sin_costo' when lc.heredado then 'heredado' else 'con_costo' end`;
+/** La venta existe para la DIAN: cerrada, o anulada después de emitirse (tiene su nota crédito de anulación). */
+const VENTA_FISCAL = `(v.estado = 'cerrada' or exists (select 1 from documentos_dian na where na.venta_id = v.id and na.tipo = 'nota_credito' and na.devolucion_id is null))`;
+/** Notas crédito de anulación del rango (por su fecha). */
+const RANGO_ANULA = `na.empresa_id = $1 and na.tipo = 'nota_credito' and na.devolucion_id is null and (na.creado at time zone 'America/Bogota')::date between $2::date and $3::date`;
+/** Notas débito válidas del rango (por su fecha). */
+const RANGO_DEBITO = `dn.empresa_id = $1 and dn.tipo = 'nota_debito' and dn.estado not in ('rechazado', 'anulado') and (dn.creado at time zone 'America/Bogota')::date between $2::date and $3::date`;
 
 /** AAAA-MM-DD que existe de verdad (un mes 13 o el 31 de febrero no; antes, un mes 13 lanzaba un error y la pantalla caía). */
 export const fechaValida = (f?: string | null) => { if (!f || !/^\d{4}-\d{2}-\d{2}$/.test(f)) return false; const d = new Date(f + "T12:00:00Z"); return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === f; };
@@ -62,12 +70,20 @@ export async function resultados(c: Tx, empresa: string, r: Rango): Promise<Resu
     with ln as (
       select ${GRUPO} grupo, l.base venta, l.unidades * lc.costo_unidad costo, 0::numeric dev, 0::numeric dev_costo
       from venta_lineas l join ventas v on v.id = l.venta_id left join lote_costos lc on lc.lote_id = l.lote_id
-      where ${RANGO_V} and v.estado = 'cerrada'
+      where ${RANGO_V} and ${VENTA_FISCAL}
       union all
       select ${GRUPO}, 0, 0, dl.base, dl.unidades * lc.costo_unidad
       from devolucion_lineas dl join devoluciones d on d.id = dl.devolucion_id join venta_lineas l on l.id = dl.venta_linea_id
       left join lote_costos lc on lc.lote_id = l.lote_id
       where ${RANGO_D}
+      union all
+      select ${GRUPO}, 0, 0, l.base, l.unidades * lc.costo_unidad
+      from documentos_dian na join venta_lineas l on l.venta_id = na.venta_id left join lote_costos lc on lc.lote_id = l.lote_id
+      where ${RANGO_ANULA}
+      union all
+      select 'con_costo', dl.base, 0, 0, 0
+      from documento_lineas dl join documentos_dian dn on dn.id = dl.documento_id
+      where ${RANGO_DEBITO}
     )
     select grupo, coalesce(sum(venta), 0)::float ventas, coalesce(sum(dev), 0)::float devoluciones,
            round(coalesce(sum(costo), 0) - coalesce(sum(dev_costo), 0), 2)::float costo
@@ -133,26 +149,37 @@ export async function datosReporte(c: Tx, empresa: string, r: Rango, costos: boo
 export const TARIFAS = [0, 5, 19] as const;
 export type FilaIva = { tarifa: number; base: number; iva: number };
 export type AuxiliarIva = {
-  rango: Rango;
-  ventas: FilaIva[]; notas: FilaIva[]; ventas_netas: FilaIva[];
+  rango: Rango; responsable: boolean;
+  ventas: FilaIva[]; notas_debito: FilaIva[]; notas: FilaIva[]; ventas_netas: FilaIva[];
   compras: FilaIva[]; nc_proveedor: FilaIva[]; descontable: FilaIva[];
-  n_compras: number; por_costear: number; n_notas: number;
+  n_compras: number; por_costear: number; n_notas: number; n_anulaciones: number; n_debito: number;
 };
 const porTarifa = (filas: { tarifa: number | string; base: number | string; iva: number | string }[]): FilaIva[] =>
   TARIFAS.map((t) => { const f = filas.filter((x) => Number(x.tarifa) === t); return { tarifa: t, base: cent(f.reduce((a, x) => a + Number(x.base), 0)), iva: cent(f.reduce((a, x) => a + Number(x.iva), 0)) }; });
 const resta = (a: FilaIva[], b: FilaIva[]) => a.map((x, i) => ({ tarifa: x.tarifa, base: cent(x.base - b[i].base), iva: cent(x.iva - b[i].iva) }));
+const suma = (a: FilaIva[], b: FilaIva[]) => a.map((x, i) => ({ tarifa: x.tarifa, base: cent(x.base + b[i].base), iva: cent(x.iva + b[i].iva) }));
 export const sumaIva = (f: FilaIva[]) => ({ base: cent(f.reduce((a, x) => a + x.base, 0)), iva: cent(f.reduce((a, x) => a + x.iva, 0)) });
 
-/** Ventas por tarifa (base e IVA) menos notas crédito por devoluciones, e IVA de las compras registradas (por la fecha de la
- *  factura del proveedor) menos las notas crédito de proveedores aplicadas en el periodo. */
+/** Ventas por tarifa (base e IVA) más notas débito y menos notas crédito (devoluciones y anulaciones, por su fecha), e IVA
+ *  de las compras registradas (por la fecha de la factura del proveedor, con fletes y otros cargos) menos las notas crédito
+ *  de proveedores aplicadas en el periodo. */
 export async function auxiliarIva(c: Tx, empresa: string, r: Rango): Promise<AuxiliarIva> {
   const p = [empresa, r.desde, r.hasta];
+  const responsable = (await c.query(`select responsable_iva from empresas where id = $1`, [empresa])).rows[0]?.responsable_iva !== false;
   const ventas = porTarifa((await c.query(`select l.iva_pct tarifa, sum(l.base) base, sum(l.iva) iva from venta_lineas l join ventas v on v.id = l.venta_id
-    where ${RANGO_V} and v.estado = 'cerrada' group by 1`, p)).rows);
-  const notas = porTarifa((await c.query(`select l.iva_pct tarifa, sum(dl.base) base, sum(dl.iva) iva from devolucion_lineas dl join devoluciones d on d.id = dl.devolucion_id
+    where ${RANGO_V} and ${VENTA_FISCAL} group by 1`, p)).rows);
+  const devoluciones = porTarifa((await c.query(`select l.iva_pct tarifa, sum(dl.base) base, sum(dl.iva) iva from devolucion_lineas dl join devoluciones d on d.id = dl.devolucion_id
     join venta_lineas l on l.id = dl.venta_linea_id where ${RANGO_D} group by 1`, p)).rows);
+  const anulaciones = porTarifa((await c.query(`select l.iva_pct tarifa, sum(l.base) base, sum(l.iva) iva from documentos_dian na join venta_lineas l on l.venta_id = na.venta_id
+    where ${RANGO_ANULA} group by 1`, p)).rows);
+  const notas = suma(devoluciones, anulaciones);
+  const notas_debito = porTarifa((await c.query(`select dl.iva_pct tarifa, sum(dl.base) base, sum(dl.iva) iva from documento_lineas dl join documentos_dian dn on dn.id = dl.documento_id
+    where ${RANGO_DEBITO} group by 1`, p)).rows);
   const cq = (await c.query(`select cl.iva_pct tarifa, sum(cl.base) base, sum(cl.iva) iva from compra_lineas cl join compras k on k.id = cl.compra_id
-    where k.empresa_id = $1 and k.estado = 'registrada' and k.fecha_factura between $2::date and $3::date group by 1`, p)).rows;
+    where k.empresa_id = $1 and k.estado = 'registrada' and k.fecha_factura between $2::date and $3::date group by 1
+    union all
+    select case when k.cargos_iva = 0 then 0 when abs(k.cargos_iva / k.cargos * 100 - 5) < 1 then 5 else 19 end, k.cargos, k.cargos_iva from compras k
+    where k.empresa_id = $1 and k.estado = 'registrada' and k.cargos > 0 and k.fecha_factura between $2::date and $3::date`, p)).rows;
   const compras = porTarifa(cq);
   const cuenta = (await c.query(`select count(*) filter (where estado = 'registrada')::int registradas, count(*) filter (where estado = 'por_costear')::int por_costear
     from compras where empresa_id = $1 and fecha_factura between $2::date and $3::date`, p)).rows[0];
@@ -165,9 +192,10 @@ export async function auxiliarIva(c: Tx, empresa: string, r: Rango): Promise<Aux
     const base = cent(v / (1 + t / 100));
     return { tarifa: t, base, iva: cent(v - base) };
   });
-  const n_notas = (await c.query(`select count(*)::int n from devoluciones d where ${RANGO_D}`, p)).rows[0].n as number;
-  return { rango: r, ventas, notas, ventas_netas: resta(ventas, notas), compras, nc_proveedor, descontable: resta(compras, nc_proveedor),
-    n_compras: cuenta.registradas, por_costear: cuenta.por_costear, n_notas };
+  const n = (await c.query(`select (select count(*) from devoluciones d where ${RANGO_D})::int dev, (select count(*) from documentos_dian na where ${RANGO_ANULA})::int anula,
+    (select count(*) from documentos_dian dn where ${RANGO_DEBITO})::int debito`, p)).rows[0];
+  return { rango: r, responsable, ventas, notas_debito, notas, ventas_netas: resta(suma(ventas, notas_debito), notas), compras, nc_proveedor, descontable: resta(compras, nc_proveedor),
+    n_compras: cuenta.registradas, por_costear: cuenta.por_costear, n_notas: n.dev + n.anula, n_anulaciones: n.anula, n_debito: n.debito };
 }
 
 // ───────────────────────── Cierre del día ─────────────────────────

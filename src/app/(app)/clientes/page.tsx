@@ -21,7 +21,7 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
            to_char(max(v.creado) at time zone 'America/Bogota', 'DD/MM/YYYY') ultima, cl.cupo_credito::float cupo, cl.credito_bloqueado bloqueado,
            (select coalesce(sum(vc.saldo), 0) from v_cartera vc where vc.cliente_id = cl.id and vc.empresa_id = cl.empresa_id)::float saldo
     from clientes cl left join ventas v on v.cliente_id = cl.id
-    where cl.empresa_id = $1 and ($2 = '' or cl.numero_doc like $3 || '%' or lower(cl.nombre) like '%' || $4 || '%')
+    where cl.empresa_id = $1 and ($2 = '' or cl.numero_doc like $3 || '%' or sin_tildes(cl.nombre) like '%' || sin_tildes($4) || '%')
     group by cl.id order by max(v.creado) desc nulls last, cl.nombre limit 200`, [s.empresa, t, sinComodines(t.replace(/[.\s-]/g, "")), sinComodines(t.toLowerCase())])).rows);
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">

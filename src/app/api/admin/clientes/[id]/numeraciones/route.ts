@@ -15,7 +15,9 @@ const Numeracion = z.object({
   vigente_desde: fecha, vigente_hasta: fecha,
   pruebas: z.boolean(),
 }).refine((n) => n.hasta >= n.desde, { message: "«Hasta» debe ser mayor o igual que «desde»" })
-  .refine((n) => n.pruebas || (n.numero_resolucion && n.vigente_hasta), { message: "En producción la numeración necesita número de resolución y fecha de vencimiento" });
+  // Res. DIAN 165/2023, arts. 42 y 43: solo la factura, el POS y el documento soporte tienen numeración autorizada por la
+  // DIAN (con resolución y vigencia). Las notas llevan un consecutivo propio (arts. 22 y 36).
+  .refine((n) => n.pruebas || !["pos", "factura", "soporte"].includes(n.tipo) || (n.numero_resolucion && n.vigente_hasta), { message: "En producción la numeración de la factura, el POS o el documento soporte necesita número de resolución y fecha de vencimiento" });
 
 /** Nueva numeración DIAN de un cliente (la que autoriza la resolución): desactiva la vigente del mismo tipo y la reemplaza.
  *  No deja reutilizar números ya emitidos con el mismo prefijo. */

@@ -8,7 +8,7 @@ import { AutoImprimir } from "../../[id]/AutoImprimir";
 // Reporte de turno para la impresora térmica: corte parcial (turno abierto, cifras en vivo) o cierre (cifras guardadas).
 export const metadata: Metadata = { title: "Cierre de turno", robots: { index: false, follow: false } };
 
-type Resumen = { ventas: number; n_ventas: number; anuladas: number; iva: number; credito: number; medios: Record<string, number>; efectivo_ventas: number; abonos_efectivo: number; ingresos: number; egresos: number; base: number; efectivo_esperado: number; devoluciones?: number; n_devoluciones?: number; devoluciones_efectivo?: number; ventas_netas?: number };
+type Resumen = { abonos_medios?: Record<string, number>; ventas: number; n_ventas: number; anuladas: number; iva: number; credito: number; medios: Record<string, number>; efectivo_ventas: number; abonos_efectivo: number; ingresos: number; egresos: number; base: number; efectivo_esperado: number; devoluciones?: number; n_devoluciones?: number; devoluciones_efectivo?: number; ventas_netas?: number };
 
 export default async function CierreTurno({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ancho?: string; auto?: string }> }) {
   const s = await leerSesion();
@@ -27,7 +27,9 @@ export default async function CierreTurno({ params, searchParams }: { params: Pr
        from turnos t join cajas cj on cj.id = t.caja_id join empresas e on e.id = t.empresa_id
        left join miembros ma on ma.empresa_id = t.empresa_id and ma.user_id = t.abre_usuario
        left join miembros mc on mc.empresa_id = t.empresa_id and mc.user_id = t.cierra_usuario
-       where t.id = $1 and t.empresa_id = $2`, [id, s.empresa])).rows[0];
+       where t.id = $1 and t.empresa_id = $2
+         -- La cajera ve los cierres de sus turnos (los que abrió o cerró) y el corte del turno abierto; los de otras, no.
+         and ($3::text <> 'cajero' or t.estado = 'abierto' or t.abre_usuario = $4::uuid or t.cierra_usuario = $4::uuid)`, [id, s.empresa, s.rol, s.uid])).rows[0];
     if (!t) return null;
     const r: Resumen = t.estado === "cerrado" && t.resumen ? t.resumen : (await c.query(`select resumen_turno($1) r`, [id])).rows[0].r;
     const movs = (await c.query(`select tipo, valor::float, concepto from movimientos_caja where turno_id = $1 order by creado`, [id])).rows;
@@ -74,6 +76,10 @@ export default async function CierreTurno({ params, searchParams }: { params: Pr
       <p className="b">Por medio de pago</p>
       {Object.entries(r.medios ?? {}).map(([m, v]) => <div key={m}>{fila(MEDIO[m] ?? m, pesos(n(v)))}</div>)}
       {n(r.credito) > 0 && fila("A crédito", pesos(n(r.credito)))}
+      {Object.entries(r.abonos_medios ?? {}).filter(([m, v]) => n(v) > 0).length > 0 && <>
+        <p className="b" style={{ marginTop: 4 }}>Abonos de cartera</p>
+        {Object.entries(r.abonos_medios ?? {}).filter(([, v]) => n(v) > 0).map(([m, v]) => <div key={`a-${m}`}>{fila(MEDIO[m] ?? m, pesos(n(v)))}</div>)}
+      </>}
       <hr />
       <p className="b">Efectivo</p>
       {fila("Base", pesos(n(r.base)))}
@@ -82,7 +88,8 @@ export default async function CierreTurno({ params, searchParams }: { params: Pr
       {fila("+ Entradas", pesos(n(r.ingresos)))}
       {fila("− Salidas", pesos(n(r.egresos)))}
       {n(r.devoluciones_efectivo) > 0 && fila("− Devoluciones en efectivo", pesos(n(r.devoluciones_efectivo)))}
-      {fila("= Esperado en caja", pesos(n(r.efectivo_esperado)), true)}
+      {/* Cierre ciego: la cajera no ve el esperado en el corte parcial (lo ve en el cierre). */}
+      {(cerrado || s.rol !== "cajero") && fila("= Esperado en caja", pesos(n(r.efectivo_esperado)), true)}
       {cerrado && <>
         {fila("Dinero contado", pesos(n(t.efectivo_contado)), true)}
         {fila(n(t.diferencia) < 0 ? "FALTANTE" : n(t.diferencia) > 0 ? "SOBRANTE" : "Diferencia", pesos(Math.abs(n(t.diferencia))), true)}

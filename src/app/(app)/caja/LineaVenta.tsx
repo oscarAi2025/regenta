@@ -1,17 +1,19 @@
 "use client";
 import { useState } from "react";
 import { pesos } from "@/lib/formato";
-import { leerCantidad } from "@/lib/pedidos";
+import { MAX_CANTIDAD, leerCantidad, netoLinea } from "@/lib/pedidos";
 import { MarcaFormula, existencias } from "./Productos";
 import { precioDe, type Linea } from "./tipos";
 
 /** Una línea de la venta: cantidad con − y + o escrita (clic en el número), descuento, aviso de precio cambiado desde el
  *  pedido y de unidades que van en domicilios abiertos. La usan la caja y el editor de pedidos. */
-export function LineaVenta({ l, sobra, domicilio, onCambio, onQuitar, onListo }: {
+export function LineaVenta({ l, sobra, domicilio, onCambio, onQuitar, onListo, general = 0 }: {
   l: Linea; sobra: boolean; domicilio?: { unidades: number; pedidos: number } | null;
+  /** Descuento general de la venta: el total de la línea ya lo incluye, así las líneas suman el total. */ general?: number;
   onCambio: (cambio: Partial<Pick<Linea, "cantidad" | "descuento">>) => void; onQuitar: () => void; onListo?: () => void;
 }) {
   const precio = precioDe(l);
+  const { bruto, neto } = netoLinea(precio, l.cantidad, l.descuento, general);
   const [editando, setEditando] = useState<string | null>(null);
   const [error, setError] = useState("");
   const terminar = (guardar: boolean) => {
@@ -29,7 +31,7 @@ export function LineaVenta({ l, sobra, domicilio, onCambio, onQuitar, onListo }:
     <li className="py-3">
       <div className="flex justify-between gap-3">
         <p className="leading-snug text-[15px]">{l.p.nombre}{(l.p.control_especial || l.p.requiere_formula) && <span className="ml-1.5 inline-block align-middle"><MarcaFormula p={l.p} /></span>}</p>
-        <button onClick={onQuitar} aria-label={`Quitar ${l.p.nombre}`} className="text-muted hover:text-alerta shrink-0 -mt-0.5 text-xl leading-none">×</button>
+        <button onClick={onQuitar} aria-label={`Quitar ${l.p.nombre}`} className="size-10 sm:size-8 -mr-2 -mt-1.5 grid place-items-center rounded-lg text-muted hover:text-alerta hover:bg-alerta-soft shrink-0 text-2xl leading-none">×</button>
       </div>
       <div className="mt-2 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1 min-w-0">
@@ -49,12 +51,12 @@ export function LineaVenta({ l, sobra, domicilio, onCambio, onQuitar, onListo }:
             <button onClick={() => { setEditando(String(l.cantidad)); setError(""); }} aria-label={`Cantidad de ${l.p.nombre}: ${l.cantidad}. Escribir otra`} title="Clic para escribir la cantidad"
               className="num min-w-8 px-1 h-10 sm:h-8 rounded-lg text-center font-semibold hover:bg-paper underline decoration-dotted decoration-muted underline-offset-4">{l.cantidad}</button>
           )}
-          <button aria-label="Uno más" onClick={() => onCambio({ cantidad: Math.min(10000, l.cantidad + 1) })} className="size-10 sm:size-8 rounded-lg border border-line text-lg leading-none shrink-0">+</button>
+          <button aria-label="Uno más" onClick={() => onCambio({ cantidad: Math.min(MAX_CANTIDAD, l.cantidad + 1) })} className="size-10 sm:size-8 rounded-lg border border-line text-lg leading-none shrink-0">+</button>
           <span className="ml-2 text-sm text-muted">{l.presentacion === "caja" ? (l.p.unidades_por_caja > 1 ? `caja x${l.p.unidades_por_caja}` : "und") : "unidad"} · {pesos(precio)}</span>
         </div>
         <span className="num font-semibold text-right">
-          {l.descuento > 0 && <span className="block text-xs text-muted line-through">{pesos(precio * l.cantidad)}</span>}
-          {pesos(l.descuento > 0 ? Math.round(precio * l.cantidad * (100 - l.descuento) / 100) : precio * l.cantidad)}
+          {neto < bruto && <span className="block text-xs text-muted line-through">{pesos(bruto)}</span>}
+          {pesos(neto)}
         </span>
       </div>
       <label className="mt-1 inline-flex items-center gap-1.5 text-sm text-muted">Desc.

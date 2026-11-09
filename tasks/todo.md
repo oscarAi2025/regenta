@@ -436,3 +436,20 @@ Muestras de Oscar: ZIP de Distribuidora Pasteur (resultó ser una NOTA CRÉDITO 
 - [x] SQL 041 aplicado por Oscar (09/11 10:11) y comprobado EN VIVO: «PRUEBA-657246» registrada; «PRUEBA 657246» y «PRUEBA657246» rechazadas (409). Compra de prueba anulada.
 - [x] Comprobado EN VIVO con IA real: ZIP de AXA (24/24 lotes del PDF), Zanecol (4/4), Allers y Pasteur; fotos de Zanecol, AXA (pág. 1) y tiquete real: todas las líneas exactas.
 - [ ] Fotos de Pasteur y Allers con la IA real (tope de 5 lecturas/día en la demo agotado el 09/11)
+
+## 09/11/2026 · Auditoría extrema: lo que queda (decisiones y funciones nuevas)
+Decisiones de Oscar (contenido público y legal; no se toca sin su visto bueno, regla SEO):
+- [ ] Promesa de facturación DIAN activa (portada, tarjeta SETT1024, franja ✓ DIAN, /demo/gracias, guía de los 12, términos §4) mientras MATIAS no esté habilitado.
+- [ ] Plan Cadena «varias sedes» frente a «una sede por cuenta».
+- [ ] «Comparativa con fuentes» sin fuentes; «revisamos 15 programas» sin lista.
+- [ ] Términos/privacidad: quién cobra con Stripe (IA DEV INVESTMENTS LLC) frente a la S.A.S.; Wompi y transferencia internacional en la política de datos.
+- [ ] /funciones lista las 15 páginas; «seis medios de pago» (son siete); pedido sugerido «cuánto tarda tu proveedor» frente a 3 días fijos; quién carga los productos en Esencial; títulos SEO con y sin «| Regenta»; precio a mano en la guía de precios.
+Funciones nuevas (no son arreglos de una línea):
+- [ ] Nota crédito de proveedor sin devolución (descuento o precio) y sobre facturas ya pagadas.
+- [ ] Recibir una factura en partes (la bodega recibe 2 de 18 líneas) y completar después.
+- [ ] Precargar costos al costear una compra de la bodega desde el XML guardado.
+- [ ] Nota débito en la cartera del cliente.
+- [ ] Venta sin internet sin existencias al sincronizar: hoy queda con aviso y acciones en la caja; falta avisar al dueño.
+- [ ] Reinicio programado de la demo pública (datos de visitantes) o demo en base aparte.
+- [ ] Revisar vigente_desde de la numeración y vencimiento de la numeración de notas crédito en anular/devolver.
+- [ ] Confirmar con MATIAS si resolution_number es opcional en las notas (ya no se exige en Regenta).

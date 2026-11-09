@@ -21,6 +21,8 @@ test("Unidades por caja desde la descripción real de las facturas de AXA, Zanec
     ["LIMPIADERM CREMA TOPICA X 20 GR BIOQUIFAR", 1],
     ["GASA NO TEJIDA 7.5 X 7.5 X 2 UNDS ESTERIL", 2],
     ["DEXAMETASONA 8 mg / 2 mL SOL INY AMP- BIOSANO", 1],
+    ["CURITAS TUBO 2 X 10UNDS", 10],
+    ["LORATADINA 10 MG X 10TAB", 10],
   ];
   for (const [d, n] of casos) assert.equal(unidadesEnDescripcion(d), n, d);
 });
@@ -48,4 +50,6 @@ test("Margen que ve la persona y nombre del catálogo", () => {
   assert.equal(margenDe(9000, 10000, 0), -11.1);
   assert.equal(MARGEN_SUGERIDO, 25);
   assert.equal(nombreDeFactura("  IMPOMEL- X 15 MG  CJA X 10 TAB - "), "IMPOMEL- X 15 MG CJA X 10 TAB");
+  // La bonificada no crea otro producto «… BONIFICADO»: es el mismo producto.
+  assert.equal(nombreDeFactura("ACETAMINOFEN 500 MG X 100 TAB (BONIFICADO)"), "ACETAMINOFEN 500 MG X 100 TAB");
 });

@@ -19,7 +19,7 @@ export const GET = conSesion(async (s, req) => {
   const q = (sp.get("q") ?? "").replace(/\0/g, "").trim().slice(0, 80);
   if (q.length < 2) return json({ clientes: [] });
   const clientes = await comoUsuario(s, async (c) => (await c.query(
-    `select ${CAMPOS} from clientes where empresa_id = $1 and (numero_doc like $2 || '%' or lower(nombre) like '%' || $3 || '%')
+    `select ${CAMPOS} from clientes where empresa_id = $1 and (numero_doc like $2 || '%' or sin_tildes(nombre) like '%' || sin_tildes($3) || '%')
      order by (numero_doc = $2) desc, nombre limit 8`, [s.empresa, sinComodines(q.replace(/[.\s-]/g, "")), sinComodines(q.toLowerCase())])).rows);
   return json({ clientes });
 });

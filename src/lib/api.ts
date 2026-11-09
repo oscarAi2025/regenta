@@ -12,15 +12,18 @@ export function conSesion(fn: (s: Sesion, req: Request, ctx: { params: Promise<R
     const s = await leerSesion();
     if (!s) return NextResponse.json({ error: "Tu sesión venció: vuelve a entrar" }, { status: 401 });
     try {
-      return await fn(s, req, ctx);
+      const res = await fn(s, req, ctx);
+      // Lecturas con datos de la droguería: sin caché (ni intermedias ni del navegador). Solo GET: con «no-store», un POST
+      // que la pantalla manda sin leer la respuesta (eventos de la demo) dejaba la conexión abierta.
+      if (req.method === "GET" && !res.headers.has("cache-control")) res.headers.set("Cache-Control", "private, no-store");
+      return res;
     } catch (e) {
       const { status, error } = mensajeError(e);
       return NextResponse.json({ error }, { status });
     }
   };
 }
-/** Respuesta JSON de la API: datos de la droguería, nunca en cachés intermedias ni en el historial del navegador. */
-export const json = (d: unknown, status = 200) => NextResponse.json(d, { status, headers: { "Cache-Control": "private, no-store" } });
+export const json = (d: unknown, status = 200) => NextResponse.json(d, { status });
 
 /** Las escrituras solo se aceptan desde el propio sitio (defensa contra CSRF además de SameSite=lax). */
 export function mismoOrigen(req: Request) {

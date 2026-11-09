@@ -44,7 +44,7 @@ export default async function Reportes({ searchParams }: { searchParams: Promise
       </nav>
 
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3" aria-label="Resumen">
-        <Dato titulo="Ventas netas" valor={pesos(d.netas)} tono="cruz" nota={`${pesos(d.resumen.bruto)} vendido − ${pesos(d.devoluciones.total)} devuelto`} />
+        <Dato titulo="Ventas netas (con IVA)" valor={pesos(d.netas)} tono="cruz" nota={`${pesos(d.resumen.bruto)} vendido − ${pesos(d.devoluciones.total)} devuelto`} />
         <Dato titulo="Ventas" valor={d.resumen.ventas} nota={`ticket promedio ${pesos(d.promedio)}${d.resumen.anuladas ? ` · ${d.resumen.anuladas} anuladas` : ""}`} />
         <Dato titulo="Ganancia bruta" valor={pesos(res.utilidad_bruta)} nota={<>{res.margen === null ? "Sin ventas con costo en el rango" : `margen ${String(res.margen).replace(".", ",")} % sobre la venta sin IVA`}
           {res.sin_costo.netas > 0 && <span className="block text-aviso">{pesosExactos(res.sin_costo.netas)} vendidos sin costo registrado (no cuentan)</span>}

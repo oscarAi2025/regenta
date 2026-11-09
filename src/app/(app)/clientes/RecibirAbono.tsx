@@ -43,6 +43,7 @@ export function RecibirAbono({ cliente, abierto: abiertoInicial = false }: { cli
   async function guardar(e: React.FormEvent) {
     e.preventDefault();
     if (enviando || !elegido) return;
+    if (entero(valor) > Math.round(elegido.saldo)) { setError(`El pago no puede ser mayor que lo que debe (${pesos(elegido.saldo)})`); return; }
     setEnviando(true); setError("");
     try {
       const r = await fetch("/api/recibos", { method: "POST", headers: { "content-type": "application/json" },

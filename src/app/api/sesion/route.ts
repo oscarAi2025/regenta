@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { sinRLS } from "@/lib/db";
 import { crearSesion, cerrarSesion, demoActiva, leerSesion, USUARIOS_DEMO, type Rol } from "@/lib/sesion";
 import { mismoOrigen } from "@/lib/api";
+import { crearVisita, visitaActual } from "@/lib/visitas-demo";
 
 /** Acceso de demostración con los usuarios sembrados (se apaga en producción sin REGENTA_DEMO=1). */
 export async function POST(req: Request) {
@@ -21,6 +22,8 @@ export async function POST(req: Request) {
      where m.user_id = $1 and m.activo and e.demo order by m.creado limit 1`, [uid])).rows[0]);
   if (!m) return NextResponse.json({ error: "Usuario de demostración no encontrado" }, { status: 404 });
   await crearSesion({ uid, empresa: m.empresa_id, nombre: m.nombre, rol: m.rol as Rol });
+  // Entrar a la demo desde /entrar también cuenta como visita (Consola → Visitas a la demo), igual que «Probar la demo».
+  if (!(await visitaActual())) await crearVisita(req, Object.entries(USUARIOS_DEMO).find(([, v]) => v === uid)?.[0] ?? "dueno");
   return NextResponse.json({ ok: true, rol: m.rol });
 }
 

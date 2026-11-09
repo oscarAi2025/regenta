@@ -104,7 +104,7 @@ export default async function Tiquete({ params, searchParams }: { params: Promis
       <hr />
       {[...tarifas].sort((a, b) => b[0] - a[0]).map(([pct, t]) => (
         <div key={pct}>
-          {pct > 0 ? <>{doble(`Base gravada ${pct}%`, pesos(t.base))}{doble(`IVA ${pct}%`, pesos(t.iva))}</> : doble("Excluido / exento", pesos(t.base))}
+          {pct > 0 ? <>{doble(`Base gravada ${pct}%`, pesos(t.base))}{doble(`IVA ${pct}%`, pesos(t.iva))}</> : doble(v.responsable_iva ? "Excluido / exento" : "Total sin IVA (no responsable)", pesos(t.base))}
         </div>
       ))}
       {lineas.some((l) => l.descuento > 0) && doble("Ahorro total", pesos(lineas.reduce((a, l) => a + l.descuento, 0)))}

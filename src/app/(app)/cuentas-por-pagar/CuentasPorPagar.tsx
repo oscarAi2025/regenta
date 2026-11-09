@@ -22,7 +22,7 @@ export function CuentasPorPagar({ inicial }: { inicial: FilaCxP[] }) {
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3" aria-label="Resumen">
         {[["Por pagar", suma(), "text-ink", `${filas.length} factura${filas.length === 1 ? "" : "s"}`], ["Vencido", suma("vencidas"), "text-alerta", suma("vencidas") ? "págalo cuanto antes" : "nada vencido"],
           ["Vence en 7 días", suma("semana"), "text-aviso", suma("semana") ? "programa el pago" : "nada esta semana"], ["Al día", suma("al_dia"), "text-cruz", "más de 7 días"]].map(([t, v, c, n]) => (
-          <div key={t as string} className="tarjeta px-4 py-3.5"><p className="text-sm text-muted">{t}</p><p className={`num titulo text-[28px] leading-tight ${v ? c : "text-ink"}`}>{pesosExactos(v as number)}</p><p className="text-[13px] text-muted">{n}</p></div>
+          <div key={t as string} className="tarjeta px-4 py-3.5 min-w-0"><p className="text-sm text-muted">{t}</p><p className={`num titulo text-[clamp(20px,6.5vw,28px)] leading-tight [overflow-wrap:anywhere] ${v ? c : "text-ink"}`}>{pesosExactos(v as number)}</p><p className="text-[13px] text-muted">{n}</p></div>
         ))}
       </section>
       {aviso && <p role="status" className="rounded-xl bg-cruz-soft text-cruz font-semibold px-4 py-3">{aviso}</p>}

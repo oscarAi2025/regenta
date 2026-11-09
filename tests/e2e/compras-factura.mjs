@@ -16,6 +16,15 @@ const B = process.env.BASE ?? "http://localhost:4500";
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp" });
 let fallos = 0;
 const ok = (c, m, x = "") => { console.log(`${c ? "PASS" : "FAIL"} ${m}${x ? " — " + x : ""}`); if (!c) fallos++; };
+/** Guardar la compra: si hay productos sin fecha de vencimiento, la pantalla lo pide primero y se confirma con un segundo clic. */
+async function guardarCompra(p) {
+  await p.getByRole("button", { name: /^Guardar/ }).click();
+  const sinFecha = p.getByRole("alert").filter({ hasText: /fecha de vencimiento/ });
+  if (await sinFecha.waitFor({ timeout: 1500 }).then(() => true).catch(() => false)) {
+    ok(true, "sin fecha de vencimiento: pide confirmarlo antes de guardar");
+    await p.getByRole("button", { name: /^Guardar/ }).click();
+  }
+}
 const q = async (sql, params = []) => (await pool.query(sql, params)).rows;
 const q1 = async (sql, params = []) => (await q(sql, params))[0];
 const fx = (n) => readFileSync(new URL(`../fixtures/facturas/${n}`, import.meta.url));
@@ -132,7 +141,7 @@ const XML1 = Buffer.from(factura(`FP-${R}`));
   // Revisión: costos y cajas/unidades según cómo viene la factura.
   const costos = await p.locator('input[id^="costo-"]').evaluateAll((xs) => xs.map((x) => x.value));
   ok(JSON.stringify(costos) === JSON.stringify(["30000", "12000", "5000"]), "costos de la factura en la pantalla", costos.join(","));
-  await p.getByRole("button", { name: /^Guardar/ }).click();
+  await guardarCompra(p);
   await p.getByText(/Compra N\.º \d+ guardada/).waitFor({ timeout: 30000 });
   const c = await q1(`select c.id, c.cufe_proveedor, c.numero_factura, pr.nit, pr.nombre, c.total::float from compras c join proveedores pr on pr.id = c.proveedor_id where c.empresa_id = $1 and c.numero_factura = $2`, [DEMO.id, `FP-${R}`]);
   ok(c && c.nit === NIT_PROV && c.cufe_proveedor?.startsWith("cccc"), "compra guardada con el proveedor nuevo (NIT) y el CUFE");
@@ -232,7 +241,7 @@ const XML1 = Buffer.from(factura(`FP-${R}`));
   await p.getByRole("button", { name: /^Guardar/ }).click();
   ok(await p.getByRole("alert").filter({ hasText: /lote/i }).isVisible(), "sin lote no deja guardar");
   for (const campo of await p.locator('input[id^="lote-"]').all()) if (!(await campo.inputValue())) await campo.fill(`Z${R}${Math.floor(Math.random() * 1000)}`);
-  await p.getByRole("button", { name: /^Guardar/ }).click();
+  await guardarCompra(p);
   await p.getByText(/Compra N\.º \d+ guardada/).waitFor({ timeout: 30000 });
   const otraVez = await leer(p, "zanecol.zip", "application/zip", fx("zanecol-factura.zip"));
   ok(otraVez.j.documento.lineas.every((l) => l.producto) && otraVez.j.duplicada, "Zanecol otra vez: todo emparejado solo (memoria) y avisa que ya está registrada");

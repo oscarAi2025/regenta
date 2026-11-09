@@ -1,5 +1,5 @@
 // Formatos compartidos entre servidor y navegador.
-export const pesos = (n: number) => "$" + Math.round(Number(n)).toLocaleString("es-CO");
+export const pesos = (n: number) => { const v = Math.round(Number(n)); return (v < 0 ? "−$" : "$") + Math.abs(v).toLocaleString("es-CO"); }; // negativos: «−$6.000», no «$-6.000»
 export const MEDIO: Record<string, string> = { efectivo: "Efectivo", nequi: "Nequi", daviplata: "Daviplata", bre_b: "Bre-B", transferencia: "Transferencia", tarjeta: "Tarjeta", qr: "QR" };
 export const existenciasTexto = (unidades: number, upc: number) => {
   if (unidades <= 0) return "Agotado";

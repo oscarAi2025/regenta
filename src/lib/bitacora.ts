@@ -15,9 +15,11 @@ export const TIPOS_BITACORA: Record<string, { nombre: string; acciones: string[]
   devolucion: { nombre: "Devoluciones", acciones: ["devolucion", "devolucion_proveedor", "nc_proveedor"] },
   descuento: { nombre: "Descuentos sobre el tope", acciones: [] },
   ajuste: { nombre: "Ajustes y bajas", acciones: ["ajuste_inventario", "entrada_ajuste"] },
-  turno: { nombre: "Turnos y caja", acciones: ["cerrar_turno", "venta_sin_turno"] },
+  turno: { nombre: "Turnos y caja", acciones: ["cerrar_turno", "venta_sin_turno", "venta_sin_conexion"] },
   credito: { nombre: "Crédito de clientes", acciones: ["credito_cliente", "mora_bloqueo", "credito_autorizado"] },
   rango: { nombre: "Rangos de temperatura", acciones: ["rango_temperatura"] },
+  dian: { nombre: "Documentos DIAN", acciones: ["nota_debito", "documento_soporte", "ajuste_soporte", "reenviar_dian"] },
+  compras: { nombre: "Compras y gastos", acciones: ["registrar_gasto", "cargos_compra"] },
   configuracion: { nombre: "Equipo y configuración", acciones: ["configurar_empresa", "configurar_formulas", "cambio_formula", "cambiar_usuario", "invitar_usuario", "crear_caja", "cambiar_caja"] },
 };
 const TIPO_DE: Record<string, string> = Object.fromEntries(Object.entries(TIPOS_BITACORA).flatMap(([t, x]) => x.acciones.map((a) => [a, t])));
@@ -148,6 +150,13 @@ function describir(x: Cruda): FilaBitacora {
     case "cambiar_usuario": titulo = "Cambio en el equipo"; detalle = `${nombre(x.miembro) || "Usuario"}: ${[d.rol ? `rol ${ROLES[String(d.rol)] ?? d.rol}` : null, d.activo === false ? "desactivado" : d.activo === true ? "activo" : null, d.enlace ? "se le envió un enlace de acceso" : null].filter(Boolean).join(", ") || "datos actualizados"}.`; break;
     case "invitar_usuario": titulo = "Invitación al equipo"; detalle = `${d.email} como ${ROLES[String(d.rol)] ?? d.rol}.`; break;
     case "crear_caja": titulo = "Caja nueva"; detalle = `${d.nombre}.`; break;
+    case "nota_debito": titulo = "Nota débito"; detalle = `${d.numero} sobre la factura ${d.factura} por ${$(d.total)}.${motivo(d)}`; break;
+    case "documento_soporte": titulo = "Documento soporte"; detalle = `${d.numero} a ${d.proveedor} por ${$(d.total)}${Array.isArray(d.compras) && d.compras.length ? ` (compras N.º ${(d.compras as unknown[]).join(", ")})` : ""}.`; break;
+    case "ajuste_soporte": titulo = "Nota de ajuste del documento soporte"; detalle = `${d.numero ?? ""}${d.total !== undefined ? ` por ${$(d.total)}` : ""}.${motivo(d)}`; break;
+    case "reenviar_dian": titulo = "Reenvío a la DIAN"; detalle = x.venta ? `Venta ${x.venta}: se volvió a enviar el documento.` : "Se volvió a enviar un documento electrónico."; break;
+    case "registrar_gasto": titulo = "Gasto registrado"; detalle = `G-${d.numero} (${nombreCategoria(String(d.categoria))}: ${d.descripcion}) por ${$(d.valor)}${d.caja ? ", pagado con el efectivo de la caja" : ""}.`; break;
+    case "cargos_compra": titulo = "Flete y otros cargos de una compra"; detalle = `Compra N.º ${d.numero}: ${Array.isArray(d.cargos) ? (d.cargos as { descripcion: string; base: number; iva: number }[]).map((c) => `${c.descripcion} ${$(Number(c.base) + Number(c.iva))}`).join(", ") : ""}.`; break;
+    case "venta_sin_conexion": titulo = "Venta hecha sin internet"; detalle = `Se vendió el ${String(d.vendida ?? "").slice(0, 16).replace("T", " ")} y se registró al volver la conexión, por ${$(d.total)}.`; break;
     case "cambiar_caja": titulo = "Cambio de caja"; detalle = `${[d.nombre ? `nombre «${d.nombre}»` : null, d.activa === false ? "desactivada" : d.activa === true ? "activada" : null].filter(Boolean).join(", ") || "datos actualizados"}.`; break;
   }
   const tipo = TIPO_DE[x.accion] ?? "";

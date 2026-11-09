@@ -11,7 +11,7 @@ import { wa } from "@/lib/sitio";
 
 type Paso = { id: string; titulo: string; detalle: string; href: string; roles: string[] };
 const PASOS: Paso[] = [
-  { id: "venta", titulo: "Haz una venta en la caja", detalle: "Busca «acetaminofen» y cobra. Mira cómo sale el tiquete POS electrónico.", href: "/caja", roles: ["dueno", "admin", "cajero"] },
+  { id: "venta", titulo: "Haz una venta en la caja", detalle: "Busca «acetaminofén» y cobra. Mira cómo sale el tiquete POS electrónico.", href: "/caja", roles: ["dueno", "admin", "cajero"] },
   { id: "prediccion", titulo: "Mira qué se te va a vencer", detalle: "La plata que estás a punto de perder y qué pedir esta semana.", href: "/prediccion", roles: ["dueno", "admin", "bodeguero"] },
   { id: "alertas", titulo: "Revisa las alertas del INVIMA", detalle: "Cruzadas con tus lotes: solo te avisa lo que te toca.", href: "/alertas", roles: ["dueno", "admin", "cajero", "bodeguero"] },
 ];
@@ -69,6 +69,8 @@ export function ModoDemo({ rol, precio, garantia }: { rol: string; precio: numbe
   useEffect(() => {
     const p = PASOS.find((x) => x.id !== "venta" && ruta.startsWith(x.href));
     if (p) actualizar((x) => (x.hechos.includes(p.id) ? x : { ...x, hechos: [...x.hechos, p.id] }));
+    // Al llegar a la pantalla de un paso, la guía se recoge para no tapar lo que hay que probar (sigue a un toque).
+    if (PASOS.some((x) => ruta.startsWith(x.href))) setAbierta(false);
   }, [ruta, actualizar]);
 
   useEffect(() => {
@@ -113,7 +115,7 @@ export function ModoDemo({ rol, precio, garantia }: { rol: string; precio: numbe
           {abierta ? (
             <div className="rounded-2xl bg-[#0b1f33] text-white shadow-[0_24px_48px_-20px_rgba(0,0,0,.7)] p-4 max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain">
               <div className="flex items-center justify-between gap-3">
-                <p className="font-cond text-xl leading-tight" style={{ fontWeight: 700 }}>Pruébalo en 3 minutos</p>
+                <p className="font-cond text-xl leading-tight" style={{ fontWeight: 700 }}>Pruébalo en {pasos.length} pasos</p>
                 <button onClick={() => { setAbierta(false); actualizar((x) => ({ ...x, cerrada: true })); }} className="text-white/60 hover:text-white text-sm shrink-0" aria-label="Minimizar el recorrido">Minimizar</button>
               </div>
               <div className="mt-2 h-1.5 rounded-full bg-white/15 overflow-hidden" aria-hidden="true"><div className="h-full bg-amber-400 transition-[width] duration-500" style={{ width: `${(hechos / pasos.length) * 100}%` }} /></div>

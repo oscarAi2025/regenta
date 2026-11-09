@@ -123,8 +123,8 @@ export function Emparejar({ l, dinero, nuevo, error, creando, alElegir, alQuitar
             {upc > 1 && (
               <div className="col-span-2 sm:col-span-1 min-w-0"><label htmlFor={`${id}-c`} className="etiqueta">La factura trae</label>
                 <select id={`${id}-c`} value={nuevo.como} onChange={(e) => { const como = e.target.value as Nuevo["como"]; const p = preciosSugeridos({ costo: l.precio, descuentoPct: l.descuento_pct, como, upc, ivaPct: nuevo.iva }); alCambiarNuevo({ como, precio_caja: p.precio_caja ? String(p.precio_caja) : nuevo.precio_caja, precio_unidad: p.precio_unidad ? String(p.precio_unidad) : nuevo.precio_unidad }); }} className="campo">
-                  <option value="caja">{miles(l.cantidad)} cajas</option>
-                  <option value="unidad">{miles(l.cantidad)} sueltas</option>
+                  <option value="caja">{miles(l.cantidad)} {l.cantidad === 1 ? "caja" : "cajas"}</option>
+                  <option value="unidad">{miles(l.cantidad)} {l.cantidad === 1 ? "suelta" : "sueltas"}</option>
                 </select></div>
             )}
             <div className="min-w-0"><label htmlFor={`${id}-p`} className="etiqueta">{upc > 1 ? "Precio caja" : "Precio de venta"} con IVA</label>

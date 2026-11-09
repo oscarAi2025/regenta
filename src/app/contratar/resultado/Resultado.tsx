@@ -10,6 +10,7 @@ type Estado = { estado: string; plan: string; periodo: string; monto: number; pr
 export function Resultado({ referencia, transaccion }: { referencia: string; transaccion: string }) {
   const [e, setE] = useState<Estado | null>(null);
   useEffect(() => {
+    if (!referencia) { setE({ error: "Falta la referencia del pago en el enlace" }); return; }
     let vivo = true, n = 0;
     const consulta = async () => {
       try {
@@ -24,7 +25,7 @@ export function Resultado({ referencia, transaccion }: { referencia: string; tra
   }, [referencia, transaccion]);
 
   if (!e) return <p className="mt-6 text-muted text-lg">Consultando tu pago…</p>;
-  if ("error" in e) return <p className="mt-6 text-alerta text-lg">{e.error}. Si pagaste, escríbenos por WhatsApp con tu comprobante.</p>;
+  if ("error" in e) return <p className="mt-6 text-alerta text-lg">{e.error}. Si pagaste, <a href={wa("Hola, pagué Regenta y quiero confirmar mi pago. Te envío el comprobante.")} className="underline font-semibold">escríbenos por WhatsApp</a> con tu comprobante.</p>;
   const plan = e.plan === "pro" ? "Pro" : "Esencial";
   if (e.estado === "aprobado") return (
     <div className="mt-6 rounded-3xl degradado-marca text-white p-6 sm:p-8">

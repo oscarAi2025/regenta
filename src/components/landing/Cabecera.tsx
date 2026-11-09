@@ -20,6 +20,19 @@ export function CabeceraPublica() {
           <Link href="/precios" className="hidden md:inline font-medium hover:text-teal-700">Tarifas</Link>
           <Link href="/guias" className="hidden lg:inline font-medium hover:text-teal-700">Guías</Link>
           <a href={wa("Hola, quiero conocer Regenta para mi droguería o distribuidora.")} className="hidden md:inline font-semibold text-teal-700 hover:underline">WhatsApp</a>
+          {/* En pantallas donde no caben los enlaces: menú desplegable (sin JavaScript), para llegar a Tarifas y lo demás. */}
+          <details className="relative xl:hidden group">
+            <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer h-11 px-2.5 min-[360px]:px-3 inline-flex items-center gap-1.5 rounded-xl border border-line font-semibold hover:border-ink" aria-label="Menú">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+              <span className="hidden min-[400px]:inline">Menú</span>
+            </summary>
+            <div className="absolute right-0 top-[calc(100%+8px)] w-60 rounded-2xl border border-line bg-white shadow-xl p-2 grid">
+              {([["/precios", "Tarifas"], ["/funciones", "Funciones"], ["/software", "Software"], ["/software/distribuidoras-medicamentos", "Distribuidoras"], ["/guias", "Guías"], ["/entrar", "Entrar a mi cuenta"]] as const).map(([h, t]) => (
+                <Link key={h} href={h} className="h-11 px-3 rounded-lg flex items-center font-medium hover:bg-paper">{t}</Link>
+              ))}
+              <a href={wa("Hola, quiero conocer Regenta para mi droguería o distribuidora.")} className="h-11 px-3 rounded-lg flex items-center font-semibold text-teal-700 hover:bg-paper">WhatsApp</a>
+            </div>
+          </details>
           <BotonDemo texto="Probar gratis" className="btn-cta h-11 px-3 min-[360px]:px-5 whitespace-nowrap" />
         </nav>
       </div>

@@ -9,7 +9,7 @@ export const GET = conSesion(async (s, req) => {
   const productos = await comoUsuario(s, async (c) => (await c.query(
     `select m.id, m.nombre, m.laboratorio, m.ean, m.iva::float, m.categoria
      from productos_maestro m
-     where (m.ean = $2 or (select bool_and(lower(m.nombre || ' ' || coalesce(m.laboratorio, '')) like '%' || w || '%') from unnest($3::text[]) w))
+     where (m.ean = $2 or (select bool_and(sin_tildes(m.nombre || ' ' || coalesce(m.laboratorio, '')) like '%' || sin_tildes(w) || '%') from unnest($3::text[]) w))
        and not exists (select 1 from productos p where p.empresa_id = $1 and p.maestro_id = m.id)
      order by (m.ean = $2) desc, m.nombre limit 25`, [s.empresa, q, palabras])).rows);
   return json({ productos });

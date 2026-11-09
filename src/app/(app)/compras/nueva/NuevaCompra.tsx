@@ -40,11 +40,19 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
   const [cufe, setCufe] = useState("");
   const [archivoId, setArchivoId] = useState<string | null>(null);
   const [avisos, setAvisos] = useState<string[]>([]);
+  const [duplicada, setDuplicada] = useState<{ id: string; numero: number } | null>(null);
+  const [sinVenceOk, setSinVenceOk] = useState(false);
   const [porEmparejar, setPorEmparejarEstado] = useState<PorEmparejar[]>([]);
   // Copia viva para las acciones asíncronas (crear productos en lote) sin leer un estado viejo.
   const pendientes = useRef<PorEmparejar[]>([]);
-  const setPorEmparejar = (f: PorEmparejar[] | ((xs: PorEmparejar[]) => PorEmparejar[])) =>
-    setPorEmparejarEstado((xs) => { const v = typeof f === "function" ? f(xs) : f; pendientes.current = v; return v; });
+  // La copia se actualiza en el momento (no dentro del actualizador de React, que corre después): «crear todos» lee la
+  // lista real al terminar (antes avisaba «algunos no se crearon» aunque se hubieran creado todos).
+  const setPorEmparejar = (f: PorEmparejar[] | ((xs: PorEmparejar[]) => PorEmparejar[])) => {
+    const v = typeof f === "function" ? f(pendientes.current) : f;
+    pendientes.current = v; setPorEmparejarEstado(v);
+  };
+  // Flete, domicilio, seguro… de la factura: se le deben al proveedor y se guardan con la compra (no son mercancía).
+  const [cargos, setCargos] = useState<{ descripcion: string; base: number; iva: number }[]>([]);
   const [creandoTodos, setCreandoTodos] = useState(false);
   const buscar = useRef<HTMLInputElement>(null);
   const clave = useRef(0);
@@ -95,14 +103,16 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
     else { setProveedor(d.proveedor.nombre); setNit(d.proveedor.nit ?? ""); }
     setFactura(d.numero.toUpperCase());
     setFecha(d.fecha && d.fecha <= hoy ? d.fecha : hoy);
+    const fechaFutura = !!d.fecha && d.fecha > hoy;
     // Cargos (flete, domicilio…): no son mercancía. El total a cuadrar es el de la factura sin ellos (con su IVA).
     const cargos = d.lineas.filter((l) => l.cargo);
     const valorCargos = cargos.reduce((a, l) => a + (l.base ?? 0) * (1 + (l.iva_pct || 0) / 100), 0);
+    setCargos(dinero ? cargos.filter((l) => (l.base ?? 0) > 0).map((l) => ({ descripcion: l.descripcion.slice(0, 120), base: Math.round((l.base ?? 0) * 100) / 100, iva: Math.round((l.base ?? 0) * (l.iva_pct || 0)) / 100 })) : []);
     if (dinero) {
       if (d.vence_pago && d.vence_pago > (d.fecha ?? hoy)) { setCondicion("credito"); setVence(d.vence_pago); }
       setPapel(d.totales.total !== null ? coma(Math.round((d.totales.total - valorCargos) * 100) / 100) : "");
     }
-    setCufe(d.cufe ?? ""); setArchivoId(r.archivo_id);
+    setCufe(d.cufe ?? ""); setArchivoId(r.archivo_id); setDuplicada(r.duplicada);
     const mercancia = d.lineas.filter((l) => !l.cargo);
     const listas = mercancia.filter((l) => l.producto).map((l) => desdeFactura(l, l.producto as Prod));
     setLineas(listas);
@@ -110,7 +120,8 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
     const sinLote = mercancia.filter((l) => !l.lote).length, sinVence = mercancia.filter((l) => !l.vence).length;
     setAvisos([...r.avisos,
       `Factura ${d.numero} de ${d.proveedor.nombre}: ${mercancia.length} producto${mercancia.length === 1 ? "" : "s"}, ${listas.length} ya encontrado${listas.length === 1 ? "" : "s"} en tu catálogo${mercancia.length > listas.length ? `, ${mercancia.length - listas.length} por emparejar abajo` : ""}.`,
-      ...cargos.map((l) => `«${l.descripcion}»${dinero && l.base !== null ? ` (${pesosExactos(l.base)}${l.iva_pct ? ` + IVA ${l.iva_pct} %` : ""})` : ""} es un cargo de la factura, no mercancía: no entra al inventario${dinero ? " y se descuenta del total a cuadrar" : ""}.`),
+      ...cargos.map((l) => `«${l.descripcion}»${dinero && l.base !== null ? ` (${pesosExactos(l.base)}${l.iva_pct ? ` + IVA ${l.iva_pct} %` : ""})` : ""} es un cargo de la factura, no mercancía: no entra al inventario${dinero ? ", pero se suma a lo que le debes al proveedor" : ""}.`),
+      ...(fechaFutura ? [`La factura dice ${d.fecha}, una fecha que aún no llega: se puso la de hoy. Revísala.`] : []),
       ...(sinLote ? [`${sinLote} producto${sinLote === 1 ? "" : "s"} sin lote en la factura: escríbelo desde la caja o el empaque.`] : []),
       ...(sinVence ? [`${sinVence === d.lineas.length ? "La factura no trae vencimientos" : `${sinVence} producto${sinVence === 1 ? "" : "s"} sin vencimiento en la factura`}: ponlo desde el empaque (semaforización y FEFO lo necesitan).`] : []),
       ...(d.origen === "ia" ? ["Leída de la foto con Regenta IA: confirma cantidades, lotes y costos contra el papel."] : [])]);
@@ -142,6 +153,10 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
     const r = await crearProducto(x.nuevo);
     if ("error" in r) { cambiarPend(key, { creando: false, error: r.error }); return false; }
     emparejarLinea(key, r.p, x.nuevo);
+    // La misma factura puede traer el producto en varias líneas (lotes distintos, o pagada y bonificada): todas quedan
+    // con el producto recién creado, en vez de crear uno por línea.
+    const mismo = (l: LineaFactura) => (!!x.l.codigo && l.codigo === x.l.codigo) || (!!x.l.ean && l.ean === x.l.ean);
+    for (const y of pendientes.current.filter((y) => y.key !== key && mismo(y.l))) emparejarLinea(y.key, r.p, x.nuevo);
     return true;
   }
   /** «Crear todos»: primero los abre para revisar; con todos abiertos, los crea uno tras otro. */
@@ -149,9 +164,10 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
     const cerrados = pendientes.current.filter((y) => !y.nuevo);
     if (cerrados.length) { for (const y of cerrados) void abrirNuevo(y.key); return; }
     setCreandoTodos(true);
-    for (const y of [...pendientes.current]) await crearUno(y.key);
+    for (const y of [...pendientes.current]) if (pendientes.current.some((z) => z.key === y.key)) await crearUno(y.key);
     setCreandoTodos(false);
-    if (pendientes.current.length) setError("Algunos productos no se crearon: revisa el mensaje en cada uno.");
+    const faltan = pendientes.current.length;
+    if (faltan) setError(`${faltan === 1 ? "Un producto no se creó" : `${faltan} productos no se crearon`}: revisa el mensaje en cada uno.`);
   }
   const cambiar = <K extends keyof Linea>(key: number, k: K, v: Linea[K]) => setLineas((ls) => ls.map((l) => (l.key === key ? { ...l, [k]: v } : l)));
   const pagadas = (l: Linea) => ent(l.cajas) * l.p.unidades_por_caja + ent(l.sueltas);
@@ -177,6 +193,13 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
     if (porEmparejar.length) { setError(`Faltan ${porEmparejar.length} producto${porEmparejar.length === 1 ? "" : "s"} de la factura por emparejar con tu catálogo (o quítalos si no son mercancía).`); document.getElementById("por-emparejar")?.scrollIntoView({ block: "center" }); return; }
     const mal = lineas.find((l) => !l.lote.trim() || entran(l) <= 0);
     if (mal) { setError(`Falta ${!mal.lote.trim() ? "el lote" : "la cantidad"} de ${mal.p.nombre}.`); document.getElementById(`${!mal.lote.trim() ? "lote" : "sueltas"}-${mal.key}`)?.focus(); return; }
+    // Sin fecha de vencimiento no hay semaforización ni FEFO: se pide, y solo se guarda sin ella confirmándolo.
+    const sinVence = lineas.filter((l) => !l.vence);
+    if (sinVence.length && !sinVenceOk) {
+      setSinVenceOk(true);
+      setError(`${sinVence.length === 1 ? `${sinVence[0].p.nombre} no tiene` : `${sinVence.length} productos no tienen`} fecha de vencimiento. Escríbela desde el empaque; si de verdad no tiene${sinVence.length === 1 ? "" : "n"}, vuelve a guardar.`);
+      document.getElementById(`vence-${sinVence[0].key}`)?.focus(); return;
+    }
     const vencida = lineas.find((l) => l.vence && l.vence < hoy);
     if (vencida) { setError(`${vencida.p.nombre}: el lote ${vencida.lote.trim()} ya está vencido. La mercancía vencida no se recibe para la venta.`); document.getElementById(`vence-${vencida.key}`)?.focus(); return; }
     if (dinero && conCosto > 0 && conCosto < lineas.length) {
@@ -191,11 +214,15 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
         idem_key: idem.current, ...(elegido ? { proveedor_id: elegido.id } : { proveedor_nuevo: { nombre: proveedor.trim(), nit: nit.trim() || null } }),
         numero_factura: factura.trim(), fecha_factura: fecha, condicion: dinero ? condicion : "contado", vence_pago: dinero && condicion === "credito" ? vence : null,
         total_papel: dinero && conCosto ? totalPapel : null, cufe_proveedor: cufe || null, archivo_id: archivoId,
-        recordar: lineas.flatMap((l) => (l.factura?.claves ?? []).map((k) => ({ clave: k, producto_id: l.p.id, como: ent(l.cajas) > 0 ? "caja" : "unidad" }))),
+        // Cajas o unidades según cómo se registró la línea (también la bonificada); la pagada manda sobre la bonificada.
+        recordar: [...lineas].sort((a, b) => Number(pagadas(b) > 0) - Number(pagadas(a) > 0))
+          .flatMap((l) => (l.factura?.claves ?? []).map((k) => ({ clave: k, producto_id: l.p.id, como: l.por })))
+          .filter((x, i, a) => a.findIndex((y) => y.clave === x.clave) === i),
         lineas: lineas.map((l) => ({ producto_id: l.p.id, lote: l.lote.trim(), vence: l.vence || null, unidades: pagadas(l), bonificadas: ent(l.bonif),
           ...(dinero && leerNumero(l.costo) !== null ? { costo: leerNumero(l.costo), costo_por: l.por, descuento_pct: leerNumero(l.desc) ?? 0, iva_pct: l.iva,
             precio_venta_nuevo: ent(l.precio) || null, precio_unidad_nuevo: ent(l.precioUnd) || null } : {}) })),
         pago: dinero && conCosto && condicion === "contado" && pagada ? { medio, desde_caja: medio === "efectivo" ? desdeCaja : false } : null,
+        cargos: dinero && conCosto && cargos.length ? cargos : null,
       }) });
     } catch { setEnviando(false); setError("Sin conexión: revisa internet y vuelve a guardar (no se duplicará)."); return; }
     const j = await r.json().catch(() => ({}));
@@ -203,7 +230,7 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
     if (!r.ok) { setError(j.error ?? "No se pudo guardar la compra"); return; }
     setHecho({ id: j.id, numero: j.numero, estado: j.estado, total: Number(j.total), unidades: unidadesTotal, diferencia: j.diferencia === null || j.diferencia === undefined ? null : Number(j.diferencia), pagada: !!j.pago });
     if (!elegido && j.detalle?.compra) setProveedores((ps) => [...ps, { id: j.detalle.compra.proveedor_id, nombre: j.detalle.compra.proveedor, nit: j.detalle.compra.proveedor_nit, plazo_dias: null }]);
-    setLineas([]); setFactura(""); setPapel(""); setNit(""); setPagada(false); setCufe(""); setArchivoId(null); setAvisos([]); setPorEmparejar([]); idem.current = crypto.randomUUID();
+    setLineas([]); setFactura(""); setPapel(""); setNit(""); setPagada(false); setCufe(""); setArchivoId(null); setAvisos([]); setDuplicada(null); setSinVenceOk(false); setPorEmparejar([]); setCargos([]); idem.current = crypto.randomUUID();
     window.scrollTo({ top: 0 });
     buscar.current?.focus();
   }
@@ -223,9 +250,15 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
       )}
 
       <CargarFactura alCargar={cargarFactura} />
+      {duplicada && (
+        <div role="alert" className="rounded-xl border-2 border-alerta bg-alerta-soft text-alerta px-4 py-3 grid gap-1">
+          <p className="font-semibold">Esta factura ya está registrada (compra N.º {duplicada.numero}): si la guardas otra vez, el inventario se duplica.</p>
+          <a href={`/compras/${duplicada.id}`} className="font-semibold underline">Ver la compra N.º {duplicada.numero}</a>
+        </div>
+      )}
       {avisos.length > 0 && (
         <ul role="status" className="rounded-xl bg-cruz-soft text-ink px-4 py-3 grid gap-1">
-          {avisos.map((a, i) => <li key={i} className={/^(Ojo|Esta factura ya)/.test(a) ? "font-semibold text-alerta" : i === 0 ? "font-semibold" : ""}>{a}</li>)}
+          {avisos.filter((a) => !/^Esta factura ya/.test(a)).map((a, i) => <li key={i} className={/^Ojo/.test(a) ? "font-semibold text-alerta" : i === 0 ? "font-semibold" : ""}>{a}</li>)}
         </ul>
       )}
 
@@ -312,7 +345,7 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
         <section className="grid gap-3" aria-label="Líneas de la compra">
           {lineas.map((l) => {
             const k = calc(l), upc = l.p.unidades_por_caja, costoUnd = k && entran(l) ? k.base / entran(l) : null;
-            const precioNuevo = ent(l.precio), m = costoUnd !== null ? margen(costoUnd, precioNuevo || l.p.precio_caja, Number(l.p.iva) || 0, upc) : null;
+            const precioNuevo = ent(l.precio), m = costoUnd !== null && pagadas(l) > 0 ? margen(costoUnd, precioNuevo || l.p.precio_caja, Number(l.p.iva) || 0, upc) : null;
             return (
               <article key={l.key} className="tarjeta p-4 grid gap-3 min-w-0">
                 <div className="flex items-start gap-3"><div className="flex-1 min-w-0"><p className="font-semibold">{l.p.nombre}</p><p className="text-sm text-muted">{l.p.laboratorio ?? "Genérico"}{upc > 1 ? ` · caja x ${upc}` : ""}{dinero ? ` · precio actual ${pesosExactos(l.p.precio_caja)}${upc > 1 ? " la caja" : ""}` : ""}</p>
@@ -350,7 +383,13 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
                 <div><dt className="text-sm text-muted">IVA</dt><dd className="font-semibold">{pesosExactos(r2(tot.iva))}</dd></div>
                 <div><dt className="text-sm text-muted">Total calculado</dt><dd className="font-semibold text-lg" data-total={total}>{pesosExactos(total)}</dd></div>
               </dl>
-              <div><label htmlFor="total-papel" className="etiqueta">Total de la factura (papel)</label><input id="total-papel" inputMode="decimal" value={papel} onChange={(e) => setPapel(decimal(e.target.value))} className="campo num" placeholder="Para cuadrar" /></div>
+              {cargos.length > 0 && (
+                <p className="sm:col-span-2 text-sm num">
+                  Más {cargos.map((x) => x.descripcion.toLowerCase()).join(", ")}: <b>{pesosExactos(r2(cargos.reduce((a, x) => a + x.base + x.iva, 0)))}</b> (no entra al inventario).
+                  {" "}Le debes al proveedor <b>{pesosExactos(r2(total + cargos.reduce((a, x) => a + x.base + x.iva, 0)))}</b>.
+                </p>
+              )}
+              <div><label htmlFor="total-papel" className="etiqueta">Total de la factura (papel){cargos.length > 0 ? ", sin los cargos" : ""}</label><input id="total-papel" inputMode="decimal" value={papel} onChange={(e) => setPapel(decimal(e.target.value))} className="campo num" placeholder="Para cuadrar" /></div>
               {diferencia !== null && (
                 <p role="note" className={`sm:col-span-2 rounded-xl px-4 py-2.5 font-semibold ${diferencia === 0 || redondeo ? "bg-cruz-soft text-cruz" : "bg-aviso-soft text-aviso"}`}>
                   {diferencia === 0 ? "Cuadra con la factura." : redondeo ? `Cuadra con la factura (${pesosExactos(diferencia)} de redondeo del proveedor).` : `Diferencia con la factura: ${pesosExactos(diferencia)}. Revisa costos, descuentos, IVA y bonificadas antes de guardar.`}

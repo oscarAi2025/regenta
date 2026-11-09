@@ -32,7 +32,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const rol = { dueno: "Dueño", admin: "Administrador", cajero: "Cajera", bodeguero: "Bodega", vendedor: "Vendedor" }[s.rol];
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[236px_1fr]">
-      <aside className="bg-ink text-white lg:h-screen flex lg:flex-col items-center lg:items-stretch gap-2 px-3 py-3 lg:py-5 sticky top-0 z-20">
+      <aside className="bg-ink text-white lg:h-screen flex lg:flex-col items-center lg:items-stretch gap-2 px-3 py-3 lg:py-5 sticky top-0 z-20 [@media(max-height:500px)]:static">
         <Link href="/inicio" className="flex items-center gap-2.5 lg:px-2 shrink-0" aria-label="Regenta, ir al inicio">
           <Isotipo size={38} claro />
           <span className="hidden lg:block leading-none">

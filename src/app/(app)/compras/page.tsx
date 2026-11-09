@@ -63,7 +63,7 @@ export default async function Compras({ searchParams }: { searchParams: Promise<
               <tr key={f.id} className="align-top">
                 <td className="px-4 py-3"><Link href={`/compras/${f.id}`} className="font-semibold num hover:underline">N.º {f.numero}</Link><p className="text-sm text-muted num">{fecha(f.fecha_factura)}</p></td>
                 <td className="px-4 py-3 font-semibold">{f.proveedor}</td>
-                <td className="px-4 py-3 num">{f.numero_factura}{dinero && f.condicion && <p className="text-sm text-muted">{f.condicion === "credito" ? "Crédito" : "Contado"}</p>}</td>
+                <td className="px-4 py-3 num">{f.numero_factura}{dinero && f.condicion && <p className="text-sm text-muted">{f.estado === "por_costear" ? "Por costear" : f.condicion === "credito" ? "Crédito" : "Contado"}</p>}</td>
                 <td className="px-4 py-3"><span className={`rounded-md px-2 py-0.5 text-sm font-semibold ${tono[f.estado]}`}>{ESTADOS[f.estado]}</span></td>
                 {dinero && <>
                   <td className="px-4 py-3 num text-right">{f.estado === "por_costear" ? "—" : pesosExactos(f.total ?? 0)}</td>

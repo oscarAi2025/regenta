@@ -6,7 +6,7 @@
 export const MARGEN_SUGERIDO = 25;
 
 // «CAJA 10», «CJA X 30 TAB», «X 100 UND», «CAJA X 24 UNIDADES»… pero no «X 15 ML», «X 20 GR» ni «7.5 X 7.5» (medidas).
-const RE_CUENTA = /(?:\b(?:caja|cja|cj|caj|cajax|blister|sobre|frasco|paquete|pqte|bolsa)\s*(?:x\s*)?|\bx\s*)(\d{1,4})(?![.,]\d)(?!\s*(?:ml|mg|gr|g|grs|l|lt|cc|mcg|ui|oz|kg|cm|mm|%|\/))\b/gi;
+const RE_CUENTA = /(?:\b(?:caja|cja|cj|caj|cajax|blister|sobre|frasco|paquete|pqte|bolsa)\s*(?:x\s*)?|\bx\s*)(\d{1,4})(?![.,]\d)(?!\s*(?:ml|mg|gr|g|grs|l|lt|cc|mcg|ui|oz|kg|cm|mm|%|\/))(?=\b|(?:unds?|unid(?:ades)?|tabs?|caps?|amp(?:ollas?)?|sob(?:res)?)\b)/gi;
 
 /** Unidades por caja que dice la descripción (la última mención, p. ej. «IMPOMEL X 15 MG CJA X 10 TAB» → 10); 1 si no dice. */
 export function unidadesEnDescripcion(desc: string): number {
@@ -41,4 +41,4 @@ export function margenDe(precioCajaConIva: number, costoCajaNeto: number, ivaPct
 }
 
 /** Nombre para el catálogo: el de la factura sin espacios de más ni guiones sueltos al final. */
-export const nombreDeFactura = (n: string) => n.replace(/\s+/g, " ").replace(/[\s\-–,;.]+$/, "").trim().slice(0, 200);
+export const nombreDeFactura = (n: string) => n.replace(/\(?\b(?:bonificad[oa]s?|obsequio|muestra m[eé]dica)\b\)?/gi, " ").replace(/\s+/g, " ").replace(/[\s\-–,;.]+$/, "").trim().slice(0, 200);

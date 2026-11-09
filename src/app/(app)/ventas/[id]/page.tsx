@@ -66,12 +66,13 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
         <dl className="grid grid-cols-2 gap-y-1 text-sm num"><dt className="text-muted">Base</dt><dd className="text-right">{pesos(v.base)}</dd><dt className="text-muted">IVA</dt><dd className="text-right">{pesos(v.iva)}</dd></dl>
         {Number(v.devuelto) > 0 && <dl className="grid grid-cols-2 gap-y-1 text-sm num mt-1"><dt className="text-alerta">Devuelto</dt><dd className="text-right text-alerta">−{pesos(v.devuelto)}</dd></dl>}
         <p className="mt-2 flex justify-between items-baseline"><span className="text-lg">Total</span><span className={`num titulo text-4xl ${v.estado === "anulada" ? "line-through text-muted" : ""}`}>{pesos(v.total)}</span></p>
+        {Number(v.devuelto) > 0 && v.estado !== "anulada" && <p className="mt-1 flex justify-between items-baseline font-semibold"><span>Total neto (después de devoluciones)</span><span className="num titulo text-2xl">{pesos(Number(v.total) - Number(v.devuelto))}</span></p>}
         <div className="corte my-4" />
         <ul className="text-sm num grid gap-1">
           {d.pagos.map((p, i) => <li key={i} className="flex justify-between"><span>{MEDIO[p.medio] ?? p.medio}</span><span>{pesos(p.valor)}</span></li>)}
           {Number(v.cambio) > 0 && <li className="flex justify-between font-semibold"><span>Cambio</span><span>{pesos(v.cambio)}</span></li>}
         </ul>
-        {d.doc?.cufe && <p className="mt-4 text-[11px] text-muted break-all">CUFE {d.doc.cufe}{d.doc.simulado ? " (simulado, pruebas)" : ""}</p>}
+        {d.doc?.cufe && <p className="mt-4 text-[11px] text-muted break-all">{v.tipo_doc === "factura" ? "CUFE" : "CUDE"} {d.doc.cufe}{d.doc.simulado ? " (simulado, pruebas)" : ""}</p>}
       </article>
       <section className="grid gap-4">
         <Link href="/ventas" className="text-sm font-semibold text-cruz">← Volver a ventas</Link>
@@ -132,7 +133,7 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
           </div>
         )}
         {v.estado === "cerrada" && puede.anular(s.rol) && d.lineas.some((l) => l.cantidad > l.devuelto) && (
-          <Devolver id={v.id} credito={v.condicion === "credito"} lineas={d.lineas.filter((l) => l.cantidad > l.devuelto).map((l) => ({ producto_id: l.producto_id, presentacion: l.presentacion, descripcion: l.descripcion, disponible: l.cantidad - l.devuelto, unitario: l.total / l.cantidad }))} />
+          <Devolver id={v.id} credito={v.condicion === "credito"} medioOriginal={d.pagos.length ? [...d.pagos].sort((a, b) => b.valor - a.valor)[0].medio : null} lineas={d.lineas.filter((l) => l.cantidad > l.devuelto).map((l) => ({ producto_id: l.producto_id, presentacion: l.presentacion, descripcion: l.descripcion, disponible: l.cantidad - l.devuelto, unitario: l.total / l.cantidad }))} />
         )}
         {v.estado === "cerrada" && Number(v.devuelto) === 0 && puede.anular(s.rol) && <Anular id={v.id} emitido={d.doc?.estado === "aceptado" || d.doc?.estado === "enviando"} />}
       </section>

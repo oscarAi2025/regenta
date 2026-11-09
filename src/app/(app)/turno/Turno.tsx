@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { pesos, MEDIO } from "@/lib/formato";
 import { imprimirRuta } from "@/lib/impresion";
 
-type Resumen = { ventas: number; n_ventas: number; anuladas: number; iva: number; credito: number; medios: Record<string, number>; efectivo_ventas: number; abonos_efectivo: number; ingresos: number; egresos: number; base: number; efectivo_esperado: number; devoluciones?: number; n_devoluciones?: number; devoluciones_efectivo?: number; ventas_netas?: number };
+type Resumen = { abonos_medios?: Record<string, number>; ventas: number; n_ventas: number; anuladas: number; iva: number; credito: number; medios: Record<string, number>; efectivo_ventas: number; abonos_efectivo: number; ingresos: number; egresos: number; base: number; efectivo_esperado: number; devoluciones?: number; n_devoluciones?: number; devoluciones_efectivo?: number; ventas_netas?: number };
 type Estado = {
   caja: { id: string; nombre: string } | null; exige: boolean;
   turno: null | { id: string; base: number; abierto: string; abre: string | null; resumen: Resumen; movimientos: { tipo: string; valor: number; concepto: string; creado: string; usuario: string | null }[] };
@@ -12,7 +12,8 @@ type Estado = {
 const hora = (d: string) => new Date(d).toLocaleString("es-CO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "America/Bogota" });
 const entero = (v: string) => Number(v.replace(/\D/g, "") || 0);
 
-export function Turno({ estado, dueno }: { estado: Estado; dueno: boolean }) {
+/** `ciego`: la cajera cuenta el cajón sin ver cuánto «debería» haber (cierre ciego); lo ve al cerrar. */
+export function Turno({ estado, dueno, ciego = false }: { estado: Estado; dueno: boolean; ciego?: boolean }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [ocupado, setOcupado] = useState(false);
@@ -85,12 +86,15 @@ export function Turno({ estado, dueno }: { estado: Estado; dueno: boolean }) {
             <div><p className="text-sm text-muted">Ventas</p><p className="num titulo text-2xl">{pesos(r.ventas)}</p><p className="text-sm text-muted">{r.n_ventas} venta{r.n_ventas === 1 ? "" : "s"}{r.anuladas ? ` · ${r.anuladas} anulada${r.anuladas === 1 ? "" : "s"}` : ""}</p></div>
             <div><p className="text-sm text-muted">Base</p><p className="num titulo text-2xl">{pesos(r.base)}</p></div>
             <div><p className="text-sm text-muted">Entradas / salidas</p><p className="num titulo text-2xl">{pesos(r.ingresos - r.egresos)}</p><p className="text-sm text-muted num">+{pesos(r.ingresos)} · −{pesos(r.egresos)}</p></div>
-            <div><p className="text-sm text-muted">Efectivo esperado</p><p className="num titulo text-2xl text-cruz">{pesos(r.efectivo_esperado)}</p></div>
+            {ciego
+              ? <div><p className="text-sm text-muted">Efectivo esperado</p><p className="text-sm">Lo ves al cerrar, después de contar el cajón</p></div>
+              : <div><p className="text-sm text-muted">Efectivo esperado</p><p className="num titulo text-2xl text-cruz">{pesos(r.efectivo_esperado)}</p></div>}
           </div>
           <ul className="mt-4 grid sm:grid-cols-3 gap-2 text-sm num">
             {Object.entries(r.medios).map(([m, v]) => <li key={m} className="rounded-xl bg-paper px-3 py-2 flex justify-between"><span>{MEDIO[m] ?? m}</span><span className="font-semibold">{pesos(v)}</span></li>)}
             {r.credito > 0 && <li className="rounded-xl bg-paper px-3 py-2 flex justify-between"><span>A crédito</span><span className="font-semibold">{pesos(r.credito)}</span></li>}
             {r.abonos_efectivo > 0 && <li className="rounded-xl bg-paper px-3 py-2 flex justify-between"><span>Abonos en efectivo</span><span className="font-semibold">{pesos(r.abonos_efectivo)}</span></li>}
+            {Object.entries(r.abonos_medios ?? {}).filter(([m, v]) => m !== "efectivo" && Number(v) > 0).map(([m, v]) => <li key={`ab-${m}`} className="rounded-xl bg-paper px-3 py-2 flex justify-between"><span>Abonos por {MEDIO[m] ?? m}</span><span className="font-semibold">{pesos(Number(v))}</span></li>)}
             {(r.devoluciones ?? 0) > 0 && <li className="rounded-xl bg-paper px-3 py-2 flex justify-between"><span>Devoluciones ({r.n_devoluciones})</span><span className="font-semibold text-alerta">−{pesos(r.devoluciones ?? 0)}</span></li>}
           </ul>
           <button className="mt-4 btn-borde h-10 text-sm" onClick={() => imprimirRuta(`/tiquete/turno/${t.id}`)}>Imprimir corte parcial</button>

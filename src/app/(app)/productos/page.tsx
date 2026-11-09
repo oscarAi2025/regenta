@@ -21,7 +21,7 @@ export default async function Productos({ searchParams }: { searchParams: Promis
              p.requiere_formula, p.control_especial, coalesce(st.u, 0)::int unidades
       from productos p left join lateral (select sum(unidades) u from v_stock_vigente where producto_id = p.id) st on true
       where p.empresa_id = $1 and p.activo
-        and (cardinality($2::text[]) = 0 or p.ean = $3 or (select bool_and(lower(p.nombre || ' ' || coalesce(p.laboratorio, '')) like '%' || w || '%') from unnest($2::text[]) w))
+        and (cardinality($2::text[]) = 0 or p.ean = $3 or (select bool_and(sin_tildes(p.nombre || ' ' || coalesce(p.laboratorio, '')) like '%' || sin_tildes(w) || '%') from unnest($2::text[]) w))
         ${ver === "bajos" ? "and p.stock_minimo > 0 and coalesce(st.u, 0) <= p.stock_minimo * p.unidades_por_caja" : ""}
       order by p.nombre limit $4 offset $5`, [s.empresa, palabras, q.trim(), POR_PAGINA, (pagina - 1) * POR_PAGINA])).rows;
     const total = (await c.query(`select count(*)::int n from productos where empresa_id = $1 and activo`, [s.empresa])).rows[0].n;

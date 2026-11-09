@@ -8,11 +8,12 @@ const MEDIOS = [["efectivo", "Efectivo"], ["nequi", "Nequi"], ["daviplata", "Dav
 
 /** Devolución parcial: el cliente devuelve parte de lo que compró. Las unidades vuelven a su lote, se reembolsa (o se
  *  descuenta del saldo si fue a crédito) y, si la venta tiene documento electrónico, se genera la nota crédito. */
-export function Devolver({ id, lineas, credito }: { id: string; lineas: Linea[]; credito: boolean }) {
+export function Devolver({ id, lineas, credito, medioOriginal = null }: { id: string; lineas: Linea[]; credito: boolean;
+  /** Medio con que se pagó la venta: el reembolso arranca en ese (el QR se devuelve por transferencia). */ medioOriginal?: string | null }) {
   const [abierto, setAbierto] = useState(false);
   const [cant, setCant] = useState<Record<number, number>>({});
   const [motivo, setMotivo] = useState("");
-  const [medio, setMedio] = useState("efectivo");
+  const [medio, setMedio] = useState(medioOriginal === "qr" ? "transferencia" : MEDIOS.some(([k]) => k === medioOriginal) ? medioOriginal! : "efectivo");
   const [error, setError] = useState("");
   const [enviando, setEnviando] = useState(false);
   // A dónde vuelve lo devuelto: a la venta o a cuarentena (se revisa antes de venderlo). Arranca con lo que configuró la droguería.

@@ -204,7 +204,10 @@ export const PLANTILLAS = {
       "Solicita la nueva resolución en el portal MUISCA de la DIAN y envíanosla por WhatsApp: la cargamos el mismo día para que la caja no se detenga."],
     boton: { texto: "Enviar la resolución por WhatsApp", href: wa(`Hola, adjunto la nueva resolución DIAN de ${txt(d.empresa, "mi droguería")}.`) } }) }),
 
-  documento_rechazado: (d: Datos): Correo => ({ asunto: `La DIAN rechazó el documento ${d.documento ?? ""}`, ...marco({
+  documento_rechazado: (d: Datos): Correo => d.demorado ? ({ asunto: `El documento ${d.documento ?? ""} lleva más de 24 horas sin respuesta de la DIAN`, ...marco({
+    previa: "Regenta lo sigue enviando solo.", titulo: "Un documento está demorado",
+    parrafos: [`${hola(d.nombre)}, el documento <b>${esc(txt(d.documento, ""))}</b> de <b>${esc(txt(d.empresa, "tu droguería"))}</b>: ${esc(txt(d.error, "sin respuesta"))}`],
+    boton: { texto: "Ver el documento", href: url(String(d.ruta ?? "/documentos?estado=pendiente"), "demorado") } }) }) : ({ asunto: `La DIAN rechazó el documento ${d.documento ?? ""}`, ...marco({
     previa: "Revísalo y reenvíalo desde Regenta.", titulo: "Un documento necesita tu revisión",
     parrafos: [`${hola(d.nombre)}, el documento <b>${esc(txt(d.documento, ""))}</b> de <b>${esc(txt(d.empresa, "tu droguería"))}</b> no fue aceptado: ${esc(txt(d.error, "sin detalle"))}.`,
       "Corrige el dato que indica (por ejemplo, el correo o el documento del cliente) y pulsa «Reenviar a la DIAN» en el detalle de la venta."],

@@ -18,7 +18,7 @@ export default async function Ventas({ searchParams }: { searchParams: Promise<{
   const dia = valida(sp.dia) ? sp.dia! : hoy;
   const dian = ["pendiente", "rechazado"].includes(sp.dian ?? "") ? sp.dian! : null;
   const filas = await comoUsuario(s, async (c) => (await c.query(`
-    select v.id, v.prefijo || v.numero numero, v.total::float, v.estado, v.tipo_doc, to_char(v.creado at time zone 'America/Bogota', 'HH24:MI') hora,
+    select v.id, v.prefijo || v.numero numero, v.total::float, coalesce(v.devuelto, 0)::float devuelto, v.condicion, v.estado, v.tipo_doc, to_char(v.creado at time zone 'America/Bogota', 'HH24:MI') hora,
            coalesce(m.nombre, '—') cajero, d.estado dian,
            (select string_agg(distinct p.medio, ',') from pagos p where p.venta_id = v.id) medios,
            (select count(*) from venta_lineas l where l.venta_id = v.id)::int lineas
@@ -27,7 +27,8 @@ export default async function Ventas({ searchParams }: { searchParams: Promise<{
     where v.empresa_id = $1 and ${dian ? "d.estado = any($3)" : "(v.creado at time zone 'America/Bogota')::date = $2::date"}
     order by v.creado desc limit 300`, dian ? [s.empresa, dia, dian === "pendiente" ? ["pendiente", "enviando"] : ["rechazado"]] : [s.empresa, dia])).rows);
   const cerradas = filas.filter((f) => f.estado === "cerrada");
-  const total = cerradas.reduce((a, f) => a + f.total, 0);
+  // Neto: lo devuelto no es venta (igual que «Ventas netas» en el turno).
+  const total = cerradas.reduce((a, f) => a + f.total - f.devuelto, 0);
   const otro = (n: number) => { const d = new Date(dia + "T12:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
@@ -42,7 +43,7 @@ export default async function Ventas({ searchParams }: { searchParams: Promise<{
       </Cabecera>
       {!dian && (
         <section className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-          <Dato titulo="Total del día" valor={pesos(total)} tono="cruz" />
+          <Dato titulo="Total del día" valor={pesos(total)} tono="cruz" nota={cerradas.some((f) => f.devuelto > 0) ? "sin lo devuelto" : undefined} />
           <Dato titulo="Ventas" valor={cerradas.length} nota={filas.length > cerradas.length ? `${filas.length - cerradas.length} anulada(s)` : undefined} />
           <Dato titulo="Ticket promedio" valor={pesos(cerradas.length ? total / cerradas.length : 0)} />
         </section>
@@ -58,7 +59,7 @@ export default async function Ventas({ searchParams }: { searchParams: Promise<{
                 <td className="px-4 py-3 num text-muted">{f.hora}</td>
                 <td className="px-4 py-3"><Link href={`/ventas/${f.id}`} className="num font-semibold underline-offset-2 hover:underline">{f.numero}</Link><span className="text-muted text-sm"> · {f.lineas} línea{f.lineas === 1 ? "" : "s"}</span></td>
                 <td className="px-4 py-3">{String(f.cajero).split(" (")[0]}</td>
-                <td className="px-4 py-3 text-sm">{String(f.medios ?? "").split(",").map((m: string) => MEDIO[m] ?? m).join(" + ")}</td>
+                <td className="px-4 py-3 text-sm">{f.condicion === "credito" && !f.medios ? "Crédito" : String(f.medios ?? "").split(",").map((m: string) => MEDIO[m] ?? m).join(" + ")}</td>
                 <td className="px-4 py-3">{f.estado === "anulada" ? <span className="text-sm font-semibold text-alerta">Anulada</span> : <EstadoDian e={f.dian} />}</td>
                 <td className={`px-4 py-3 num font-semibold text-right ${f.estado === "anulada" ? "line-through text-muted" : ""}`}>{pesos(f.total)}</td>
               </tr>

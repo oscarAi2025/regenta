@@ -42,7 +42,7 @@ function condicion(empresa: string, f: Filtro, conEstado: boolean) {
     w.push(`((d.prefijo || d.numero) ilike ${p} or (v.prefijo || v.numero) ilike ${p} or c.nombre ilike ${p} or c.numero_doc ilike ${p} or pr.nombre ilike ${p} or pr.nit ilike ${p})`);
   }
   if (conEstado && f.estado) w.push(({
-    aceptado: `d.estado = 'aceptado'`, simulado: `d.estado = 'aceptado' and d.simulado`, pendiente: `d.estado in ('pendiente', 'enviando')`,
+    aceptado: `d.estado = 'aceptado' and not d.simulado`, simulado: `d.estado = 'aceptado' and d.simulado`, pendiente: `d.estado in ('pendiente', 'enviando')`,
     rechazado: `d.estado = 'rechazado'`, anulado: `d.estado = 'anulado'`,
   } as const)[f.estado]);
   return { sql: w.join(" and "), params };
@@ -88,7 +88,7 @@ export async function listarDocumentos(c: Tx, empresa: string, f: Filtro, limite
 /** Cuántos documentos hay por estado con los demás filtros (los contadores de arriba). */
 export async function contarDocumentos(c: Tx, empresa: string, f: Filtro) {
   const { sql, params } = condicion(empresa, f, false);
-  const r = (await c.query(`select count(*) filter (where d.estado = 'aceptado')::int aceptado, count(*) filter (where d.estado = 'aceptado' and d.simulado)::int simulado,
+  const r = (await c.query(`select count(*) filter (where d.estado = 'aceptado' and not d.simulado)::int aceptado, count(*) filter (where d.estado = 'aceptado' and d.simulado)::int simulado,
       count(*) filter (where d.estado in ('pendiente', 'enviando'))::int pendiente, count(*) filter (where d.estado = 'rechazado')::int rechazado,
       count(*) filter (where d.estado = 'anulado')::int anulado, count(*)::int total ${DESDE} where ${sql}`, params)).rows[0];
   return r as Record<EstadoDoc | "total", number>;

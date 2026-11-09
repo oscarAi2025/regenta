@@ -60,7 +60,9 @@ function emisor(demo = false): Emisor {
 }
 
 const ESPERA = [30, 120, 600, 1800, 7200]; // segundos entre reintentos
-const PLAZO_HORAS = 72; // sin respuesta en 3 días (caídas largas de la DIAN o del proveedor): rechazo para revisión manual
+// Res. DIAN 165/2023, art. 37: lo generado sin poder transmitir se transmite en 48 horas. Sin respuesta en 48 h, el documento
+// pasa a revisión manual (rechazado, con aviso al dueño); antes, a las 24 h, ya se le avisa (operacion.ts, avisarDemorados).
+const PLAZO_HORAS = 48;
 const PRESUPUESTO_MS = 20000; // la función del servidor tiene ~26 s: se deja de tomar documentos a los 20 s
 
 /** Procesa hasta `max` documentos pendientes (o solo los de una venta). Devuelve el resumen.

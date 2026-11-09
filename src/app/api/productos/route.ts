@@ -51,7 +51,7 @@ export async function GET(req: Request) {
        left join lateral (select sum(unidades) unidades, min(vence) filter (where unidades > 0) proximo_vence
                           from v_stock_vigente where producto_id = p.id) st on true
        where p.empresa_id = $1 and p.activo
-         and (p.ean = $2 or alt.id is not null or (select bool_and(lower(p.nombre || ' ' || coalesce(p.laboratorio, '')) like '%' || w || '%') from unnest($3::text[]) w))
+         and (p.ean = $2 or alt.id is not null or (select bool_and(sin_tildes(p.nombre || ' ' || coalesce(p.laboratorio, '')) like '%' || sin_tildes(w) || '%') from unnest($3::text[]) w))
        order by (coalesce(p.ean = $2, false) or alt.id is not null) desc, (coalesce(st.unidades, 0) > 0) desc, p.nombre
        limit 30`, [s.empresa, q, palabras, codigo])).rows);
     return NextResponse.json({ productos });

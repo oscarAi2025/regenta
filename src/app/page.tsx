@@ -85,7 +85,7 @@ export default function Portada() {
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <BotonDemo texto="Probar gratis ahora" className="btn-cta h-14 px-8 text-lg" />
-                <Link href="/contratar?plan=pro&origen=hero" className="btn-vidrio h-14 px-6 text-lg">Contratar desde {pesos(PLANES[0].precio!)}</Link>
+                <Link href="/contratar?plan=esencial&origen=hero" className="btn-vidrio h-14 px-6 text-lg">Contratar desde {pesos(PLANES[0].precio!)}</Link>
               </div>
               <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-[15px] text-white/80">
                 {["Demo en 1 clic, sin registro", "Certificado y habilitación DIAN incluidos", `${GARANTIA_DIAS} días de garantía`].map((t) => <li key={t} className="flex gap-2"><span className="text-amber-300 font-bold" aria-hidden="true">✓</span>{t}</li>)}

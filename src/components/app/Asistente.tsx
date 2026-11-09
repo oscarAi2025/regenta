@@ -138,7 +138,7 @@ export function Asistente({ activa }: { activa: boolean }) {
             {msgs.length > 0 && !pensando && <button onClick={() => setMsgs([])} className="text-sm font-semibold text-muted hover:text-ink px-2 h-10">Nueva</button>}
             <button onClick={cerrar} className="hidden sm:block text-muted hover:text-ink text-2xl leading-none px-2" aria-label="Cerrar">×</button>
           </header>
-          <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 grid content-start gap-3">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-4 grid grid-cols-[minmax(0,1fr)] content-start gap-3">
             {!activa && <p className="rounded-xl bg-aviso-soft text-aviso px-4 py-3 text-sm font-semibold">Regenta IA todavía no está activada en esta cuenta. Pídela al equipo de Regenta por WhatsApp.</p>}
             {msgs.length === 0 && (
               <div className="grid gap-3">
@@ -149,9 +149,9 @@ export function Asistente({ activa }: { activa: boolean }) {
               </div>
             )}
             {msgs.map((m, i) => m.role === "user"
-              ? <div key={i} className="justify-self-end max-w-[85%] rounded-2xl rounded-br-md bg-ink text-white px-3.5 py-2"><p className="whitespace-pre-wrap">{m.content}</p></div>
+              ? <div key={i} className="justify-self-end max-w-[85%] min-w-0 rounded-2xl rounded-br-md bg-ink text-white px-3.5 py-2"><p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{m.content}</p></div>
               : (m.content || !pensando || i < msgs.length - 1) && (
-                <div key={i} className={`max-w-[95%] ${m.error ? "text-alerta" : ""}`}>
+                <div key={i} className={`max-w-[95%] min-w-0 [overflow-wrap:anywhere] ${m.error ? "text-alerta" : ""}`}>
                   <Formato texto={m.content} />
                   {m.herramientas && m.herramientas.length > 0 && <p className="mt-1 text-xs text-muted">Consultó: {[...new Set(m.herramientas)].map((h) => NOMBRES[h] ?? h).join(", ")}</p>}
                 </div>

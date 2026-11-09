@@ -79,6 +79,26 @@ export async function avisarRechazos() {
   });
 }
 
+/** Documentos que llevan más de 24 horas sin respuesta de la DIAN (caída de la DIAN o del proveedor): aviso al dueño antes
+ *  del plazo de 48 horas para transmitirlos (Res. DIAN 165/2023, art. 37). Un aviso por documento. */
+export async function avisarDemorados() {
+  return sinRLS(async (c) => {
+    const filas = (await c.query(`
+      select d.id, d.empresa_id, d.venta_id, d.prefijo || d.numero doc, coalesce(e.nombre_comercial, e.razon_social) nombre,
+             floor(extract(epoch from now() - coalesce(d.reenviado, d.creado)) / 3600)::int horas
+      from documentos_dian d join empresas e on e.id = d.empresa_id
+      where d.estado in ('pendiente', 'enviando') and not e.demo and not d.simulado
+        and coalesce(d.reenviado, d.creado) < now() - interval '24 hours'`)).rows;
+    let avisos = 0;
+    for (const f of filas)
+      for (const d of await duenos(c, f.empresa_id))
+        if (await encolar(c, { clave: `demorado:${f.id}:${d.email}`, para: d.email, plantilla: "documento_rechazado", empresa: f.empresa_id,
+          datos: { demorado: true, nombre: d.nombre, empresa: f.nombre, documento: f.doc, error: `Lleva ${f.horas} horas sin respuesta de la DIAN. La norma da 48 horas para transmitirlo: Regenta lo sigue intentando solo; si tu internet o tu numeración tienen un problema, escríbenos por WhatsApp.`,
+            ruta: f.venta_id ? `/ventas/${f.venta_id}` : "/documentos?estado=pendiente" } })) avisos++;
+    return { demorados: filas.length, avisos };
+  });
+}
+
 /** Documentos electrónicos reales (numeración de producción) de una empresa en un mes: los que cuentan para el cupo. */
 const DOCS_MES = `select count(*)::int n from documentos_dian d join resoluciones_dian r on r.empresa_id = d.empresa_id and r.prefijo = d.prefijo and r.tipo = d.tipo and not r.pruebas
   where d.empresa_id = $1 and not d.simulado and d.creado >= ($2::date at time zone 'America/Bogota') and d.creado < (($2::date + interval '1 month') at time zone 'America/Bogota')`;

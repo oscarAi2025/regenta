@@ -102,13 +102,23 @@ export async function sinRLS<T>(fn: (c: Tx) => Promise<T>): Promise<T> {
 /** Mensaje legible de un error lanzado por la base de datos (errores de negocio con código P0001 o permisos 42501). */
 export function mensajeError(e: unknown): { status: number; error: string } {
   const err = e as { code?: string; message?: string };
-  if (err?.code === "P0001") return { status: 422, error: err.message ?? "Operación no válida" };
-  if (err?.code === "42501") return { status: 403, error: /permission denied|row-level security/.test(err.message ?? "") ? "No tienes permiso para esta acción" : err.message ?? "Sin permiso" };
+  if (err?.code === "P0001") return { status: 422, error: montosEnPesos(err.message ?? "Operación no válida") };
+  if (err?.code === "42501") return { status: 403, error: /permission denied|row-level security/.test(err.message ?? "") ? "No tienes permiso para esta acción" : montosEnPesos(err.message ?? "Sin permiso") };
   if (err?.code === "22P02" || err?.code === "23514" || err?.code === "22007" || err?.code === "22008" || err?.code === "22003" || err?.code === "22021" || err?.code === "22001") return { status: 400, error: "Hay un dato con formato no válido" };
   if (err?.code === "23505") return { status: 409, error: "Ese registro ya existe" };
   if (err?.code === "40P01" || err?.code === "40001") return { status: 409, error: "Otra operación estaba usando los mismos productos. Intenta de nuevo." };
   console.error(e);
   return { status: 500, error: "Error interno. Inténtalo de nuevo." };
+}
+
+/** Los montos que la base mete en sus mensajes salen como «27300.00», «600,000.00» o «(25000)»: a la persona se le
+ *  muestran como «$27.300». Los porcentajes («15.00 %») no se tocan. */
+export function montosEnPesos(m: string): string {
+  const p = (v: string) => "$" + Number(v.replace(/,/g, "")).toLocaleString("es-CO", { maximumFractionDigits: 2 });
+  return m
+    .replace(/\b\d{1,3}(?:,\d{3})+\.\d{2}\b(?!\s*%)/g, p)
+    .replace(/\b\d{4,}\.\d{2}\b(?!\s*%)/g, p)
+    .replace(/\b(pago|abono|valor|total|saldo|recibo) \((\d{3,})\)/gi, (_, w: string, v: string) => `${w} (${p(v)})`);
 }
 
 /** Escapa los comodines de LIKE (% _ \\) en lo que escribe el usuario. */

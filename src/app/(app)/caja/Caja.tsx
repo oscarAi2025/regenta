@@ -18,9 +18,11 @@ import { precioDe, unidadesDe, type Linea, type Medio, type PedidoVinculado, typ
 const PLAZOS = [15, 30, 45, 60, 90];
 type DetallePedido = Omit<PedidoGuardado, "lineas"> & PedidoVinculado & { cliente_datos: Cliente | null; lineas: (Omit<PedidoGuardado["lineas"][number], "producto"> & { producto: Producto & { activo?: boolean } })[] };
 
-export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja }: { fiar: boolean;
+export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, responsableIva, descuentoMax }: { fiar: boolean;
   /** Dueño o administrador: fían también a clientes sin cupo y se pasan del cupo escribiendo el motivo. */ gerencia: boolean;
-  empresa: string; nombreEmpresa: string; formulas: ConfigFormula; caja: string | null }) {
+  empresa: string; nombreEmpresa: string; formulas: ConfigFormula; caja: string | null;
+  /** No responsable de IVA: la venta no discrimina IVA aunque el producto lo tenga (igual que registrar_venta). */ responsableIva: boolean;
+  /** Tope de descuento de la cajera (línea y general juntos); null para el dueño y el administrador. */ descuentoMax: number | null }) {
   const [q, setQ] = useState("");
   const [res, setRes] = useState<Producto[]>([]);
   const [sel, setSel] = useState(0);
@@ -56,6 +58,7 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja }:
   const [cobrado, setCobrado] = useState<string | null>(null);
   const [dialogo, setDialogo] = useState<null | TipoPedido | "lista">(null);
   const [aviso, setAviso] = useState("");
+  const [avisoBuscar, setAvisoBuscar] = useState(""); // junto al buscador (en el celular la tirilla queda abajo)
   const [recuperada, setRecuperada] = useState(false);
   const [domicilios, setDomicilios] = useState<Record<string, { unidades: number; pedidos: number }>>({});
   const [pedidoInicial, setPedidoInicial] = useState<string | null>(null); // ?pedido= al entrar desde Pedidos
@@ -65,7 +68,9 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja }:
   const [pendientes, setPendientes] = useState(0);
   const [fallidas, setFallidas] = useState<VentaEnCola[]>([]);
   const [avisoCola, setAvisoCola] = useState("");
-  const contar = useCallback(() => { const c = cola().filter((v) => v.empresa === empresa); setPendientes(c.filter((v) => !v.error).length); setFallidas(c.filter((v) => v.error)); }, [empresa]);
+  // Pendientes: se envían solas. Con error o con aviso (no hay existencias, falta el turno…): se muestran con sus
+  // acciones, para que nadie crea que ya entraron (antes las del aviso quedaban «pendientes» para siempre, sin decir por qué).
+  const contar = useCallback(() => { const c = cola().filter((v) => v.empresa === empresa); setPendientes(c.filter((v) => !v.error && !v.aviso).length); setFallidas(c.filter((v) => v.error || v.aviso)); }, [empresa]);
   const enviarCola = useCallback(async () => {
     if (!cola().some((v) => v.empresa === empresa && !v.error)) return;
     const r = await sincronizar(empresa);
@@ -113,7 +118,7 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja }:
 
   // Agrega el producto con la cantidad pedida con «12*» (o una) y la suma si ya está en la venta.
   const agregar = useCallback((p: Producto, presentacion: "caja" | "unidad") => {
-    if (p.unidades <= 0) return;
+    if (p.unidades <= 0) { setAvisoBuscar(`${p.nombre} está agotado: abre «Ver alternativas con existencias» en la lista`); return; }
     const n = multRef.current ?? 1;
     let excedido = false;
     setLineas((ls) => {
@@ -135,10 +140,10 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja }:
     let total = 0, iva = 0, descuento = 0;
     for (const l of lineas) {
       const { bruto, neto: n } = neto(l);
-      total += n; descuento += bruto - n; iva += n - n / (1 + l.p.iva / 100);
+      total += n; descuento += bruto - n; if (responsableIva) iva += n - n / (1 + l.p.iva / 100);
     }
     return { total, iva, base: total - iva, descuento, items: lineas.reduce((a, l) => a + l.cantidad, 0) };
-  }, [lineas, neto]);
+  }, [lineas, neto, responsableIva]);
 
   // Unidades pedidas de un producto (sumando caja y unidad) frente a sus existencias.
   const excede = useCallback((ls: Linea[], p: Producto) => ls.filter((l) => l.p.id === p.id).reduce((a, l) => a + unidadesDe(l), 0) > p.unidades, []);
@@ -260,14 +265,19 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja }:
   useEffect(() => { if (clienteId && plazoCliente && PLAZOS.includes(plazoCliente)) setPlazo(plazoCliente); }, [clienteId, plazoCliente]);
   const otroNum = medio === "efectivo" && otro ? Math.min(Number(otro.valor.replace(/\D/g, "")) || 0, Math.round(totales.total)) : 0;
   const restante = Math.round(totales.total) - otroNum; // lo que falta cubrir en efectivo
-  const recibidoNum = medio === "efectivo" && !aCredito ? Number(recibido.replace(/\D/g, "")) || 0 : totales.total;
+  // «Recibido» vacío = pago exacto (el campo lo muestra como sugerencia; Enter sin escribir no debe dar error).
+  const recibidoNum = medio === "efectivo" && !aCredito ? (recibido.trim() === "" ? restante : Number(recibido.replace(/\D/g, "")) || 0) : totales.total;
   const cambio = Math.max(0, recibidoNum - restante);
   const faltaCliente = tipoDoc === "factura" && !cliente;
   const ex = useMemo(() => exigencia(lineas.map((l) => l.p), formulas), [lineas, formulas]);
   const pide = pideFormula(ex);
   const faltaFormula = pide ? errorFormula(formula, ex, formulas) : null;
   const formulaSinRed = !enLinea && ex.datos; // sin internet no se garantiza el registro: esos productos no se venden
-  const puedeCobrar = lineas.length > 0 && !lineas.some((l) => excede(lineas, l.p)) && !faltaCliente && !faltaFormula && !formulaSinRed && !faltaMotivo;
+  // La factura electrónica necesita el correo del cliente (registrar_venta lo exige): se pide antes de cobrar.
+  const faltaCorreo = tipoDoc === "factura" && !!cliente && !cliente.email;
+  // Tope de descuento de la cajera: línea y general combinados, igual que en la base (antes solo fallaba al confirmar).
+  const descuentoExcedido = descuentoMax !== null && lineas.some((l) => 100 - (100 - l.descuento) * (100 - descGeneral) / 100 > descuentoMax + 0.001);
+  const puedeCobrar = lineas.length > 0 && !lineas.some((l) => excede(lineas, l.p)) && !faltaCliente && !faltaFormula && !formulaSinRed && !faltaMotivo && !faltaCorreo && !descuentoExcedido;
   const preciosCambiados = lineas.filter((l) => l.antes !== undefined && l.antes !== precioDe(l)).length;
   // F9 o «Cobrar» con la fórmula incompleta llevan al primer dato que falta (lector y teclado no se quedan sin salida).
   const irAFormula = useCallback(() => {
@@ -294,12 +304,25 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja }:
             ? [{ medio: otro!.medio, valor: otroNum }, { medio: "efectivo", valor: recibidoNum }]
             : [{ medio, valor: medio === "efectivo" ? recibidoNum : Math.round(totales.total) }],
           formula: pide ? (ex.datos ? { ...formula, verificada: true, paciente_doc: limpiarDoc(formula.paciente_doc) } : { ...FORMULA_VACIA, verificada: formula.verificada }) : null,
+          // Lo que la persona ve en pantalla: si el precio cambió con la venta abierta, el servidor no cobra otro total.
+          total_mostrado: Math.round(totales.total),
     };
     try {
       const r = await fetch(pedido ? `/api/pedidos/${pedido.id}/cobrar` : "/api/ventas", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(cuerpo) });
       const j = await r.json();
-      if (!r.ok) { setError(j.error ?? "No se pudo registrar la venta"); return; }
-      setHecho(j); setCobrando(false); setCobrado(pedido ? etiquetaPedido(pedido) : null); setPedido(null); setAviso("");
+      if (r.status === 409 && Array.isArray(j.precios)) {
+        // Cambió el precio de algún producto mientras la venta estaba abierta: se ponen los de hoy y se avisa antes de cobrar.
+        const hoy = new Map<string, { precio_caja: number; precio_unidad: number | null }>(j.precios.map((x: { id: string; precio_caja: number; precio_unidad: number | null }) => [x.id, x]));
+        setLineas((ls) => ls.map((l) => {
+          const n = hoy.get(l.p.id); if (!n) return l;
+          const antes = precioDe(l), p = { ...l.p, precio_caja: Number(n.precio_caja), precio_unidad: n.precio_unidad === null ? null : Number(n.precio_unidad) };
+          const ahora = l.presentacion === "caja" ? p.precio_caja : p.precio_unidad ?? 0;
+          return ahora === antes ? { ...l, p } : { ...l, p, antes: l.antes ?? antes };
+        }));
+        setRecibido(""); setError(j.error); return;
+      }
+      if (!r.ok) { setError(typeof j.error === "string" ? j.error : "No se pudo registrar la venta"); return; }
+      setHecho(j); setTimeout(() => buscador.current?.focus(), 0); // el lector queda listo para el siguiente cliente setCobrando(false); setCobrado(pedido ? etiquetaPedido(pedido) : null); setPedido(null); setAviso("");
       window.dispatchEvent(new CustomEvent("regenta:venta", { detail: { total: Number(j.venta?.total ?? 0), documento: j.documento?.estado ?? null } }));
       if (impresora.auto && j.venta?.venta_id) imprimirTiquete(j.venta.venta_id, impresora.ancho);
     } catch (e) {
@@ -309,13 +332,15 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja }:
       if (ex.datos) { setError("Sin internet no se puede registrar la fórmula médica. Quita esos productos de la venta o espera a que vuelva la conexión."); return; }
       if (tipoDoc !== "pos" || aCredito) { setError("Sin internet: la factura electrónica necesita conexión. Cobra con tiquete POS y se envía solo al volver internet."); return; }
       // Sin internet: la venta se guarda en esta caja y se envía sola al volver la conexión (misma clave: no se duplica).
+      // Lleva la hora real: al registrarse, queda en el día y el turno en que se vendió (no en el de la sincronización).
+      const ahora = new Date().toISOString();
       const v: VentaEnCola = {
-        idem_key: idem.current, empresa, creado: new Date().toISOString(), cuerpo: { ...cuerpo, sin_conexion: true }, total: Math.round(totales.total), cambio: medio === "efectivo" ? cambio : 0,
+        idem_key: idem.current, empresa, creado: ahora, cuerpo: { ...cuerpo, sin_conexion: true, creado: ahora }, total: Math.round(totales.total), cambio: medio === "efectivo" ? cambio : 0,
         lineas: lineas.map((l) => ({ nombre: l.p.nombre, cantidad: l.cantidad, presentacion: l.presentacion, total: neto(l).neto, producto_id: l.p.id, unidades: unidadesDe(l) })),
       };
       if (!encolar(v)) { setError("Sin internet y este navegador no deja guardar la venta. Anótala y regístrala al volver la conexión."); return; }
       setHecho({ provisional: v, venta: { venta_id: "", prefijo: "", numero: 0, total: v.total, cambio: v.cambio, base: 0, iva: 0 }, documento: { tipo: "pos", estado: "pendiente", cufe: null, simulado: false, ultimo_error: null } });
-      setCobrando(false); contar();
+      setCobrando(false); contar(); setTimeout(() => buscador.current?.focus(), 0);
       if (impresora.auto) imprimirProvisional(v, nombreEmpresa, impresora.ancho);
     } finally { setEnviando(false); }
   }
@@ -342,7 +367,7 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja }:
       else if (e.key === "F9" && !hecho && lineas.length > 0 && (faltaFormula || formulaSinRed)) { e.preventDefault(); irAFormula(); }
       if (e.key === "Escape" && cobrando) { setCobrando(false); buscador.current?.focus(); }
       else if (e.key === "Escape" && mult !== null) { setMult(null); }
-      if (e.key === "Enter" && hecho) { e.preventDefault(); nueva(); }
+      if (e.key === "Enter" && hecho && !(e.target instanceof HTMLInputElement && e.target.id === "buscar" && e.target.value)) { e.preventDefault(); nueva(); }
       if (e.key === "F8" && hecho?.provisional) { e.preventDefault(); imprimirProvisional(hecho.provisional, nombreEmpresa, impresora.ancho); }
       else if (e.key === "F8" && hecho?.venta.venta_id) { e.preventDefault(); imprimirTiquete(hecho.venta.venta_id, impresora.ancho); }
     };
@@ -354,6 +379,9 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja }:
   }, []);
 
   function escribir(v: string) {
+    setAvisoBuscar("");
+    // Venta ya cobrada: lo que llega (el lector escaneando el primer producto del siguiente cliente) empieza la nueva.
+    if (hecho) { limpiar(); setAviso(""); borrarVentaLocal(empresa, caja); }
     const pre = prefijoCantidad(v);
     if (!pre) { setQ(v); return; }
     if (pre.error) { setError(pre.error); setMult(null); } else { setMult(pre.cantidad); setError(""); }
@@ -407,8 +435,8 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja }:
         {aviso && <p role="status" className="mb-3 rounded-xl bg-cruz-soft text-cruz px-4 py-3 font-semibold flex justify-between gap-3">{aviso}<button onClick={() => setAviso("")} className="text-sm underline shrink-0">Cerrar</button></p>}
         {fallidas.length > 0 && (
           <div role="alert" className="mb-3 rounded-xl bg-alerta-soft text-alerta px-4 py-3">
-            <p className="font-semibold">{fallidas.length} venta{fallidas.length === 1 ? "" : "s"} hecha{fallidas.length === 1 ? "" : "s"} sin internet no se pudo registrar:</p>
-            <ul className="mt-1 text-sm grid gap-1">{fallidas.map((v) => <li key={v.idem_key} className="flex flex-wrap justify-between gap-2"><span>{new Date(v.creado).toLocaleString("es-CO")} · {pesos(v.total)} · {v.error}</span><span className="flex flex-wrap gap-3">{/no cubre el total/.test(v.error ?? "") && <button onClick={() => { reintentar(v.idem_key, true); void sincronizar(empresa).then(contar); }} className="underline font-semibold">Registrar con el precio de hoy</button>}<button onClick={() => { reintentar(v.idem_key); void sincronizar(empresa).then(contar); }} className="underline font-semibold">Reintentar</button><button onClick={() => descartar(v.idem_key)} className="underline">Ya la registré a mano</button></span></li>)}</ul>
+            <p className="font-semibold">{fallidas.length} venta{fallidas.length === 1 ? "" : "s"} hecha{fallidas.length === 1 ? "" : "s"} sin internet {fallidas.length === 1 ? "no se ha podido" : "no se han podido"} registrar:</p>
+            <ul className="mt-1 text-sm grid gap-1">{fallidas.map((v) => <li key={v.idem_key} className="flex flex-wrap justify-between gap-2"><span>{new Date(v.creado).toLocaleString("es-CO")} · {pesos(v.total)} · {v.error ?? `${v.aviso} (se reintenta sola)`}</span><span className="flex flex-wrap gap-3">{/no cubre el total/.test(v.error ?? "") && <button onClick={() => { reintentar(v.idem_key, true); void sincronizar(empresa).then(contar); }} className="underline font-semibold">Registrar con el precio de hoy</button>}<button onClick={() => { reintentar(v.idem_key); void sincronizar(empresa).then(contar); }} className="underline font-semibold">Reintentar</button><button onClick={() => descartar(v.idem_key)} className="underline">Ya la registré a mano</button></span></li>)}</ul>
           </div>
         )}
         <div className="relative">
@@ -416,10 +444,11 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja }:
           <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
           <input id="buscar" ref={buscador} autoFocus value={q} onChange={(e) => escribir(e.target.value)} onKeyDown={teclaBuscador}
             placeholder={mult ? `${mult} × siguiente producto` : "Buscar o escanear"} autoComplete="off" spellCheck={false}
-            className="w-full h-16 rounded-2xl bg-surface border-2 border-line focus:border-ink outline-none pl-13 pr-24 text-xl"
+            className="w-full h-16 rounded-2xl bg-surface border-2 border-line focus:border-ink outline-none pl-13 pr-4 sm:pr-24 text-xl"
             style={{ paddingLeft: 52 }} />
           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted">{buscando ? "Buscando…" : <kbd className="hidden sm:inline">F2</kbd>}</span>
         </div>
+        {avisoBuscar && <p role="alert" className="mt-2 rounded-lg bg-alerta-soft text-alerta px-3 py-2 text-sm font-semibold">{avisoBuscar}</p>}
         {mult !== null && (
           <p role="status" className="mt-2 inline-flex items-center gap-2 rounded-lg bg-ink text-white px-3 py-1.5 text-sm font-semibold">
             Cantidad: <span className="num">{mult}</span> para el siguiente producto
@@ -429,7 +458,7 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja }:
 
         {res.length > 0 ? (
           <ul className="mt-3 bg-surface rounded-2xl border border-line divide-y divide-line overflow-hidden" role="listbox" aria-label="Resultados">
-            {res.map((p, i) => <Fila key={p.id} p={p} activo={i === sel} onHover={() => setSel(i)} agregar={agregar} />)}
+            {res.map((p, i) => <Fila key={p.id} p={p} activo={i === sel} onHover={() => setSel(i)} agregar={agregar} iva={responsableIva} />)}
           </ul>
         ) : q.trim() && !buscando ? (
           <p className="mt-6 text-muted">No hay productos con «{q.trim()}». Prueba con otra palabra o escanea el código.</p>
@@ -439,7 +468,7 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja }:
             <section className="mt-5" aria-label="Vender primero">
               <h2 className="font-cond text-lg" style={{ fontWeight: 700 }}>Ofrécelos primero <span className="text-muted font-normal text-base" style={{ fontWeight: 400 }}>· tienen lotes que vencen en menos de 60 días</span></h2>
               <ul role="listbox" aria-label="Vender primero" className="mt-2 bg-surface rounded-2xl border border-line divide-y divide-line overflow-hidden">
-                {vencen.map((p) => <Fila key={p.id} p={p} activo={false} onHover={() => {}} agregar={agregar} />)}
+                {vencen.map((p) => <Fila key={p.id} p={p} activo={false} onHover={() => {}} agregar={agregar} iva={responsableIva} />)}
               </ul>
             </section>
           )}
@@ -456,7 +485,7 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja }:
       </section>
 
       {/* La tirilla */}
-      <aside id="venta" aria-label="Venta actual" className="tirilla rounded-t-2xl xl:sticky xl:top-6 pb-8 scroll-mt-4">
+      <aside id="venta" aria-label="Venta actual" className="tirilla rounded-t-2xl xl:sticky xl:top-6 xl:max-h-[calc(100dvh-3rem)] xl:overflow-y-auto pb-8 scroll-mt-4">
         {hecho ? (
           <Hecho hecho={hecho} control={ex.control.length > 0} impresora={impresora} cambiarImpresora={cambiarImpresora} nombreEmpresa={nombreEmpresa} nueva={nueva} pedido={cobrado} />
         ) : (
@@ -486,7 +515,7 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja }:
                 ))}
               </div>
             </div>
-            {tipoDoc === "factura" && <ClienteFactura cliente={cliente} onCambio={(c) => { setCliente(c); setMotivoCredito(""); }} total={Math.round(totales.total)} onCredito={setCred} gerencia={gerencia} />}
+            {tipoDoc === "factura" && <ClienteFactura cliente={cliente} onCambio={(c) => { setCliente(c); setMotivoCredito(""); setError(""); }} total={Math.round(totales.total)} onCredito={setCred} gerencia={gerencia} />}
             {ofreceCredito && (
                   <div className="px-6 pt-3">
                     <p className="text-sm font-semibold mb-2">Forma de pago</p>
@@ -525,19 +554,23 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja }:
             {lineas.length === 0 ? (
               <p className="px-6 py-10 text-muted text-center">Escanea o busca un producto para empezar.</p>
             ) : (
-              <ul className="px-6 py-2 divide-y divide-dashed divide-line max-h-[46vh] overflow-auto">
+              <ul className="px-6 py-2 divide-y divide-dashed divide-line max-h-[46vh] xl:max-h-[max(9rem,calc(100dvh-36rem))] overflow-auto">
                 {lineas.map((l) => (
-                  <LineaVenta key={l.key} l={l} sobra={excede(lineas, l.p)} domicilio={domicilios[l.p.id]}
+                  <LineaVenta key={l.key} l={l} general={descGeneral} sobra={excede(lineas, l.p)} domicilio={domicilios[l.p.id]}
                     onCambio={(c) => setLineas((ls) => ls.map((x) => (x.key === l.key ? { ...x, ...c } : x)))}
                     onQuitar={() => setLineas((ls) => ls.filter((x) => x.key !== l.key))} onListo={() => buscador.current?.focus()} />
                 ))}
               </ul>
             )}
             {pide && <PanelFormula ex={ex} cfg={formulas} datos={formula} onCambio={setFormula} falta={faltaFormula} sinRed={formulaSinRed} />}
+            {/* En PC la tirilla cabe en la ventana (las líneas se desplazan por dentro) y «Cobrar» queda a la vista. */}
+            <div>
             <div className="corte" />
             <dl className="px-6 pt-3 text-sm text-muted num grid grid-cols-2 gap-y-1">
-              <dt>Base</dt><dd className="text-right">{pesos(totales.base)}</dd>
-              <dt>IVA</dt><dd className="text-right">{pesos(totales.iva)}</dd>
+              {responsableIva ? <>
+                <dt>Base</dt><dd className="text-right">{pesos(totales.base)}</dd>
+                <dt>IVA</dt><dd className="text-right">{pesos(totales.iva)}</dd>
+              </> : <><dt>No responsable de IVA</dt><dd className="text-right">{pesos(totales.total)}</dd></>}
               {totales.descuento > 0 && <><dt>Descuento</dt><dd className="text-right">−{pesos(totales.descuento)}</dd></>}
             </dl>
             {lineas.length > 0 && (
@@ -562,15 +595,16 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja }:
                   className="w-full h-16 rounded-xl bg-cruz text-cruz-ink text-xl font-semibold disabled:opacity-40 flex items-center justify-center gap-3">
                   Cobrar <kbd className="!bg-transparent !text-white/80 !border-white/40">F9</kbd>
                 </button>
-                <p className="mt-3 text-center text-[13px] text-muted">{lineas.some((l) => excede(lineas, l.p)) ? "Hay más de lo que queda en existencias: baja la cantidad o vende por unidad" : faltaCliente && lineas.length > 0 ? "Elige o crea el cliente para facturar" : faltaMotivo && lineas.length > 0 ? "Escribe el motivo para fiar por encima del cupo" : formulaSinRed ? "Sin internet no se venden productos que exigen registrar la fórmula" : faltaFormula && lineas.length > 0 ? <>Completa la fórmula médica para cobrar · <kbd>F9</kbd> te lleva al dato que falta</> : `${tipoDoc === "factura" ? "Factura electrónica de venta" : "Tiquete POS electrónico"} · el lote que vence antes sale primero`}</p>
+                <p className="mt-3 text-center text-[13px] text-muted">{lineas.some((l) => excede(lineas, l.p)) ? "Hay más de lo que queda en existencias: baja la cantidad o vende por unidad" : faltaCliente && lineas.length > 0 ? "Elige o crea el cliente para facturar" : faltaCorreo && lineas.length > 0 ? "Escribe el correo del cliente: la factura electrónica lo necesita" : descuentoExcedido ? `Tu descuento máximo es ${descuentoMax} % (contando el general): bájalo o pide autorización al dueño` : faltaMotivo && lineas.length > 0 ? "Escribe el motivo para fiar por encima del cupo" : formulaSinRed ? "Sin internet no se venden productos que exigen registrar la fórmula" : faltaFormula && lineas.length > 0 ? <>Completa la fórmula médica para cobrar · <kbd>F9</kbd> te lleva al dato que falta</> : `${tipoDoc === "factura" ? "Factura electrónica de venta" : "Tiquete POS electrónico"} · el lote que vence antes sale primero`}</p>
               </div>
             )}
+            </div>
           </>
         )}
       </aside>
       {/* En pantallas pequeñas la tirilla queda abajo: barra fija con el total para no perderlo de vista. */}
       {!hecho && lineas.length > 0 && !cobrando && !dialogo && (
-        <div className="xl:hidden fixed inset-x-0 bottom-0 z-30 bg-ink text-white px-4 py-3 flex items-center gap-3" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
+        <div className="xl:hidden fixed inset-x-0 bottom-0 z-30 bg-ink text-white px-4 py-3 [@media(max-height:500px)]:py-1.5 flex items-center gap-3" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
           <a href="#venta" className="flex-1 min-w-0">
             <span className="block text-sm text-white/70">{totales.items} artículo{totales.items === 1 ? "" : "s"} · ver venta</span>
             <span className="block num font-cond text-2xl leading-tight" style={{ fontWeight: 700 }}>{pesos(totales.total)}</span>
