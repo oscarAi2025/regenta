@@ -44,13 +44,14 @@ try {
   await p.getByText("Facturar a").waitFor();
   ok(await p.getByText(/CC 222222222222/).count() >= 1, "«Consumidor final» elige la cédula 222222222222");
   ok(await p.getByText(/Falta el correo/).count() === 0, "a consumidor final no se le pide correo");
-  await p.locator("#buscar").fill("acetaminofen");
+  // Un producto con existencias de sobra para la presentación que agrega Enter (la demo cambia con la fecha).
+  const prod = (await (await p.request.get(B + "/api/productos?q=acetaminofen")).json()).productos.find((x) => x.unidades >= 2 * Math.max(1, x.unidades_por_caja ?? 1));
+  await p.locator("#buscar").fill(prod.nombre);
   await p.locator('[role="option"]').first().waitFor();
   await p.keyboard.press("Enter");
   await p.waitForTimeout(400);
-  ok(await p.getByText(/Escribe el correo del cliente/).count() === 0 && await p.getByRole("button", { name: /^Cobrar/ }).isEnabled(), "con consumidor final se puede cobrar");
+  ok(await p.getByText(/Escribe el correo del cliente/).count() === 0 && await p.getByRole("button", { name: /^Cobrar/ }).isEnabled(), "con consumidor final se puede cobrar", (await p.locator("main").innerText()).replace(/\n+/g, " ").slice(-600));
 
-  const prod = (await (await p.request.get(B + "/api/productos?q=acetaminofen")).json()).productos.find((x) => x.unidades > 5);
   const pos = await p.request.post(B + "/api/ventas", { headers: { origin: B }, data: { idem_key: crypto.randomUUID(), tipo_doc: "pos", lineas: [{ producto_id: prod.id, presentacion: "unidad", cantidad: 1 }], pagos: [{ medio: "efectivo", valor: 100000 }] } });
   const jp = await pos.json().catch(() => ({}));
   ok(pos.status() >= 400 && pos.status() < 500 && /solo con factura electrónica/.test(jp.error ?? ""), "el servidor no acepta un tiquete POS (no valdría ante la DIAN)", `${pos.status()} ${jp.error}`);

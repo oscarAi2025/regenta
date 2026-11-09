@@ -270,3 +270,5 @@
   filtrar por centro de costo antes de migrar ventas, clientes y cartera.
 - La migración de existencias se comprueba dentro de la misma transacción (producto por producto contra el archivo):
   si no cuadra, se deshace todo.
+- (09/11) La demo cambia con la fecha (existencias y vencimientos relativos a hoy): una prueba no puede suponer que «el
+  primer acetaminofén» tiene una caja completa. Elegir por API un producto con existencias suficientes para lo que se hace.

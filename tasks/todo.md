@@ -481,5 +481,5 @@ FARMAHUB AMBALA y no se migran). Cartera de Farmagenéricos: 6 facturas por $3.9
 - [x] Historial de Alegra (/ventas/historial y detalle), enlace en Ventas y en la ficha del cliente; informes, inicio,
       ventas del día y Regenta IA excluyen lo de Alegra
 - [x] tests/e2e/migracion.mjs con los datos reales convertidos
-- [ ] Batería completa en verde
+- [x] Batería completa en verde (32 suites + migración 42/42 + habilitación 35 + unitarias 88+52; solo-factura dependía de la fecha de la demo: corregida)
 - [ ] Oscar pega db/produccion/bloque4-043.sql en Supabase → publicar → aplicar desde la consola → verificar totales
