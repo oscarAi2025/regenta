@@ -8,7 +8,7 @@ import { Devolver } from "./Devolver";
 import { Reenviar } from "./Reenviar";
 import { Abonos } from "./Abonos";
 import { Imprimir } from "./Imprimir";
-import { MEDIO } from "@/lib/formato";
+import { MEDIO, presentacionTexto } from "@/lib/formato";
 
 export const metadata = { title: "Venta" };
 
@@ -23,7 +23,7 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
       cl.nombre cliente, cl.tipo_doc cli_tipo, cl.numero_doc cli_num, cl.dv cli_dv, to_char(v.vence_pago, 'DD/MM/YYYY') vence
       from ventas v join empresas e on e.id = v.empresa_id left join clientes cl on cl.id = v.cliente_id left join miembros m on m.empresa_id = v.empresa_id and m.user_id = v.usuario_id where v.id = $1 and v.empresa_id = $2`, [id, s.empresa])).rows[0];
     if (!v) return null;
-    const lineas = (await c.query(`select vl.producto_id::text, vl.descripcion, vl.presentacion, sum(vl.cantidad)::float cantidad, vl.precio::float, sum(vl.total)::float total, sum(vl.descuento)::float descuento, vl.iva_pct::float, string_agg(l.lote, ', ') lotes,
+    const lineas = (await c.query(`select vl.producto_id::text, vl.descripcion, vl.presentacion, sum(vl.cantidad)::float cantidad, vl.precio::float, sum(vl.total)::float total, sum(vl.descuento)::float descuento, vl.iva_pct::float, string_agg(l.lote, ', ') lotes, (select p.unidades_por_caja from productos p where p.id = vl.producto_id) upc,
         coalesce(sum((select sum(dl.cantidad) from devolucion_lineas dl where dl.venta_linea_id = vl.id)), 0)::float devuelto
       from venta_lineas vl join lotes l on l.id = vl.lote_id where vl.venta_id = $1 group by vl.descripcion, vl.presentacion, vl.precio, vl.iva_pct, vl.producto_id order by min(vl.id)`, [id])).rows;
     const devoluciones = (await c.query(`select d.id::text, to_char(d.creado at time zone 'America/Bogota', 'DD/MM/YYYY HH24:MI') fecha, d.total::float, d.reembolso::float, d.a_saldo::float, d.medio, d.motivo,
@@ -56,9 +56,9 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
           {d.lineas.map((l, i) => (
             <li key={i}>
               <p className="text-[15px] leading-snug">{l.descripcion}</p>
-              <p className="flex justify-between text-sm text-muted num"><span>{l.cantidad} {l.presentacion === "caja" ? "caja" : "und"} × {pesos(l.precio)}{l.iva_pct ? ` · IVA ${l.iva_pct} %` : ""} · lote {l.lotes}</span><span className="text-ink font-semibold">{pesos(l.total)}</span></p>
+              <p className="flex justify-between text-sm text-muted num"><span>{l.cantidad} {presentacionTexto(l.presentacion, l.upc)} × {pesos(l.precio)}{l.iva_pct ? ` · IVA ${l.iva_pct} %` : ""} · lote {l.lotes}</span><span className="text-ink font-semibold">{pesos(l.total)}</span></p>
               {l.descuento > 0 && <p className="text-sm text-cruz num">Descuento −{pesos(l.descuento)}</p>}
-              {l.devuelto > 0 && <p className="text-sm text-alerta num">Devuelto: {l.devuelto} {l.presentacion === "caja" ? "caja" : "und"}</p>}
+              {l.devuelto > 0 && <p className="text-sm text-alerta num">Devuelto: {l.devuelto} {presentacionTexto(l.presentacion, l.upc)}</p>}
             </li>
           ))}
         </ul>

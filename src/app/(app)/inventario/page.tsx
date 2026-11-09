@@ -114,7 +114,10 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
                 <td className="px-4 py-3 num text-right">{pesos(f.precio_caja)}</td>
               </tr>
             ))}
-            {datos.filas.length === 0 && <tr><td colSpan={4} className="px-4 py-10 text-center text-muted">No hay productos en este filtro.</td></tr>}
+            {datos.filas.length === 0 && <tr><td colSpan={4} className="px-4 py-10 text-center text-muted">
+              {q ? <>Ningún producto coincide con «{q}» en este filtro. </> : ver === "agotados" ? "No tienes productos agotados. " : ver === "todos" ? "Aún no hay productos en el inventario. " : "Ningún lote vence en los próximos 90 días. "}
+              {ver !== "todos" && <a href={`?ver=todos${q ? `&q=${encodeURIComponent(q)}` : ""}`} className="font-semibold text-ink underline">Ver todo el inventario</a>}
+            </td></tr>}
           </tbody>
         </table>
       </div>

@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import QRCode from "qrcode";
 import { comoUsuario } from "@/lib/db";
 import { leerSesion, puede } from "@/lib/sesion";
-import { MEDIO, pesos } from "@/lib/formato";
+import { MEDIO, pesos, presentacionTexto } from "@/lib/formato";
 import { AutoImprimir } from "./AutoImprimir";
 
 // Tirilla para impresora térmica (80 o 58 mm). Página sin el marco de la aplicación: se abre en un iframe oculto desde
@@ -38,7 +38,7 @@ export default async function Tiquete({ params, searchParams }: { params: Promis
        from resoluciones_dian where empresa_id = $1 and tipo = $2 and prefijo = $3 and $4::bigint between desde and hasta order by activa desc limit 1`, [s.empresa, v.tipo_doc, v.prefijo, v.numero])).rows[0];
     const lineas = (await c.query(
       `select vl.descripcion, vl.presentacion, coalesce(p.ean, left(p.id::text, 8)) codigo, sum(vl.cantidad)::float cantidad, vl.precio::float precio,
-              sum(vl.total)::float total, vl.iva_pct::float iva_pct, sum(vl.base)::float base, sum(vl.iva)::float iva, sum(vl.descuento)::float descuento, max(vl.descuento_pct)::float descuento_pct
+              sum(vl.total)::float total, vl.iva_pct::float iva_pct, sum(vl.base)::float base, sum(vl.iva)::float iva, sum(vl.descuento)::float descuento, max(vl.descuento_pct)::float descuento_pct, max(p.unidades_por_caja) upc
        from venta_lineas vl join productos p on p.id = vl.producto_id where vl.venta_id = $1
        group by vl.descripcion, vl.presentacion, vl.precio, vl.iva_pct, vl.producto_id, p.ean, p.id order by min(vl.id)`, [id])).rows;
     const pagos = (await c.query(`select medio, valor::float from pagos where venta_id = $1 order by id`, [id])).rows;
@@ -96,7 +96,7 @@ export default async function Tiquete({ params, searchParams }: { params: Promis
       {lineas.map((l, i) => (
         <div key={i} style={{ marginBottom: 4 }}>
           <p>{l.descripcion}</p>
-          {doble(`${l.cantidad} ${l.presentacion === "caja" ? "caja" : "und"} x ${pesos(l.precio)}${l.iva_pct ? ` IVA${l.iva_pct}%` : " Excl."}`, pesos(l.total + l.descuento))}
+          {doble(`${l.cantidad} ${presentacionTexto(l.presentacion, l.upc)} x ${pesos(l.precio)}${l.iva_pct ? ` IVA${l.iva_pct}%` : " Excl."}`, pesos(l.total + l.descuento))}
           {l.descuento > 0 && doble(`  Descuento ${l.descuento_pct}%`, `−${pesos(l.descuento)}`)}
           <p className="peq">Cód. {l.codigo}</p>
         </div>

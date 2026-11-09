@@ -5,6 +5,10 @@ import { pesos } from "@/lib/formato";
 export type Cliente = { id: string; tipo_doc: string; numero_doc: string; dv: string | null; nombre: string; email: string | null; telefono: string | null };
 const TIPOS = [["NIT", "NIT"], ["CC", "Cédula"], ["CE", "Cédula de extranjería"], ["PP", "Pasaporte"], ["PEP", "PEP"]] as const;
 
+/** Consumidor final (DIAN: cédula 222222222222). La factura no lleva correo: el proveedor no se lo envía a nadie. */
+export const CONSUMIDOR_FINAL = "222222222222";
+export const esConsumidorFinal = (c: Pick<Cliente, "numero_doc"> | null) => c?.numero_doc === CONSUMIDOR_FINAL;
+
 export const documento = (c: Cliente) => `${c.tipo_doc} ${c.numero_doc}${c.dv ? `-${c.dv}` : ""}`;
 
 /** Respuesta de GET /api/clientes/[id]/credito (contrato con la caja). */
@@ -70,6 +74,19 @@ export function ClienteFactura({ cliente, onCambio, total, onCredito, gerencia }
     return () => { clearTimeout(h); ctl.abort(); };
   }, [q]);
 
+  /** Factura a consumidor final (sin datos del comprador): se crea una vez y se reutiliza. */
+  async function consumidorFinal() {
+    if (guardando) return;
+    setGuardando(true); setError("");
+    try {
+      const r = await fetch("/api/clientes", { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ tipo_doc: "CC", numero_doc: CONSUMIDOR_FINAL, nombre: "Consumidor final", email: "", telefono: "", autoriza_datos: false }) });
+      const j = await r.json();
+      if (!r.ok) { setError(j.error ?? "No se pudo elegir consumidor final"); return; }
+      onCambio(j.cliente); setQ("");
+    } catch { setError("Sin conexión con el servidor: vuelve a intentarlo"); } finally { setGuardando(false); }
+  }
+
   async function crear(e: React.FormEvent) {
     e.preventDefault();
     if (guardando) return;
@@ -88,7 +105,7 @@ export function ClienteFactura({ cliente, onCambio, total, onCredito, gerencia }
         <p className="text-xs text-muted">Facturar a</p>
         <p className="font-semibold leading-snug">{cliente.nombre}</p>
         <p className="text-sm text-muted num">{documento(cliente)}{cliente.email ? ` · ${cliente.email}` : ""}</p>
-        {!cliente.email && <CorreoFaltante id={cliente.id} onListo={(email) => onCambio({ ...cliente, email })} />}
+        {!cliente.email && !esConsumidorFinal(cliente) && <CorreoFaltante id={cliente.id} onListo={(email) => onCambio({ ...cliente, email })} />}
         <CreditoDelCliente id={cliente.id} total={total} onCredito={onCredito} gerencia={gerencia} />
       </div>
       <button onClick={() => { onCambio(null); setTimeout(() => input.current?.focus(), 0); }} className="text-sm font-semibold underline shrink-0">Cambiar</button>
@@ -123,6 +140,8 @@ export function ClienteFactura({ cliente, onCambio, total, onCredito, gerencia }
     <div className="mx-6 mt-3">
       <label htmlFor="cf-buscar" className="text-sm font-semibold">Cliente de la factura</label>
       <input id="cf-buscar" ref={input} value={q} onChange={(e) => setQ(e.target.value)} onFocus={cargarRecientes} placeholder="NIT, cédula o nombre" autoComplete="off" className="campo mt-1" />
+      <button type="button" onClick={() => void consumidorFinal()} disabled={guardando} className="mt-2 h-9 px-3 rounded-lg border border-line text-sm font-semibold hover:border-ink disabled:opacity-60">Consumidor final</button>
+      {error && !nuevo && <p role="alert" className="mt-1 text-alerta text-sm">{error}</p>}
       {!q.trim() && recientes && recientes.length > 0 && (
         <div className="mt-2">
           <p className="text-xs text-muted">Clientes recientes</p>

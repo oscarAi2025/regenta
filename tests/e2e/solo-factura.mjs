@@ -39,6 +39,17 @@ try {
   ok(await p.getByText(/aún no está habilitada ante la DIAN/).count() === 0, "no dice que la droguería no está habilitada (ya factura)");
   ok(await p.getByLabel(/Cliente de la factura|NIT, cédula o nombre/).count() >= 1 || await p.getByPlaceholder(/NIT, cédula o nombre/).count() >= 1, "pide el cliente de la factura desde el principio");
 
+  // Consumidor final con un toque: sin correo (la DIAN no se lo envía a nadie) y la venta queda lista para cobrar
+  await p.getByRole("button", { name: "Consumidor final" }).click();
+  await p.getByText("Facturar a").waitFor();
+  ok(await p.getByText(/CC 222222222222/).count() >= 1, "«Consumidor final» elige la cédula 222222222222");
+  ok(await p.getByText(/Falta el correo/).count() === 0, "a consumidor final no se le pide correo");
+  await p.locator("#buscar").fill("acetaminofen");
+  await p.locator('[role="option"]').first().waitFor();
+  await p.keyboard.press("Enter");
+  await p.waitForTimeout(400);
+  ok(await p.getByText(/Escribe el correo del cliente/).count() === 0 && await p.getByRole("button", { name: /^Cobrar/ }).isEnabled(), "con consumidor final se puede cobrar");
+
   const prod = (await (await p.request.get(B + "/api/productos?q=acetaminofen")).json()).productos.find((x) => x.unidades > 5);
   const pos = await p.request.post(B + "/api/ventas", { headers: { origin: B }, data: { idem_key: crypto.randomUUID(), tipo_doc: "pos", lineas: [{ producto_id: prod.id, presentacion: "unidad", cantidad: 1 }], pagos: [{ medio: "efectivo", valor: 100000 }] } });
   const jp = await pos.json().catch(() => ({}));
@@ -52,6 +63,8 @@ try {
   await p.goto(B + "/inicio");
   const paso = p.getByRole("link", { name: /Habilitación DIAN/ });
   ok(!(await paso.count()) || /\(hecho\)/.test(await paso.first().textContent()), "Primeros pasos da por hecha la habilitación DIAN", await paso.count() ? await paso.first().textContent() : "sin primeros pasos");
+  await p.goto(B + "/inventario?ver=vencen&q=zzzzproductoquenoexiste");
+  ok(await p.getByText(/Ningún producto coincide/).count() === 1 && await p.locator("tbody a", { hasText: "Ver todo el inventario" }).count() === 1, "inventario vacío explica por qué y ofrece ver todo", `${(await p.locator("tbody").textContent()).slice(0, 300)} · enlaces ${await p.getByRole("link", { name: "Ver todo el inventario" }).count()}`);
   ok(errs.length === 0, "sin errores de consola", errs.join(" | "));
 } finally {
   await q(`delete from resoluciones_dian where empresa_id = $1 and prefijo in ('FGX', 'NCX') and not exists (select 1 from documentos_dian d where d.empresa_id = $1 and d.prefijo = resoluciones_dian.prefijo)`, [emp]).catch(() => {});

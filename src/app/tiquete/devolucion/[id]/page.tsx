@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { comoUsuario } from "@/lib/db";
 import { leerSesion, puede } from "@/lib/sesion";
-import { MEDIO, pesos } from "@/lib/formato";
+import { MEDIO, pesos, presentacionTexto } from "@/lib/formato";
 import { AutoImprimir } from "../../[id]/AutoImprimir";
 
 // Comprobante de devolución para la impresora térmica: qué se devolvió, cuánto se reembolsó y la nota crédito.
@@ -26,7 +26,7 @@ export default async function ComprobanteDevolucion({ params, searchParams }: { 
        left join miembros m on m.empresa_id = d.empresa_id and m.user_id = d.usuario_id
        where d.id = $1 and d.empresa_id = $2`, [id, s.empresa])).rows[0];
     if (!x) return null;
-    const lineas = (await c.query(`select vl.descripcion, vl.presentacion, sum(dl.cantidad)::float cantidad, sum(dl.total)::float total
+    const lineas = (await c.query(`select vl.descripcion, vl.presentacion, sum(dl.cantidad)::float cantidad, sum(dl.total)::float total, (select p.unidades_por_caja from productos p where p.id = vl.producto_id) upc
       from devolucion_lineas dl join venta_lineas vl on vl.id = dl.venta_linea_id where dl.devolucion_id = $1 group by vl.descripcion, vl.presentacion, vl.producto_id order by min(dl.id)`, [id])).rows;
     return { x, lineas };
   });
@@ -59,7 +59,7 @@ export default async function ComprobanteDevolucion({ params, searchParams }: { 
       {x.nota && fila("Nota crédito", x.nota)}
       <hr />
       {lineas.map((l, i) => (
-        <div key={i}><p>{l.descripcion}</p>{fila(`${l.cantidad} ${l.presentacion === "caja" ? "caja" : "und"}`, pesos(l.total))}</div>
+        <div key={i}><p>{l.descripcion}</p>{fila(`${l.cantidad} ${presentacionTexto(l.presentacion, l.upc)}`, pesos(l.total))}</div>
       ))}
       <hr />
       {fila("Total devuelto", pesos(Number(x.total)), true)}

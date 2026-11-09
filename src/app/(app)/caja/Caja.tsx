@@ -2,7 +2,7 @@
 import { guardarImpresora, imprimirTiquete, leerImpresora, type Impresora } from "@/lib/impresion";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { pesos } from "@/lib/formato";
-import { ClienteFactura, documento, type Cliente, type CreditoCaja } from "./ClienteFactura";
+import { ClienteFactura, documento, type Cliente, type CreditoCaja, esConsumidorFinal } from "./ClienteFactura";
 import { actualizarCatalogo, buscarLocal, catalogo, cola, descartar, encolar, reintentar, esFallaDeRed, imprimirProvisional, sincronizar, type VentaEnCola } from "@/lib/sin-conexion";
 import { FORMULA_VACIA, errorFormula, exigencia, limpiarDoc, pideFormula, type ConfigFormula, type DatosFormula } from "@/lib/control-especial";
 import { MAX_CANTIDAD, etiquetaPedido, netoLinea, prefijoCantidad, type TipoPedido } from "@/lib/pedidos";
@@ -275,7 +275,7 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, r
   const faltaFormula = pide ? errorFormula(formula, ex, formulas) : null;
   const formulaSinRed = !enLinea && ex.datos; // sin internet no se garantiza el registro: esos productos no se venden
   // La factura electrónica necesita el correo del cliente (registrar_venta lo exige): se pide antes de cobrar.
-  const faltaCorreo = tipoDoc === "factura" && !!cliente && !cliente.email;
+  const faltaCorreo = tipoDoc === "factura" && !!cliente && !cliente.email && !esConsumidorFinal(cliente);
   // Tope de descuento de la cajera: línea y general combinados, igual que en la base (antes solo fallaba al confirmar).
   const descuentoExcedido = descuentoMax !== null && lineas.some((l) => 100 - (100 - l.descuento) * (100 - descGeneral) / 100 > descuentoMax + 0.001);
   const puedeCobrar = lineas.length > 0 && !lineas.some((l) => excede(lineas, l.p)) && !faltaCliente && !faltaFormula && !formulaSinRed && !faltaMotivo && !faltaCorreo && !descuentoExcedido;
