@@ -1,3 +1,5 @@
+-- Regenta: migración 042 (auditoría del 09/11/2026: seguridad, caja, compras, reportes y DIAN). Una sola transacción. Repetible.
+begin;
 -- 042 · Auditoría completa (09/11/2026). Repetible: se puede pegar más de una vez en el editor SQL.
 
 -- ── Seguridad ─────────────────────────────────────────────────────────────────────────────────────────────────
@@ -265,3 +267,4 @@ end $$;
 revoke execute on function documento_lineas_sin_iva() from public, anon, authenticated;
 drop trigger if exists documento_lineas_sin_iva on documento_lineas;
 create trigger documento_lineas_sin_iva before insert on documento_lineas for each row execute function documento_lineas_sin_iva();
+commit;
