@@ -41,7 +41,7 @@ export default async function Cartera({ searchParams }: { searchParams: Promise<
         <Vistas ver={ver} />
       </nav>
       <div className="tarjeta overflow-x-auto relative">
-        <table className="w-full text-[15px] min-w-[860px]">
+        <table className="tabla-tarjetas w-full text-[15px] min-w-[860px]">
           <thead className="text-left text-sm text-muted border-b border-line">
             <tr><th className="px-4 py-3 font-semibold">Cliente</th><th className="px-4 py-3 font-semibold">Factura</th><th className="px-4 py-3 font-semibold">Vence</th>
               <th className="px-4 py-3 font-semibold text-right">Total</th><th className="px-4 py-3 font-semibold text-right">Abonado</th><th className="px-4 py-3 font-semibold text-right">Saldo</th>{ver !== "pagadas" && <th className="px-4 py-3 font-semibold">Abono</th>}</tr>
@@ -50,15 +50,15 @@ export default async function Cartera({ searchParams }: { searchParams: Promise<
             {filas.map((f) => (
               <tr key={f.venta_id} className="align-top">
                 <td className="px-4 py-3"><p className="font-semibold leading-snug">{f.cliente}</p><p className="text-sm text-muted num">{f.documento}{f.telefono ? ` · ${f.telefono}` : ""}</p></td>
-                <td className="px-4 py-3"><Link href={`/ventas/${f.venta_id}`} className="num font-semibold hover:underline">{f.numero}</Link><p className="text-sm text-muted">{fecha(f.creado)}</p></td>
-                <td className="px-4 py-3">
+                <td data-etiqueta="Factura" className="px-4 py-3"><Link href={`/ventas/${f.venta_id}`} className="num font-semibold hover:underline">{f.numero}</Link><p className="text-sm text-muted">{fecha(f.creado)}</p></td>
+                <td data-etiqueta="Vence" className="px-4 py-3">
                   <span className={`rounded-md px-2 py-0.5 text-sm font-semibold ${f.saldo === 0 ? "bg-paper" : f.dias_mora > 0 ? "bg-alerta-soft text-alerta" : "bg-paper"}`}>{fecha(f.vence_pago)}</span>
                   {f.saldo > 0 && f.dias_mora > 0 && <p className="text-sm text-alerta mt-1">{f.dias_mora} día{f.dias_mora === 1 ? "" : "s"} de mora</p>}
                 </td>
-                <td className="px-4 py-3 num text-right">{pesos(f.total)}</td>
-                <td className="px-4 py-3 num text-right text-muted"><Valor venta={f.venta_id} campo="abonado" inicial={f.abonado} /></td>
-                <td className="px-4 py-3 num text-right font-semibold"><Valor venta={f.venta_id} campo="saldo" inicial={f.saldo} /></td>
-                {ver !== "pagadas" && <td className="px-4 py-3"><Abonar venta={f.venta_id} cliente={f.cliente_id} saldo={f.saldo} numero={f.numero} /></td>}
+                <td data-etiqueta="Total" className="px-4 py-3 num text-right">{pesos(f.total)}</td>
+                <td data-etiqueta="Abonado" className="px-4 py-3 num text-right text-muted"><Valor venta={f.venta_id} campo="abonado" inicial={f.abonado} /></td>
+                <td data-etiqueta="Saldo" className="px-4 py-3 num text-right font-semibold"><Valor venta={f.venta_id} campo="saldo" inicial={f.saldo} /></td>
+                {ver !== "pagadas" && <td className="ancho px-4 py-3"><Abonar venta={f.venta_id} cliente={f.cliente_id} saldo={f.saldo} numero={f.numero} /></td>}
               </tr>
             ))}
             {filas.length === 0 && <tr><td colSpan={7} className="px-4 py-12 text-center text-muted">{ver === "pagadas" ? "Aún no hay facturas a crédito pagadas por completo." : "Nadie te debe. Las ventas a crédito se hacen desde la Caja: Factura electrónica → Cobrar → Crédito."}</td></tr>}
@@ -80,7 +80,7 @@ function Vistas({ ver }: { ver: string }) {
   );
 }
 
-/** Cartera agrupada por cliente con sus edades (días desde el vencimiento), filtros por edad y CSV para Excel. */
+/** Cartera agrupada por cliente con sus edades (días desde el vencimiento), filtros por edad y descarga en Excel. */
 async function PorCliente({ empresa, sesion, edad, q }: { empresa: string; sesion: { uid: string }; edad: (typeof EDADES)[number]["k"] | null; q: string }) {
   const { filas, todas, mora } = await comoUsuario(sesion, async (c) => ({
     filas: await carteraPorCliente(c, empresa, edad, q),
@@ -90,11 +90,11 @@ async function PorCliente({ empresa, sesion, edad, q }: { empresa: string; sesio
   const base: FilaCliente[] = todas ?? filas;
   const suma = (k: "saldo" | (typeof EDADES)[number]["k"], l = base) => l.reduce((a, f) => a + f[k], 0);
   const qs = (x: Record<string, string | null>) => { const u = new URLSearchParams({ ver: "clientes" }); for (const [k, v] of Object.entries(x)) if (v) u.set(k, v); return `/cartera?${u}`; };
-  const csv = `/api/cartera?${new URLSearchParams({ formato: "csv", ...(edad ? { edad } : {}), ...(q ? { q } : {}) })}`;
+  const excel = `/api/cartera?${new URLSearchParams({ formato: "excel", ...(edad ? { edad } : {}), ...(q ? { q } : {}) })}`;
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
       <Cabecera titulo="Cartera" sub="Lo que te debe cada cliente, por edad de la deuda (días desde el vencimiento de cada factura).">
-        <a href={csv} className="btn-borde h-11 inline-flex items-center" download>Descargar CSV</a>
+        <a href={excel} className="btn-borde h-11 inline-flex items-center" download>Descargar en Excel</a>
       </Cabecera>
       <section className="grid grid-cols-2 lg:grid-cols-5 gap-3" aria-label="Edades de la cartera">
         <a href={qs({ q })} aria-current={!edad ? "true" : undefined} className={`tarjeta px-4 py-3.5 hover:border-ink ${!edad ? "border-ink border-2" : ""}`}>
@@ -121,7 +121,7 @@ async function PorCliente({ empresa, sesion, edad, q }: { empresa: string; sesio
       </div>
       {(edad || q) && <p className="text-sm">Filtrado{edad ? ` por ${EDADES.find((e) => e.k === edad)!.t}` : ""}{q ? ` · «${q}»` : ""}. <a href="/cartera?ver=clientes" className="font-semibold underline">Quitar filtros</a></p>}
       <div className="tarjeta overflow-x-auto relative">
-        <table className="w-full text-[15px] min-w-[980px]">
+        <table className="tabla-tarjetas w-full text-[15px] min-w-[980px]">
           <thead className="text-left text-sm text-muted border-b border-line">
             <tr><th className="px-4 py-3 font-semibold">Cliente</th><th className="px-4 py-3 font-semibold text-right">Saldo</th>
               {EDADES.map((e) => <th key={e.k} className="px-4 py-3 font-semibold text-right">{e.t}</th>)}
@@ -132,9 +132,9 @@ async function PorCliente({ empresa, sesion, edad, q }: { empresa: string; sesio
               <tr key={f.cliente_id} className="align-top">
                 <td className="px-4 py-3"><Link href={`/clientes/${f.cliente_id}`} className="font-semibold leading-snug hover:underline">{f.cliente}</Link>
                   <p className="text-sm text-muted num">{f.documento}{f.telefono ? ` · ${f.telefono}` : ""}</p></td>
-                <td className="px-4 py-3 num text-right font-semibold">{pesos(f.saldo)}<p className="text-sm text-muted font-normal">{f.facturas} factura{f.facturas === 1 ? "" : "s"}</p></td>
-                {EDADES.map((e) => <td key={e.k} className={`px-4 py-3 num text-right ${f[e.k] && e.k !== "e0" ? "text-alerta" : f[e.k] ? "" : "text-muted"}`}>{f[e.k] ? pesos(f[e.k]) : "—"}</td>)}
-                <td className="px-4 py-3 text-sm">{f.bloqueado ? <span className="text-alerta font-semibold">Bloqueado</span> : f.cupo === null ? <span className="text-muted">Sin cupo</span> : <>Cupo {pesos(f.cupo)}</>}
+                <td data-etiqueta="Saldo" className="px-4 py-3 num text-right font-semibold">{pesos(f.saldo)}<p className="text-sm text-muted font-normal">{f.facturas} factura{f.facturas === 1 ? "" : "s"}</p></td>
+                {EDADES.map((e) => <td key={e.k} data-etiqueta={e.t} className={`px-4 py-3 num text-right ${f[e.k] && e.k !== "e0" ? "text-alerta" : f[e.k] ? "" : "text-muted"}`}>{f[e.k] ? pesos(f[e.k]) : "—"}</td>)}
+                <td data-etiqueta="Crédito" className="px-4 py-3 text-sm">{f.bloqueado ? <span className="text-alerta font-semibold">Bloqueado</span> : f.cupo === null ? <span className="text-muted">Sin cupo</span> : <>Cupo {pesos(f.cupo)}</>}
                   {f.mora > 0 && <p className="text-alerta">{f.mora} días de mora</p>}</td>
               </tr>
             ))}
@@ -142,8 +142,8 @@ async function PorCliente({ empresa, sesion, edad, q }: { empresa: string; sesio
           </tbody>
           {filas.length > 0 && (
             <tfoot className="border-t-2 border-line font-semibold"><tr>
-              <td className="px-4 py-3">Total</td><td className="px-4 py-3 num text-right">{pesos(suma("saldo", filas))}</td>
-              {EDADES.map((e) => <td key={e.k} className="px-4 py-3 num text-right">{pesos(suma(e.k, filas))}</td>)}<td /></tr></tfoot>
+              <td className="px-4 py-3">Total</td><td data-etiqueta="Saldo" className="px-4 py-3 num text-right">{pesos(suma("saldo", filas))}</td>
+              {EDADES.map((e) => <td key={e.k} data-etiqueta={e.t} className="px-4 py-3 num text-right">{pesos(suma(e.k, filas))}</td>)}<td /></tr></tfoot>
           )}
         </table>
       </div>

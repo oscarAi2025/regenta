@@ -135,3 +135,16 @@ kbd { font-family: "Barlow Semi Condensed", sans-serif; font-weight: 600; font-s
   input[type="checkbox"], input[type="radio"] { width: 1.375rem; height: 1.375rem; }
   label:has(> input[type="checkbox"], > input[type="radio"]) { min-height: 44px; align-content: center; }
 }
+
+/* Tablas que en el celular se leen como tarjetas: cada fila es una tarjeta con la primera celda arriba (el nombre) y las
+   demás en dos columnas, cada una con su título (data-etiqueta). En pantallas medianas y grandes es la tabla normal. */
+@media (max-width: 767px) {
+  .tabla-tarjetas { min-width: 0 !important; }
+  .tabla-tarjetas thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .tabla-tarjetas tbody, .tabla-tarjetas tfoot { display: block; }
+  .tabla-tarjetas tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.5rem 1rem; padding: 0.875rem 1rem; }
+  .tabla-tarjetas td { display: block; padding: 0 !important; text-align: left !important; min-width: 0; overflow-wrap: anywhere; }
+  .tabla-tarjetas td:first-child, .tabla-tarjetas td[colspan], .tabla-tarjetas td.ancho { grid-column: 1 / -1; }
+  .tabla-tarjetas td[data-etiqueta]::before { content: attr(data-etiqueta); display: block; font-size: 12.5px; font-weight: 600; color: var(--muted); margin-bottom: 1px; }
+  .tabla-tarjetas td:empty { display: none; }
+}

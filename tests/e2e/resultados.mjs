@@ -6,6 +6,7 @@
 //   · cierre del día = suma de los turnos; bitácora con un cambio de precio y una anulación (usuario y fecha);
 //   · cajera 403, CSV con BOM y protegido, aislamiento entre empresas, celular sin desbordes, sin errores de consola.
 // Uso: servidor con la base sembrada → BASE=http://localhost:4531 DATABASE_URL=… node tests/e2e/resultados.mjs
+import { esXlsx, textoXlsx, xmlHoja } from "../ayudas/xlsx.mjs";
 import { chromium, devices } from "playwright-core";
 import { mkdirSync } from "node:fs";
 import { SignJWT } from "jose";
@@ -175,10 +176,9 @@ ok(ini.includes(pesos(Math.round(R3.utilidad_bruta))), "Inicio muestra la misma 
   const t19 = await p.getByRole("table", { name: "IVA de ventas" }).locator("tbody tr", { hasText: "19 %" }).innerText();
   ok(t19.includes(pesosExactos(I1.ventas_netas[2].iva)), "la tabla de ventas muestra el IVA neto del 19 %", t19.replace(/\s+/g, " "));
   await p.screenshot({ path: `${OUT}/iva-1440.png`, fullPage: true });
-  const csvIva = await p.request.get(B + `/api/reportes/iva?${R}&formato=csv`);
-  const bytes = new Uint8Array(await csvIva.body());
-  const txt = new TextDecoder().decode(bytes);
-  ok(bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf && txt.includes("Concepto;Tarifa;Base;IVA") && /no reemplaza la declaración/.test(txt), "CSV de IVA con BOM, «;» y la aclaración para el contador");
+  const xlIva = await p.request.get(B + `/api/reportes/iva?${R}&formato=excel`);
+  const txt = textoXlsx(await xlIva.body());
+  ok(esXlsx(xlIva.headers()["content-type"], xlIva.headers()["content-disposition"]) && txt.startsWith("Concepto;Tarifa;Base;IVA") && /no reemplaza la declaración/.test(txt), "Excel de IVA con la aclaración para el contador");
 }
 
 // ───────────── 3 · Gasto en efectivo desde la caja (por la pantalla), en el turno y en resultados; anularlo lo revierte
@@ -207,11 +207,11 @@ ok(ini.includes(pesos(Math.round(R3.utilidad_bruta))), "Inicio muestra la misma 
   const RG1 = await resultados();
   ok(cerca(RG1.total_gastos - RG0.total_gastos, 23500) && cerca(RG1.utilidad_operativa, RG1.utilidad_bruta - RG1.total_gastos), "resultados: gastos +23.500 y utilidad operativa = bruta − gastos");
   ok(RG1.gastos.some((g) => g.categoria === "transporte" && g.valor >= 23500), "el gasto sale en su categoría");
-  // CSV protegido contra fórmulas y con BOM
-  const resp = await p.request.get(B + "/api/gastos?formato=csv");
-  const by = new Uint8Array(await resp.body()), tx = new TextDecoder().decode(by);
-  ok(by[0] === 0xef && by[1] === 0xbb && by[2] === 0xbf && tx.split("\r\n")[0].startsWith("Gasto;Fecha;Categoría"), "CSV de gastos con BOM y «;»");
-  ok(tx.includes(`"'=HIPERVINCULO(""x"") domicilio ${SELLO}"`) && !tx.includes(`;=HIPERVINCULO`), "la descripción que empieza por = sale protegida en el CSV");
+  // Excel protegido contra fórmulas
+  const resp = await p.request.get(B + "/api/gastos?formato=excel");
+  const by = await resp.body(), tx = textoXlsx(by);
+  ok(esXlsx(resp.headers()["content-type"], resp.headers()["content-disposition"]) && tx.split("\n")[0].startsWith("Gasto;Fecha;Categoría"), "Excel de gastos (.xlsx)", tx.split("\n")[0]);
+  ok(tx.includes(`=HIPERVINCULO("x") domicilio ${SELLO}`) && !/<f[ >]/.test(xmlHoja(by)), "la descripción que empieza por = sale como texto, nunca como fórmula");
   // Anular (por la pantalla)
   await ir(p, "/gastos");
   const f2 = p.getByRole("table", { name: "Gastos" }).locator("tr", { hasText: `G-${G.numero}` });
@@ -314,7 +314,7 @@ ok(ini.includes(pesos(Math.round(R3.utilidad_bruta))), "Inicio muestra la misma 
     await pc.goto(B + ruta); await pc.waitForURL(/\/inicio/, { timeout: 10000 }).catch(() => {});
     ok(!pc.url().includes(ruta) && await pc.getByRole("region", { name: /Estado de resultados|Turnos del día|Eventos|Gastos registrados/ }).count() === 0, `la cajera no ve ${ruta}`, pc.url());
   }
-  for (const [m, u, c] of [["GET", "/api/reportes/resultados"], ["GET", "/api/reportes/iva?formato=csv"], ["GET", "/api/reportes/cierre"], ["GET", "/api/gastos"], ["GET", "/api/bitacora"],
+  for (const [m, u, c] of [["GET", "/api/reportes/resultados"], ["GET", "/api/reportes/iva?formato=excel"], ["GET", "/api/reportes/cierre"], ["GET", "/api/gastos"], ["GET", "/api/bitacora"],
     ["POST", "/api/gastos", { fecha: HOY, categoria: "otros", descripcion: "Intento cajera", medio: "efectivo", valor: 1000 }], ["DELETE", "/api/gastos", { id: crypto.randomUUID(), motivo: "Intento" }]]) {
     ok((await api(pc, u, m, c)).status === 403, `la cajera recibe 403 en ${m} ${u}`);
   }

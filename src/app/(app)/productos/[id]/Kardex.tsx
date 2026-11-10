@@ -9,7 +9,7 @@ const TIPO: Record<string, [string, string]> = {
 const MAX = 400;
 type Mov = { id: string; fecha: string; tipo: string; documento: string; lote: string; usuario: string | null; entrada: number; salida: number; saldo: number };
 
-/** Kardex del producto (sección de la ficha): movimientos con saldo acumulado, por fechas y por lote, y CSV. */
+/** Kardex del producto (sección de la ficha): movimientos con saldo acumulado, por fechas y por lote, y Excel. */
 export async function Kardex({ c, producto, filtros }: { c: Tx; producto: { id: string; unidades_por_caja: number }; filtros: { desde?: string; hasta?: string; lote?: string } }) {
   const hoy = (await c.query(`select current_date::text h, (current_date - 90)::text d`)).rows[0];
   const valida = (f?: string) => (f && /^\d{4}-\d{2}-\d{2}$/.test(f) && fechaReal(f) ? f : null);
@@ -24,14 +24,14 @@ export async function Kardex({ c, producto, filtros }: { c: Tx; producto: { id: 
   const entradas = movs.reduce((a, m) => a + m.entrada, 0), salidas = movs.reduce((a, m) => a + m.salida, 0);
   const saldoFinal = movs.length ? movs[movs.length - 1].saldo : saldoInicial;
   const hastaHoy = !hasta || hasta >= hoy.h;
-  const qs = new URLSearchParams({ producto: producto.id, formato: "csv", ...(desde ? { desde } : {}), ...(hasta ? { hasta } : {}), ...(lote ? { lote } : {}) });
+  const qs = new URLSearchParams({ producto: producto.id, formato: "excel", ...(desde ? { desde } : {}), ...(hasta ? { hasta } : {}), ...(lote ? { lote } : {}) });
   const mostrados = movs.slice(-MAX);
   const n = (x: number) => x.toLocaleString("es-CO");
   return (
     <section id="kardex" aria-labelledby="kardex-t" className="grid gap-3 scroll-mt-4">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div><h2 id="kardex-t" className="titulo text-2xl">Kardex</h2><p className="text-sm text-muted">Cada entrada y salida del producto, con el saldo después de cada movimiento (en unidades).</p></div>
-        <a href={`/api/inventario/kardex?${qs}`} className="btn-borde h-10 text-sm" download>Descargar CSV</a>
+        <a href={`/api/inventario/kardex?${qs}`} className="btn-borde h-10 text-sm" download>Descargar en Excel</a>
       </div>
       <form className="tarjeta p-3 sm:p-4 grid grid-cols-2 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] gap-3 items-end" action="#kardex">
         <div><label htmlFor="k-desde" className="etiqueta">Desde</label><input id="k-desde" name="desde" type="date" defaultValue={desde ?? ""} className="campo" /></div>
@@ -76,7 +76,7 @@ export async function Kardex({ c, producto, filtros }: { c: Tx; producto: { id: 
           </tbody>
         </table>
       </div>
-      {movs.length > MAX && <p className="text-sm text-muted">Se muestran los últimos {n(MAX)} de {n(movs.length)} movimientos del rango. Descarga el CSV para verlos todos o acorta las fechas. <Link href={`?desde=${hoy.h}#kardex`} className="underline">Ver solo hoy</Link></p>}
+      {movs.length > MAX && <p className="text-sm text-muted">Se muestran los últimos {n(MAX)} de {n(movs.length)} movimientos del rango. Descarga el Excel para verlos todos o acorta las fechas. <Link href={`?desde=${hoy.h}#kardex`} className="underline">Ver solo hoy</Link></p>}
       {producto.unidades_por_caja > 1 && <p className="text-sm text-muted">Las cantidades van en unidades: una caja son {producto.unidades_por_caja} unidades.</p>}
     </section>
   );

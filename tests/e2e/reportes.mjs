@@ -1,6 +1,7 @@
 // Reportes de gerencia: cifras que cuadran con la base (ventas netas, por medio, por cajero, por producto), exportar a
-// Excel (CSV con «;» y BOM), rangos rápidos, la cajera no entra y en el celular no hay desbordes.
+// Excel (.xlsx), rangos rápidos, la cajera no entra y en el celular no hay desbordes.
 // Uso: servidor en :4500 (REGENTA_DEMO=1) con la base sembrada → node tests/e2e/reportes.mjs
+import { esXlsx, textoXlsx } from "../ayudas/xlsx.mjs";
 import { chromium, devices } from "playwright-core";
 import pg from "pg";
 
@@ -38,9 +39,9 @@ const devuelto = Number((await pool.query(`select coalesce(sum(total), 0) t from
   ok(Math.abs(sumaMedios - bruto) <= 2, "los medios de pago (con crédito) suman lo vendido", `${sumaMedios} vs ${Math.round(bruto)}`);
   // Exportar
   const resp = await p.request.get(B + `/api/reportes?desde=${desde}&hasta=${hoy}&tipo=productos`);
-  const cuerpo = await resp.text();
-  ok(resp.ok() && cuerpo.charCodeAt(0) === 0xfeff && cuerpo.split("\r\n")[0].includes("Producto;Unidades;Devueltas;Vendido;Ganancia"), "exporta productos a CSV para Excel");
-  ok((resp.headers()["content-disposition"] ?? "").includes(`regenta-productos-${desde}-a-${hoy}.csv`), "el archivo trae nombre con el rango");
+  const cuerpo = textoXlsx(await resp.body());
+  ok(resp.ok() && esXlsx(resp.headers()["content-type"], resp.headers()["content-disposition"]) && cuerpo.split("\n")[0].includes("Producto;Unidades;Devueltas;Vendido;Ganancia"), "exporta productos a Excel (.xlsx)", cuerpo.split("\n")[0]);
+  ok((resp.headers()["content-disposition"] ?? "").includes(`regenta-productos-${desde}-a-${hoy}.xlsx`), "el archivo trae nombre con el rango");
   for (const t of ["cajeros", "medios", "dias"]) ok((await p.request.get(B + `/api/reportes?desde=${desde}&hasta=${hoy}&tipo=${t}`)).ok(), `exporta ${t}`);
   // Rango rápido
   const hrefHoy = await p.getByRole("link", { name: "Hoy", exact: true }).getAttribute("href");

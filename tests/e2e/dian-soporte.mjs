@@ -6,6 +6,7 @@
 // documento soporte de otra droguería; cajera y bodega 403; aislamiento entre empresas; celular sin desbordes; sin errores
 // de consola. Guarda capturas de escritorio (1440) e iPhone 13 en test-results/dian-soporte/.
 // Uso: servidor con la base sembrada → BASE=http://localhost:4532 DATABASE_URL=… node tests/e2e/dian-soporte.mjs
+import { esXlsx, filasXlsx, textoXlsx } from "../ayudas/xlsx.mjs";
 import { chromium, devices } from "playwright-core";
 import { mkdirSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -212,8 +213,8 @@ ok(zipB.subarray(0, 2).toString() === "PK" && nombres.length === esperados.rowCo
   "el ZIP trae los XML del rango (incluidos los tipos nuevos)", `${nombres.length} de ${esperados.rowCount}: ${nombres.filter((n) => !n.startsWith("pos/")).join(", ")}`);
 const vacio = await api(p, `/api/documentos/xml?desde=2025-11-07&hasta=2025-11-07`);
 ok(vacio.status === 404 && /No hay XML/.test(vacio.j.error), "sin XML en el rango: mensaje claro", vacio.j.error);
-const csv = await p.evaluate(async (u) => new Uint8Array(await (await fetch(u)).arrayBuffer()).slice(0, 3).join(","), `/api/documentos?tipo=nota_debito&desde=${hoy}&hasta=${hoy}`);
-ok(csv === "239,187,191", "el CSV de documentos sigue con BOM");
+const xlDoc = await p.request.get(`${B}/api/documentos?tipo=nota_debito&desde=${hoy}&hasta=${hoy}`);
+ok(esXlsx(xlDoc.headers()["content-type"], xlDoc.headers()["content-disposition"]) && textoXlsx(await xlDoc.body()).includes(ND.numero), "el Excel de documentos trae la nota débito");
 const sinPermisoDoc = await api(p, `/api/documentos/00000000-0000-4000-8000-000000000000/xml`);
 ok(sinPermisoDoc.status === 404, "un XML que no existe da 404");
 ok(sinProvocados(p, D.errs).length === 0, "sin errores de consola (dueño)", sinProvocados(p, D.errs).join(" | "));

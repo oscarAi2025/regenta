@@ -3,6 +3,7 @@
 // pide confirmar; la anulación aparece como reintegro; CSV e informe; permisos; sin internet se bloquea; celular sin
 // desbordes; capturas.
 // Uso: servidor (REGENTA_DEMO=1) con la base sembrada → BASE=http://localhost:4503 node tests/e2e/control-especial.mjs
+import { esXlsx, filasXlsx, textoXlsx } from "../ayudas/xlsx.mjs";
 import { chromium, devices } from "playwright-core";
 import { mkdirSync } from "node:fs";
 import pg from "pg";
@@ -138,8 +139,8 @@ let ventaControl;
   // ── 4. Permisos: la cajera vende pero no ve el libro
   const r403 = await p.request.get(B + "/api/control-especial");
   ok(r403.status() === 403, "API del libro para la cajera → 403", String(r403.status()));
-  const csv403 = await p.request.get(B + "/api/control-especial?formato=csv");
-  ok(csv403.status() === 403, "CSV del libro para la cajera → 403");
+  const csv403 = await p.request.get(B + "/api/control-especial?formato=excel");
+  ok(csv403.status() === 403, "Excel del libro para la cajera → 403");
   await p.goto(B + "/control-especial"); await p.waitForLoadState("networkidle");
   ok(!p.url().includes("/control-especial"), "la cajera no entra a la pantalla del libro", p.url());
   ok(errs.length === 0, "sin errores de consola (cajera)", errs.join(" | "));
@@ -169,12 +170,12 @@ let ventaControl;
   await p.goto(B + `/control-especial?desde=${hace(29)}&hasta=${hace(0)}`); await p.waitForLoadState("networkidle");
   ok(await p.getByText(/Gloria Inés Martínez/).count() > 0, "con 30 días aparecen también las dispensaciones de la demo");
   await p.screenshot({ path: `${OUT}/control-libro-1440.png`, fullPage: true });
-  const csv = await p.request.get(B + "/api/control-especial?formato=csv");
-  const texto = await csv.text();
-  ok(csv.status() === 200 && /text\/csv/.test(csv.headers()["content-type"]) && /attachment/.test(csv.headers()["content-disposition"]), "exporta CSV para Excel");
-  ok(texto.includes(PACIENTE) && texto.includes("Reintegro") && texto.includes("Dispensación") && texto.includes(ventaControl.numero), "el CSV trae paciente, venta, dispensación y reintegro");
-  ok(texto.split("\r\n")[0].includes("Registro profesional") && texto.split("\r\n")[0].includes("Lote"), "con columnas de lote y registro profesional");
-  const saldos = await (await p.request.get(B + "/api/control-especial?formato=csv&tipo=saldos")).text();
+  const xl = await p.request.get(B + "/api/control-especial?formato=excel");
+  const texto = textoXlsx(await xl.body());
+  ok(xl.status() === 200 && esXlsx(xl.headers()["content-type"], xl.headers()["content-disposition"]), "exporta el libro en Excel (.xlsx)");
+  ok(texto.includes(PACIENTE) && texto.includes("Reintegro") && texto.includes("Dispensación") && texto.includes(ventaControl.numero), "el Excel trae paciente, venta, dispensación y reintegro");
+  ok(texto.split("\n")[0].includes("Registro profesional") && texto.split("\n")[0].includes("Lote"), "con columnas de lote y registro profesional");
+  const saldos = textoXlsx(await (await p.request.get(B + "/api/control-especial?formato=excel&tipo=saldos")).body());
   ok(/Saldo inicial;Entradas;Salidas;Saldo final/.test(saldos), "exporta los saldos");
   const j = await (await p.request.get(B + `/api/control-especial?producto=${prodControl.id}`)).json();
   const s = j.saldos?.[0];

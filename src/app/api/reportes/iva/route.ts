@@ -1,16 +1,16 @@
 import { comoUsuario } from "@/lib/db";
 import { conSesion, json } from "@/lib/api";
 import { puedeResultados } from "@/lib/gastos";
-import { auxiliarIva, csv, rango, respuestaCsv, sumaIva, type FilaIva } from "@/lib/reportes";
+import { auxiliarIva, excel, pideExcel, rango, respuestaExcel, sumaIva, type FilaIva } from "@/lib/reportes";
 
-/** Auxiliar de IVA del periodo: ventas por tarifa menos notas crédito e IVA de las compras registradas. JSON o CSV
- *  (?formato=csv) para el contador. Solo dueño o administrador. */
+/** Auxiliar de IVA del periodo: ventas por tarifa menos notas crédito e IVA de las compras registradas. JSON o Excel
+ *  (?formato=excel) para el contador. Solo dueño o administrador. */
 export const GET = conSesion(async (s, req) => {
   if (!puedeResultados(s.rol)) return json({ error: "El auxiliar de IVA lo ve el dueño o el administrador" }, 403);
   const sp = new URL(req.url).searchParams;
   const r = rango(sp.get("desde"), sp.get("hasta"));
   const d = await comoUsuario(s, (c) => auxiliarIva(c, s.empresa, r));
-  if (sp.get("formato") === "csv") {
+  if (pideExcel(sp.get("formato"))) {
     const seccion = (nombre: string, f: FilaIva[]) => [...f.map((x) => ({ seccion: nombre, tarifa: `${x.tarifa} %`, base: x.base, iva: x.iva })),
       { seccion: nombre, tarifa: "Total", ...sumaIva(f) }];
     const filas = [
@@ -20,7 +20,7 @@ export const GET = conSesion(async (s, req) => {
       { seccion: `Periodo ${r.desde} a ${r.hasta}`, tarifa: "", base: null, iva: null },
       { seccion: "Auxiliar para tu contador, no reemplaza la declaración", tarifa: "", base: null, iva: null },
     ];
-    return respuestaCsv(csv(filas, [["seccion", "Concepto"], ["tarifa", "Tarifa"], ["base", "Base"], ["iva", "IVA"]]), `regenta-auxiliar-iva-${r.desde}-a-${r.hasta}.csv`);
+    return respuestaExcel(excel("Auxiliar de IVA", filas, [["seccion", "Concepto"], ["tarifa", "Tarifa"], ["base", "Base"], ["iva", "IVA"]]), `regenta-auxiliar-iva-${r.desde}-a-${r.hasta}.xlsx`);
   }
   return json(d);
 });

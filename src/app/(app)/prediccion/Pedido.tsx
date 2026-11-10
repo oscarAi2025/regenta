@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import { libroXlsx } from "@/lib/xlsx";
 
 export type LineaPedido = { id: string; nombre: string; laboratorio: string | null; upc: number; existencias: number; venta_dia: number; dias_cobertura: number | null; tendencia: number | null; sugerido_cajas: number };
 
@@ -13,11 +14,12 @@ export function Pedido({ lineas }: { lineas: LineaPedido[] }) {
   const texto = () => ["Pedido", ...elegidas.map((l) => `${cajas[l.id]} × ${l.nombre}${l.laboratorio ? ` (${l.laboratorio})` : ""}`)].join("\n");
 
   async function copiar() { await navigator.clipboard.writeText(texto()).catch(() => {}); setCopiado(true); setTimeout(() => setCopiado(false), 2000); }
-  function csv() {
-    const filas = [["producto", "laboratorio", "cajas"], ...elegidas.map((l) => [l.nombre, l.laboratorio ?? "", String(cajas[l.id])])];
+  function excel() {
+    const libro = libroXlsx([{ nombre: "Pedido", columnas: [{ titulo: "Producto", ancho: 48, tipo: "texto" }, { titulo: "Laboratorio", ancho: 24, tipo: "texto" }, { titulo: "Cajas", ancho: 8, tipo: "entero" }],
+      filas: elegidas.map((l) => [l.nombre, l.laboratorio ?? "", cajas[l.id]]) }]);
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob(["﻿" + filas.map((f) => f.map((x) => `"${(/^[=+\-@\t\r]/.test(x) ? "'" + x : x).replace(/"/g, '""')}"`).join(";")).join("\r\n")], { type: "text/csv;charset=utf-8" }));
-    a.download = `pedido-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    a.href = URL.createObjectURL(new Blob([libro as BlobPart], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    a.download = `pedido-${new Date().toISOString().slice(0, 10)}.xlsx`; a.click();
   }
 
   if (!lineas.length) return <p className="tarjeta p-8 text-center text-muted">Con lo que tienes alcanzas para más de 18 días en todo lo que se vende. No hay que pedir nada todavía.</p>;
@@ -44,7 +46,7 @@ export function Pedido({ lineas }: { lineas: LineaPedido[] }) {
       <div className="tarjeta p-4 flex flex-wrap items-center gap-2 sticky bottom-3">
         <p className="flex-1 font-semibold">{elegidas.length} productos · {elegidas.reduce((a, l) => a + cajas[l.id], 0)} cajas</p>
         <button onClick={copiar} className="btn-borde h-10">{copiado ? "Copiado" : "Copiar pedido"}</button>
-        <button onClick={csv} className="btn-borde h-10">Descargar Excel</button>
+        <button onClick={excel} className="btn-borde h-10">Descargar en Excel</button>
         <a href={`https://wa.me/?text=${encodeURIComponent(texto())}`} target="_blank" rel="noopener" className="btn-primario h-10">Enviar por WhatsApp</a>
       </div>
     </section>

@@ -5,6 +5,7 @@
 // fiado; el estado de cuenta cuadra con v_cartera; la cajera sin turno no recibe abonos; aislamiento entre empresas;
 // celular sin desbordes y sin errores de consola. Capturas de escritorio (1440) e iPhone 13.
 // Uso: servidor con la base sembrada → BASE=http://localhost:4513 DATABASE_URL=… node tests/e2e/cuentas-clientes.mjs
+import { esXlsx, filasXlsx, textoXlsx } from "../ayudas/xlsx.mjs";
 import { chromium, devices } from "playwright-core";
 import { mkdirSync } from "node:fs";
 import pg from "pg";
@@ -119,7 +120,7 @@ let f1, f2;
   ok(cr.status === 200 && cr.j.puede_fiar === false && cr.j.requiere_motivo === false && /supera el cupo/.test(cr.j.motivo) && Math.round(cr.j.cupo_disponible) === 200000 - Math.round(Number(f1.total)),
     "contrato de la caja: {puede_fiar, cupo_disponible, motivo}", JSON.stringify(cr.j).slice(0, 160));
   ok((await api(p, `/api/clientes/${cli}/credito`, "PATCH", { cupo_credito: 9e9, plazo_dias_defecto: 30, credito_bloqueado: false })).status === 403, "la cajera no cambia el cupo (403)");
-  ok((await api(p, "/api/cartera?formato=csv")).status === 403, "la cajera no descarga la cartera (403)");
+  ok((await api(p, "/api/cartera?formato=excel")).status === 403, "la cajera no descarga la cartera (403)");
 }
 
 // ───────────── Dueño: autoriza pasarse del cupo con motivo (auditoría) y la caja lo explica
@@ -232,8 +233,9 @@ let rc;
   await p.waitForLoadState("networkidle");
   ok(await p.locator("tr", { hasText: `Cliente Cupo E2E ${sufijo}` }).count() === 0, "en más de 90 días no aparece");
   await p.screenshot({ path: `${OUT}/cartera-clientes-1440.png`, fullPage: true });
-  const csv = await p.evaluate(async () => { const r = await fetch("/api/cartera?formato=csv"); const by = new Uint8Array(await r.arrayBuffer()); return { s: r.status, bom: [...by.slice(0, 3)].join(","), t: new TextDecoder().decode(by), ct: r.headers.get("content-type") }; });
-  ok(csv.s === 200 && csv.bom === "239,187,191" && csv.t.includes("Cliente;Documento;Teléfono;Facturas;Saldo;0-30 días") && csv.t.includes(`Cliente Cupo E2E ${sufijo}`), "CSV de la cartera por cliente (BOM y ;)");
+  const xl = await p.request.get(B + "/api/cartera?formato=excel");
+  const xlt = textoXlsx(await xl.body());
+  ok(xl.status() === 200 && esXlsx(xl.headers()["content-type"], xl.headers()["content-disposition"]) && xlt.startsWith("Cliente;Documento;Teléfono;Facturas;Saldo;0-30 días") && xlt.includes(`Cliente Cupo E2E ${sufijo}`), "Excel de la cartera por cliente (.xlsx)", xlt.split("\n")[0]);
   const mora = await api(p, "/api/cartera", "PATCH", { dias_mora_bloqueo: 10 });
   ok(mora.status === 422 && /demostración/.test(mora.j.error), "en la demo el límite de mora no se cambia (como las demás opciones generales)");
 }

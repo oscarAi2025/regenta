@@ -28,7 +28,7 @@ export default async function PaginaGastos({ searchParams }: { searchParams: Pro
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
       <Cabecera titulo="Gastos" sub="Arriendo, servicios, nómina y demás gastos de la droguería. Entran al estado de resultados.">
-        <a href={`/api/gastos?${qs ? qs + "&" : ""}formato=csv`} className="btn-borde" download>Descargar CSV</a>
+        <a href={`/api/gastos?${qs ? qs + "&" : ""}formato=excel`} className="btn-borde" download>Descargar en Excel</a>
       </Cabecera>
       <Pestanas actual="/gastos" />
       <Gastos inicial={filas} qs={qs} hoy={hoyBogota()} puesto={puesto} filtrado={filtrado || !!f.estado} filtros={<>

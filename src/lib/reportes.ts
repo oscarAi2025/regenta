@@ -1,5 +1,6 @@
 import "server-only";
 import type { Tx } from "./db";
+import { libroXlsx, type Celda, type Columna, type Tipo } from "./xlsx";
 
 // Reportes de gerencia (como los de un POS completo): ventas por día, por medio de pago, por cajero y por producto,
 // estado de resultados, auxiliar de IVA y cierre del día. Fechas en zona Bogotá, ambas incluidas.
@@ -248,6 +249,43 @@ export function csv(filas: Record<string, unknown>[], columnas: [string, string]
     if (typeof v !== "number" && /^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[;"\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s; };
   return "﻿" + [columnas.map(([, t]) => t).join(";"), ...filas.map((f) => columnas.map(([k]) => celda(f[k])).join(";"))].join("\r\n");
 }
+
+// Columnas de dinero: van con formato de pesos. Las de cantidades, como número entero o con decimales.
+const DINERO = /^(valor|total|saldo|precio|costo|base|iva|cupo|abonado|pagado|subtotal|vendido|ganancia|ticket|notas cr|0-30|31-60|61-90|más de 90|saldo al|saldo hoy)/i;
+const NUMERICO = /^-?\d+(\.\d+)?$/;
+
+/** Tabla de filas → hoja de Excel: el tipo de cada columna sale del título y de los datos (fechas AAAA-MM-DD como fecha,
+ *  dinero en pesos, el resto de números como número). Los textos siguen siendo texto: un documento o código de barras no
+ *  pierde ceros ni se vuelve fórmula. */
+export function hojaDeFilas(nombre: string, filas: Record<string, unknown>[], columnas: [string, string][]) {
+  const cols: Columna[] = columnas.map(([k, titulo]) => {
+    const vals = filas.map((f) => f[k]).filter((v) => v !== null && v !== undefined && v !== "");
+    const dinero = DINERO.test(titulo) && !/%|tarifa/i.test(titulo);
+    const num = vals.length > 0 && vals.every((v) => typeof v === "number" || (dinero && typeof v === "string" && NUMERICO.test(v)));
+    const fecha = vals.length > 0 && vals.every((v) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v));
+    const tipo: Tipo = fecha ? "fecha" : num ? (dinero ? "pesos" : vals.every((v) => Number.isInteger(Number(v))) ? "entero" : "decimal") : "texto";
+    const largo = Math.max(titulo.length, ...vals.slice(0, 300).map((v) => String(v).length));
+    return { titulo, tipo, ancho: Math.min(Math.max(largo + 2, tipo === "fecha" ? 12 : 8), 60) };
+  });
+  const celdas: Celda[][] = filas.map((f) => columnas.map(([k], i) => {
+    const v = f[k];
+    if (v === null || v === undefined) return null;
+    if (cols[i].tipo !== "texto" && cols[i].tipo !== "fecha" && typeof v === "string" && NUMERICO.test(v)) return Number(v);
+    return typeof v === "number" || typeof v === "string" ? v : String(v);
+  }));
+  return { nombre, columnas: cols, filas: celdas };
+}
+
+/** Libro de Excel de una tabla, listo para descargar. */
+export const excel = (nombre: string, filas: Record<string, unknown>[], columnas: [string, string][]) => libroXlsx([hojaDeFilas(nombre, filas, columnas)]);
+
+/** Respuesta HTTP de un .xlsx para descargar. */
+export const respuestaExcel = (libro: Uint8Array, archivo: string) =>
+  new Response(Buffer.from(libro), { headers: { "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "content-disposition": `attachment; filename="${archivo}"`, "cache-control": "no-store" } });
+
+/** ¿La petición pide la descarga en Excel? (?formato=excel; ?formato=csv sigue valiendo para enlaces guardados). */
+export const pideExcel = (formato: string | null) => formato === "excel" || formato === "xlsx" || formato === "csv";
 
 /** Respuesta HTTP de un CSV para descargar. */
 export const respuestaCsv = (cuerpo: string, archivo: string) =>

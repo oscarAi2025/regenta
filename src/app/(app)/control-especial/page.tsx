@@ -39,7 +39,7 @@ export default async function ControlEspecial({ searchParams }: { searchParams: 
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
       <Cabecera titulo="Libro de control especial" sub={<>{r.desde === r.hasta ? fecha(r.desde) : `${fecha(r.desde)} – ${fecha(r.hasta)}`}{nombreElegido ? ` · ${nombreElegido}` : ""}</>}>
-        <a href={`/api/control-especial?${q}&formato=csv`} className="btn-borde">Exportar a Excel (CSV)</a>
+        <a href={`/api/control-especial?${q}&formato=excel`} className="btn-borde" download>Descargar en Excel</a>
         <a href={`/control-especial/informe?${q}`} target="_blank" rel="noopener" className="btn-oscuro">Informe para imprimir</a>
       </Cabecera>
 
@@ -69,7 +69,7 @@ export default async function ControlEspecial({ searchParams }: { searchParams: 
           <section className="tarjeta p-5" aria-labelledby="saldos-titulo">
             <div className="flex flex-wrap justify-between items-baseline gap-2">
               <h2 id="saldos-titulo" className="titulo text-xl">Saldo por producto</h2>
-              <a href={`/api/control-especial?${q}&formato=csv&tipo=saldos`} className="text-sm font-semibold text-cruz underline underline-offset-4">Exportar saldos</a>
+              <a href={`/api/control-especial?${q}&formato=excel&tipo=saldos`} className="text-sm font-semibold text-cruz underline underline-offset-4">Descargar saldos en Excel</a>
             </div>
             <p className="text-sm text-muted mt-1">En unidades. Saldo inicial + entradas − salidas = saldo final: compáralo con el conteo físico.</p>
             {sinRegistro.length > 0 && (

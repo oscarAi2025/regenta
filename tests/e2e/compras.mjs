@@ -5,6 +5,7 @@
 // sin pagos revierte el stock; acta de recepción; cajera 403 en todo; aislamiento entre empresas; celular sin desbordes y
 // sin errores de consola. Capturas de escritorio (1440) y iPhone 13 en test-results/compras.
 // Uso: servidor con la base sembrada → BASE=http://localhost:4511 DATABASE_URL=… REGENTA_SESSION_SECRET=… node tests/e2e/compras.mjs
+import { esXlsx, filasXlsx, textoXlsx } from "../ayudas/xlsx.mjs";
 import { chromium, devices } from "playwright-core";
 import { mkdirSync } from "node:fs";
 import pg from "pg";
@@ -297,9 +298,9 @@ let C1, C2, CB, L1, L3;
   ok((await p.getByRole("table", { name: "Compras registradas" }).locator("tbody tr").count()) === 1, "la lista filtra por estado y búsqueda");
   await ir(p, "/compras");
   await p.screenshot({ path: `${OUT}/compras-1440.png`, fullPage: true });
-  const csv = await p.request.get(`${B}/api/cuentas-por-pagar?formato=csv`);
-  const txt = await csv.text();
-  ok(csv.ok() && /text\/csv/.test(csv.headers()["content-type"]) && txt.startsWith("﻿") && /Proveedor;NIT;Factura/.test(txt) && txt.includes(`BOD-${R}`) && /5710/.test(txt.replace(/,00/g, "")), "cuentas por pagar en CSV (BOM y punto y coma)");
+  const xl = await p.request.get(`${B}/api/cuentas-por-pagar?formato=excel`);
+  const txt = textoXlsx(await xl.body());
+  ok(xl.ok() && esXlsx(xl.headers()["content-type"], xl.headers()["content-disposition"]) && /^Proveedor;NIT;Factura/.test(txt) && txt.includes(`BOD-${R}`) && /;5710(\.0+)?;/.test(txt), "cuentas por pagar en Excel (.xlsx con el saldo como número)", txt.split("\n")[0]);
 }
 
 // ───────────── Cajera: 403 en todas las rutas y sin pantallas
@@ -308,7 +309,7 @@ let C1, C2, CB, L1, L3;
   const pruebas = [["GET", "/api/compras"], ["POST", "/api/compras", { numero_factura: "X" }], ["GET", `/api/compras/${C1.id}`], ["PATCH", `/api/compras/${CB.id}`, { lineas: [] }],
     ["DELETE", `/api/compras/${C1.id}`, { motivo: "nada" }], ["POST", "/api/compras/pagos", { proveedor_id: C1.proveedor_id }], ["DELETE", "/api/compras/pagos", { id: C1.id, motivo: "nada" }],
     ["POST", "/api/compras/devoluciones", { compra_id: C1.id }], ["PATCH", "/api/compras/devoluciones", { id: C1.id }], ["GET", "/api/proveedores"], ["POST", "/api/proveedores", { nombre: "X" }],
-    ["PATCH", "/api/proveedores", { id: C1.proveedor_id }], ["GET", "/api/cuentas-por-pagar"], ["GET", "/api/cuentas-por-pagar?formato=csv"]];
+    ["PATCH", "/api/proveedores", { id: C1.proveedor_id }], ["GET", "/api/cuentas-por-pagar"], ["GET", "/api/cuentas-por-pagar?formato=excel"]];
   for (const [m, u, c] of pruebas) { const r = await api(p, u, m, c); ok(r.status === 403, `la cajera recibe 403 en ${m} ${u}`, `${r.status} ${r.j.error ?? ""}`); }
   for (const ruta of ["/compras", "/compras/nueva", `/compras/${C1.id}`, "/proveedores", `/proveedores/${C1.proveedor_id}`, "/cuentas-por-pagar", `/tiquete/recepcion/${C1.id}`, "/inventario/recibir"]) {
     await ir(p, ruta);

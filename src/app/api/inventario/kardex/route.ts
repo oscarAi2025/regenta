@@ -1,13 +1,13 @@
 import { comoUsuario } from "@/lib/db";
 import { conSesion, esUuid, json } from "@/lib/api";
 import { puede } from "@/lib/sesion";
-import { csv } from "@/lib/reportes";
+import { excel, pideExcel, respuestaExcel } from "@/lib/reportes";
 import { fechaReal } from "@/lib/validar";
 
 const TIPO: Record<string, string> = { inicial: "Inicial", compra: "Compra", venta: "Venta", devolucion: "Devolución", anulacion: "Anulación", ajuste: "Ajuste" };
 const fecha = (v: string | null) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) && fechaReal(v) ? v : null);
 
-/** Kardex de un producto: movimientos con saldo acumulado (JSON, o CSV con ?formato=csv). Dueño, administrador o bodega. */
+/** Kardex de un producto: movimientos con saldo acumulado (JSON, o Excel con ?formato=excel). Dueño, administrador o bodega. */
 export const GET = conSesion(async (s, req) => {
   if (!puede.moverInventario(s.rol)) return json({ error: "El kardex lo ven el dueño, el administrador o la bodega" }, 403);
   const sp = new URL(req.url).searchParams;
@@ -22,11 +22,10 @@ export const GET = conSesion(async (s, req) => {
     return { p, filas };
   });
   if (!d) return json({ error: "Ese producto no existe en tu droguería" }, 404);
-  if (sp.get("formato") === "csv") {
+  if (pideExcel(sp.get("formato"))) {
     const filas = d.filas.map((f) => ({ ...f, tipo: TIPO[f.tipo] ?? f.tipo, usuario: String(f.usuario ?? "").split(" (")[0] }));
     const nombre = d.p.nombre.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "producto";
-    return new Response(csv(filas, [["fecha", "Fecha"], ["tipo", "Tipo"], ["documento", "Documento o motivo"], ["lote", "Lote"], ["vence", "Vence"], ["usuario", "Usuario"], ["entrada", "Entrada (und)"], ["salida", "Salida (und)"], ["saldo", "Saldo (und)"]]), {
-      headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="kardex-${nombre}${desde ? `-${desde}` : ""}${hasta ? `-a-${hasta}` : ""}.csv"`, "cache-control": "no-store" } });
+    return respuestaExcel(excel("Kardex", filas, [["fecha", "Fecha"], ["tipo", "Tipo"], ["documento", "Documento o motivo"], ["lote", "Lote"], ["vence", "Vence"], ["usuario", "Usuario"], ["entrada", "Entrada (und)"], ["salida", "Salida (und)"], ["saldo", "Saldo (und)"]]), `kardex-${nombre}${desde ? `-${desde}` : ""}${hasta ? `-a-${hasta}` : ""}.xlsx`);
   }
   return json({ producto: d.p.nombre, unidades_por_caja: d.p.unidades_por_caja, movimientos: d.filas });
 });

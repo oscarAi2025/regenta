@@ -4,6 +4,7 @@ import { comoUsuario, sinComodines } from "@/lib/db";
 import { leerSesion } from "@/lib/sesion";
 import { puedePrecios } from "@/lib/precios";
 import { Cabecera, existenciasTexto, pesos } from "@/components/ui/Cabecera";
+import { Paginas } from "@/components/ui/Paginas";
 
 export const metadata = { title: "Productos" };
 
@@ -71,13 +72,8 @@ export default async function Productos({ searchParams }: { searchParams: Promis
         const ultima = Math.ceil(hallados / POR_PAGINA);
         const url = (n: number) => `?${new URLSearchParams({ ...(q ? { q } : {}), ...(ver ? { ver } : {}), pagina: String(n) })}`;
         return (
-          <nav className="flex flex-wrap items-center justify-between gap-3" aria-label="Páginas">
-            <p className="text-sm text-muted">{((pagina - 1) * POR_PAGINA + 1).toLocaleString("es-CO")}–{Math.min(pagina * POR_PAGINA, hallados).toLocaleString("es-CO")} de {hallados.toLocaleString("es-CO")}</p>
-            <div className="flex gap-2">
-              {pagina > 1 && <Link href={url(pagina - 1)} className="btn-borde">Anterior</Link>}
-              {pagina < ultima && <Link href={url(pagina + 1)} className="btn-oscuro">Siguiente</Link>}
-            </div>
-          </nav>
+          <Paginas pagina={pagina} paginas={ultima} enlace={url} etiqueta="Páginas de productos"
+            resumen={`${((pagina - 1) * POR_PAGINA + 1).toLocaleString("es-CO")}–${Math.min(pagina * POR_PAGINA, hallados).toLocaleString("es-CO")} de ${hallados.toLocaleString("es-CO")} productos`} />
         );
       })()}
     </main>

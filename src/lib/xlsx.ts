@@ -3,12 +3,12 @@ import { zipSync, strToU8 } from "fflate";
 // Libro de Excel (.xlsx) mínimo y sin dependencias pesadas: encabezado fijo con filtro, anchos de columna y formatos
 // colombianos (miles con punto los pone Excel según la configuración regional; aquí van los códigos de formato).
 
-export type Tipo = "texto" | "entero" | "pesos" | "fecha" | "porcentaje";
+export type Tipo = "texto" | "entero" | "pesos" | "fecha" | "porcentaje" | "decimal";
 export type Columna = { titulo: string; ancho: number; tipo: Tipo };
 export type Celda = string | number | null | undefined;
 export type Hoja = { nombre: string; columnas: Columna[]; filas: Celda[][] };
 
-const ESTILO: Record<Tipo, number> = { texto: 0, entero: 2, pesos: 3, fecha: 4, porcentaje: 5 };
+const ESTILO: Record<Tipo, number> = { texto: 0, entero: 2, pesos: 3, fecha: 4, porcentaje: 5, decimal: 6 };
 // Quita caracteres que XML no admite y escapa los reservados.
 const xml = (s: string) => s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g, "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const col = (i: number) => { let s = ""; for (i++; i > 0; i = Math.floor((i - 1) / 26)) s = String.fromCharCode(65 + ((i - 1) % 26)) + s; return s; };
@@ -47,13 +47,14 @@ const ESTILOS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF10233A"/><bgColor indexed="64"/></patternFill></fill></fills>
 <borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
 <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-<cellXfs count="6">
+<cellXfs count="7">
 <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
 <xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"><alignment vertical="center" wrapText="1"/></xf>
 <xf numFmtId="3" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
 <xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
 <xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
 <xf numFmtId="166" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
+<xf numFmtId="4" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
 </cellXfs>
 <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
 </styleSheet>`;

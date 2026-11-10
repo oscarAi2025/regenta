@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { comoUsuario } from "@/lib/db";
 import { leerSesion, puede } from "@/lib/sesion";
-import { csv, datosReporte, rango } from "@/lib/reportes";
+import { datosReporte, excel, rango, respuestaExcel } from "@/lib/reportes";
 import { MEDIO } from "@/lib/formato";
 
-/** Exporta un reporte a CSV (se abre en Excel). Solo dueño y administrador. */
+/** Exporta un reporte a Excel (.xlsx). Solo dueño y administrador. */
 export async function GET(req: Request) {
   const s = await leerSesion();
   if (!s) return NextResponse.json({ error: "Tu sesión venció: vuelve a entrar" }, { status: 401 });
@@ -24,5 +24,6 @@ export async function GET(req: Request) {
   };
   const t = tablas[tipo];
   if (!t) return NextResponse.json({ error: "Reporte no válido" }, { status: 400 });
-  return new Response(csv(t[0], t[1]), { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="regenta-${tipo}-${r.desde}-a-${r.hasta}.csv"`, "cache-control": "no-store" } });
+  const HOJA: Record<string, string> = { productos: "Productos", cajeros: "Cajeros", medios: "Medios de pago", dias: "Ventas por día" };
+  return respuestaExcel(excel(HOJA[tipo], t[0], t[1]), `regenta-${tipo}-${r.desde}-a-${r.hasta}.xlsx`);
 }

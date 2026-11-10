@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
+import { libroXlsx } from "@/lib/xlsx";
 import { CAMPOS, ETIQUETAS, mapearColumnas, type Campo } from "@/lib/importar";
 
 const EJEMPLO = [
@@ -55,10 +56,11 @@ export function Importar() {
   const entrada = useRef<HTMLInputElement>(null);
 
   function plantilla() {
-    const csv = EJEMPLO.map((f) => f.join(";")).join("\r\n");
+    // Todo como texto: el código de barras no se vuelve notación científica y las fechas quedan como se escriben.
+    const libro = libroXlsx([{ nombre: "Productos", columnas: EJEMPLO[0].map((t) => ({ titulo: t, ancho: Math.max(t.length + 2, t === "nombre" ? 40 : 12), tipo: "texto" as const })), filas: EJEMPLO.slice(1) }]);
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
-    a.download = "plantilla-productos-regenta.csv"; a.click();
+    a.href = URL.createObjectURL(new Blob([libro as BlobPart], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    a.download = "plantilla-productos-regenta.xlsx"; a.click();
   }
 
   const filasPara = (t: NonNullable<typeof tabla>, m: (Campo | null)[]) => {

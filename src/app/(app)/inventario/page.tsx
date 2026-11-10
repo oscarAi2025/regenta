@@ -6,6 +6,7 @@ import { puedePrecios } from "@/lib/precios";
 import { Cabecera } from "@/components/ui/Cabecera";
 import { pesos } from "@/lib/formato";
 import { CostosPendientes } from "./CostosPendientes";
+import { Paginas } from "@/components/ui/Paginas";
 
 export const metadata = { title: "Inventario" };
 
@@ -136,11 +137,7 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
         </table>
       </div>
       {paginas > 1 && (
-        <nav className="mt-4 flex flex-wrap items-center gap-2" aria-label="Páginas del inventario">
-          {pagina > 1 ? <a href={enlace(pagina - 1)} className="btn-borde h-10 text-sm" rel="prev">Anterior</a> : <span className="btn-borde h-10 text-sm opacity-40" aria-disabled="true">Anterior</span>}
-          <span className="text-sm num px-2">Página {pagina} de {paginas}</span>
-          {pagina < paginas ? <a href={enlace(pagina + 1)} className="btn-borde h-10 text-sm" rel="next">Siguiente</a> : <span className="btn-borde h-10 text-sm opacity-40" aria-disabled="true">Siguiente</span>}
-        </nav>
+        <div className="mt-4"><Paginas pagina={pagina} paginas={paginas} enlace={enlace} etiqueta="Páginas del inventario" /></div>
       )}
     </main>
   );

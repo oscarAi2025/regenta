@@ -5,6 +5,7 @@ import { Cabecera } from "@/components/ui/Cabecera";
 import { puedeResultados } from "@/lib/gastos";
 import { POR_PAGINA, TIPOS_BITACORA, bitacora, filtroBitacora } from "@/lib/bitacora";
 import { Pestanas } from "../reportes/Pestanas";
+import { Paginas } from "@/components/ui/Paginas";
 
 export const metadata = { title: "Bitácora" };
 
@@ -69,13 +70,7 @@ export default async function Bitacora({ searchParams }: { searchParams: Promise
             ))}
           </ol>
         )}
-        {datos.paginas > 1 && (
-          <nav aria-label="Páginas" className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-line">
-            {f.pagina > 1 ? <a href={enlace({ pagina: f.pagina - 1 })} className="btn-borde" rel="prev">Anterior</a> : <span />}
-            <span className="text-sm text-muted num">Página {f.pagina} de {datos.paginas}</span>
-            {f.pagina < datos.paginas ? <a href={enlace({ pagina: f.pagina + 1 })} className="btn-borde" rel="next">Siguiente</a> : <span />}
-          </nav>
-        )}
+        {datos.paginas > 1 && <div className="px-4 py-3 border-t border-line"><Paginas pagina={f.pagina} paginas={datos.paginas} enlace={(n) => enlace({ pagina: n })} etiqueta="Páginas de la bitácora" /></div>}
       </section>
     </main>
   );
