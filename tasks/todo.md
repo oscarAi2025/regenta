@@ -482,4 +482,8 @@ FARMAHUB AMBALA y no se migran). Cartera de Farmagenéricos: 6 facturas por $3.9
       ventas del día y Regenta IA excluyen lo de Alegra
 - [x] tests/e2e/migracion.mjs con los datos reales convertidos
 - [x] Batería completa en verde (32 suites + migración 42/42 + habilitación 35 + unitarias 88+52; solo-factura dependía de la fecha de la demo: corregida)
-- [ ] Oscar pega db/produccion/bloque4-043.sql en Supabase → publicar → aplicar desde la consola → verificar totales
+- [x] Oscar pegó bloque4-043.sql (Success) → publicado en main (a079394) → aplicado desde la consola el 10/11/2026:
+      254 clientes nuevos + 1 igual, 6 proveedores, 745 productos nuevos + 127 existentes (por nombre), 17 lotes entran,
+      2 ajustados (TAPA BOCAS 49→54, ULTRA FER 343→323), 8.670 unidades, $51.881.934 a costo, 1.035 documentos al
+      historial, 6 facturas a cartera por $3.993.462. Segunda simulación: todo «sin cambios» (idempotente)
+- [x] La consola decía «Migración aplicada» al volver a simular: corregido (sale en el próximo despliegue)

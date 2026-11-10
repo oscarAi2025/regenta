@@ -35,7 +35,7 @@ export function Migracion({ empresa }: { empresa: string }) {
 
   async function correr(simular: boolean) {
     if (!datos) return;
-    setOcupado(simular ? "simular" : "aplicar"); setError(""); setPasos([]);
+    setOcupado(simular ? "simular" : "aplicar"); setError(""); setPasos([]); if (simular) setListo(false);
     const hechos: Paso[] = [];
     try {
       for (const parte of PARTES) {
