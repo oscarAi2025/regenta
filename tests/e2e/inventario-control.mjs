@@ -193,7 +193,7 @@ const D = await entrar("Carlos");
   await p.getByRole("status").filter({ hasText: new RegExp(`lote ${L2.lote}: ${s2 + 2} contadas`) }).waitFor({ timeout: 10000 });
   await p.getByRole("button", { name: /^Con diferencia/ }).click();
   const difs = await p.getByRole("list", { name: "Lotes" }).innerText();
-  ok(new RegExp(`Faltan ${s1 - 3} und`).test(difs) && /Sobran 2 und/.test(difs) && /\$/.test(difs), "muestra las diferencias por lote en unidades y en dinero", difs.replace(/\n/g, " ").slice(0, 200));
+  ok(new RegExp(`Faltan ${(s1 - 3).toLocaleString("es-CO").replace(/\./g, "\\.")} und`).test(difs) && /Sobran 2 und/.test(difs) && /\$/.test(difs), "muestra las diferencias por lote en unidades y en dinero", difs.replace(/\n/g, " ").slice(0, 200));
   await p.screenshot({ path: `${OUT}/conteo-contando-1440.png`, fullPage: true });
   const otros = (await pool.query(`select lote_id, coalesce((select unidades from v_stock_lotes s where s.lote_id = cl.lote_id), 0) u from conteo_lineas cl where conteo_id = $1 and contado is null`, [conteoId])).rows;
   await p.getByRole("button", { name: "Cerrar conteo" }).click();
