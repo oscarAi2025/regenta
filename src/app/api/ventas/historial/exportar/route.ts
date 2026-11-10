@@ -8,7 +8,7 @@ const MEDIO: Record<string, string> = { efectivo: "Efectivo", transferencia: "Tr
 
 /** El historial de Alegra en Excel (con los filtros de la pantalla): una hoja de documentos y otra con cada línea vendida. */
 export const GET = conSesion(async (s, req) => {
-  if (!puede.vender(s.rol)) return json({ error: "No tienes permiso para ver las ventas" }, 403);
+  if (!puede.verCostos(s.rol)) return json({ error: "El historial de Alegra lo descargan el dueño y el administrador" }, 403);
   const sp = Object.fromEntries(new URL(req.url).searchParams);
   const f = leerFiltro(sp);
   const d = await comoUsuario(s, async (c) => ({ docs: await documentosHistorial(c, s.empresa, f, 100000), lineas: await lineasHistorial(c, s.empresa, f) }));

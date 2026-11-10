@@ -12,7 +12,8 @@ import { cuentaPrincipal, matiasConfigurado } from "@/lib/dian/matias-cuenta";
 
 const Fiscal = z.object({ razon_social: z.string().trim().min(3, "Escribe la razón social").max(200), nombre_comercial: z.string().trim().max(160),
   nit: z.string().trim().regex(/^[\d.\s-]{6,15}$/, "El NIT son solo dígitos"), responsable_iva: z.boolean(), direccion: z.string().trim().max(200),
-  ciudad: z.string().trim().max(100), telefono: z.string().trim().max(30), email: z.string().trim().email("Correo no válido").max(160).or(z.literal("")) });
+  ciudad: z.string().trim().max(100), telefono: z.string().trim().max(30), email: z.string().trim().email("Correo no válido").max(160).or(z.literal("")),
+  calidades_tributarias: z.string().trim().max(200).optional().default("") });
 
 const Cambio = z.object({ fiscal: Fiscal.optional(), estado: z.enum(["activa", "suspendida"]).optional(), plan: z.enum(["esencial", "pro", "cadena", "socio"]).optional(), nota: z.string().trim().max(2000).nullish(),
   // Facturación electrónica: UUID del cliente en la cuenta de casa de software de MATIAS ("" = la propia cuenta) y el número
@@ -38,7 +39,7 @@ export const PATCH = conAdmin(async (a, req, ctx) => {
       if (!e || e.demo) return "no";
       if (e.produccion && e.nit !== nit) return "nit";
       await c.query(`update empresas set razon_social = $2, nombre_comercial = nullif($3, ''), nit = $4, dv = $5, responsable_iva = $6, direccion = nullif($7, ''), ciudad = nullif($8, ''),
-        telefono = nullif($9, ''), email = nullif($10, '') where id = $1`, [id, f.razon_social, f.nombre_comercial, nit, dvNit(nit), f.responsable_iva, f.direccion, f.ciudad, f.telefono, f.email]);
+        telefono = nullif($9, ''), email = nullif($10, ''), calidades_tributarias = nullif($11, '') where id = $1`, [id, f.razon_social, f.nombre_comercial, nit, dvNit(nit), f.responsable_iva, f.direccion, f.ciudad, f.telefono, f.email, f.calidades_tributarias]);
       await evento(a, "datos_fiscales", id, { ...f, nit_antes: e.nit }, c);
       return "ok";
     }).catch((e) => { if ((e as { code?: string }).code === "23505") return "duplicado"; throw e; });

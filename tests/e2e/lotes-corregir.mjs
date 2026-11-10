@@ -112,6 +112,12 @@ const antes1 = await lote(L1), antes2 = await lote(L2);
   const { ctx, p } = await entrar("Andrés");
   const t = await api(p, `/api/inventario/lotes/${L2}`, "PATCH", { lote: antes2.lote, vence: antes2.vence, motivo: "Revisión de bodega" });
   ok(t.status === 200, "la bodega corrige lotes", `${t.status} ${t.j.error ?? ""}`);
+  await pool.query(`update lotes set vence = current_date - 2 where id = $1`, [L2]);
+  const rv = await api(p, `/api/inventario/lotes/${L2}`, "PATCH", { lote: antes2.lote, vence: antes2.vence, motivo: "La bodega quiere volverlo vendible" });
+  ok(rv.status === 403 && /dueño o el administrador/.test(rv.j.error), "la bodega no vuelve vendible un lote vencido", `${rv.status} ${rv.j.error}`);
+  const rc = await api(p, `/api/inventario/lotes/${L2}`, "PATCH", { lote: antes2.lote, vence: enDias(-5), motivo: "Fecha real más temprana" });
+  ok(rc.status === 200, "la bodega sí corrige la fecha de un vencido sin volverlo vendible", `${rc.status} ${rc.j.error ?? ""}`);
+  await pool.query(`update lotes set vence = $2::date where id = $1`, [L2, antes2.vence]);
   await ctx.close();
 }
 {

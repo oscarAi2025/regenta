@@ -8,7 +8,8 @@ const NOMBRE: Record<string, string> = { clientes: "Clientes", proveedores: "Pro
 const ETIQUETA: Record<string, string> = {
   crear: "nuevos", completar: "completados", iguales: "sin cambios", actualizar: "ya existían", por_ean: "por código de barras", por_nombre: "por nombre",
   lotes_nuevos: "lotes que entran", lotes_ajustados: "lotes ajustados", en_cero: "productos que quedan en cero", unidades: "unidades finales", valor_costo: "valor a costo",
-  historial_nuevas: "documentos al historial", historial_ya_estaban: "ya estaban", cartera_nuevas: "facturas a cartera", cartera_ya_estaban: "en cartera ya", saldo_cartera: "saldo de cartera", sin_cliente: "sin cliente",
+  historial_nuevas: "documentos al historial", historial_ya_estaban: "ya estaban", historial_actualizadas: "puestos al día con Alegra (estado o saldo)",
+  plazo_recortado: "con plazo de más de 180 días (queda su vencimiento de Alegra)", cartera_nuevas: "facturas a cartera", cartera_ya_estaban: "en cartera ya", saldo_cartera: "saldo de cartera", sin_cliente: "sin cliente",
 };
 const LOTE = 250;
 

@@ -6,7 +6,14 @@ import { sinComodines } from "@/lib/db";
 
 export type FiltroHistorial = { q: string; cliente: string | null; desde: string | null; hasta: string | null };
 
-const fechaValida = (s?: string | null) => (s && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s + "T00:00:00Z")) ? s : null);
+// Ida y vuelta: Date.parse acepta «2026-02-30» (lo corre a marzo); solo vale la fecha que existe tal cual.
+const fechaValida = (s?: string | null) => {
+  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s) || s < "2000-01-01" || s > "2100-12-31") return null;
+  const d = new Date(s + "T00:00:00Z");
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s ? s : null;
+};
+/** Lo que cuenta como vendido: las facturas pagadas o por cobrar (no las anuladas ni los borradores de Alegra). */
+export const VENDIDA = "x.estado in ('pagada', 'por_cobrar')";
 
 export function leerFiltro(sp: { q?: string; cliente?: string; desde?: string; hasta?: string }): FiltroHistorial {
   return {
@@ -27,23 +34,23 @@ export function donde(empresa: string, f: FiltroHistorial) {
   };
 }
 
-export type Resumen = { n: number; facturado: number; iva: number; por_cobrar: number; anuladas: number; clientes: number; desde: string | null; hasta: string | null; minimo: string | null; maximo: string | null };
+export type Resumen = { todos: number; n: number; facturado: number; iva: number; por_cobrar: number; anuladas: number; clientes: number; desde: string | null; hasta: string | null; minimo: string | null; maximo: string | null };
 
 export async function resumenHistorial(c: PoolClient, empresa: string, f: FiltroHistorial) {
   const w = donde(empresa, f);
-  const resumen = (await c.query(`select count(*) filter (where estado <> 'anulada')::int n, coalesce(sum(total) filter (where estado <> 'anulada'), 0)::float facturado,
-      coalesce(sum(iva) filter (where estado <> 'anulada'), 0)::float iva, coalesce(sum(saldo) filter (where estado = 'por_cobrar'), 0)::float por_cobrar,
-      count(*) filter (where estado = 'anulada')::int anuladas, count(distinct coalesce(cliente_doc, cliente_nombre)) filter (where estado <> 'anulada')::int clientes,
+  const resumen = (await c.query(`select count(*)::int todos, count(*) filter (where estado in ('pagada', 'por_cobrar'))::int n, coalesce(sum(total) filter (where estado in ('pagada', 'por_cobrar')), 0)::float facturado,
+      coalesce(sum(iva) filter (where estado in ('pagada', 'por_cobrar')), 0)::float iva, coalesce(sum(saldo) filter (where estado = 'por_cobrar'), 0)::float por_cobrar,
+      count(*) filter (where estado = 'anulada')::int anuladas, count(distinct coalesce(cliente_doc, cliente_nombre)) filter (where estado in ('pagada', 'por_cobrar'))::int clientes,
       min(fecha)::text desde, max(fecha)::text hasta,
       (select min(fecha)::text from ventas_externas where empresa_id = $1) minimo, (select max(fecha)::text from ventas_externas where empresa_id = $1) maximo
     from ventas_externas x where ${w.sql}`, w.params)).rows[0] as Resumen;
   const meses = (await c.query(`select to_char(fecha, 'YYYY-MM') mes, count(*)::int documentos, sum(total)::float total, sum(iva)::float iva
-    from ventas_externas x where ${w.sql} and estado <> 'anulada' group by 1 order by 1 desc`, w.params)).rows as { mes: string; documentos: number; total: number; iva: number }[];
+    from ventas_externas x where ${w.sql} and estado in ('pagada', 'por_cobrar') group by 1 order by 1 desc`, w.params)).rows as { mes: string; documentos: number; total: number; iva: number }[];
   const productos = (await c.query(`select l ->> 'nombre' producto, sum((l ->> 'cantidad')::numeric)::float cantidad, sum((l ->> 'total')::numeric)::float total, count(distinct x.id)::int documentos
-    from ventas_externas x cross join jsonb_array_elements(x.lineas) l where ${w.sql} and estado <> 'anulada'
+    from ventas_externas x cross join jsonb_array_elements(x.lineas) l where ${w.sql} and estado in ('pagada', 'por_cobrar')
     group by 1 order by 3 desc limit 30`, w.params)).rows as { producto: string; cantidad: number; total: number; documentos: number }[];
   const clientes = (await c.query(`select coalesce(x.cliente_nombre, 'Sin nombre') cliente, x.cliente_doc doc, max(x.cliente_id::text) cliente_id, count(*)::int documentos, sum(x.total)::float total,
-      max(x.fecha)::text ultima from ventas_externas x where ${w.sql} and estado <> 'anulada' group by 1, 2 order by 5 desc limit 20`, w.params)).rows as
+      max(x.fecha)::text ultima from ventas_externas x where ${w.sql} and estado in ('pagada', 'por_cobrar') group by 1, 2 order by 5 desc limit 20`, w.params)).rows as
     { cliente: string; doc: string | null; cliente_id: string | null; documentos: number; total: number; ultima: string }[];
   return { resumen, meses, productos, clientes };
 }

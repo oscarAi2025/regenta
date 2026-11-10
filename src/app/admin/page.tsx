@@ -15,7 +15,7 @@ export default async function Resumen() {
       count(*) filter (where (estado = 'aprobado' or detalle ? 'revisar') and not atendido)::int sin_atender, count(*) filter (where estado = 'pendiente' and creado > now() - interval '2 days')::int pendientes from pagos_suscripcion`)).rows[0];
     const solicitudes = (await c.query(`select count(*) filter (where estado = 'nueva')::int nuevas, count(*) filter (where creado > now() - interval '7 days')::int semana from solicitudes_demo`)).rows[0];
     const dian = (await c.query(`select count(*) filter (where d.estado in ('pendiente', 'enviando'))::int cola, count(*) filter (where d.estado = 'rechazado')::int rechazados from documentos_dian d join empresas e on e.id = d.empresa_id where not e.demo`)).rows[0];
-    const ventas = (await c.query(`select count(*)::int n, coalesce(sum(total), 0)::float t from ventas v join empresas e on e.id = v.empresa_id where not e.demo and v.estado = 'cerrada' and (v.creado at time zone 'America/Bogota')::date = (now() at time zone 'America/Bogota')::date`)).rows[0];
+    const ventas = (await c.query(`select count(*)::int n, coalesce(sum(total), 0)::float t from ventas v join empresas e on e.id = v.empresa_id where not e.demo and v.origen is null and v.estado = 'cerrada' and (v.creado at time zone 'America/Bogota')::date = (now() at time zone 'America/Bogota')::date`)).rows[0];
     const invima = (await c.query(`select max(creado) u, count(*)::int n from alertas_invima`)).rows[0];
     // Clientes que ya pagaron y siguen sin facturar en producción: cada día así es un cliente pagando sin usar lo que compró.
     const sinHabilitar = (await c.query(`select e.id, coalesce(e.nombre_comercial, e.razon_social) nombre, (current_date - min(p.creado)::date)::int dias

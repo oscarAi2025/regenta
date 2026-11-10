@@ -10,7 +10,7 @@ const fechaCorta = (f: string) => new Date(f + "T00:00:00").toLocaleDateString("
 export function Hecho({ hecho, control, impresora, cambiarImpresora, nombreEmpresa, nueva, pedido }: {
   hecho: Resultado; control: boolean; impresora: Impresora; cambiarImpresora: (i: Impresora) => void; nombreEmpresa: string; nueva: () => void; pedido: string | null;
 }) {
-  const esFactura = !hecho.provisional && hecho.documento?.tipo === "factura";
+  const esFactura = !hecho.provisional && (hecho.documento?.tipo ?? hecho.tipo) === "factura";
   return (
     <div className="px-6 pt-6">
       {hecho.provisional ? <>
@@ -47,7 +47,7 @@ export function Hecho({ hecho, control, impresora, cambiarImpresora, nombreEmpre
       </div>}
       {hecho.documento?.cufe && <p className="mt-2 text-[11px] text-muted break-all font-cond">{hecho.documento.tipo === "factura" ? "CUFE" : "CUDE"} {hecho.documento.cufe}</p>}
       <div className="mt-6 grid grid-cols-[auto_1fr] gap-2">
-        <button onClick={() => hecho.provisional ? imprimirProvisional(hecho.provisional, nombreEmpresa, impresora.ancho) : imprimirVenta(hecho.venta.venta_id, hecho.documento?.tipo, impresora)} className="h-14 px-4 rounded-xl border border-line font-semibold">
+        <button onClick={() => hecho.provisional ? imprimirProvisional(hecho.provisional, nombreEmpresa, impresora.ancho) : imprimirVenta(hecho.venta.venta_id, hecho.documento?.tipo ?? hecho.tipo, impresora)} className="h-14 px-4 rounded-xl border border-line font-semibold">
           {esFactura ? (impresora.factura === "carta" ? "Imprimir factura" : "Imprimir tirilla") : "Imprimir"} <kbd className="ml-1">F8</kbd></button>
         <button onClick={nueva} className="h-14 rounded-xl bg-ink text-white text-lg font-semibold">Nueva venta <kbd className="ml-2 !bg-transparent !text-white/70 !border-white/30">Enter</kbd></button>
       </div>

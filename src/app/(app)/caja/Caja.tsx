@@ -18,7 +18,8 @@ import { precioDe, unidadesDe, type Linea, type Medio, type PedidoVinculado, typ
 const PLAZOS = [15, 30, 45, 60, 90];
 type DetallePedido = Omit<PedidoGuardado, "lineas"> & PedidoVinculado & { cliente_datos: Cliente | null; lineas: (Omit<PedidoGuardado["lineas"][number], "producto"> & { producto: Producto & { activo?: boolean } })[] };
 
-export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, responsableIva, descuentoMax, soloFactura = false }: { fiar: boolean;
+export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, responsableIva, descuentoMax, soloFactura = false, facturaFormato = "carta" }: { fiar: boolean;
+  /** Formato de la factura que eligió la droguería (la caja puede tener el suyo). */ facturaFormato?: "carta" | "tirilla";
   /** La droguería factura en producción pero su POS sigue en pruebas: toda venta va con factura electrónica. */ soloFactura?: boolean;
   /** Dueño o administrador: fían también a clientes sin cupo y se pasan del cupo escribiendo el motivo. */ gerencia: boolean;
   empresa: string; nombreEmpresa: string; formulas: ConfigFormula; caja: string | null;
@@ -38,7 +39,7 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, r
   const [error, setError] = useState("");
   const [hecho, setHecho] = useState<Resultado | null>(null);
   const [impresora, setImpresora] = useState<Impresora>({ auto: true, ancho: "80", factura: "carta" });
-  useEffect(() => setImpresora(leerImpresora()), []);
+  useEffect(() => setImpresora(leerImpresora(facturaFormato)), [facturaFormato]);
   const cambiarImpresora = (i: Impresora) => { setImpresora(i); guardarImpresora(i); };
   const [vencen, setVencen] = useState<Producto[]>([]);
   const [tipoDoc, setTipoDoc] = useState<"pos" | "factura">(soloFactura ? "factura" : "pos");
@@ -323,7 +324,7 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, r
         setRecibido(""); setError(j.error); return;
       }
       if (!r.ok) { setError(typeof j.error === "string" ? j.error : "No se pudo registrar la venta"); return; }
-      setHecho(j); setCobrando(false); setCobrado(pedido ? etiquetaPedido(pedido) : null); setPedido(null); setAviso("");
+      setHecho({ ...j, tipo: j.documento?.tipo ?? tipoDoc }); setCobrando(false); setCobrado(pedido ? etiquetaPedido(pedido) : null); setPedido(null); setAviso("");
       setTimeout(() => buscador.current?.focus(), 0); // el lector queda listo para el siguiente cliente
       window.dispatchEvent(new CustomEvent("regenta:venta", { detail: { total: Number(j.venta?.total ?? 0), documento: j.documento?.estado ?? null } }));
       if (impresora.auto && j.venta?.venta_id) imprimirVenta(j.venta.venta_id, j.documento?.tipo ?? tipoDoc, impresora);
@@ -371,7 +372,7 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, r
       else if (e.key === "Escape" && mult !== null) { setMult(null); }
       if (e.key === "Enter" && hecho && !(e.target instanceof HTMLInputElement && e.target.id === "buscar" && e.target.value)) { e.preventDefault(); nueva(); }
       if (e.key === "F8" && hecho?.provisional) { e.preventDefault(); imprimirProvisional(hecho.provisional, nombreEmpresa, impresora.ancho); }
-      else if (e.key === "F8" && hecho?.venta.venta_id) { e.preventDefault(); imprimirVenta(hecho.venta.venta_id, hecho.documento?.tipo, impresora); }
+      else if (e.key === "F8" && hecho?.venta.venta_id) { e.preventDefault(); imprimirVenta(hecho.venta.venta_id, hecho.documento?.tipo ?? hecho.tipo, impresora); }
     };
   });
   useEffect(() => {

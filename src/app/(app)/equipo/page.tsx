@@ -10,6 +10,7 @@ import { Cajas } from "./Cajas";
 import { CUPO_DOCS, DOC_EXTRA, limite } from "@/lib/planes";
 import { datosQr } from "@/lib/pagos";
 import { SubirLogo } from "@/components/SubirLogo";
+import { FormatoFactura } from "@/components/FormatoFactura";
 
 export const metadata = { title: "Mi droguería" };
 
@@ -21,7 +22,7 @@ export default async function PaginaEquipo() {
   // Lee cuentas (correo y si ya creó contraseña): sin RLS, siempre filtrado por la empresa de la sesión del dueño.
   const d = await sinRLS(async (c) => {
     const e = (await c.query(`select nit, dv, razon_social, nombre_comercial, direccion, ciudad, telefono, email, plan, estado, demo,
-        descuento_max_cajero::float, egreso_max_cajero::float, responsable_iva, plan_siguiente, logo from empresas where id = $1`, [s.empresa])).rows[0];
+        descuento_max_cajero::float, egreso_max_cajero::float, responsable_iva, plan_siguiente, logo, factura_formato from empresas where id = $1`, [s.empresa])).rows[0];
     const miembros = (await c.query(`select m.user_id, m.nombre, m.rol, m.activo, cu.email, cu.clave_hash is not null activo_cuenta
       from miembros m left join cuentas cu on cu.id = m.user_id where m.empresa_id = $1 order by m.rol = 'dueno' desc, m.activo desc, m.nombre`, [s.empresa])).rows;
     const plan = (await c.query(`select to_char(max(vence), 'DD/MM/YYYY') vence, max(vence) < current_date vencido from pagos_suscripcion where empresa_id = $1 and estado = 'aprobado'`, [s.empresa])).rows[0];
@@ -100,6 +101,7 @@ export default async function PaginaEquipo() {
           ) : <p className="text-muted">Aún no hay pagos registrados. Si tu plan lo gestiona soporte, pídenos el comprobante por WhatsApp.</p>}
         </section>
       )}
+      <FormatoFactura inicial={d.e.factura_formato === "tirilla" ? "tirilla" : "carta"} />
       {!d.e.demo && <SubirLogo endpoint="/api/empresa/logo" inicial={d.e.logo ?? null} />}
       <section className="tarjeta p-5 flex flex-wrap items-center justify-between gap-3" aria-labelledby="copia-t">
         <div><h2 id="copia-t" className="titulo text-xl">Copia de tus datos</h2>

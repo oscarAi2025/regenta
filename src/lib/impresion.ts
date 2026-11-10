@@ -6,8 +6,9 @@ export type Impresora = { auto: boolean; ancho: "80" | "58"; factura: "carta" | 
 const CLAVE = "regenta.impresora";
 const POR_DEFECTO: Impresora = { auto: true, ancho: "80", factura: "carta" };
 
-export function leerImpresora(): Impresora {
-  try { return { ...POR_DEFECTO, ...JSON.parse(localStorage.getItem(CLAVE) ?? "{}") }; } catch { return POR_DEFECTO; }
+/** La preferencia de este equipo. Si la caja nunca eligió el formato de la factura, manda el de la droguería. */
+export function leerImpresora(facturaDroguería: Impresora["factura"] = POR_DEFECTO.factura): Impresora {
+  try { return { ...POR_DEFECTO, factura: facturaDroguería, ...JSON.parse(localStorage.getItem(CLAVE) ?? "{}") }; } catch { return { ...POR_DEFECTO, factura: facturaDroguería }; }
 }
 export function guardarImpresora(i: Impresora) {
   try { localStorage.setItem(CLAVE, JSON.stringify(i)); } catch { /* navegador sin almacenamiento: queda la de por defecto */ }

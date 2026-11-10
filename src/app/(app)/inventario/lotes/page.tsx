@@ -17,9 +17,9 @@ export default async function Pagina({ searchParams }: { searchParams: Promise<{
   const { producto } = await searchParams;
   const d = await comoUsuario(s, async (c) => ({
     inicial: esUuid(producto ?? "") ? (await c.query(`select id, nombre, laboratorio from productos where id = $1 and empresa_id = $2`, [producto, s.empresa])).rows[0] ?? null : null,
-    vencidos: (await c.query(`select p.id, p.nombre, s.lote, s.vence::text, s.unidades from v_stock_lotes s join productos p on p.id = s.producto_id
+    vencidos: (await c.query(`select p.id, s.lote_id, p.nombre, s.lote, s.vence::text, s.unidades from v_stock_lotes s join productos p on p.id = s.producto_id
       where s.empresa_id = $1 and s.vence < current_date and s.unidades > 0 order by s.vence, p.nombre limit 50`, [s.empresa])).rows as
-      { id: string; nombre: string; lote: string; vence: string; unidades: number }[],
+      { id: string; lote_id: string; nombre: string; lote: string; vence: string; unidades: number }[],
   }));
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
@@ -29,10 +29,10 @@ export default async function Pagina({ searchParams }: { searchParams: Promise<{
       {d.vencidos.length > 0 && (
         <section className="tarjeta p-4 sm:p-5 grid gap-2 max-w-4xl" aria-labelledby="vencidos-t">
           <h2 id="vencidos-t" className="titulo text-xl">Lotes vencidos con existencias</h2>
-          <p className="text-sm text-muted">No se pueden vender. Si la fecha está mal, corrígela; si de verdad vencieron, dalos de baja con acta en «Ajustar o dar de baja».</p>
+          <p className="text-sm text-muted">No se pueden vender. Si la fecha está mal, corrígela{s.rol === "bodeguero" ? " (volver vendible un lote vencido lo autoriza el dueño o el administrador)" : ""}; si de verdad vencieron, dalos de baja con acta en «Ajustar o dar de baja».</p>
           <ul className="divide-y divide-line">
             {d.vencidos.map((v) => (
-              <li key={v.id + v.lote} className="py-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+              <li key={v.lote_id} className="py-2 flex flex-wrap items-center gap-x-4 gap-y-1">
                 <p className="flex-1 min-w-[200px]"><span className="font-semibold">{v.nombre}</span><span className="block text-sm text-muted num">Lote {v.lote} · venció {fecha(v.vence)} · {v.unidades.toLocaleString("es-CO")} und</span></p>
                 <Link href={`/inventario/lotes?producto=${v.id}`} className="btn-borde h-10 text-sm" aria-label={`Revisar el lote ${v.lote} de ${v.nombre}`}>Revisar</Link>
               </li>

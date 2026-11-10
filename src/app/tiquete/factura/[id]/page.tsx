@@ -16,7 +16,7 @@ export const metadata: Metadata = { title: "Factura", robots: { index: false, fo
 
 const FABRICANTE = { software: "Regenta", nombre: "IA DEV INVESTIMENTS COLOMBIA S.A.S.", nit: "901.845.370-5" };
 const TITULO = { pos: "Documento equivalente electrónico P.O.S.", factura: "Factura electrónica de venta" } as const;
-const TIPO_DOC: Record<string, string> = { CC: "C.C.", NIT: "NIT", CE: "C.E.", PA: "Pasaporte", TI: "T.I.", PEP: "PEP", PPT: "PPT", RC: "R.C.", DIE: "Doc. extranjero", NUIP: "NUIP" };
+const TIPO_DOC: Record<string, string> = { CC: "C.C.", NIT: "NIT", CE: "C.E.", PP: "Pasaporte", PA: "Pasaporte", TI: "T.I.", PEP: "PEP", PPT: "PPT", RC: "R.C.", DIE: "Doc. extranjero", NUIP: "NUIP" };
 const fechaLarga = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("es-CO", { day: "2-digit", month: "2-digit", year: "numeric" });
 
 export default async function Factura({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ auto?: string }> }) {
@@ -30,7 +30,7 @@ export default async function Factura({ params, searchParams }: { params: Promis
   const d = await comoUsuario(s, async (c) => {
     const v = (await c.query(
       `select v.*, to_char(v.creado at time zone 'America/Bogota', 'DD/MM/YYYY') fecha, to_char(v.creado at time zone 'America/Bogota', 'HH24:MI:SS') hora,
-              m.nombre vendedor, cj.nombre caja, e.razon_social, e.nombre_comercial, e.nit, e.dv, e.direccion, e.ciudad, e.telefono, e.email, e.responsable_iva, e.logo,
+              m.nombre vendedor, cj.nombre caja, e.razon_social, e.nombre_comercial, e.nit, e.dv, e.direccion, e.ciudad, e.telefono, e.email, e.responsable_iva, e.logo, e.calidades_tributarias,
               cl.nombre cliente, cl.tipo_doc cli_tipo, cl.numero_doc cli_num, cl.dv cli_dv, cl.direccion cli_dir, cl.ciudad cli_ciudad, cl.telefono cli_tel, cl.email cli_email,
               v.vence_pago::text vence
        from ventas v join empresas e on e.id = v.empresa_id left join cajas cj on cj.id = v.caja_id
@@ -44,14 +44,15 @@ export default async function Factura({ params, searchParams }: { params: Promis
     const lineas = (await c.query(
       `select vl.descripcion, vl.presentacion, coalesce(p.ean, left(p.id::text, 8)) codigo, p.laboratorio,
               sum(vl.cantidad)::float cantidad, vl.precio::float precio, sum(vl.total)::float total, vl.iva_pct::float iva_pct, sum(vl.base)::float base,
-              sum(vl.iva)::float iva, sum(vl.descuento)::float descuento, max(vl.descuento_pct)::float descuento_pct, max(p.unidades_por_caja) upc,
+              sum(vl.iva)::float iva, sum(vl.descuento)::float descuento, vl.descuento_pct::float descuento_pct, max(p.unidades_por_caja) upc,
               json_agg(json_build_object('lote', l.lote, 'vence', to_char(l.vence, 'DD/MM/YYYY'), 'unidades', vl.unidades) order by l.vence, l.lote) lotes
        from venta_lineas vl join productos p on p.id = vl.producto_id join lotes l on l.id = vl.lote_id where vl.venta_id = $1
-       group by vl.descripcion, vl.presentacion, vl.precio, vl.iva_pct, vl.producto_id, p.ean, p.id, p.laboratorio order by min(vl.id)`, [id])).rows as
+       group by vl.descripcion, vl.presentacion, vl.precio, vl.iva_pct, vl.descuento_pct, vl.producto_id, p.ean, p.id, p.laboratorio order by min(vl.id)`, [id])).rows as
       { descripcion: string; presentacion: string; codigo: string; laboratorio: string | null; cantidad: number; precio: number; total: number; iva_pct: number; base: number;
         iva: number; descuento: number; descuento_pct: number; upc: number; lotes: { lote: string; vence: string | null; unidades: number }[] }[];
     const pagos = (await c.query(`select medio, valor::float from pagos where venta_id = $1 order by id`, [id])).rows;
-    const doc = (await c.query(`select estado, cufe, qr, simulado from documentos_dian where venta_id = $1 and tipo <> 'nota_credito'`, [id])).rows[0];
+    const doc = (await c.query(`select estado, cufe, qr, simulado, case when estado = 'aceptado' then to_char(actualizado at time zone 'America/Bogota', 'DD/MM/YYYY HH24:MI:SS') end validado
+      from documentos_dian where venta_id = $1 and tipo <> 'nota_credito'`, [id])).rows[0];
     return { v, res, lineas, pagos, doc };
   });
   if (!d) notFound();
@@ -122,6 +123,7 @@ export default async function Factura({ params, searchParams }: { params: Promis
             <h1 className="nom">{nombre}</h1>
             {v.nombre_comercial && <p className="dato">{v.razon_social}</p>}
             <p className="dato">NIT {v.nit}{v.dv ? `-${v.dv}` : ""} · {v.responsable_iva ? "Responsable de IVA" : "No responsable de IVA"}</p>
+            {v.calidades_tributarias && <p className="dato">{v.calidades_tributarias}</p>}
             {(v.direccion || v.ciudad) && <p className="dato">{[v.direccion, v.ciudad].filter(Boolean).join(" · ")}</p>}
             {(v.telefono || v.email) && <p className="dato">{[v.telefono ? `Tel. ${v.telefono}` : "", v.email].filter(Boolean).join(" · ")}</p>}
           </div>
@@ -149,7 +151,8 @@ export default async function Factura({ params, searchParams }: { params: Promis
         <div className="caja">
           <h2>Venta</h2>
           <dl className="kv">
-            <dt>Fecha de emisión</dt><dd>{v.fecha} {v.hora}</dd>
+            <dt>Generada</dt><dd>{v.fecha} {v.hora}</dd>
+            {doc?.validado && !doc.simulado && <><dt>Validada DIAN</dt><dd>{doc.validado}</dd></>}
             <dt>Forma de pago</dt><dd>{credito ? `Crédito a ${v.plazo_dias} días` : "Contado"}</dd>
             {credito && v.vence && <><dt>Vence</dt><dd>{fechaLarga(v.vence)}</dd></>}
             {!credito && pagos.length > 0 && <><dt>Medio de pago</dt><dd>{pagos.map((p) => MEDIO[p.medio] ?? p.medio).join(", ")}</dd></>}
@@ -176,7 +179,7 @@ export default async function Factura({ params, searchParams }: { params: Promis
               <td className="lotes">{l.lotes.map((x, j) => <span key={j}>{x.lote} · {x.vence ?? "s. f."}{l.lotes.length > 1 ? ` · ${x.unidades} und` : ""}</span>)}</td>
               <td className="num">{l.cantidad.toLocaleString("es-CO")}</td>
               <td className="num">{pesos(l.precio)}</td>
-              <td className="num">{l.descuento > 0 ? `${l.descuento_pct}%` : "—"}</td>
+              <td className="num">{l.descuento > 0 ? `${l.descuento_pct.toLocaleString("es-CO", { maximumFractionDigits: 2 })} %` : "—"}</td>
               <td className="num">{l.iva_pct ? `${l.iva_pct}%` : "Excl."}</td>
               <td className="num"><b>{pesos(l.total)}</b></td>
             </tr>

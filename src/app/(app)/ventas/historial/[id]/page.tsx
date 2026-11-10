@@ -34,7 +34,7 @@ export default async function VentaAlegra({ params }: { params: Promise<{ id: st
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[440px_minmax(0,1fr)] gap-6 items-start">
       <article className="tirilla rounded-t-2xl px-6 pt-6 pb-10" aria-label="Venta de Alegra">
         <p className="text-center titulo text-lg">{x.razon_social}</p>
-        <p className="text-center text-sm text-muted">NIT {x.nit}-{x.dv}</p>
+        <p className="text-center text-sm text-muted">NIT {x.nit}{x.dv ? `-${x.dv}` : ""}</p>
         <div className="corte my-4" />
         <p className="flex justify-between text-sm"><span>{x.documento === "pos" ? "Documento POS electrónico" : "Factura electrónica"} · Alegra</span><span className="num font-semibold">{x.prefijo}{x.numero}</span></p>
         <p className="text-sm text-muted">{new Date(x.fecha_txt + "T12:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" })}</p>

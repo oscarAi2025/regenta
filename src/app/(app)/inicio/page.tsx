@@ -23,7 +23,7 @@ export default async function Inicio() {
       select count(*)::int ventas, coalesce(sum(total), 0)::float
                - coalesce((select sum(d.total) from devoluciones d where d.empresa_id = $1 and d.creado >= date_trunc('day', now() at time zone 'America/Bogota') at time zone 'America/Bogota'), 0)::float total,
              coalesce(avg(total), 0)::float promedio
-      from ventas where empresa_id = $1 and estado = 'cerrada' and creado >= date_trunc('day', now() at time zone 'America/Bogota') at time zone 'America/Bogota'`, [s.empresa])).rows[0];
+      from ventas where empresa_id = $1 and origen is null and estado = 'cerrada' and creado >= date_trunc('day', now() at time zone 'America/Bogota') at time zone 'America/Bogota'`, [s.empresa])).rows[0];
     const medios = (await c.query(`
       select p.medio, sum(p.valor - case when p.medio = 'efectivo' and p.primero_efectivo then v.cambio else 0 end)::float valor
       from (select *, row_number() over (partition by venta_id, medio order by id) = 1 primero_efectivo from pagos) p join ventas v on v.id = p.venta_id
@@ -67,7 +67,7 @@ export default async function Inicio() {
         exists (select 1 from v_stock_vigente v join productos p on p.id = v.producto_id where p.empresa_id = $1 and v.unidades > 0) inventario,
         (select count(*) from miembros where empresa_id = $1 and activo) > 1 equipo,
         exists (select 1 from resoluciones_dian where empresa_id = $1 and activa and tipo in ('pos', 'factura') and not pruebas) dian,
-        exists (select 1 from ventas where empresa_id = $1) venta
+        exists (select 1 from ventas where empresa_id = $1 and origen is null) venta
       from empresas e where e.id = $1`, [s.empresa])).rows[0] : null;
     return { hoy, medios, semana, margen, alertas, ultimas, pred, invima, hoyPatron, pasos };
   });

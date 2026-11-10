@@ -20,7 +20,7 @@ export default async function Prediccion({ searchParams }: { searchParams: Promi
   const { ver = "pedido" } = await searchParams;
   const costos = puede.verCostos(s.rol);
   const d = await comoUsuario(s, async (c) => {
-    const historia = (await c.query(`select coalesce(current_date - min((creado at time zone 'America/Bogota')::date), 0)::int dias from ventas where empresa_id = $1`, [s.empresa])).rows[0].dias as number;
+    const historia = (await c.query(`select coalesce(current_date - min((creado at time zone 'America/Bogota')::date), 0)::int dias from ventas where empresa_id = $1 and origen is null`, [s.empresa])).rows[0].dias as number;
     // Una sola pasada por la predicción; los filtros se hacen aquí.
     const todos = (await c.query(`select producto_id id, nombre, laboratorio, unidades_por_caja upc, existencias, venta_dia::float, dias_cobertura::float, tendencia::float,
         sugerido_unidades, sugerido_cajas, ultima_venta::text from prediccion_productos($1)`, [s.empresa])).rows as (LineaPedido & { sugerido_unidades: number; ultima_venta: string | null })[];

@@ -9,7 +9,7 @@ export type Producto = {
 /** Línea de la venta. `antes`: precio que se le dijo al cliente en el pedido, si cambió desde entonces. */
 export type Linea = { key: string; p: Producto; presentacion: "caja" | "unidad"; cantidad: number; descuento: number /* % */; antes?: number };
 export type Medio = "efectivo" | "transferencia" | "nequi" | "daviplata" | "tarjeta" | "bre_b" | "qr";
-export type Resultado = { provisional?: VentaEnCola; venta: { venta_id: string; prefijo: string; numero: number; total: number; cambio: number; base: number; iva: number; credito?: boolean; vence_pago?: string | null; repetida?: boolean }; documento: { tipo: "pos" | "factura"; estado: string; cufe: string | null; simulado: boolean; ultimo_error: string | null } };
+export type Resultado = { provisional?: VentaEnCola; /** Tipo de documento de la venta (por si la respuesta no trae el documento DIAN). */ tipo?: "pos" | "factura"; venta: { venta_id: string; prefijo: string; numero: number; total: number; cambio: number; base: number; iva: number; credito?: boolean; vence_pago?: string | null; repetida?: boolean }; documento: { tipo: "pos" | "factura"; estado: string; cufe: string | null; simulado: boolean; ultimo_error: string | null } };
 /** Pedido del servidor (espera, domicilio, cotización) que está abierto en la caja. */
 export type PedidoVinculado = { id: string; tipo: TipoPedido; numero: number; contacto: string | null; estado: EstadoPedido; telefono?: string | null; direccion?: string | null; nota?: string | null };
 
