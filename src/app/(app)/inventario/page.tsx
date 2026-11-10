@@ -91,10 +91,10 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
         )}
       </div>
       <form className="mt-5 flex flex-wrap items-center gap-2" role="search">
-        <nav className="flex gap-1 bg-surface border border-line rounded-xl p-1" aria-label="Filtro">
+        <nav className="flex gap-1 bg-surface border border-line rounded-xl p-1 max-w-full overflow-x-auto [scrollbar-width:none]" aria-label="Filtro">
           {tabs.map(([k, t]) => (
             <a key={k} href={`?ver=${k}${q ? `&q=${encodeURIComponent(q)}` : ""}`} aria-current={ver === k ? "page" : undefined}
-              className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${ver === k ? "bg-ink text-white" : "text-muted"}`}>{t}</a>
+              className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg text-sm font-semibold ${ver === k ? "bg-ink text-white" : "text-muted"}`}>{t}</a>
           ))}
         </nav>
         <input type="hidden" name="ver" value={ver} />

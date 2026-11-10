@@ -6,6 +6,7 @@ import { execFileSync } from "node:child_process";
 import pg from "pg";
 import { chromium } from "playwright-core";
 import { codigoTotp, olvidarUltimo, TOTP } from "../ayudas/totp.mjs";
+import { esperarCarga } from "../ayudas/carga.mjs";
 
 const B = process.env.BASE ?? "http://localhost:4500", DB = process.env.DATABASE_URL;
 let fallos = 0;
@@ -30,6 +31,7 @@ const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw
 // ── El visitante: llega por una campaña, entra a la demo desde el celular y recorre pantallas
 const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, userAgent: "Mozilla/5.0 (Linux; Android 14; SM-A145M) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Mobile Safari/537.36" });
 const p = await ctx.newPage();
+esperarCarga(p); // la consola tiene «Cargando» (loading.tsx)
 const errs = []; p.on("pageerror", (e) => errs.push(e.message));
 await p.goto(B + "/precios?utm_source=prueba-e2e&utm_campaign=lanzamiento-" + sufijo);
 for (let i = 0; i < 40 && !(await ctx.cookies()).some((c) => c.name === "regenta_origen"); i++) await p.waitForTimeout(250); // se guarda al cargar la página
