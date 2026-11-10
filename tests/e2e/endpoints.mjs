@@ -116,6 +116,7 @@ const R = [
   { m: "GET", p: `/api/inventario/lotes?producto=${U}`, acceso: "sesion", rol: ["cajero", 403] },
   { m: "GET", p: "/api/inventario/lotes?producto=x", acceso: "sesion", espera: 400 },
   { m: "GET", p: "/api/inventario/lotes?vencidos=1", acceso: "sesion" },
+  { m: "PATCH", p: `/api/inventario/lotes/${U}`, acceso: "sesion", basura: true, rol: ["cajero", 403] },
   { m: "POST", p: "/api/inventario/ajustes", acceso: "sesion", basura: true, rol: ["cajero", 403] },
   { m: "GET", p: `/api/inventario/kardex?producto=${U}`, acceso: "sesion", rol: ["cajero", 403], espera: 404 },
   { m: "GET", p: `/api/inventario/kardex?producto=${U}&formato=csv&desde=x&lote=y`, acceso: "sesion", espera: 400 },

@@ -487,3 +487,7 @@ FARMAHUB AMBALA y no se migran). Cartera de Farmagenéricos: 6 facturas por $3.9
       2 ajustados (TAPA BOCAS 49→54, ULTRA FER 343→323), 8.670 unidades, $51.881.934 a costo, 1.035 documentos al
       historial, 6 facturas a cartera por $3.993.462. Segunda simulación: todo «sin cambios» (idempotente)
 - [x] La consola decía «Migración aplicada» al volver a simular: corregido (sale en el próximo despliegue)
+- [x] Corregir lotes (pedido de Oscar): migración 044 corregir_lote (código y fecha, motivo, auditoría, sin tocar existencias;
+      el código de un lote con alerta INVIMA no cambia) + PATCH /api/inventario/lotes/[id] + /inventario/lotes con la lista de
+      vencidos con existencias; tests/e2e/lotes-corregir.mjs 25/25
+- [ ] Oscar pega db/produccion/bloque4-044.sql → publicar → comprobar en producción

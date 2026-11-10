@@ -272,3 +272,9 @@
   si no cuadra, se deshace todo.
 - (09/11) La demo cambia con la fecha (existencias y vencimientos relativos a hoy): una prueba no puede suponer que «el
   primer acetaminofén» tiene una caja completa. Elegir por API un producto con existencias suficientes para lo que se hace.
+
+## 10/11/2026 · Corregir lotes (corrección de Oscar)
+- Al migrar datos de otro sistema, todo lo que puede venir mal digitado (código de lote, fecha de vencimiento) necesita
+  una forma de corregirse en la aplicación ANTES de migrar: si no, el error de origen queda congelado (los 3 lotes
+  «vencidos» de Alegra no se podían arreglar). Cada corrección con motivo y auditoría antes/después, sin tocar existencias.
+- Una prueba que elige datos de la demo con `limit 1` sin `order by` cambia de producto entre corridas: ordenar siempre.

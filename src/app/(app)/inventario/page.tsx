@@ -61,6 +61,7 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
           <Link href="/compras/nueva" className="btn-primario">Recibir mercancía</Link>
           <Link href="/compras" className="btn-borde">Compras</Link>
           <Link href="/inventario/ajustes" className="btn-borde">Ajustar o dar de baja</Link>
+          {puede.moverInventario(s.rol) && <Link href="/inventario/lotes" className="btn-borde">Lotes y vencimientos</Link>}
           <Link href="/inventario/conteos" className="btn-borde">{datos.conteo ? `Conteo N.º ${datos.conteo} en curso` : "Conteo físico"}</Link>
           {puedePrecios.cuarentena(s.rol) && <Link href="/inventario/cuarentena" className="btn-borde">Cuarentena</Link>}
           <Link href="/temperatura" className="btn-borde">Temperatura y humedad</Link>
