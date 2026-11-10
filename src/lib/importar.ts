@@ -204,7 +204,7 @@ export function leerFilas(filas: Fila[], hoy: string, primeraFila = 2): Lectura 
     if (t === null) return err(`IVA «${texto(f.iva)}» no válido: usa 0, 5 o 19`);
 
     let upc = numero(f.unidades_por_caja);
-    if (upc !== undefined && (Number.isNaN(upc) || upc < 0 || upc > 10000)) return err(`unidades por caja «${texto(f.unidades_por_caja)}» no válidas`);
+    if (upc !== undefined && (Number.isNaN(upc) || upc < 0 || upc > 100000)) return err(`unidades por caja «${texto(f.unidades_por_caja)}» no válidas`);
     upc = Math.max(1, Math.round(upc ?? 1));
 
     const pc = numero(f.precio_caja), pu = numero(f.precio_unidad);

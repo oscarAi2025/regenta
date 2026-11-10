@@ -1,0 +1,432 @@
+{
+ "capitulos": [
+  {
+   "id": "bienvenida",
+   "titulo": "Bienvenida a Regenta",
+   "intro": "Regenta es el programa de facturación electrónica e inventario hecho para droguerías y farmacias de Colombia. Funciona en la nube: entras desde el navegador del computador, la tableta o el celular, sin instalar nada. Con Regenta vendes con tiquete POS o factura electrónica ante la DIAN, controlas el inventario por lote y fecha de vencimiento, llevas la cartera de tus clientes y tienes los informes del negocio al día.",
+   "pasos": [
+    {
+     "img": "02-inicio",
+     "texto": "Esta guía te lleva paso a paso desde tu primer acceso hasta el cierre de caja del día. Cada capítulo explica una pestaña del menú con imágenes reales del programa.",
+     "voz": "¡Hola! ¡Qué bueno tenerte aquí! Te doy la bienvenida a Regenta, el programa de facturación electrónica e inventario hecho para droguerías y farmacias de Colombia. En este video te enseño, paso a paso, a entrar por primera vez y a sacarle todo el provecho a cada pestaña. ¡Empecemos!"
+    }
+   ]
+  },
+  {
+   "id": "acceso",
+   "titulo": "Tu primer acceso",
+   "intro": "Cuando contratas Regenta te creamos el usuario del dueño de la droguería. Lo único que tienes que hacer es crear tu contraseña desde el correo que te llega y entrar.",
+   "pasos": [
+    {
+     "img": "00a-activar",
+     "texto": "1. Abre el correo «Activa tu cuenta de Regenta» y pulsa el botón «Crear mi contraseña». El enlace sirve una sola vez y vence en 7 días; si vence, ábrelo igual y pide uno nuevo con un clic.\n2. Se abre la página «Activa tu cuenta de Regenta». Escribe tu contraseña nueva: mínimo 10 caracteres, con letras y números.",
+     "voz": "Primer paso: activar tu cuenta. Busca en tu correo el mensaje «Activa tu cuenta de Regenta» y pulsa el botón «Crear mi contraseña». Se abre esta página. Escribe una contraseña de mínimo diez caracteres, con letras y números."
+    },
+    {
+     "img": "00b-activar-lleno",
+     "texto": "3. Repite la contraseña en «Repítela» y pulsa «Activar mi cuenta».",
+     "voz": "Ahora repítela en la segunda casilla… ¡y pulsa «Activar mi cuenta»!"
+    },
+    {
+     "img": "00c-activada",
+     "texto": "4. Verás el mensaje «Listo. Tu cuenta … está activa». Pulsa «Entrar a Regenta». También te llega el correo «Bienvenido a Regenta: tus primeros 3 pasos».",
+     "voz": "¡Listo! Tu cuenta ya está activa. Pulsa «Entrar a Regenta»."
+    },
+    {
+     "img": "01-entrar",
+     "texto": "5. En la página «Entrar» escribe tu correo y tu contraseña y pulsa «Entrar». Guarda la dirección regenta.pro en los favoritos del navegador: desde ahí entras todos los días.",
+     "voz": "De aquí en adelante entras siempre por regenta punto pro. Escribe tu correo, tu contraseña y pulsa «Entrar». Un consejo: guarda la página en los favoritos de tu navegador, así la tienes siempre a un clic."
+    },
+    {
+     "img": "01b-olvide",
+     "texto": "¿Olvidaste la contraseña? Pulsa «¿Olvidaste tu contraseña?», escribe el correo de tu cuenta y pulsa «Enviarme el enlace». El enlace para crear una contraseña nueva vence en 1 hora.",
+     "voz": "¿Se te olvidó la contraseña? ¡Tranquila, tranquilo! Pulsa «¿Olvidaste tu contraseña?», escribe tu correo y pulsa «Enviarme el enlace». Te llega un enlace para crear una nueva. Eso sí: vence en una hora."
+    }
+   ]
+  },
+  {
+   "id": "pantalla",
+   "titulo": "Conoce la pantalla",
+   "intro": "Al entrar llegas a Inicio. A la izquierda está el menú; arriba, el nombre de tu droguería, el buscador y tu usuario.",
+   "pasos": [
+    {
+     "img": "03-menu",
+     "texto": "El menú está organizado en grupos: Vender, Inventario, Compras, Cumplimiento y Gestión. Cada persona ve solo lo que su rol permite: la cajera ve la caja, las ventas y el inventario; la bodega, el inventario y las compras; el vendedor, Inicio y Pedidos; el administrador, todo menos «Mi droguería»; el dueño lo ve todo. Abajo quedan «Mi droguería» (solo el dueño) y «Salir». En el celular el menú es una barra que se desliza de lado.",
+     "voz": "Ahora conozcamos la pantalla. A la izquierda está el menú, ordenado en grupos: Vender, Inventario, Compras, Cumplimiento y Gestión. Cada persona ve solo lo que le corresponde a su rol. Y abajo quedan «Mi droguería», que solo ve el dueño, y «Salir»."
+    },
+    {
+     "img": "04-buscador",
+     "texto": "El buscador de arriba («Buscar o preguntar…», o las teclas Ctrl + K) te lleva a un producto o a las pantallas principales con solo escribir su nombre, o le pasa tu pregunta a Regenta IA.",
+     "voz": "Arriba tienes el buscador. Pulsa control más K, escribe un producto o una pantalla, ¡y llegas directo! También le puedes hacer una pregunta a Regenta IA."
+    },
+    {
+     "img": "05-ia",
+     "texto": "Regenta IA es tu asistente: pregúntale cómo hacer algo en el programa, qué te conviene pedir o cómo van las ventas. Si está activada en tu cuenta (pídela por WhatsApp), la abres con el botón «Regenta IA» o con «Pregúntale a Regenta IA» en Inicio.",
+     "voz": "Y aquí está Regenta IA, tu asistente. Pregúntale cómo se hace algo en el programa, qué te conviene pedir o cómo van tus ventas. ¡Es como tener una regente experta al lado!"
+    },
+    {
+     "img": "02-inicio",
+     "texto": "Inicio te resume el día: lo vendido, el ticket promedio, la ganancia bruta, los lotes por vencer, las alertas del INVIMA y «Tus prioridades de hoy», con lo que conviene hacer primero. Los botones «Ir a la caja» y «Recibir mercancía» te llevan a lo más usado.",
+     "voz": "Esta es la pantalla de Inicio, tu resumen del día: cuánto has vendido, la ganancia, los lotes por vencer, las alertas del INVIMA y tus prioridades de hoy. Desde aquí vas a la caja o a recibir mercancía con un solo clic."
+    }
+   ]
+  },
+  {
+   "id": "midrogueria",
+   "titulo": "Configura tu droguería",
+   "intro": "Antes de vender, el dueño revisa «Mi droguería» (abajo en el menú). Aquí están los datos que salen en tus tiquetes y facturas, tu equipo y tus cajas.",
+   "pasos": [
+    {
+     "img": "06-midrogueria",
+     "texto": "Arriba ves tu plan, los documentos electrónicos usados en el mes y el estado de tu habilitación ante la DIAN con cada numeración. En «Datos de la droguería» revisa el nombre comercial, el teléfono, la dirección, la ciudad y el correo, y fija el descuento máximo que puede dar la cajera y el tope de salidas de caja por turno.",
+     "voz": "Antes de vender, pasemos por «Mi droguería». Aquí ves tu plan, los documentos del mes y tu habilitación ante la DIAN. Revisa bien tus datos: el nombre comercial, el teléfono y la dirección, porque salen en tus facturas. Aquí también decides el descuento máximo que puede dar la cajera."
+    },
+    {
+     "img": "07-equipo",
+     "texto": "En «Equipo» pulsa «Agregar persona», escribe su nombre y correo elige el rol (Administrador, Cajera/o, Bodega o Vendedor) y pulsa «Invitar». Si llegas al tope de usuarios de tu plan, el botón cambia a «Pasar a Pro para más usuarios». Le llega su propio correo para crear su contraseña: cada persona entra con su usuario y todo queda registrado a su nombre.",
+     "voz": "En «Equipo» sumas a tu gente. Pulsa «Agregar persona», escribe su nombre, su correo y su rol, y pulsa «Invitar». A cada persona le llega su propio correo para crear la contraseña, y todo lo que haga queda registrado a su nombre. ¡Orden total!"
+    },
+    {
+     "img": "08-formato",
+     "texto": "En «Cajas» puedes agregar o renombrar cajas. En «Factura impresa» eliges cómo sale la factura electrónica al cobrar: «Tamaño carta», con todos los datos del cliente y el lote de cada producto, ideal para empresas, o «Tirilla de la térmica», de 80 o 58 mm. El tiquete POS siempre sale en tirilla. También puedes subir el logo de tu droguería para que salga en tus facturas en tamaño carta.",
+     "voz": "Más abajo eliges cómo se imprime tu factura electrónica: en tamaño carta, con un diseño profesional y todos los datos del cliente, o en la tirilla de la impresora térmica. El tiquete POS siempre sale en tirilla. Y sube el logo de tu droguería: saldrá en tus facturas en tamaño carta."
+    }
+   ]
+  },
+  {
+   "id": "productos",
+   "titulo": "Carga tus productos",
+   "intro": "Tienes tres caminos para cargar productos: el catálogo Regenta, el formulario a mano y la carga desde Excel.",
+   "pasos": [
+    {
+     "img": "09-productos",
+     "texto": "En Productos ves todo tu catálogo con su código, presentación, existencias y precio. Usa «Agregar producto» para uno nuevo, «Cargar desde Excel» para muchos a la vez y «Editar» para cambiar un producto.",
+     "voz": "¡Vamos con los productos! En esta pestaña tienes todo tu catálogo, con existencias y precios. Para agregar uno, pulsa «Agregar producto»."
+    },
+    {
+     "img": "10-producto-nuevo",
+     "texto": "«Del catálogo Regenta»: busca entre casi 10.000 productos por nombre o escanea el código de barras; el producto llega con sus datos y solo pones tu precio. Si no aparece, usa «Producto nuevo» y créalo a mano: nombre, laboratorio, código de barras, IVA, unidades por caja, precio de la caja y de la unidad, y si requiere fórmula o es de control especial.",
+     "voz": "Lo más rápido es buscarlo en el catálogo Regenta, que tiene casi diez mil productos: escribes el nombre o escaneas el código de barras, ¡y solo pones tu precio! Si no está, lo creas a mano en «Producto nuevo»."
+    },
+    {
+     "img": "11-importar",
+     "texto": "«Cargar productos desde Excel»: sube el archivo de tu sistema anterior (.xlsx o .csv) o descarga la plantilla y llénala, una fila por producto; el lote, el vencimiento y las existencias son opcionales. Antes de guardar ves qué va a pasar con cada producto; nada se guarda hasta que confirmas.",
+     "voz": "¿Tienes muchos productos? Cárgalos desde Excel. Sube el archivo de tu sistema anterior o descarga la plantilla y llénala. Antes de guardar ves exactamente qué va a pasar, y nada se guarda hasta que tú confirmas."
+    }
+   ]
+  },
+  {
+   "id": "recibir",
+   "titulo": "Recibe mercancía de tus proveedores",
+   "intro": "Cada factura de proveedor entra por «Recibir mercancía» (en Inventario o en Compras). Así el inventario queda con lote, vencimiento y costo.",
+   "pasos": [
+    {
+     "img": "12-recibir",
+     "texto": "Lo más rápido es «Subir ZIP, XML o PDF»: sube el archivo de la factura electrónica que te llegó al correo y la compra se arma sola con proveedor, productos, lotes, vencimientos, cantidades y costos. Si solo tienes el papel, «Tomar foto de la factura». También puedes llenarla a mano: proveedor, número y fecha de la factura, condición de pago (de contado, a crédito o «Ya la pagué») y, por cada producto que escanees, lote, vencimiento, cantidad y costo sin IVA. Antes de guardar ves si cuadra con el total de la factura.",
+     "voz": "Cuando llegue el pedido de tu proveedor, entra a «Recibir mercancía». El truco más rápido: sube el ZIP o el XML de la factura electrónica que te llegó al correo, ¡y la compra se arma sola!, con lotes, vencimientos y costos. ¿Solo tienes el papel? Tómale una foto. Tú revisas que todo cuadre, y guardas."
+    }
+   ]
+  },
+  {
+   "id": "turno",
+   "titulo": "Abre el turno de caja",
+   "intro": "El turno es el control del efectivo de cada caja: se abre con la base y se cierra contando el dinero.",
+   "pasos": [
+    {
+     "img": "13-turno-abrir",
+     "texto": "En Turno escribe la base en efectivo (el sencillo con que empieza la caja) y pulsa «Abrir turno». Si el dueño marca «Exigir turno abierto para vender», la caja no deja cobrar sin turno.",
+     "voz": "¡Arranca el día! Lo primero es abrir el turno de caja. Escribe la base, que es el sencillo con que empieza la caja, y pulsa «Abrir turno»."
+    },
+    {
+     "img": "14-turno-abierto",
+     "texto": "Con el turno abierto ves las ventas, la base, las entradas y salidas y el efectivo esperado (la cajera lo ve solo al cerrar, después de contar el cajón). En «Entradas y salidas de efectivo» registras, por ejemplo, el pago de un domicilio; «Recibir abono» registra el pago de un cliente que debe.",
+     "voz": "Con el turno abierto, el dueño ve en todo momento cuánto efectivo debería haber; la cajera lo ve al cerrar, después de contar. Y si sacas o metes plata de la caja, regístralo en «Entradas y salidas de efectivo»."
+    }
+   ]
+  },
+  {
+   "id": "caja",
+   "titulo": "Vende en la caja",
+   "intro": "La caja está hecha para vender rápido, con el lector de código de barras o con el teclado. Regenta descuenta siempre el lote que vence antes.",
+   "pasos": [
+    {
+     "img": "15-caja",
+     "texto": "La casilla «Buscar o escanear» (tecla F2) está lista para el lector de código de barras. Debajo, «Ofrécelos primero» te muestra los productos con lotes que vencen en menos de 60 días.",
+     "voz": "¡Llegamos a la caja, el corazón de Regenta! La casilla de búsqueda queda lista para el lector de código de barras. Y fíjate: debajo, Regenta te muestra qué productos conviene ofrecer primero, porque tienen lotes por vencer."
+    },
+    {
+     "img": "16-buscar",
+     "texto": "Escanea el producto o escribe su nombre. Cada resultado muestra el precio de la caja y el de la unidad: pulsa el que vas a vender. Con las flechas ↑ ↓ eliges y con Enter agregas la caja. Para llevar varias, escribe la cantidad y un asterisco antes de escanear: «12*» lleva 12.",
+     "voz": "Escanea el producto o escribe su nombre. Si se vende por caja y por unidad, ves los dos precios: pulsa el que corresponda. ¡Un truco buenísimo! Escribe doce y un asterisco antes de escanear, y lleva doce de una vez."
+    },
+    {
+     "img": "17-carrito",
+     "texto": "A la derecha se arma la venta: puedes cambiar la cantidad con − y +, poner un descuento por producto o un descuento general, y quitar un producto con la ×.",
+     "voz": "A la derecha se va armando la venta. Puedes cambiar cantidades, aplicar un descuento o quitar un producto. ¡Así de fácil!"
+    },
+    {
+     "img": "18-tipo-doc",
+     "texto": "Elige el documento: «Tiquete POS» para el consumidor final o «Factura electrónica» cuando el cliente la pide con su cédula o NIT. «En espera» (F4), «Domicilio» y «Cotizar» guardan la venta para después; «Recuperar» (F6) la trae de vuelta.",
+     "voz": "Ahora elige el documento: tiquete POS para el consumidor final, o factura electrónica cuando el cliente la pide con su cédula o su NIT."
+    },
+    {
+     "img": "19-cobrar",
+     "texto": "Pulsa «Cobrar» (F9). Elige el medio de pago: Efectivo, Nequi, Daviplata, Bre-B, QR Bancolombia, Transferencia o Tarjeta. Si paga una parte en efectivo y otra con otro medio, con Efectivo elegido pulsa «+ Pago mixto (parte con otro medio)».",
+     "voz": "Pulsa «Cobrar», o la tecla F9. Elige el medio de pago: efectivo, Nequi, Daviplata, Bre-B, QR Bancolombia, transferencia o tarjeta. Y si te paga una parte en efectivo y otra con otro medio, usa «Pago mixto»."
+    },
+    {
+     "img": "20-cambio",
+     "texto": "En efectivo escribe lo recibido o usa los botones de billete («Exacto», $50.000, $100.000…). Regenta calcula el cambio. Pulsa «Confirmar».",
+     "voz": "Si paga en efectivo, escribe lo que te entrega o toca el billete. ¡Regenta te calcula el cambio! Pulsa «Confirmar»."
+    },
+    {
+     "img": "21-hecho",
+     "texto": "La venta queda registrada con su número, el cambio en grande y el estado ante la DIAN. Pulsa «Imprimir» para el tiquete y «Nueva venta» (Enter) para seguir atendiendo. El inventario se descuenta solo, del lote que vence antes.",
+     "voz": "¡Venta lista! Quedó registrada y ves su estado ante la DIAN. El cambio sale en grande, imprimes el tiquete y pulsas «Nueva venta» para seguir atendiendo. Y lo mejor: el inventario se descuenta solito, del lote que vence antes."
+    }
+   ]
+  },
+  {
+   "id": "factura",
+   "titulo": "Factura electrónica a un cliente",
+   "intro": "Cuando el cliente pide factura con sus datos, por ejemplo una empresa, eliges «Factura electrónica».",
+   "pasos": [
+    {
+     "img": "22-factura",
+     "texto": "Con «Factura electrónica» aparece «Cliente de la factura»: busca por NIT, cédula o nombre, elige «Consumidor final» o pulsa «+ Crear cliente nuevo».",
+     "voz": "¿El cliente te pide factura? Elige «Factura electrónica» y búscalo por su NIT, su cédula o su nombre. Si es nuevo, lo creas ahí mismo."
+    },
+    {
+     "img": "23-cliente",
+     "texto": "Con el cliente elegido, decide la forma de pago: «Contado» o «Crédito». «Crédito» aparece si el cliente tiene cupo, que le da el dueño o el administrador en Clientes (ellos también pueden fiar sin cupo, dejando un motivo). A crédito eliges el plazo y la factura entra a la Cartera hasta que te paguen.",
+     "voz": "Elige si es de contado o a crédito. Si el cliente tiene cupo, a crédito escoges el plazo, y la factura pasa a la cartera hasta que te pague."
+    },
+    {
+     "img": "23a-facturar",
+     "texto": "Pulsa «Cobrar» (F9), elige el medio de pago y confirma con «Facturar». A crédito no se pide medio de pago y el botón dice «Facturar a crédito».",
+     "voz": "Cobras igual que siempre… y confirmas con «Facturar»."
+    },
+    {
+     "img": "23b-factura-hecha",
+     "texto": "La factura queda aceptada. «Imprimir factura» la saca en el formato que elegiste en Mi droguería; «Ver la factura» la abre en pantalla. Si tu formato es tamaño carta, «Imprimir también la tirilla» saca además la copia térmica; si es tirilla, «Imprimir la factura en tamaño carta» saca la de carta.",
+     "voz": "¡Factura aceptada! La imprimes en tamaño carta o en tirilla, o la abres en pantalla para enviarla."
+    },
+    {
+     "img": "23c-factura-carta",
+     "texto": "Así sale la factura en tamaño carta: datos completos del cliente, una fila por producto con su lote y vencimiento, el total en letras, el CUFE y el código QR de la DIAN, y el logo de tu droguería si lo subiste. (En esta imagen de ejemplo la numeración es de pruebas.)",
+     "voz": "Mira qué bien se ve la factura en tamaño carta: con los datos del cliente, el lote y el vencimiento de cada producto, el valor en letras y el código de la DIAN. ¡Profesional y lista para entregar!"
+    }
+   ]
+  },
+  {
+   "id": "pedidos",
+   "titulo": "Pedidos, domicilios y cotizaciones",
+   "intro": "En Pedidos están las ventas en espera, los domicilios y las cotizaciones.",
+   "pasos": [
+    {
+     "img": "24-pedidos",
+     "texto": "En la caja, F4 pone una venta en espera y los botones «Domicilio» y «Cotizar» la guardan como pedido. Aquí ves todos los de la droguería, los filtras y los cobras desde cualquier caja. «Nuevo pedido o cotización» arma uno desde esta pantalla, por ejemplo para enviarlo por WhatsApp. Nada aparta existencias: se cobran al precio del día.",
+     "voz": "En Pedidos encuentras las ventas en espera, los domicilios y las cotizaciones. Desde aquí los cobras en cualquier caja, o armas una cotización para enviarla por WhatsApp."
+    }
+   ]
+  },
+  {
+   "id": "ventas",
+   "titulo": "Ventas, devoluciones y anulaciones",
+   "intro": "En Ventas consultas lo vendido cada día y abres cada venta para reimprimirla, devolver productos o anularla.",
+   "pasos": [
+    {
+     "img": "25-ventas",
+     "texto": "Ventas muestra el total del día, el número de ventas y el ticket promedio, con la hora, el número, el cajero, el medio de pago y el estado DIAN de cada una. Cambia de día con las flechas o el calendario.",
+     "voz": "En Ventas ves todo lo vendido en el día, con su estado ante la DIAN. Con las flechas pasas de un día a otro."
+    },
+    {
+     "img": "26-venta-detalle",
+     "texto": "Al abrir una venta puedes reimprimirla (tiquete, tirilla o tamaño carta), «Devolver productos» (genera la nota crédito por lo devuelto y el producto vuelve al inventario o a cuarentena) o «Anular y avisar a la DIAN». Devolver y anular lo pueden hacer el dueño o el administrador; «Anular» aparece mientras la venta no tenga devoluciones. Cada devolución y anulación pide motivo y queda en la Bitácora.",
+     "voz": "Si abres una venta, la puedes reimprimir, devolver productos, que genera la nota crédito ante la DIAN, o anularla. Esto lo hacen el dueño o el administrador, siempre con un motivo que queda registrado."
+    }
+   ]
+  },
+  {
+   "id": "clientes",
+   "titulo": "Clientes y cartera",
+   "intro": "Los clientes se crean solos al facturar con documento. En Cartera controlas lo que te deben.",
+   "pasos": [
+    {
+     "img": "27-clientes",
+     "texto": "Clientes muestra el contacto, las compras, la última compra y lo que debe cada uno. Abre un cliente para ver su cuenta, darle cupo de crédito o recibir un pago; «Corregir» actualiza sus datos.",
+     "voz": "En Clientes tienes a cada cliente con sus compras y lo que te debe. Ábrelo para ver su cuenta o darle un cupo de crédito."
+    },
+    {
+     "img": "28-cartera",
+     "texto": "Cartera resume lo que te deben, lo vencido y lo que vence en 7 días. Puedes verla «Por factura», «Por cliente» (con edades de 0 a 30, 31 a 60, 61 a 90 y más de 90 días) y, en «Por cliente», descargarla en Excel. En «Pagadas» quedan las que ya te pagaron.",
+     "voz": "En Cartera ves de un vistazo lo que te deben, lo vencido y lo que vence esta semana. Puedes verla por factura o por cliente, y descargarla en Excel desde la vista por cliente."
+    },
+    {
+     "img": "29-recibir-pago",
+     "texto": "Para registrar un pago pulsa «Recibir pago» en la factura, escribe el valor (o «Todo el saldo»), el medio y la referencia, y pulsa «Recibir pago e imprimir recibo». El saldo se actualiza al instante.",
+     "voz": "¿Un cliente te pagó? Pulsa «Recibir pago», escribe el valor y el medio, y confirma. Se imprime el recibo de caja y el saldo se actualiza al instante. ¡Cuentas claras!"
+    }
+   ]
+  },
+  {
+   "id": "inventario",
+   "titulo": "Inventario por lote",
+   "intro": "Inventario te muestra cada producto con sus lotes y fechas de vencimiento, y reúne las herramientas para mantener las existencias exactas.",
+   "pasos": [
+    {
+     "img": "30-inventario",
+     "texto": "Arriba ves los lotes vencidos, los que vencen en 30 y en 31 a 90 días, los productos agotados y el inventario a costo. Filtra por «Vencen en 90 días», «Vencidos», «Agotados» o «Todo», toca un producto para ver su kardex y usa «Descargar en Excel» para tener todo el inventario en una hoja.",
+     "voz": "Vamos al inventario. Aquí ves cada producto con sus lotes y vencimientos, lo que se agotó y lo que está por vencer. Toca un producto para ver su kardex, y descarga todo en Excel cuando lo necesites."
+    },
+    {
+     "img": "32-ajustes",
+     "texto": "«Ajustar o dar de baja»: elige el motivo (vencido, avería o rotura, pérdida o robo, diferencia de conteo, devolución a proveedor u otro), escanea los productos y elige lote y cantidad. Vencidos y averías generan acta de baja.",
+     "voz": "¿Algo se venció o se dañó? Entra a «Ajustar o dar de baja», elige el motivo, el producto, el lote y la cantidad. Regenta te genera el acta de baja."
+    },
+    {
+     "img": "33-conteo",
+     "texto": "«Conteo físico»: elige qué vas a contar (todo, un laboratorio o una categoría) y pulsa «Empezar a contar». Puedes seguir vendiendo mientras cuentas; al cerrar, Regenta compara y ajusta todo en un solo paso. El «Conteo a ciegas» oculta la cifra del sistema a quien cuenta.",
+     "voz": "Para la toma de inventario usa «Conteo físico». Cuentas lo que hay en la estantería y, al cerrar, Regenta ajusta todas las diferencias en un solo paso. ¡Adiós a las planillas de papel!"
+    },
+    {
+     "img": "34-lotes",
+     "texto": "«Corregir lotes»: si un lote quedó con el código o la fecha de vencimiento mal registrados, búscalo y corrígelo. Cada corrección pide un motivo y queda en la auditoría; las existencias no cambian.",
+     "voz": "¿Un lote quedó con la fecha de vencimiento equivocada? Corrígela en «Corregir lotes». Te pide un motivo y queda registrado."
+    },
+    {
+     "img": "35-cuarentena",
+     "texto": "«Cuarentena»: separa de la venta los lotes en duda, las devoluciones de clientes por revisar y los lotes con alerta del INVIMA. No se venden hasta liberarlos; si no sirven, se dan de baja con acta.",
+     "voz": "En Cuarentena separas de la venta los lotes en duda o con alerta sanitaria. No se venden hasta que tú los liberes."
+    }
+   ]
+  },
+  {
+   "id": "herramientas",
+   "titulo": "Precios, etiquetas, alertas y predicción",
+   "intro": "Herramientas para cuidar el margen, la góndola y el surtido.",
+   "pasos": [
+    {
+     "img": "36-precios",
+     "texto": "«Precios en bloque»: sube o baja los precios de un laboratorio, una categoría, un proveedor, una tarifa de IVA o los productos que elijas, por porcentaje o con un margen objetivo. Antes de aplicar ves cada precio nuevo con su margen («Ver vista previa»); después lo puedes revertir.",
+     "voz": "Con «Precios en bloque» subes o bajas los precios de todo un laboratorio o una categoría de una sola vez. Antes de aplicar ves cada precio nuevo y su margen, y si te equivocas, lo reviertes."
+    },
+    {
+     "img": "37-etiquetas",
+     "texto": "«Etiquetas»: escanea los productos y elige el formato, hoja A4 de 21 etiquetas o rollo de 50 × 25 mm. Cada etiqueta lleva nombre, precio de la caja y de la unidad y código de barras. Imprime al 100 %, sin «ajustar a la página».",
+     "voz": "En Etiquetas imprimes las etiquetas de góndola con el precio y el código de barras, en hoja A4 o en rollo. ¡Tu góndola siempre al día!"
+    },
+    {
+     "img": "38-alertas",
+     "texto": "«Alertas»: Regenta cruza las alertas sanitarias del INVIMA con tu inventario por lote, registro sanitario y nombre. Cuando una te toca, revísala y deja constancia: «Separé el producto», «Ya no lo tengo» o «No es el mismo producto».",
+     "voz": "En Alertas, Regenta cruza las alertas sanitarias del INVIMA con tu inventario. Si un lote tuyo aparece, sepáralo y deja constancia de lo que hiciste."
+    },
+    {
+     "img": "39-prediccion",
+     "texto": "«Predicción»: con tus ventas de las últimas 8 semanas te dice qué pedir para los próximos 18 días, qué se agota esta semana, qué se vencería sin venderse y el capital sin rotación. El pedido sugerido se puede copiar, descargar en Excel o enviar.",
+     "voz": "Y en Predicción pasa algo genial: Regenta calcula con tus ventas reales qué tienes que pedir, qué se te va a agotar y qué se te puede vencer. ¡El pedido sugerido se lo envías a tu proveedor en un clic!"
+    }
+   ]
+  },
+  {
+   "id": "compras",
+   "titulo": "Compras y cuentas por pagar",
+   "intro": "Todo lo que recibes de tus proveedores queda en Compras; lo que les debes, en Cuentas por pagar.",
+   "pasos": [
+    {
+     "img": "40-compras",
+     "texto": "Compras lista las facturas de tus proveedores con su estado, total, saldo y vencimiento. Desde aquí entras a «Recibir mercancía», a «Proveedores» y a «Cuentas por pagar».",
+     "voz": "En Compras tienes todas las facturas de tus proveedores, ordenadas."
+    },
+    {
+     "img": "41-cxp",
+     "texto": "Cuentas por pagar muestra lo que debes: vencido, lo que vence en 7 días y lo que está al día. Con el botón «Pagar» de cada factura registras el pago al proveedor; el listado se descarga en Excel.",
+     "voz": "Y en Cuentas por pagar ves lo que les debes, lo vencido y lo que vence esta semana, para pagar siempre a tiempo."
+    }
+   ]
+  },
+  {
+   "id": "cumplimiento",
+   "titulo": "Cumplimiento: DIAN, temperatura y control especial",
+   "intro": "Lo que te pide la DIAN y la Secretaría de Salud, en un solo lugar.",
+   "pasos": [
+    {
+     "img": "42-documentos",
+     "texto": "«Documentos DIAN»: cada tiquete POS, factura, nota crédito, nota débito y documento soporte con su estado ante la DIAN (aceptado, enviando o rechazado), su CUFE o CUDE y su comprobante. Si uno sale rechazado, verás el motivo y el botón para reenviarlo. Descarga el listado en Excel o los XML en un ZIP para tu contador.",
+     "voz": "En Documentos DIAN ves cada documento electrónico con su estado ante la DIAN. Si alguno sale rechazado, ves el motivo y lo reenvías. Y para tu contador, descargas todo en Excel, o los XML en un solo archivo."
+    },
+    {
+     "img": "43-temperatura",
+     "texto": "«Temperatura y humedad»: registra cada jornada (mañana y tarde) del almacenamiento general y de la nevera. Si un valor sale del rango que configuraste, Regenta pide la acción correctiva. El «Informe del mes» sale listo para imprimir.",
+     "voz": "En Temperatura llevas la planilla de temperatura y humedad, mañana y tarde, del almacenamiento general y de la nevera. A fin de mes imprimes el informe, listo para la Secretaría de Salud."
+    },
+    {
+     "img": "44-control",
+     "texto": "«Control especial»: el libro de los medicamentos de control especial se llena solo desde la caja, con paciente, médico y fórmula. Ves el saldo inicial, las entradas, las salidas y el saldo final de cada producto, y sacas el informe para imprimir o en Excel.",
+     "voz": "Y el libro de control especial se llena solito desde la caja, con los datos del paciente, el médico y la fórmula. Siempre tienes los saldos al día para cualquier visita."
+    }
+   ]
+  },
+  {
+   "id": "reportes",
+   "titulo": "Reportes y gestión",
+   "intro": "Los números del negocio, para el dueño y el administrador.",
+   "pasos": [
+    {
+     "img": "45-reportes",
+     "texto": "Reportes: ventas netas, número de ventas, ticket promedio, ganancia bruta y margen del periodo que elijas (hoy, 7 días, este mes, mes pasado, 30 días), con el detalle por día, por medio de pago, por hora, por cajero y por producto. Las tablas se descargan en Excel.",
+     "voz": "Ahora, los números del negocio. En Reportes ves las ventas, la ganancia y el margen del periodo que quieras: por día, por medio de pago, por cajero y por producto. Las tablas se descargan en Excel."
+    },
+    {
+     "img": "46-cierre",
+     "texto": "«Cierre del día»: todas las cajas y turnos del día, ventas por medio de pago, abonos, gastos y pagos, y las diferencias de caja.",
+     "voz": "El cierre del día junta todas las cajas y turnos, con las ventas por medio de pago y las diferencias de caja."
+    },
+    {
+     "img": "47-resultados",
+     "texto": "«Resultados»: el estado de resultados con ventas netas, costo de lo vendido, utilidad bruta, gastos y utilidad operativa. «Auxiliar de IVA» resume la base y el IVA del periodo para tu contador.",
+     "voz": "En Resultados ves la utilidad real del negocio, después de costos y gastos. Y el auxiliar de IVA le resume a tu contador todo lo del periodo."
+    },
+    {
+     "img": "49-gastos",
+     "texto": "«Gastos»: registra arriendo, servicios, nómina, transporte, impuestos y demás gastos, con fecha, valor y medio de pago. Si sale de la caja se descuenta del turno; si no, marca «No sale de la caja».",
+     "voz": "En Gastos registras el arriendo, los servicios y la nómina, para que tu utilidad sea la real."
+    },
+    {
+     "img": "50-bitacora",
+     "texto": "«Bitácora»: quién cambió qué y cuándo. Precios, anulaciones, devoluciones, descuentos sobre el tope, ajustes, turnos, crédito, documentos DIAN y configuración, filtrados por tipo, usuario y fechas.",
+     "voz": "Y en la Bitácora ves quién cambió qué y cuándo: precios, anulaciones, descuentos y ajustes. ¡Nada se pierde!"
+    }
+   ]
+  },
+  {
+   "id": "cierre",
+   "titulo": "Cierra el turno",
+   "intro": "Al final del día cada caja cierra su turno contando el dinero.",
+   "pasos": [
+    {
+     "img": "51-cerrar-turno",
+     "texto": "En Turno, «Cerrar turno»: cuenta el efectivo del cajón (incluida la base), escríbelo en «Dinero real en caja», agrega una observación si hace falta y pulsa «Cerrar turno e imprimir». Regenta lo compara con lo esperado y te muestra la diferencia.",
+     "voz": "¡Terminamos el día! Ve a Turno y cierra la caja. Cuenta el efectivo, incluida la base, escríbelo y pulsa «Cerrar turno e imprimir». Regenta lo compara con lo esperado y te dice si sobra o falta."
+    },
+    {
+     "img": "52-celular",
+     "texto": "Regenta funciona igual en el celular y en la tableta: la cajera puede vender, consultar el inventario y cerrar su turno desde cualquier equipo con internet.",
+     "voz": "Y recuerda: Regenta funciona igual en el celular y en la tableta, desde cualquier lugar con internet."
+    }
+   ]
+  },
+  {
+   "id": "ayuda",
+   "titulo": "¿Necesitas ayuda?",
+   "intro": "Estamos contigo desde la primera venta.",
+   "pasos": [
+    {
+     "img": "02-inicio",
+     "texto": "Pregúntale a Regenta IA dentro del programa, o escríbenos por WhatsApp al +57 321 214 1970 o al correo gerencia@farmagenericoscolombia.com. Te acompañamos en tu primera venta.",
+     "voz": "¿Tienes alguna duda? Pregúntale a Regenta IA, o escríbenos por WhatsApp al trescientos veintiuno, doscientos catorce, diecinueve setenta. ¡Con gusto te acompañamos en tu primera venta! ¡Te damos la bienvenida a Regenta!"
+    }
+   ]
+  }
+ ]
+}
