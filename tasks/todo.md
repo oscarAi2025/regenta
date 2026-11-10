@@ -537,3 +537,10 @@ FARMAHUB AMBALA y no se migran). Cartera de Farmagenéricos: 6 facturas por $3.9
 - [x] Tablas como tarjetas en el celular (cartera, clientes…)
 - [x] Pruebas: 13 suites + dispositivos 748 + auditoría 322 + caja, seguridad, solo-factura, migración 69: todo en verde → publicado (cab9336) y comprobado en producción (Excel de cartera, documentos, inventario; paginación y menú)
 - [x] MUISCA: numeración NUEVA del POS (decisión de Oscar): solicitud 20334824 → resolución 18764118426208, FGP 1–50.000, POS electrónico, establecimiento Farmagenéricos (10/11/2026). El menú da una página de error y un aviso del RUT: se entra por «Solicitar Numeración de Facturación» y «Aceptar»
+
+## 10/11/2026 · Guía de usuario (PDF) y video formativo (pedido de Oscar)
+- [x] Capturas reales paso a paso (droguería de ejemplo «Droguería San Rafael», es-CO), 19 capítulos, 60 pasos
+- [x] Revisión independiente del guion contra el código: 18 hallazgos corregidos (roles, buscador, turno ciego, pago mixto, crédito con cupo, devolver/anular solo gerencia…)
+- [x] PDF A4 de 43 páginas; video 13:42 con voz es-CO (Salomé), subtítulos y zoom; audio normalizado
+- [x] Correo de contraseña nueva: nombra «¿Olvidaste tu contraseña?» como en pantalla
+- [ ] Publicar el arreglo del correo con la próxima publicación
