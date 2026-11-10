@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { comoUsuario, mensajeError, sinComodines } from "@/lib/db";
 import { conSesion, json } from "@/lib/api";
 import { ProductoEntrada, primerError } from "@/lib/validar";
+import { entrarExistencia, leerExistencia } from "@/lib/existencia";
 import { leerSesion, puede } from "@/lib/sesion";
 import { normalizarCodigo } from "@/lib/precios";
+import { cajaElegida } from "@/lib/caja-elegida";
 
 /** Búsqueda para la caja: por código de barras exacto (principal o alterno) o por palabras (todas deben aparecer en nombre o laboratorio). */
 export async function GET(req: Request) {
@@ -64,10 +66,15 @@ export async function GET(req: Request) {
 /** Crea un producto en la droguería (desde el catálogo maestro o propio). Solo dueño o administrador (lo exige la RLS). */
 export const POST = conSesion(async (s, req) => {
   if (!puede.verCostos(s.rol)) return json({ error: "Solo el dueño o el administrador crean productos" }, 403); // el permiso se mira antes que los datos
-  const p = ProductoEntrada.safeParse(await req.json().catch(() => null));
+  const cuerpo = await req.json().catch(() => null);
+  const p = ProductoEntrada.safeParse(cuerpo);
   if (!p.success) return json({ error: primerError(p.error) }, 400);
+  // Existencias iniciales (opcional): lote, fecha de vencimiento y unidades, en la misma operación que el producto.
+  const ex = leerExistencia(cuerpo);
+  if (ex && !ex.success) return json({ error: primerError(ex.error) }, 400);
   const d = p.data;
   if (d.unidades_por_caja === 1) d.precio_unidad = null;
+  const caja = ex?.success ? await cajaElegida() : null;
   const r = await comoUsuario(s, async (c) => {
     if (d.ean) {
       const ya = (await c.query(`select nombre from productos where empresa_id = $1 and ean = $2 and activo`, [s.empresa, d.ean])).rows[0];
@@ -80,6 +87,7 @@ export const POST = conSesion(async (s, req) => {
        values ($1, $2, $3, $4, nullif($5, ''), $6, $7, $8, $9, $10, $11, nullif(upper($12), ''), $13, $14) returning id`,
       [s.empresa, d.maestro_id ?? null, d.nombre, d.laboratorio || null, d.ean ?? "", d.iva, d.categoria || null, d.unidades_por_caja, d.precio_caja, d.precio_unidad ?? null, d.stock_minimo, d.registro_sanitario ?? "",
         !!(d.requiere_formula || d.control_especial), !!d.control_especial]);
+    if (ex?.success) await entrarExistencia(c, s.empresa, caja, rows[0].id, ex.data);
     return { id: rows[0].id };
   });
   return "error" in r ? json(r, 409) : json(r, 201);

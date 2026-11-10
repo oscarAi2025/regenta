@@ -67,7 +67,11 @@ await intento("ia", async () => { await foto(p, "05-ia", p.getByRole("button", {
 await intento("equipo", async () => { await ir(p, "/equipo"); await foto(p, "06-midrogueria");
   await foto(p, "07-equipo", p.getByRole("region", { name: /Equipo/ })); await foto(p, "08-formato", p.getByText(/Formato de la factura|Tamaño carta/).first()); });
 await intento("productos", async () => { await ir(p, "/productos"); await foto(p, "09-productos", p.getByRole("link", { name: "Agregar producto" }));
-  await ir(p, "/productos/nuevo"); await foto(p, "10-producto-nuevo"); await ir(p, "/productos/importar"); await foto(p, "11-importar", p.getByRole("button", { name: "Descargar la plantilla" })); });
+  await ir(p, "/productos/nuevo"); await foto(p, "10-producto-nuevo");
+  await p.getByRole("tab", { name: "Producto nuevo" }).click(); await p.fill("#nombre", "Acetaminofén 500 mg tabletas caja x 100"); await p.fill("#laboratorio", "Genfar");
+  await p.fill("#upc", "100"); await p.fill("#precio_caja", "12000"); await p.fill("#ex-lote", "L2026A");
+  const v = new Date(Date.now() + 400 * 864e5).toISOString().slice(0, 10); await p.fill("#ex-vence", v); await p.fill("#ex-unidades", "300"); await p.fill("#ex-costo", "80");
+  await foto(p, "10b-producto-lote", p.locator("fieldset").filter({ hasText: "Lote y fecha de vencimiento" })); await ir(p, "/productos/importar"); await foto(p, "11-importar", p.getByRole("button", { name: "Descargar la plantilla" })); });
 await intento("recibir", async () => { await ir(p, "/inventario/recibir"); await foto(p, "12-recibir", p.getByRole("button", { name: /Subir ZIP/ })); });
 await intento("turno", async () => { await ir(p, "/turno"); await p.locator("input").first().fill("150000"); await foto(p, "13-turno-abrir", p.getByRole("button", { name: "Abrir turno" }));
   await p.getByRole("button", { name: "Abrir turno" }).click(); await p.waitForTimeout(1200); await foto(p, "14-turno-abierto"); });
@@ -114,6 +118,7 @@ await intento("reportes", async () => { await ir(p, "/reportes"); await foto(p, 
   await ir(p, "/reportes/resultados"); await foto(p, "47-resultados"); await ir(p, "/reportes/iva"); await foto(p, "48-iva"); await ir(p, "/gastos"); await foto(p, "49-gastos"); await ir(p, "/bitacora"); await foto(p, "50-bitacora"); });
 await intento("cerrar", async () => { await ir(p, "/turno"); const s = p.getByRole("region", { name: "Cerrar turno" }); await s.locator("input").first().fill("250000");
   await foto(p, "51-cerrar-turno", s); });
+await intento("ayuda", async () => { await ir(p, "/ayuda"); await foto(p, "53-ayuda", p.getByRole("link", { name: "Ayuda" }).last()); });
 await intento("celular", async () => { const m = await entrar("Laura", { ...devices["iPhone 13"], locale: "es-CO", timezoneId: "America/Bogota" }); await ir(m, "/caja"); await limpiar(m); await m.screenshot({ path: `${D}/52-celular.png` }); });
 writeFileSync(`${D}/cajas.json`, JSON.stringify(cajas, null, 1));
 await b.close();

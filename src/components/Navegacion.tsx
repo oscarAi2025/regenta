@@ -26,6 +26,7 @@ const ITEMS = [
   { href: "/documentos", label: "Documentos DIAN", roles: ["dueno", "admin"], d: "M7 3h7l5 5v13H7zM14 3v5h5M10 14l2 2 4-4" },
   { href: "/temperatura", label: "Temperatura", roles: ["dueno", "admin", "bodeguero"], d: "M10 14V5a2 2 0 1 1 4 0v9a4 4 0 1 1-4 0zM12 9v7" },
   { href: "/control-especial", label: "Control especial", roles: ["dueno", "admin"], d: "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4" },
+  { href: "/ayuda", label: "Ayuda", roles: ["dueno", "admin", "cajero", "bodeguero", "vendedor"], d: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9.2a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.3-2.5 3.9M12 17h.01" },
   { href: "/cuenta", label: "Mi cuenta", soloCelular: true, roles: ["dueno", "admin", "cajero", "bodeguero", "vendedor"], d: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" },
 ];
 
@@ -36,8 +37,11 @@ const GRUPOS: [string, string[]][] = [
   ["Inventario", ["/productos", "/productos/precios", "/etiquetas", "/inventario", "/inventario/cuarentena", "/prediccion", "/alertas"]],
   ["Compras", ["/compras", "/cuentas-por-pagar"]],
   ["Cumplimiento", ["/documentos", "/temperatura", "/control-especial"]],
-  ["Gestión", ["/reportes", "/gastos", "/bitacora", "/equipo", "/cuenta"]],
+  ["Gestión", ["/reportes", "/gastos", "/bitacora", "/equipo", "/ayuda", "/cuenta"]],
 ];
+
+/** En escritorio van fijas al pie del menú, no en su grupo. */
+const PIE = ["/ayuda", "/equipo"];
 
 export function Navegacion({ rol, demo = false }: { rol: string; demo?: boolean }) {
   const p = usePathname();
@@ -48,6 +52,7 @@ export function Navegacion({ rol, demo = false }: { rol: string; demo?: boolean 
   const activa = visibles.filter((i) => p === i.href || p.startsWith(i.href + "/")).sort((a, b) => b.href.length - a.href.length)[0]?.href;
   const icono = (d: string) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true" className="shrink-0"><path d={d} /></svg>;
   const equipo = visibles.find((i) => i.href === "/equipo");
+  const ayuda = visibles.find((i) => i.href === "/ayuda");
   // En escritorio «Mi droguería» y «Salir» van fijos al pie del menú (no se pierden al desplazar la lista); en el celular
   // la barra es horizontal y siguen dentro de ella.
   const fijo = (on: boolean) => `flex flex-row items-center gap-3 rounded-lg px-3 py-[6px] w-full text-[14px] font-medium transition-colors ${on ? "text-white bg-white/12" : "text-white/70 hover:text-white hover:bg-white/6"}`;
@@ -59,12 +64,12 @@ export function Navegacion({ rol, demo = false }: { rol: string; demo?: boolean 
         if (!items.length) return null;
         return (
           <div key={titulo || "inicio"} className="contents lg:block lg:mb-1.5">
-            {titulo && !items.every((i) => "soloCelular" in i) && <p className="hidden lg:block px-3 pt-1 pb-0.5 text-[11.5px] font-semibold text-white/45">{titulo}</p>}
+            {titulo && !items.every((i) => "soloCelular" in i || PIE.includes(i.href)) && <p className="hidden lg:block px-3 pt-1 pb-0.5 text-[11.5px] font-semibold text-white/45">{titulo}</p>}
             {items.map((i) => {
               const on = i.href === activa;
               return (
                 <Link key={i.href} href={i.href} aria-current={on ? "page" : undefined}
-                  className={`${"soloCelular" in i || i.href === "/equipo" ? "lg:hidden " : ""}relative flex flex-col lg:flex-row items-center gap-1 lg:gap-3 rounded-xl lg:rounded-lg px-2 lg:px-3 py-2 lg:py-[4.5px] min-w-16 lg:min-w-0 lg:w-full text-[12px] lg:text-[14px] font-medium shrink-0 transition-colors ${on ? "text-white bg-white/12 lg:before:absolute lg:before:left-0 lg:before:top-1.5 lg:before:bottom-1.5 lg:before:w-[3px] lg:before:rounded-full lg:before:bg-teal-300" : "text-white/70 hover:text-white hover:bg-white/6"}`}>
+                  className={`${"soloCelular" in i || PIE.includes(i.href) ? "lg:hidden " : ""}relative flex flex-col lg:flex-row items-center gap-1 lg:gap-3 rounded-xl lg:rounded-lg px-2 lg:px-3 py-2 lg:py-[4.5px] min-w-16 lg:min-w-0 lg:w-full text-[12px] lg:text-[14px] font-medium shrink-0 transition-colors ${on ? "text-white bg-white/12 lg:before:absolute lg:before:left-0 lg:before:top-1.5 lg:before:bottom-1.5 lg:before:w-[3px] lg:before:rounded-full lg:before:bg-teal-300" : "text-white/70 hover:text-white hover:bg-white/6"}`}>
                   {icono(i.d)}
                   <span className="whitespace-nowrap">{i.label}</span>
                 </Link>
@@ -79,6 +84,11 @@ export function Navegacion({ rol, demo = false }: { rol: string; demo?: boolean 
       </button>
     </nav>
     <div className="hidden lg:grid gap-0.5 shrink-0 w-full border-t border-white/10 pt-2" aria-label="Tu droguería y sesión" role="group">
+      {ayuda && (
+        <Link href={ayuda.href} aria-current={activa === ayuda.href ? "page" : undefined} className={fijo(activa === ayuda.href)}>
+          {icono(ayuda.d)}<span className="whitespace-nowrap">{ayuda.label}</span>
+        </Link>
+      )}
       {equipo && (
         <Link href={equipo.href} aria-current={activa === equipo.href ? "page" : undefined} className={fijo(activa === equipo.href)}>
           {icono(equipo.d)}<span className="whitespace-nowrap">{equipo.label}</span>

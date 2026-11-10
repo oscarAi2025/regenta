@@ -7,8 +7,8 @@ rm -rf $S/guia/pasos
 DATABASE_URL='postgres://postgres@localhost:5433/regenta_3int?host=/tmp' node scripts/db-reset.mjs >/dev/null 2>&1
 T=GuiaRegentaPrimerAcceso2026abcdeg; H=$(printf %s "$T" | sha256sum | cut -d' ' -f1)
 psql "$P" -tAc "insert into cuentas (email,nombre) values ('maria@drogueriasanrafael.co','María Gómez') on conflict ((lower(email))) do update set clave_hash=null; insert into invitaciones (token_hash,cuenta_id,expira) select '$H', id, now()+interval '7 days' from cuentas where email='maria@drogueriasanrafael.co';" >/dev/null
-arr ""; SIN_DEMO=1 CHROME=/opt/pw-browsers/chromium-1194/chrome-linux/chrome node tests/e2e/_guia-pasos.mjs $S/guia/pasos > $S/guia/cap1.log 2>&1
+arr ""; SIN_DEMO=1 CHROME=/opt/pw-browsers/chromium-1194/chrome-linux/chrome node scripts/guia/capturas.mjs $S/guia/pasos > $S/guia/cap1.log 2>&1
 DATABASE_URL='postgres://postgres@localhost:5433/regenta_3int?host=/tmp' node scripts/db-reset.mjs >/dev/null 2>&1
 psql "$P" -tAc "update empresas set nombre_comercial='Droguería San Rafael', razon_social='DROGUERÍA SAN RAFAEL S.A.S.' where demo" >/dev/null
-arr "REGENTA_DEMO=1 REGENTA_DEMO_SIN_LIMITES=1"; CHROME=/opt/pw-browsers/chromium-1194/chrome-linux/chrome timeout 1200 node tests/e2e/_guia-pasos.mjs $S/guia/pasos > $S/guia/cap2.log 2>&1
+arr "REGENTA_DEMO=1 REGENTA_DEMO_SIN_LIMITES=1"; CHROME=/opt/pw-browsers/chromium-1194/chrome-linux/chrome timeout 1200 node scripts/guia/capturas.mjs $S/guia/pasos > $S/guia/cap2.log 2>&1
 grep -i fallo $S/guia/cap*.log; ls $S/guia/pasos | wc -l

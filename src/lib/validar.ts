@@ -9,7 +9,7 @@ export const ProductoEntrada = z.object({
   ean: z.string().trim().regex(/^\d{8,14}$/, "El código de barras debe tener de 8 a 14 dígitos").nullish().or(z.literal("")),
   iva: z.union([z.literal(0), z.literal(5), z.literal(19)]),
   categoria: z.string().trim().max(80).nullish(),
-  unidades_por_caja: z.number().int().min(1).max(1000),
+  unidades_por_caja: z.number().int("Las unidades por caja van en número entero").min(1, "Una caja trae al menos 1 unidad").max(100000, "Revisa las unidades por caja"),
   precio_caja: z.number().int("El precio va en pesos, sin centavos").positive("Pon el precio de venta").max(100_000_000),
   precio_unidad: z.number().int("El precio va en pesos, sin centavos").positive().max(100_000_000).nullish(),
   stock_minimo: z.number().int().min(0).max(100000).default(0),
@@ -19,6 +19,17 @@ export const ProductoEntrada = z.object({
   control_especial: z.boolean().optional(),
 }).refine((p) => !p.precio_unidad || p.precio_unidad <= p.precio_caja, { message: "El precio por unidad no puede ser mayor que el de la caja completa", path: ["precio_unidad"] });
 export type ProductoEntrada = z.infer<typeof ProductoEntrada>;
+
+/** Existencias con que entra un producto nuevo: un lote con su fecha de vencimiento (lo que más le importa a una
+ *  droguería), la cantidad en unidades y, si quiere, el costo por unidad sin IVA. La fecha la vuelve a revisar la base
+ *  (un lote vencido no entra a la venta). */
+export const ExistenciaInicial = z.object({
+  lote: z.string().trim().min(1, "Escribe el lote").max(60, "El código del lote es muy largo")
+    .refine((v) => !/[\p{C}]/u.test(v), "El código del lote tiene caracteres invisibles o saltos de línea"),
+  vence: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Escribe la fecha de vencimiento del lote").refine((v) => fechaReal(v), "Esa fecha de vencimiento no existe"),
+  unidades: z.number({ invalid_type_error: "Escribe cuántas unidades entran" }).int("Las existencias van en unidades enteras").positive("Escribe cuántas unidades entran").max(1_000_000, "Revisa la cantidad"),
+  costo_unidad: z.number().nonnegative("El costo no puede ser negativo").max(100_000_000, "Revisa el costo").nullish(),
+});
 
 /** Fecha AAAA-MM-DD que existe de verdad (no 2027-02-31). */
 export const fechaReal = (s: string) => { const d = new Date(s + "T00:00:00Z"); return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s; };
