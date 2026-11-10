@@ -96,6 +96,20 @@ const PNG = "data:image/png;base64," + readFileSync(new URL("../../public/qr-pag
   ok(JSON.parse(await p.evaluate(() => localStorage.getItem("regenta.impresora"))).factura === "tirilla" && await p.getByRole("button", { name: "Imprimir la factura en tamaño carta" }).isVisible(),
     "la caja puede cambiar a tirilla y sigue ofreciendo la carta");
 
+  // Formato de la droguería: tirilla → la caja que nunca eligió imprime la tirilla; vuelve a carta
+  await p.evaluate(() => localStorage.removeItem("regenta.impresora"));
+  let fr = await api("PUT", "/api/empresa/factura", { formato: "tirilla" });
+  ok(fr.ok(), "el dueño elige que las facturas salgan en tirilla", `${fr.status()}`);
+  await p.goto(B + "/equipo"); await p.waitForLoadState("networkidle");
+  ok(await p.getByRole("radio", { name: /Tirilla de la térmica/ }).isChecked(), "«Mi droguería» muestra el formato elegido");
+  await p.getByRole("radio", { name: /Tamaño carta/ }).check();
+  await p.getByRole("status").filter({ hasText: "tamaño carta" }).waitFor({ timeout: 10000 });
+  fr = await api("PUT", "/api/empresa/factura", { formato: "pdf" });
+  ok(fr.status() === 400, "un formato que no existe se rechaza", `${fr.status()}`);
+  // Historial de Alegra con fechas imposibles: no rompe la página
+  await p.goto(B + "/ventas/historial?desde=2026-02-30&hasta=2026-04-31"); await p.waitForLoadState("networkidle");
+  ok(!/Application error|server-side exception/i.test(await p.locator("body").innerText()) && await p.getByRole("heading", { name: /Historial de Alegra|Compras de/ }).count() >= 1 || /\/inicio|\/ventas/.test(p.url()), "el historial no se cae con fechas que no existen", p.url());
+
   // Inventario: Excel completo y paginación
   const total = (await q(`select count(*)::int n from productos p join empresas e on e.id = p.empresa_id join miembros m on m.empresa_id = e.id where m.user_id = (select user_id from miembros where rol = 'dueno' and empresa_id = $1 limit 1) and e.id = $1 and p.activo`, [e.id]))[0].n;
   await p.goto(B + "/inventario?ver=todos"); await p.waitForLoadState("networkidle");
@@ -161,6 +175,10 @@ const PNG = "data:image/png;base64," + readFileSync(new URL("../../public/qr-pag
   const { readSheet } = await import("read-excel-file/node");
   const h1 = await readSheet(Buffer.from(await x.body()), 1);
   ok(x.ok() && !h1[0].includes("Valor a costo"), "la cajera descarga el inventario sin costos");
+  const hx = await p.request.get(B + "/api/ventas/historial/exportar");
+  ok(hx.status() === 403, "la cajera no descarga el historial comercial de Alegra", `${hx.status()}`);
+  const fx = await p.request.fetch(B + "/api/empresa/factura", { method: "PUT", headers: { origin: B }, data: { formato: "tirilla" } });
+  ok(fx.status() === 403, "la cajera no cambia el formato de la factura de la droguería", `${fx.status()}`);
   ok(errs.length === 0, "sin errores de consola (cajera)", errs.join(" | "));
   await ctx.close();
 }

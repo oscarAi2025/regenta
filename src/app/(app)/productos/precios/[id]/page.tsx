@@ -13,7 +13,7 @@ export default async function Cambio({ params, searchParams }: { params: Promise
   if (!s) redirect("/entrar");
   if (!puedePrecios.cambiar(s.rol)) redirect("/productos?aviso=permiso");
   const { id } = await params;
-  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
   const d = await comoUsuario(s, (c) => detallePrecios(c, s.empresa, id));
   if (!d) notFound();
   const { aplicado } = await searchParams;

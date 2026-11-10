@@ -25,7 +25,7 @@ export function etiquetaHtml(p: DatoEtiqueta, f: Formato): string {
   const fracciona = p.precio_unidad !== null && p.unidades_por_caja > 1;
   return `<div class="rot rot-${f}" data-producto="${esc(p.id)}">`
     + `<p class="rot-nombre">${esc(p.nombre)}</p>`
-    + (rollo ? "" : `<p class="rot-lab">${esc(p.laboratorio || "Genérico")}</p>`)
+    + (rollo || !p.laboratorio ? "" : `<p class="rot-lab">${esc(p.laboratorio)}</p>`)
     + `<div class="rot-precios"><p class="rot-precio"><span class="rot-pre">${fracciona ? `Caja x ${p.unidades_por_caja}` : "Precio"}</span> ${pesosMano(p.precio_caja)}</p>`
     + (fracciona ? `<p class="rot-unidad">Unidad ${pesosMano(p.precio_unidad!)}</p>` : "") + `</div>`
     + (b ? `<div class="rot-barras">${svgBarras(b, Math.min(ancho, rollo ? 46 : 52), altoBarras)}</div>` : `<p class="rot-sin">Sin código de barras</p>`)

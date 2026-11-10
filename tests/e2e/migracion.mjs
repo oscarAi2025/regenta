@@ -10,6 +10,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { chromium } from "playwright-core";
 import { codigoTotp, TOTP } from "../ayudas/totp.mjs";
+import { esperarCarga } from "../ayudas/carga.mjs";
 
 const B = process.env.BASE ?? "http://localhost:4540";
 const DB = process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp";
@@ -127,6 +128,17 @@ await mig({ parte: "proveedores", simular: false, filas: proveedores });
 const rv2 = await mig({ parte: "ventas", simular: false, filas: ventas.slice(0, 250) });
 ok(rp2.j.resumen?.crear === 0 && rp2.j.resumen.lotes_nuevos === 0 && rp2.j.cambios.length === 0 && rc2.j.resumen.crear === 0 && rv2.j.resumen.historial_nuevas === 0, "repetir la migración no cambia nada", JSON.stringify([rp2.j.resumen, rc2.j.resumen, rv2.j.resumen]));
 ok(JSON.stringify(await fotos()) === JSON.stringify(f1), "la base queda igual tras repetir", `${JSON.stringify(f1)} → ${JSON.stringify(await fotos())}`);
+// En Alegra entró un pago durante el cambio: repetir pone al día el historial (estado y saldo), sin duplicar.
+{
+  const pagada = ventas.find((v) => v.estado === "pagada");
+  const cambio = { ...pagada, estado_dian: "ACTUALIZADO_EN_PRUEBA" };
+  const rr = await mig({ parte: "ventas", simular: false, filas: [cambio] });
+  const [x] = await q(`select estado_dian from ventas_externas where empresa_id = $1 and externo_id = $2`, [E, pagada.externo_id]);
+  ok(rr.j.resumen?.historial_actualizadas === 1 && rr.j.resumen.historial_nuevas === 0 && x.estado_dian === "ACTUALIZADO_EN_PRUEBA", "repetir la migración pone al día lo que cambió en Alegra", JSON.stringify(rr.j.resumen));
+  await mig({ parte: "ventas", simular: false, filas: [pagada] });
+  const dup = await mig({ parte: "productos", simular: true, reemplazar: true, filas: [productos[0], productos[0]] });
+  ok(dup.s === 400 && /repite el id de Alegra/.test(dup.j.error), "un archivo con productos repetidos se rechaza con un mensaje claro", `${dup.s} ${dup.j.error}`);
+}
 // Alegra cambió (vendieron 1 unidad): la migración otra vez deja la nueva cifra con otro ajuste.
 const cambiado = productos.map((p) => p.externo_id === comun.externo_id ? { ...p, unidades: p.unidades - 1 } : p);
 const rp3 = await mig({ parte: "productos", simular: false, reemplazar: true, filas: cambiado });
@@ -140,6 +152,7 @@ const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, extraHT
 const [nom, val] = adm.split("=");
 await ctx.addCookies([{ name: nom, value: val, url: B }]);
 const p = await ctx.newPage();
+esperarCarga(p); // la consola tiene «Cargando» (loading.tsx)
 const errs = [];
 p.on("pageerror", (e) => errs.push(e.message));
 const ent = await p.request.post(`${B}/api/admin/clientes/${E}/entrar`, { headers: { origin: B } });
@@ -206,7 +219,7 @@ await p.goto(`${B}/inventario?ver=todos&q=${encodeURIComponent(comun.nombre.spli
 ok(await p.getByText(comun.lote.toUpperCase()).count() >= 1, "el inventario muestra el lote de Alegra");
 // La consola: subir el archivo, simular y aplicar (ya estaba aplicado: no cambia nada).
 const f2 = await fotos();
-await p.goto(`${B}/admin/clientes/${E}`);
+await p.goto(`${B}/admin/clientes/${E}`); await p.waitForLoadState("networkidle");
 await p.locator('[data-prueba="archivo-migracion"]').setInputFiles(path.join(DIR, "migracion-farmagenericos.json"));
 await p.getByText(/872 productos/).waitFor();
 ok(await p.getByRole("button", { name: "Aplicar migración" }).isDisabled(), "no se aplica sin simular antes");

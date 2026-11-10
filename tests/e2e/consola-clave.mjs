@@ -3,12 +3,14 @@
 import { chromium } from "playwright-core";
 import { execFileSync } from "node:child_process";
 import { codigoTotp } from "../ayudas/totp.mjs";
+import { esperarCarga } from "../ayudas/carga.mjs";
 const B = process.env.BASE ?? "http://localhost:4500";
 const sql = "db/consola/superadmin-enlace.sql";
 const link = () => execFileSync("psql", [process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp", "-Atf", sql]).toString().trim().split("\n").pop().replace("https://regenta.pro", B);
 const enlace = link();
 const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw-browsers/chromium" });
 const p = await b.newPage();
+esperarCarga(p);
 const out = [];
 await p.goto(enlace);
 out.push("form: " + (await p.getByRole("heading", { name: "Contraseña de la consola" }).count()));

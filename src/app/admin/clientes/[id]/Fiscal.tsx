@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRefrescar } from "@/lib/refrescar";
 
-type Datos = { razon_social: string; nombre_comercial: string; nit: string; responsable_iva: boolean; direccion: string; ciudad: string; telefono: string; email: string };
+type Datos = { razon_social: string; nombre_comercial: string; nit: string; responsable_iva: boolean; direccion: string; ciudad: string; telefono: string; email: string; calidades_tributarias: string };
 
 /** Datos fiscales del cliente (salen en sus facturas). El NIT se bloquea cuando ya factura en producción ante la DIAN. */
 export function Fiscal({ empresa, inicial, nitFijo }: { empresa: string; inicial: Datos; nitFijo: boolean }) {
@@ -37,6 +37,7 @@ export function Fiscal({ empresa, inicial, nitFijo }: { empresa: string; inicial
         {campo("ciudad", "Ciudad")}
         {campo("telefono", "Teléfono", { inputMode: "tel" })}
         {campo("email", "Correo de la droguería", { type: "email" })}
+        <div className="sm:col-span-2">{campo("calidades_tributarias", "Calidades tributarias (salen en la factura si corresponden)", { placeholder: "Ej.: Agente retenedor de IVA · Gran contribuyente · Régimen SIMPLE", maxLength: 200 })}</div>
       </div>
       <div className="flex items-center gap-3"><button onClick={guardar} disabled={enviando} className="btn-oscuro h-10 text-sm disabled:opacity-60">{enviando ? "Guardando…" : "Guardar datos fiscales"}</button>{msg && <span role="status" className="text-sm text-muted">{msg}</span>}</div>
     </section>

@@ -80,7 +80,7 @@ export function CorregirLotes({ inicial }: { inicial?: Prod | null }) {
           <input id="buscar-lote" value={q} onChange={(e) => setQ(e.target.value)} className="campo h-12 text-lg" placeholder="Escanea o escribe el nombre" autoComplete="off" />
           {res.length > 0 && (
             <ul aria-label="Resultados" className="absolute z-10 mt-1 w-full tarjeta shadow-lg divide-y divide-line max-h-80 overflow-auto">
-              {res.map((p) => <li key={p.id}><button type="button" onClick={() => void elegir(p)} className="w-full text-left px-4 py-2.5 hover:bg-paper"><span className="font-semibold">{p.nombre}</span><span className="block text-sm text-muted">{p.laboratorio ?? "Genérico"}</span></button></li>)}
+              {res.map((p) => <li key={p.id}><button type="button" onClick={() => void elegir(p)} className="w-full text-left px-4 py-2.5 hover:bg-paper"><span className="font-semibold">{p.nombre}</span><span className="block text-sm text-muted">{p.laboratorio ?? "Sin laboratorio"}</span></button></li>)}
             </ul>
           )}
         </div>

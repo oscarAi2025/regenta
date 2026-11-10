@@ -10,7 +10,7 @@ import { MoraBloqueo } from "./MoraBloqueo";
 
 export const metadata = { title: "Cartera" };
 
-type Fila = { venta_id: string; numero: string; cliente: string; documento: string; telefono: string | null; creado: string; vence_pago: string; total: number; abonado: number; saldo: number; dias_mora: number };
+type Fila = { venta_id: string; cliente_id: string; numero: string; cliente: string; documento: string; telefono: string | null; creado: string; vence_pago: string; total: number; abonado: number; saldo: number; dias_mora: number };
 const fecha = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
 
 export default async function Cartera({ searchParams }: { searchParams: Promise<{ ver?: string; edad?: string; q?: string }> }) {
@@ -20,7 +20,7 @@ export default async function Cartera({ searchParams }: { searchParams: Promise<
   const { ver = "pendientes", edad, q = "" } = await searchParams;
   if (ver === "clientes") return <PorCliente empresa={s.empresa} sesion={s} edad={esEdad(edad) ? edad : null} q={q.slice(0, 80)} />;
   const filas: Fila[] = await comoUsuario(s, async (c) => (await c.query(`
-    select venta_id, prefijo || numero numero, cliente, tipo_doc || ' ' || numero_doc || coalesce('-' || dv, '') documento, telefono,
+    select venta_id, cliente_id, prefijo || numero numero, cliente, tipo_doc || ' ' || numero_doc || coalesce('-' || dv, '') documento, telefono,
            (creado at time zone 'America/Bogota')::date::text creado, vence_pago::text, total::float, abonado::float, saldo::float, dias_mora
     from v_cartera where empresa_id = $1 ${ver === "pagadas" ? "and saldo = 0" : "and saldo > 0"}
     order by ${ver === "pagadas" ? "creado desc" : "vence_pago, creado"} limit 300`, [s.empresa])).rows);
@@ -32,7 +32,7 @@ export default async function Cartera({ searchParams }: { searchParams: Promise<
       <Cabecera titulo="Cartera" sub="Facturas a crédito de tus clientes: lo que te deben, lo que vence y los abonos." />
       {ver !== "pagadas" && (
         <section className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-          <Dato titulo="Por cobrar" valor={pesos(porCobrar)} tono={porCobrar ? "cruz" : undefined} nota={`${filas.length} factura${filas.length === 1 ? "" : "s"}`} />
+          <Dato titulo="Por cobrar" valor={pesos(porCobrar)} tono={porCobrar ? "aviso" : undefined} nota={`${filas.length} factura${filas.length === 1 ? "" : "s"}`} />
           <Dato titulo="Vencido" valor={pesos(vencidas.reduce((a, f) => a + f.saldo, 0))} tono={vencidas.length ? "alerta" : undefined} nota={`${vencidas.length} factura${vencidas.length === 1 ? "" : "s"} en mora`} />
           <Dato titulo="Vence en 7 días" valor={pesos(semana.reduce((a, f) => a + f.saldo, 0))} tono={semana.length ? "aviso" : undefined} nota="llama antes de que se venza" />
         </section>
@@ -58,7 +58,7 @@ export default async function Cartera({ searchParams }: { searchParams: Promise<
                 <td className="px-4 py-3 num text-right">{pesos(f.total)}</td>
                 <td className="px-4 py-3 num text-right text-muted"><Valor venta={f.venta_id} campo="abonado" inicial={f.abonado} /></td>
                 <td className="px-4 py-3 num text-right font-semibold"><Valor venta={f.venta_id} campo="saldo" inicial={f.saldo} /></td>
-                {ver !== "pagadas" && <td className="px-4 py-3"><Abonar venta={f.venta_id} saldo={f.saldo} numero={f.numero} /></td>}
+                {ver !== "pagadas" && <td className="px-4 py-3"><Abonar venta={f.venta_id} cliente={f.cliente_id} saldo={f.saldo} numero={f.numero} /></td>}
               </tr>
             ))}
             {filas.length === 0 && <tr><td colSpan={7} className="px-4 py-12 text-center text-muted">{ver === "pagadas" ? "Aún no hay facturas a crédito pagadas por completo." : "Nadie te debe. Las ventas a crédito se hacen desde la Caja: Factura electrónica → Cobrar → Crédito."}</td></tr>}
@@ -98,7 +98,7 @@ async function PorCliente({ empresa, sesion, edad, q }: { empresa: string; sesio
       </Cabecera>
       <section className="grid grid-cols-2 lg:grid-cols-5 gap-3" aria-label="Edades de la cartera">
         <a href={qs({ q })} aria-current={!edad ? "true" : undefined} className={`tarjeta px-4 py-3.5 hover:border-ink ${!edad ? "border-ink border-2" : ""}`}>
-          <p className="text-sm text-muted">Total por cobrar</p><p className="num titulo text-[26px] leading-tight text-cruz">{pesos(suma("saldo"))}</p>
+          <p className="text-sm text-muted">Total por cobrar</p><p className="num titulo text-[26px] leading-tight text-aviso">{pesos(suma("saldo"))}</p>
           <p className="text-[13px] text-muted">{base.length} cliente{base.length === 1 ? "" : "s"}</p>
         </a>
         {EDADES.map((e) => (

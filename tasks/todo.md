@@ -502,6 +502,23 @@ FARMAHUB AMBALA y no se migran). Cartera de Farmagenéricos: 6 facturas por $3.9
 - [x] Historial de Alegra como informe: rango de fechas, resumen, por mes, productos y clientes, paginación y Excel; tarjeta en Ventas e Informes
 - [x] Clientes: compras de Regenta + Alegra, ciudad, paginación (antes 0 compras y corte en 200)
 - [x] Pruebas: factura-carta.mjs 39/39, migracion.mjs 54/54, letras unitaria
-- [ ] Oscar pega db/produccion/bloque4-045.sql → publicar → subir el logo de Farmagenéricos desde la consola → comprobar
+- [x] Oscar pegó bloque4-045.sql → publicado (a31b110) → logo de Farmagenéricos subido desde «Mi droguería» → comprobado en producción:
+      FGE1 en carta con logo, QR y CUFE; clientes 255; historial $589.660.131 / 1.035 doc.; cartera $3.993.462; Excel 200;
+      inventario 413 activos (los 474 inactivos de Alegra quedan retirados, como en Alegra)
+- [ ] Factura carta: «1 unidad» en singular (corregido en la rama; sale con la próxima publicación)
 - [ ] POS electrónico de Farmagenéricos: falta su habilitación DIAN (set de pruebas POS); mientras, la caja solo factura
+
+## 10/11/2026 · Revisión independiente (3 revisores) — migración 046
+- [x] Código: índice ventas por cliente, formato de factura por droguería, bodega no revive vencidos, historial solo gerencia,
+      fechas imposibles, cartera sin pérdidas silenciosas, factor de caja en migración, Alegra fuera de métricas, calidades tributarias
+- [x] UX: régimen de IVA de la venta, QR desde el CUFE, saldo de Alegra neto de abonos, vencidos ≠ agotados, estado DIAN real,
+      recibo de caja desde Cartera, aviso sin turno, 404 en español, deuda en ámbar, sin «Genérico», ticket promedio igual
+- [x] Adversarial: pagos en Alegra al repetir migración, middleware para parámetros repetidos, UUID estricto, soporte en la
+      auditoría sin RLS, lote original en factura, IVA por tarifa que suma, colores al imprimir, logo por bytes, lotes visibles
+- [x] Consola con loading.tsx y acceso en el layout (0 errores 418 en 450 visitas)
+- [x] Batería final en verde: 36 suites + 322 pantallas + 748 en 10 equipos + 2.497 endpoints + migración 56 + habilitación 35 + unitarias 141
+- [ ] Oscar: confirmar si MATIAS figura como proveedor tecnológico (art. 11 num. 18 Res. 165/2023) para ponerlo en la factura
+- [ ] Oscar pega bloque4-046.sql → publicar → poner Farmagenéricos en factura «carta» (046 deja «tirilla» a las existentes)
+- [ ] Pendientes de UX no bloqueantes: tablas como tarjetas en celular (cartera/clientes), paginación con números, menú
+      «Mi droguería/Salir» fijo abajo, pasar todas las descargas CSV a Excel
 

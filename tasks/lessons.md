@@ -299,3 +299,27 @@
   nunca reparte la cantidad en decimales por lote.
 - Lo que el usuario usa para trabajar fuera (inventario, historial) se descarga en Excel real (.xlsx), no solo CSV.
 - En la demo pública no se suben imágenes (logo): cualquiera la usa.
+
+## 10/11/2026 · Revisión independiente (código, UX y pruebas para romper) antes de dar algo por terminado
+- Tres revisores que no vieron el trabajo encontraron 1+8+... hallazgos reales que 35 suites en verde no veían: cifras que
+  no cuadran entre pantallas (saldo de Alegra sin restar abonos de Regenta), datos de hoy usados para documentos de ayer
+  (régimen de IVA, lote corregido), errores con enlaces malformados en 19+ pantallas. Regla: para trabajo grande, revisión
+  independiente + arreglo + batería, siempre.
+- Next entrega un parámetro repetido (?q=a&q=b) como lista: `.trim()` revienta. Se resuelve en un solo punto
+  (src/middleware.ts deja el primero). Los ids se validan con el UUID estricto, no con /[0-9a-f-]{36}/.
+- Lo que muestra un documento ya emitido (factura) sale de la venta, no del estado actual de la empresa o del lote:
+  régimen de IVA por lo cobrado; lote corregido después se muestra con el original.
+- La consola ya tiene loading.tsx sin perder los 307: el acceso se decide en el layout con la ruta que pone el
+  middleware (x-ruta). Medido: 0 errores 418 en 450 visitas. Las pruebas esperan a que se vaya «Cargando»
+  (tests/ayudas/carga.mjs): React 19 agrupa el cambio del esqueleto a la pantalla (~300 ms).
+- Un detector de errores que busca «digest» en el HTML siempre acierta (Next lo manda siempre): mirar el registro del servidor.
+- Con loading.tsx un campo aparece en el HTML antes de que React lo active: una prueba que sube un archivo justo al cargar pierde el evento. Esperar a networkidle (o a que se vaya «Cargando») antes de interactuar.
+
+## 10/11/2026 · Publicar sin comprobar la migración tumbó la caja (incidente)
+- Se publicó el código que usa columnas de la migración 046 con el «listo» de Oscar, sin comprobar que la migración
+  estuviera en la base de producción. No estaba: /caja y /equipo dieron error de servidor. Se volvió producción a la
+  versión anterior con un commit nuevo (commit-tree del árbol anterior; nada se borra) en minutos.
+- Regla: antes de empujar a main un código que necesita una migración, VERIFICAR en producción que la migración está
+  (consola → Sistema muestra la última migración aplicada, o la consulta a regenta_migraciones que pega Oscar). Y
+  después del despliegue, abrir /caja e /inicio de verdad (con captura), no solo hacer fetch: el error de Next llega
+  dentro del HTML en streaming y un fetch con «ok» no prueba nada.

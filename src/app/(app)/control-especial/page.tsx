@@ -22,7 +22,7 @@ export default async function ControlEspecial({ searchParams }: { searchParams: 
   if (!puede.verCostos(s.rol)) redirect("/inicio?aviso=permiso"); // datos de pacientes: dueño y administrador
   const sp = await searchParams;
   const r = rango(sp.desde, sp.hasta);
-  const producto = sp.producto && /^[0-9a-f-]{36}$/i.test(sp.producto) ? sp.producto : null;
+  const producto = sp.producto && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sp.producto) ? sp.producto : null;
   const { d, cfg } = await comoUsuario(s, async (c) => ({
     d: await datosLibro(c, s.empresa, r, producto),
     cfg: (await c.query(`select formula_vigencia_dias, formula_exige_datos, demo from empresas where id = $1`, [s.empresa])).rows[0],

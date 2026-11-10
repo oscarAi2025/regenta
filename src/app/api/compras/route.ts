@@ -49,7 +49,7 @@ export const GET = conSesion(async (s, req) => {
   const sp = new URL(req.url).searchParams;
   const f = (k: string) => { const v = sp.get(k); return v && /^\d{4}-\d{2}-\d{2}$/.test(v) && fechaReal(v) ? v : undefined; };
   const estado = ["por_costear", "registrada", "anulada"].includes(sp.get("estado") ?? "") ? sp.get("estado")! : undefined;
-  const proveedor = /^[0-9a-f-]{36}$/i.test(sp.get("proveedor") ?? "") ? sp.get("proveedor")! : undefined;
+  const proveedor = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sp.get("proveedor") ?? "") ? sp.get("proveedor")! : undefined;
   const compras = await comoUsuario(s, (c) => listaCompras(c, s.empresa, { estado, proveedor, desde: f("desde"), hasta: f("hasta"), q: sp.get("q") ?? "" }, puedeCompras.dinero(s.rol)));
   return json({ compras });
 });

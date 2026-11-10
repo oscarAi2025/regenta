@@ -30,7 +30,7 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
     left join lateral (select count(*) compras, sum(v.total - v.devuelto) total, max((v.creado at time zone 'America/Bogota')::date) ultima
       from ventas v where v.cliente_id = cl.id and v.estado = 'cerrada' and v.origen is null) rg on true
     left join lateral (select count(*) compras, sum(x.total) total, max(x.fecha) ultima
-      from ventas_externas x where x.cliente_id = cl.id and x.estado <> 'anulada') al on true
+      from ventas_externas x where x.cliente_id = cl.id and x.estado in ('pagada', 'por_cobrar')) al on true
     where cl.empresa_id = $1 and ($2 = '' or cl.numero_doc like $3 || '%' or sin_tildes(cl.nombre) like '%' || sin_tildes($4) || '%')
     order by greatest(rg.ultima, al.ultima) desc nulls last, cl.nombre limit ${POR_PAGINA} offset $5`,
       [s.empresa, t, sinComodines(t.replace(/[.\s-]/g, "")), sinComodines(t.toLowerCase()), (pagina - 1) * POR_PAGINA])).rows;
@@ -38,6 +38,7 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
     return { filas, total: (filas[0]?.total ?? 0) as number, alegra };
   });
   const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
+  if (pagina > 1 && filas.length === 0) redirect(t ? `/clientes?q=${encodeURIComponent(t)}` : "/clientes"); // página que ya no existe
   const enlace = (n: number) => `/clientes?${new URLSearchParams({ ...(t ? { q: t } : {}), ...(n > 1 ? { pagina: String(n) } : {}) })}`;
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">

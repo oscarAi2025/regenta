@@ -154,7 +154,7 @@ export function Ajustar({ verCosto }: { verCosto: boolean }) {
           <p id="buscar-ajuste-ayuda" className="text-sm text-muted mt-1">Con el lector de código de barras el producto entra directo.</p>
           {res.length > 0 && (
             <ul aria-label="Resultados" className="absolute z-10 mt-1 w-full tarjeta shadow-lg divide-y divide-line max-h-80 overflow-auto">
-              {res.map((p) => <li key={p.id}><button type="button" onClick={() => agregar(p)} className="w-full text-left px-4 py-2.5 hover:bg-paper"><span className="font-semibold">{p.nombre}</span><span className="block text-sm text-muted">{p.laboratorio ?? "Genérico"}</span></button></li>)}
+              {res.map((p) => <li key={p.id}><button type="button" onClick={() => agregar(p)} className="w-full text-left px-4 py-2.5 hover:bg-paper"><span className="font-semibold">{p.nombre}</span><span className="block text-sm text-muted">{p.laboratorio ?? "Sin laboratorio"}</span></button></li>)}
             </ul>
           )}
           {q.trim().length >= 2 && !buscando && res.length === 0 && <p className="text-sm text-muted mt-2">No aparece ningún producto con ese nombre o código.</p>}
@@ -169,7 +169,7 @@ export function Ajustar({ verCosto }: { verCosto: boolean }) {
               return (
                 <li key={l.key} className="rounded-xl border border-line p-3 sm:p-4 grid gap-3">
                   <div className="flex items-start gap-3">
-                    <div className="flex-1 min-w-0"><p className="font-semibold leading-snug">{l.p.nombre}</p><p className="text-sm text-muted">{l.p.laboratorio ?? "Genérico"}{l.p.unidades_por_caja > 1 ? ` · caja x ${l.p.unidades_por_caja}` : ""}</p></div>
+                    <div className="flex-1 min-w-0"><p className="font-semibold leading-snug">{l.p.nombre}</p><p className="text-sm text-muted">{l.p.laboratorio ?? "Sin laboratorio"}{l.p.unidades_por_caja > 1 ? ` · caja x ${l.p.unidades_por_caja}` : ""}</p></div>
                     <button type="button" onClick={() => setLineas((ls) => ls.filter((x) => x.key !== l.key))} className="text-sm text-alerta underline py-1" aria-label={`Quitar ${l.p.nombre}`}>Quitar</button>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] gap-3 items-end">

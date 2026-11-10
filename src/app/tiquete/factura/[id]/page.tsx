@@ -5,6 +5,7 @@ import { comoUsuario } from "@/lib/db";
 import { leerSesion, puede } from "@/lib/sesion";
 import { MEDIO, pesos, presentacionTexto } from "@/lib/formato";
 import { pesosEnLetras } from "@/lib/letras";
+import { consultaDian } from "@/lib/documentos";
 import { AutoImprimir } from "../../[id]/AutoImprimir";
 
 // Factura en tamaño carta: la representación gráfica completa para entregar a empresas y droguerías (la tirilla de 80 mm
@@ -16,7 +17,7 @@ export const metadata: Metadata = { title: "Factura", robots: { index: false, fo
 
 const FABRICANTE = { software: "Regenta", nombre: "IA DEV INVESTIMENTS COLOMBIA S.A.S.", nit: "901.845.370-5" };
 const TITULO = { pos: "Documento equivalente electrónico P.O.S.", factura: "Factura electrónica de venta" } as const;
-const TIPO_DOC: Record<string, string> = { CC: "C.C.", NIT: "NIT", CE: "C.E.", PA: "Pasaporte", TI: "T.I.", PEP: "PEP", PPT: "PPT", RC: "R.C.", DIE: "Doc. extranjero", NUIP: "NUIP" };
+const TIPO_DOC: Record<string, string> = { CC: "C.C.", NIT: "NIT", CE: "C.E.", PP: "Pasaporte", PA: "Pasaporte", TI: "T.I.", PEP: "PEP", PPT: "PPT", RC: "R.C.", DIE: "Doc. extranjero", NUIP: "NUIP" };
 const fechaLarga = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("es-CO", { day: "2-digit", month: "2-digit", year: "numeric" });
 
 export default async function Factura({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ auto?: string }> }) {
@@ -25,12 +26,12 @@ export default async function Factura({ params, searchParams }: { params: Promis
   if (!puede.vender(s.rol)) redirect("/inicio?aviso=permiso");
   const { id } = await params;
   const { auto } = await searchParams;
-  if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) notFound();
 
   const d = await comoUsuario(s, async (c) => {
     const v = (await c.query(
       `select v.*, to_char(v.creado at time zone 'America/Bogota', 'DD/MM/YYYY') fecha, to_char(v.creado at time zone 'America/Bogota', 'HH24:MI:SS') hora,
-              m.nombre vendedor, cj.nombre caja, e.razon_social, e.nombre_comercial, e.nit, e.dv, e.direccion, e.ciudad, e.telefono, e.email, e.responsable_iva, e.logo,
+              m.nombre vendedor, cj.nombre caja, e.razon_social, e.nombre_comercial, e.nit, e.dv, e.direccion, e.ciudad, e.telefono, e.email, e.responsable_iva, e.logo, e.calidades_tributarias,
               cl.nombre cliente, cl.tipo_doc cli_tipo, cl.numero_doc cli_num, cl.dv cli_dv, cl.direccion cli_dir, cl.ciudad cli_ciudad, cl.telefono cli_tel, cl.email cli_email,
               v.vence_pago::text vence
        from ventas v join empresas e on e.id = v.empresa_id left join cajas cj on cj.id = v.caja_id
@@ -44,14 +45,20 @@ export default async function Factura({ params, searchParams }: { params: Promis
     const lineas = (await c.query(
       `select vl.descripcion, vl.presentacion, coalesce(p.ean, left(p.id::text, 8)) codigo, p.laboratorio,
               sum(vl.cantidad)::float cantidad, vl.precio::float precio, sum(vl.total)::float total, vl.iva_pct::float iva_pct, sum(vl.base)::float base,
-              sum(vl.iva)::float iva, sum(vl.descuento)::float descuento, max(vl.descuento_pct)::float descuento_pct, max(p.unidades_por_caja) upc,
-              json_agg(json_build_object('lote', l.lote, 'vence', to_char(l.vence, 'DD/MM/YYYY'), 'unidades', vl.unidades) order by l.vence, l.lote) lotes
+              sum(vl.iva)::float iva, sum(vl.descuento)::float descuento, vl.descuento_pct::float descuento_pct, max(p.unidades_por_caja) upc,
+              json_agg(json_build_object('lote', l.lote, 'vence', to_char(l.vence, 'DD/MM/YYYY'), 'unidades', vl.unidades,
+                -- Si el lote se corrigió después de la venta, lo que decía al vender (para rastrear un retiro del INVIMA).
+                'original', (select jsonb_build_object('lote', a.datos -> 'antes' ->> 'lote', 'vence', to_char((a.datos -> 'antes' ->> 'vence')::date, 'DD/MM/YYYY'))
+                  from auditoria a where a.empresa_id = vl.empresa_id and a.entidad = 'lotes' and a.entidad_id = l.id::text
+                    and a.accion in ('corregir_lote', 'lote_vencido_reactivado') and a.creado > (select creado from ventas where id = vl.venta_id) order by a.id limit 1)
+              ) order by l.vence, l.lote) lotes
        from venta_lineas vl join productos p on p.id = vl.producto_id join lotes l on l.id = vl.lote_id where vl.venta_id = $1
-       group by vl.descripcion, vl.presentacion, vl.precio, vl.iva_pct, vl.producto_id, p.ean, p.id, p.laboratorio order by min(vl.id)`, [id])).rows as
+       group by vl.descripcion, vl.presentacion, vl.precio, vl.iva_pct, vl.descuento_pct, vl.producto_id, p.ean, p.id, p.laboratorio order by min(vl.id)`, [id])).rows as
       { descripcion: string; presentacion: string; codigo: string; laboratorio: string | null; cantidad: number; precio: number; total: number; iva_pct: number; base: number;
-        iva: number; descuento: number; descuento_pct: number; upc: number; lotes: { lote: string; vence: string | null; unidades: number }[] }[];
+        iva: number; descuento: number; descuento_pct: number; upc: number; lotes: { lote: string; vence: string | null; unidades: number; original: { lote: string; vence: string | null } | null }[] }[];
     const pagos = (await c.query(`select medio, valor::float from pagos where venta_id = $1 order by id`, [id])).rows;
-    const doc = (await c.query(`select estado, cufe, qr, simulado from documentos_dian where venta_id = $1 and tipo <> 'nota_credito'`, [id])).rows[0];
+    const doc = (await c.query(`select estado, cufe, qr, simulado, case when estado = 'aceptado' then to_char(actualizado at time zone 'America/Bogota', 'DD/MM/YYYY HH24:MI:SS') end validado
+      from documentos_dian where venta_id = $1 and tipo <> 'nota_credito'`, [id])).rows[0];
     return { v, res, lineas, pagos, doc };
   });
   if (!d) notFound();
@@ -61,8 +68,18 @@ export default async function Factura({ params, searchParams }: { params: Promis
   for (const l of lineas) { const t = tarifas.get(l.iva_pct) ?? { base: 0, iva: 0 }; t.base += l.base; t.iva += l.iva; tarifas.set(l.iva_pct, t); }
   const bruto = lineas.reduce((a, l) => a + l.total + l.descuento, 0); // con IVA, antes de descuentos (como el precio de venta)
   const descuentos = lineas.reduce((a, l) => a + l.descuento, 0);
-  const ivaTotal = lineas.reduce((a, l) => a + l.iva, 0);
-  const qr = doc?.qr && /^https?:\/\//.test(doc.qr) ? await QRCode.toString(doc.qr, { type: "svg", margin: 0, errorCorrectionLevel: "M" }) : null;
+  const ivaTotal = Math.round(lineas.reduce((a, l) => a + l.iva, 0));
+  // IVA por tarifa redondeado a pesos de forma que la suma de las tarifas dé exactamente el total (el peso de diferencia
+  // del redondeo va a la tarifa con más IVA).
+  const ivaPor = new Map([...tarifas].map(([k, t]) => [k, Math.round(t.iva)]));
+  const mayor = [...tarifas].sort((a, b) => b[1].iva - a[1].iva)[0]?.[0];
+  if (mayor !== undefined) ivaPor.set(mayor, (ivaPor.get(mayor) ?? 0) + ivaTotal - [...ivaPor.values()].reduce((a, b) => a + b, 0));
+  const cantidadTotal = lineas.reduce((a, l) => a + l.cantidad, 0);
+  // El QR lleva a la consulta de la DIAN: el que devolvió el emisor o, con el CUFE/CUDE, el enlace de consulta.
+  const enlaceQr = doc?.qr && /^https?:\/\//.test(doc.qr) ? doc.qr : doc?.cufe && !doc.simulado ? consultaDian(doc.cufe) : null;
+  const qr = enlaceQr ? await QRCode.toString(enlaceQr, { type: "svg", margin: 0, errorCorrectionLevel: "M" }) : null;
+  // El régimen que muestra la factura es el de la venta: si cobró IVA, la droguería lo era al vender (el dato de la empresa pudo cambiar después).
+  const responsable = Number(v.iva) > 0 || !!v.responsable_iva;
   const nombre = v.nombre_comercial || v.razon_social;
   const credito = v.condicion === "credito";
   const tipo = v.tipo_doc as "pos" | "factura";
@@ -72,7 +89,7 @@ export default async function Factura({ params, searchParams }: { params: Promis
       <style>{`
         @page { size: letter; margin: 12mm 12mm 14mm; }
         html, body { background: #fff !important; margin: 0; }
-        .fac { --tinta: #10233a; --linea: #c9d2dc; --suave: #f1f4f7; max-width: 196mm; margin: 0 auto; padding: 8mm 0 12mm; color: #111; font: 10px/1.4 "Helvetica Neue", Helvetica, Arial, sans-serif; }
+        .fac { -webkit-print-color-adjust: exact; print-color-adjust: exact; --tinta: #10233a; --linea: #c9d2dc; --suave: #f1f4f7; max-width: 196mm; margin: 0 auto; padding: 8mm 0 12mm; color: #111; font: 10px/1.4 "Helvetica Neue", Helvetica, Arial, sans-serif; }
         .fac p { margin: 0; } .fac h1, .fac h2 { margin: 0; }
         .barra { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; }
         .barra button { font: 600 14px system-ui; padding: 8px 14px; border-radius: 8px; border: 1px solid #000; background: #fff; cursor: pointer; }
@@ -96,7 +113,7 @@ export default async function Factura({ params, searchParams }: { params: Promis
         tbody td { padding: 1.1mm 1.5mm; border-bottom: 1px solid var(--linea); vertical-align: top; }
         tbody tr:nth-child(even) td { background: var(--suave); }
         .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-        .desc b { display: block; font-weight: 600; } .desc span { color: #555; font-size: 8px; } .lotes span { display: block; white-space: nowrap; font-size: 8.5px; }
+        .desc b { display: block; font-weight: 600; } .desc span { color: #555; font-size: 8px; } .lotes span { display: block; white-space: nowrap; font-size: 8.5px; } .lotes .corr { display: block; font-size: 7.5px; color: #8a5a00; font-style: normal; white-space: normal; }
         thead { display: table-header-group; } tr { break-inside: avoid; }
         .pie { display: grid; grid-template-columns: minmax(0, 1fr) 70mm; gap: 5mm; margin-top: 4mm; break-inside: avoid; }
         .totales { border: 1px solid var(--linea); border-radius: 2mm; overflow: hidden; }
@@ -106,7 +123,10 @@ export default async function Factura({ params, searchParams }: { params: Promis
         .dian { display: grid; grid-template-columns: 26mm minmax(0, 1fr); gap: 4mm; align-items: center; margin-top: 4mm; border-top: 1px solid var(--linea); padding-top: 3mm; break-inside: avoid; }
         .dian svg { width: 26mm; height: 26mm; display: block; }
         .clave { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 8px; overflow-wrap: anywhere; }
-        .legal { margin-top: 4mm; font-size: 8px; color: #444; text-align: center; }
+        .legal { margin-top: 6mm; font-size: 8px; color: #444; text-align: center; }
+        .sinqr { width: 26mm; height: 26mm; border: 1px dashed var(--linea); display: grid; place-items: center; text-align: center; font-size: 7.5px; color: #666; padding: 2mm; }
+        .piepag { display: none; }
+        @media print { .piepag { display: block; position: fixed; bottom: 0; left: 0; right: 0; font-size: 7.5px; color: #555; text-align: right; } }
         .sello { display: inline-block; border: 2px solid #b00020; color: #b00020; font-weight: 700; font-size: 16px; padding: 1mm 4mm; transform: rotate(-4deg); }
         .aviso { border: 1px solid #b00020; color: #b00020; font-weight: 700; padding: 2mm 3mm; border-radius: 2mm; text-align: center; margin-top: 3mm; }
         .firma { margin-top: 8mm; break-inside: avoid; display: grid; grid-template-columns: 1fr 1fr; gap: 10mm; }
@@ -120,7 +140,8 @@ export default async function Factura({ params, searchParams }: { params: Promis
           <div>
             <h1 className="nom">{nombre}</h1>
             {v.nombre_comercial && <p className="dato">{v.razon_social}</p>}
-            <p className="dato">NIT {v.nit}{v.dv ? `-${v.dv}` : ""} · {v.responsable_iva ? "Responsable de IVA" : "No responsable de IVA"}</p>
+            <p className="dato">NIT {v.nit}{v.dv ? `-${v.dv}` : ""} · {responsable ? "Responsable de IVA" : "No responsable de IVA"}</p>
+            {v.calidades_tributarias && <p className="dato">{v.calidades_tributarias}</p>}
             {(v.direccion || v.ciudad) && <p className="dato">{[v.direccion, v.ciudad].filter(Boolean).join(" · ")}</p>}
             {(v.telefono || v.email) && <p className="dato">{[v.telefono ? `Tel. ${v.telefono}` : "", v.email].filter(Boolean).join(" · ")}</p>}
           </div>
@@ -128,7 +149,7 @@ export default async function Factura({ params, searchParams }: { params: Promis
         <div className="numero">
           <p className="t">{TITULO[tipo]}</p>
           <p className="n">No. {v.prefijo}{v.numero}</p>
-          {res && <p className="r">{res.pruebas ? "Numeración de PRUEBAS (habilitación DIAN) · " : ""}Resolución DIAN {res.numero_resolucion ?? "—"}{res.vd ? ` del ${res.vd}` : ""}<br />Prefijo {v.prefijo} del {res.desde} al {res.hasta}{res.vh ? ` · vigente hasta ${res.vh}` : ""}</p>}
+          {res && <p className="r">{res.pruebas ? "Numeración de PRUEBAS (habilitación DIAN) · " : ""}{res.numero_resolucion ? `Resolución DIAN ${res.numero_resolucion}${res.vd ? ` del ${res.vd}` : ""}` : "Sin resolución de numeración cargada"}<br />Prefijo {v.prefijo} del {res.desde} al {res.hasta}{res.vh ? ` · vigente hasta ${res.vh}` : ""}</p>}
         </div>
       </header>
 
@@ -148,7 +169,8 @@ export default async function Factura({ params, searchParams }: { params: Promis
         <div className="caja">
           <h2>Venta</h2>
           <dl className="kv">
-            <dt>Fecha de emisión</dt><dd>{v.fecha} {v.hora}</dd>
+            <dt>Generada</dt><dd>{v.fecha} {v.hora}</dd>
+            {doc?.validado && !doc.simulado && <><dt>Validada DIAN</dt><dd>{doc.validado}</dd></>}
             <dt>Forma de pago</dt><dd>{credito ? `Crédito a ${v.plazo_dias} días` : "Contado"}</dd>
             {credito && v.vence && <><dt>Vence</dt><dd>{fechaLarga(v.vence)}</dd></>}
             {!credito && pagos.length > 0 && <><dt>Medio de pago</dt><dd>{pagos.map((p) => MEDIO[p.medio] ?? p.medio).join(", ")}</dd></>}
@@ -172,10 +194,11 @@ export default async function Factura({ params, searchParams }: { params: Promis
               <td>{i + 1}</td>
               <td className="clave" style={{ fontSize: 8, whiteSpace: "nowrap" }}>{l.codigo}</td>
               <td className="desc"><b>{l.descripcion}</b><span>{presentacionTexto(l.presentacion, l.upc)}{l.laboratorio ? ` · ${l.laboratorio}` : ""}</span></td>
-              <td className="lotes">{l.lotes.map((x, j) => <span key={j}>{x.lote} · {x.vence ?? "s. f."}{l.lotes.length > 1 ? ` · ${x.unidades} und` : ""}</span>)}</td>
+              <td className="lotes">{l.lotes.map((x, j) => <span key={j}>{x.lote} · {x.vence ?? "s. f."}{l.lotes.length > 1 ? ` · ${x.unidades} und` : ""}
+                {x.original && <em className="corr">corregido; al vender: {x.original.lote} · {x.original.vence ?? "s. f."}</em>}</span>)}</td>
               <td className="num">{l.cantidad.toLocaleString("es-CO")}</td>
               <td className="num">{pesos(l.precio)}</td>
-              <td className="num">{l.descuento > 0 ? `${l.descuento_pct}%` : "—"}</td>
+              <td className="num">{l.descuento > 0 ? `${l.descuento_pct.toLocaleString("es-CO", { maximumFractionDigits: 2 })} %` : "—"}</td>
               <td className="num">{l.iva_pct ? `${l.iva_pct}%` : "Excl."}</td>
               <td className="num"><b>{pesos(l.total)}</b></td>
             </tr>
@@ -187,16 +210,16 @@ export default async function Factura({ params, searchParams }: { params: Promis
         <div>
           <p><b>Valor en letras:</b></p>
           <p className="letras">{pesosEnLetras(v.total)}</p>
-          <p style={{ marginTop: "3mm" }}><b>{lineas.length}</b> {lineas.length === 1 ? "producto" : "productos"} · <b>{lineas.reduce((a, l) => a + l.cantidad, 0).toLocaleString("es-CO")}</b> unidades de venta</p>
+          <p style={{ marginTop: "3mm" }}><b>{lineas.length}</b> {lineas.length === 1 ? "producto" : "productos"} · <b>{cantidadTotal.toLocaleString("es-CO")}</b> {cantidadTotal === 1 ? "unidad" : "unidades"} de venta</p>
           {credito && <p style={{ marginTop: "2mm" }}>Esta factura se paga a más tardar el <b>{v.vence ? fechaLarga(v.vence) : "—"}</b>. Los abonos se registran con recibo de caja.</p>}
           {v.estado === "anulada" && <p style={{ marginTop: "4mm" }}><span className="sello">ANULADA</span></p>}
         </div>
         <div className="totales">
-          <div className="f"><span>Valor antes de descuentos</span><span className="num">{pesos(bruto)}</span></div>
+          {descuentos > 0 && <div className="f"><span>Valor antes de descuentos</span><span className="num">{pesos(bruto)}</span></div>}
           {descuentos > 0 && <div className="f"><span>Descuentos</span><span className="num">−{pesos(descuentos)}</span></div>}
           {[...tarifas].sort((a, b) => b[0] - a[0]).map(([pct, t]) => pct > 0
-            ? <div className="f" key={pct}><span>Base gravada {pct}% · IVA</span><span className="num">{pesos(t.base)} · {pesos(t.iva)}</span></div>
-            : <div className="f" key={pct}><span>{v.responsable_iva ? "Excluido / exento" : "Total sin IVA (no responsable)"}</span><span className="num">{pesos(t.base)}</span></div>)}
+            ? <div className="f" key={pct}><span>Base gravada {pct}% · IVA</span><span className="num">{pesos(t.base)} · {pesos(ivaPor.get(pct) ?? t.iva)}</span></div>
+            : <div className="f" key={pct}><span>{responsable ? "Excluido / exento de IVA" : "Total (no responsable de IVA)"}</span><span className="num">{pesos(t.base)}</span></div>)}
           {ivaTotal > 0 && <div className="f"><span>Total IVA</span><span className="num">{pesos(ivaTotal)}</span></div>}
           <div className="f"><span>TOTAL A PAGAR</span><span className="num">{pesos(v.total)}</span></div>
         </div>
@@ -204,7 +227,7 @@ export default async function Factura({ params, searchParams }: { params: Promis
 
       {doc?.simulado && <p className="aviso">EMISIÓN SIMULADA · SIN VALIDEZ FISCAL</p>}
       <section className="dian">
-        {qr ? <div dangerouslySetInnerHTML={{ __html: qr }} /> : <div />}
+        {qr ? <div dangerouslySetInnerHTML={{ __html: qr }} /> : <div className="sinqr">Sin código QR: {doc?.simulado ? "emisión simulada" : "pendiente de validación DIAN"}</div>}
         <div>
           {doc?.cufe
             ? <>
@@ -212,12 +235,14 @@ export default async function Factura({ params, searchParams }: { params: Promis
                 <p className="clave"><b>{tipo === "pos" ? "CUDE" : "CUFE"}:</b> {doc.cufe}</p>
               </>
             : <p><b>Pendiente de validación DIAN.</b> Esta representación gráfica se completa con el {tipo === "pos" ? "CUDE" : "CUFE"} y el código QR cuando la DIAN valida el documento.</p>}
-          <p style={{ marginTop: "1.5mm" }}>Representación gráfica de {tipo === "pos" ? "documento equivalente electrónico" : "factura electrónica de venta"}. Consúltela en catalogo-vpfe.dian.gov.co con el código QR.</p>
+          <p style={{ marginTop: "1.5mm" }}>Representación gráfica de {tipo === "pos" ? "documento equivalente electrónico" : "factura electrónica de venta"}. {qr ? " Consúltela en la DIAN con el código QR." : ""}</p>
         </div>
       </section>
 
       {credito && <div className="firma"><div>Recibí conforme (nombre, firma y sello)</div><div>Fecha de recibido</div></div>}
       <p className="legal">Software: {FABRICANTE.software} · Fabricante: {FABRICANTE.nombre} · NIT {FABRICANTE.nit}</p>
+      {/* Al imprimir se repite en cada hoja: así una hoja suelta se sabe de qué factura es. */}
+      <p className="piepag" aria-hidden="true">{TITULO[tipo]} {v.prefijo}{v.numero} · {nombre} · NIT {v.nit}{v.dv ? `-${v.dv}` : ""}</p>
     </main>
   );
 }

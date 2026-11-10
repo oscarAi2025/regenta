@@ -12,7 +12,7 @@ export const metadata = { title: "Inventario" };
 const fmt = (d: string | null) => (d ? new Date(d + "T00:00:00").toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" }) : "—");
 const dias = (d: string | null) => (d ? Math.round((Date.parse(d + "T00:00:00") - Date.now()) / 864e5) : null);
 
-type Fila = { id: string; nombre: string; laboratorio: string | null; unidades_por_caja: number; precio_caja: number; unidades: number; stock_minimo: number; total: number;
+type Fila = { id: string; nombre: string; laboratorio: string | null; unidades_por_caja: number; precio_caja: number; unidades: number; stock_minimo: number; total: number; vencidas: number; separadas: number;
   lotes: { lote: string; vence: string | null; unidades: number; costo: number | null; bloqueado: boolean }[] };
 
 const POR_PAGINA = 100;
@@ -32,14 +32,17 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
     const agotados = (await c.query(`select count(*)::int n from productos p where empresa_id = $1 and activo
       and coalesce((select sum(unidades) from v_stock_vigente where producto_id = p.id), 0) <= 0`, [s.empresa])).rows[0].n;
     const valor = costos ? (await c.query(`select coalesce(sum(s.unidades * lc.costo_unidad), 0)::float v from v_stock_vigente s join lote_costos lc on lc.lote_id = s.lote_id where s.empresa_id = $1 and s.unidades > 0`, [s.empresa])).rows[0].v : null;
-    const filtro = ver === "agotados" ? "and coalesce(st.unidades, 0) <= 0" : ver === "todos" ? "" : "and st.proximo <= current_date + 90";
+    const filtro = ver === "agotados" ? "and coalesce(st.unidades, 0) <= 0" : ver === "todos" ? "" : ver === "vencidos" ? "and st.vencidas > 0"
+      : "and st.por_vencer <= current_date + 90";
     const palabras = q.trim().toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6).map(sinComodines);
     const filas: Fila[] = (await c.query(`
-      select p.id, p.nombre, p.laboratorio, p.unidades_por_caja, p.precio_caja::float, p.stock_minimo, coalesce(st.unidades, 0)::int unidades, count(*) over ()::int total,
+      select p.id, p.nombre, p.laboratorio, p.unidades_por_caja, p.precio_caja::float, p.stock_minimo, coalesce(st.unidades, 0)::int unidades, coalesce(st.vencidas, 0)::int vencidas, coalesce(st.separadas, 0)::int separadas, count(*) over ()::int total,
         coalesce((select json_agg(json_build_object('lote', l.lote, 'vence', l.vence, 'unidades', l.unidades, 'bloqueado', l.bloqueado, 'costo', ${costos ? "(select costo_unidad::float from lote_costos where lote_id = l.lote_id)" : "null"}) order by l.vence nulls last)
                   from v_stock_lotes l where l.producto_id = p.id and l.unidades > 0), '[]') lotes
       from productos p
-      left join lateral (select sum(unidades) filter (where (vence is null or vence >= current_date) and not bloqueado) unidades, min(vence) filter (where unidades > 0) proximo from v_stock_lotes where producto_id = p.id) st on true
+      left join lateral (select sum(unidades) filter (where (vence is null or vence >= current_date) and not bloqueado) unidades, min(vence) filter (where unidades > 0) proximo, min(vence) filter (where unidades > 0 and vence >= current_date) por_vencer,
+        sum(unidades) filter (where vence < current_date and unidades > 0) vencidas, sum(unidades) filter (where bloqueado and unidades > 0 and (vence is null or vence >= current_date)) separadas
+        from v_stock_lotes where producto_id = p.id) st on true
       where p.empresa_id = $1 and p.activo ${filtro}
         and (cardinality($2::text[]) = 0 or (select bool_and(sin_tildes(p.nombre || ' ' || coalesce(p.laboratorio, '')) like '%' || sin_tildes(w) || '%') from unnest($2::text[]) w))
       order by st.proximo nulls last, p.nombre limit ${POR_PAGINA} offset $3`, [s.empresa, palabras, (pagina - 1) * POR_PAGINA])).rows;
@@ -56,7 +59,7 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
     return { resumen, agotados, valor, filas, sinCosto, conteo, porCostear };
   });
   const kardex = puede.moverInventario(s.rol);
-  const tabs = [["vencen", "Vencen en 90 días"], ["agotados", "Agotados"], ["todos", "Todo"]] as const;
+  const tabs = [["vencen", "Vencen en 90 días"], ["vencidos", "Vencidos"], ["agotados", "Agotados"], ["todos", "Todo"]] as const;
   if (pagina > 1 && datos.filas.length === 0) redirect(`/inventario?ver=${ver}${q ? `&q=${encodeURIComponent(q)}` : ""}`); // página que ya no existe
   const total = datos.filas[0]?.total ?? 0, paginas = Math.ceil(total / POR_PAGINA);
   const enlace = (n: number) => `?ver=${ver}${q ? `&q=${encodeURIComponent(q)}` : ""}${n > 1 ? `&pagina=${n}` : ""}`;
@@ -68,7 +71,7 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
           <Link href="/compras/nueva" className="btn-primario">Recibir mercancía</Link>
           <Link href="/compras" className="btn-borde">Compras</Link>
           <Link href="/inventario/ajustes" className="btn-borde">Ajustar o dar de baja</Link>
-          {puede.moverInventario(s.rol) && <Link href="/inventario/lotes" className="btn-borde">Lotes y vencimientos</Link>}
+          {puede.moverInventario(s.rol) && <Link href="/inventario/lotes" className="btn-borde">Corregir lotes</Link>}
           <Link href="/inventario/conteos" className="btn-borde">{datos.conteo ? `Conteo N.º ${datos.conteo} en curso` : "Conteo físico"}</Link>
           {puedePrecios.cuarentena(s.rol) && <Link href="/inventario/cuarentena" className="btn-borde">Cuarentena</Link>}
           <Link href="/temperatura" className="btn-borde">Temperatura y humedad</Link>
@@ -88,10 +91,10 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
         )}
       </div>
       <form className="mt-5 flex flex-wrap items-center gap-2" role="search">
-        <nav className="flex gap-1 bg-surface border border-line rounded-xl p-1" aria-label="Filtro">
+        <nav className="flex gap-1 bg-surface border border-line rounded-xl p-1 max-w-full overflow-x-auto [scrollbar-width:none]" aria-label="Filtro">
           {tabs.map(([k, t]) => (
             <a key={k} href={`?ver=${k}${q ? `&q=${encodeURIComponent(q)}` : ""}`} aria-current={ver === k ? "page" : undefined}
-              className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${ver === k ? "bg-ink text-white" : "text-muted"}`}>{t}</a>
+              className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg text-sm font-semibold ${ver === k ? "bg-ink text-white" : "text-muted"}`}>{t}</a>
           ))}
         </nav>
         <input type="hidden" name="ver" value={ver} />
@@ -108,9 +111,10 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
           <tbody className="divide-y divide-line">
             {datos.filas.map((f) => (
               <tr key={f.id} className="align-top">
-                <td className="px-4 py-3">{kardex ? <Link href={`/productos/${f.id}#kardex`} className="font-semibold hover:underline" title="Ver kardex">{f.nombre}</Link> : <p className="font-semibold">{f.nombre}</p>}<p className="text-muted">{f.laboratorio ?? "Genérico"}</p></td>
+                <td className="px-4 py-3">{kardex ? <Link href={`/productos/${f.id}#kardex`} className="font-semibold hover:underline" title="Ver kardex">{f.nombre}</Link> : <p className="font-semibold">{f.nombre}</p>}<p className="text-muted">{f.laboratorio ?? "Sin laboratorio"}</p></td>
                 <td className={`px-4 py-3 num ${f.unidades <= 0 ? "text-alerta font-semibold" : ""}`}>
-                  {f.unidades <= 0 ? "Agotado" : f.unidades_por_caja > 1 ? `${Math.floor(f.unidades / f.unidades_por_caja)} cajas${f.unidades % f.unidades_por_caja ? ` + ${f.unidades % f.unidades_por_caja} und` : ""}` : `${f.unidades} und`}
+                  {f.unidades <= 0 && f.vencidas + f.separadas > 0 ? <>0 vendibles<span className="block text-sm">{f.vencidas ? `${f.vencidas.toLocaleString("es-CO")} und vencidas: dar de baja` : ""}{f.vencidas && f.separadas ? " · " : ""}{f.separadas ? `${f.separadas.toLocaleString("es-CO")} und separadas` : ""}</span></>
+                    : f.unidades <= 0 ? "Agotado" : f.unidades_por_caja > 1 ? `${Math.floor(f.unidades / f.unidades_por_caja)} cajas${f.unidades % f.unidades_por_caja ? ` + ${f.unidades % f.unidades_por_caja} und` : ""}` : `${f.unidades} und`}
                 </td>
                 <td className="px-4 py-3">
                   <ul className="flex flex-wrap gap-1.5">
@@ -125,7 +129,7 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
               </tr>
             ))}
             {datos.filas.length === 0 && <tr><td colSpan={4} className="px-4 py-10 text-center text-muted">
-              {q ? <>Ningún producto coincide con «{q}» en este filtro. </> : ver === "agotados" ? "No tienes productos agotados. " : ver === "todos" ? "Aún no hay productos en el inventario. " : "Ningún lote vence en los próximos 90 días. "}
+              {q ? <>Ningún producto coincide con «{q}» en este filtro. </> : ver === "agotados" ? "No tienes productos agotados. " : ver === "todos" ? "Aún no hay productos en el inventario. " : ver === "vencidos" ? "No tienes lotes vencidos con existencias. " : "Ningún lote vence en los próximos 90 días. "}
               {ver !== "todos" && <a href={`?ver=todos${q ? `&q=${encodeURIComponent(q)}` : ""}`} className="font-semibold text-ink underline">Ver todo el inventario</a>}
             </td></tr>}
           </tbody>

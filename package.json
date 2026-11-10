@@ -8,7 +8,7 @@
     "start": "next start -p 4500",
     "typecheck": "tsc --noEmit",
     "db:reset": "node scripts/db-reset.mjs",
-    "test": "node --test tests/db.test.mjs && node --experimental-strip-types --test tests/invima.test.mjs tests/pagos.test.mjs tests/matias.test.mjs tests/importar.test.mjs tests/visitas-demo.test.mjs tests/factura-proveedor.test.mjs tests/producto-desde-factura.test.mjs tests/letras.test.mjs",
+    "test": "node --test tests/db.test.mjs && node --experimental-strip-types --test tests/invima.test.mjs tests/pagos.test.mjs tests/matias.test.mjs tests/importar.test.mjs tests/visitas-demo.test.mjs tests/factura-proveedor.test.mjs tests/producto-desde-factura.test.mjs tests/letras.test.mjs tests/version-db.test.mjs",
     "e2e": "node tests/e2e/caja.mjs && node tests/e2e/gestion.mjs && node tests/e2e/ia.mjs && node tests/e2e/facturacion.mjs",
     "auditoria": "node tests/e2e/auditoria.mjs",
     "pagos": "node tests/e2e/pagos.mjs",

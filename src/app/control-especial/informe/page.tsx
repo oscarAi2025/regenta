@@ -17,7 +17,7 @@ export default async function Informe({ searchParams }: { searchParams: Promise<
   if (!puede.verCostos(s.rol)) redirect("/inicio?aviso=permiso");
   const sp = await searchParams;
   const r = rango(sp.desde, sp.hasta);
-  const producto = sp.producto && /^[0-9a-f-]{36}$/i.test(sp.producto) ? sp.producto : null;
+  const producto = sp.producto && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sp.producto) ? sp.producto : null;
   const { d, e } = await comoUsuario(s, async (c) => ({
     d: await datosLibro(c, s.empresa, r, producto),
     e: (await c.query(`select coalesce(e.nombre_comercial, e.razon_social) nombre, e.razon_social, e.nit, e.dv, e.direccion, e.ciudad,

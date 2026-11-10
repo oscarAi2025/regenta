@@ -2,7 +2,7 @@ import "server-only";
 import "./zod-es";
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
-import { mensajeError, sinRLS } from "./db";
+import { mensajeError, sinRLS, soporteActual } from "./db";
 import { leerSesion, type Sesion } from "./sesion";
 
 /** Envuelve un handler de API: exige sesión y traduce los errores de la base de datos a mensajes claros. */
@@ -12,7 +12,7 @@ export function conSesion(fn: (s: Sesion, req: Request, ctx: { params: Promise<R
     const s = await leerSesion();
     if (!s) return NextResponse.json({ error: "Tu sesión venció: vuelve a entrar" }, { status: 401 });
     try {
-      const res = await fn(s, req, ctx);
+      const res = await soporteActual.run(s.soporte, () => fn(s, req, ctx));
       // Lecturas con datos de la droguería: sin caché (ni intermedias ni del navegador). Solo GET: con «no-store», un POST
       // que la pantalla manda sin leer la respuesta (eventos de la demo) dejaba la conexión abierta.
       if (req.method === "GET" && !res.headers.has("cache-control")) res.headers.set("Cache-Control", "private, no-store");

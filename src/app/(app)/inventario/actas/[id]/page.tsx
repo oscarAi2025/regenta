@@ -15,7 +15,7 @@ export default async function Acta({ params }: { params: Promise<{ id: string }>
   if (!s) redirect("/entrar");
   if (!puede.moverInventario(s.rol)) redirect("/inventario?aviso=permiso");
   const { id } = await params;
-  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
   const costos = puede.verCostos(s.rol);
   const d = await comoUsuario(s, async (c) => {
     const a = (await c.query(`select a.*, to_char(a.creado at time zone 'America/Bogota', 'DD/MM/YYYY') dia, to_char(a.creado at time zone 'America/Bogota', 'HH24:MI') hora,
@@ -73,7 +73,7 @@ export default async function Acta({ params }: { params: Promise<{ id: string }>
               {lineas.map((l, i) => (
                 <tr key={i} className="border-b border-line align-top">
                   <td className="py-2 pr-2 num">{i + 1}</td>
-                  <td className="py-2 pr-2"><span className="font-semibold">{l.nombre}</span><span className="block text-xs text-muted">{l.laboratorio ?? "Genérico"}{l.registro_sanitario ? ` · Reg. ${l.registro_sanitario}` : ""}</span></td>
+                  <td className="py-2 pr-2"><span className="font-semibold">{l.nombre}</span><span className="block text-xs text-muted">{l.laboratorio ?? "Sin laboratorio"}{l.registro_sanitario ? ` · Reg. ${l.registro_sanitario}` : ""}</span></td>
                   <td className="py-2 pr-2 num font-semibold">{l.lote}</td>
                   <td className="py-2 pr-2 num">{fecha(l.vence)}</td>
                   <td className="py-2 pr-2 num text-right whitespace-nowrap">{l.unidades > 0 ? "+" : "−"}{Math.abs(l.unidades).toLocaleString("es-CO")} und{l.unidades_por_caja > 1 && Math.abs(l.unidades) >= l.unidades_por_caja ? <span className="block text-xs text-muted">{unidadesTexto(Math.abs(l.unidades), l.unidades_por_caja)}</span> : null}</td>

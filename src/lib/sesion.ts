@@ -39,7 +39,7 @@ export const leerSesion = cache(async (): Promise<Sesion | null> => {
   let payload;
   try { payload = (await jwtVerify(t, clave())).payload; } catch { return null; }
   const uid = String(payload.uid), empresa = String(payload.empresa), soporte = payload.soporte ? String(payload.soporte) : undefined;
-  if (!/^[0-9a-f-]{36}$/i.test(uid) || !/^[0-9a-f-]{36}$/i.test(empresa)) return null;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(empresa)) return null;
   const f = (await sinRLS((c) => c.query(
     `select m.rol, e.estado, cu.activa, coalesce(cu.version_sesion, 0) v,
             ($3::uuid is null or exists (select 1 from superadmins s join cuentas a on a.id = s.user_id where s.user_id = $3::uuid and a.activa)) soporte_ok,

@@ -20,7 +20,7 @@ export default async function FichaCliente({ params, searchParams }: { params: P
   if (!permisoCartera.gestionar(s.rol)) redirect("/inicio?aviso=permiso");
   const { id } = await params;
   const { anulado } = await searchParams;
-  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
   const d = await comoUsuario(s, async (c) => {
     const ec = await estadoCuenta(c, s.empresa, id);
     if (!ec) return null;
@@ -47,7 +47,7 @@ export default async function FichaCliente({ params, searchParams }: { params: P
       {anulado && /^\d+$/.test(anulado) && <p role="status" className="rounded-xl bg-aviso-soft text-aviso px-4 py-3 font-semibold">Recibo RC-{anulado} anulado: los saldos volvieron a sus facturas.</p>}
 
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Dato titulo="Debe" valor={pesos(ec.saldo)} tono={ec.saldo ? "cruz" : undefined} nota={`${ec.pendientes.length} factura${ec.pendientes.length === 1 ? "" : "s"} pendiente${ec.pendientes.length === 1 ? "" : "s"}`} />
+        <Dato titulo="Debe" valor={pesos(ec.saldo)} tono={ec.saldo ? "aviso" : undefined} nota={`${ec.pendientes.length} factura${ec.pendientes.length === 1 ? "" : "s"} pendiente${ec.pendientes.length === 1 ? "" : "s"}`} />
         <Dato titulo="Vencido" valor={pesos(vencido)} tono={vencido ? "alerta" : undefined} nota={credito.dias_mora ? `${credito.dias_mora} días de mora máx.` : "al día"} />
         <Dato titulo="Cupo" valor={credito.cupo === null ? "Sin cupo" : pesos(credito.cupo)} nota={cl.plazo ? `plazo ${cl.plazo} días` : "sin plazo fijo"} />
         <Dato titulo="Disponible" valor={credito.cupo_disponible === null ? "—" : pesos(credito.cupo_disponible)} tono={credito.bloqueado ? "alerta" : undefined} nota={credito.bloqueado ? "crédito bloqueado" : credito.limite_mora !== null ? `bloquea con más de ${credito.limite_mora} días de mora` : "la mora no bloquea"} />
