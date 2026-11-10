@@ -10,6 +10,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { chromium } from "playwright-core";
 import { codigoTotp, TOTP } from "../ayudas/totp.mjs";
+import { esperarCarga } from "../ayudas/carga.mjs";
 
 const B = process.env.BASE ?? "http://localhost:4540";
 const DB = process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp";
@@ -151,6 +152,7 @@ const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, extraHT
 const [nom, val] = adm.split("=");
 await ctx.addCookies([{ name: nom, value: val, url: B }]);
 const p = await ctx.newPage();
+esperarCarga(p); // la consola tiene «Cargando» (loading.tsx)
 const errs = [];
 p.on("pageerror", (e) => errs.push(e.message));
 const ent = await p.request.post(`${B}/api/admin/clientes/${E}/entrar`, { headers: { origin: B } });
@@ -217,7 +219,7 @@ await p.goto(`${B}/inventario?ver=todos&q=${encodeURIComponent(comun.nombre.spli
 ok(await p.getByText(comun.lote.toUpperCase()).count() >= 1, "el inventario muestra el lote de Alegra");
 // La consola: subir el archivo, simular y aplicar (ya estaba aplicado: no cambia nada).
 const f2 = await fotos();
-await p.goto(`${B}/admin/clientes/${E}`);
+await p.goto(`${B}/admin/clientes/${E}`); await p.waitForLoadState("networkidle");
 await p.locator('[data-prueba="archivo-migracion"]').setInputFiles(path.join(DIR, "migracion-farmagenericos.json"));
 await p.getByText(/872 productos/).waitFor();
 ok(await p.getByRole("button", { name: "Aplicar migración" }).isDisabled(), "no se aplica sin simular antes");

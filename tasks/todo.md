@@ -516,6 +516,7 @@ FARMAHUB AMBALA y no se migran). Cartera de Farmagenéricos: 6 facturas por $3.9
 - [x] Adversarial: pagos en Alegra al repetir migración, middleware para parámetros repetidos, UUID estricto, soporte en la
       auditoría sin RLS, lote original en factura, IVA por tarifa que suma, colores al imprimir, logo por bytes, lotes visibles
 - [x] Consola con loading.tsx y acceso en el layout (0 errores 418 en 450 visitas)
+- [x] Batería final en verde: 36 suites + 322 pantallas + 748 en 10 equipos + 2.497 endpoints + migración 56 + habilitación 35 + unitarias 141
 - [ ] Oscar: confirmar si MATIAS figura como proveedor tecnológico (art. 11 num. 18 Res. 165/2023) para ponerlo en la factura
 - [ ] Oscar pega bloque4-046.sql → publicar → poner Farmagenéricos en factura «carta» (046 deja «tirilla» a las existentes)
 - [ ] Pendientes de UX no bloqueantes: tablas como tarjetas en celular (cartera/clientes), paginación con números, menú

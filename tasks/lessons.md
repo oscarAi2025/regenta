@@ -313,3 +313,4 @@
   middleware (x-ruta). Medido: 0 errores 418 en 450 visitas. Las pruebas esperan a que se vaya «Cargando»
   (tests/ayudas/carga.mjs): React 19 agrupa el cambio del esqueleto a la pantalla (~300 ms).
 - Un detector de errores que busca «digest» en el HTML siempre acierta (Next lo manda siempre): mirar el registro del servidor.
+- Con loading.tsx un campo aparece en el HTML antes de que React lo active: una prueba que sube un archivo justo al cargar pierde el evento. Esperar a networkidle (o a que se vaya «Cargando») antes de interactuar.
