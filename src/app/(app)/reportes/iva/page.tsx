@@ -53,7 +53,7 @@ export default async function AuxiliarIva({ searchParams }: { searchParams: Prom
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
       <Cabecera titulo="Auxiliar de IVA" sub={textoRango(r)}>
-        <a href={`/api/reportes/iva?${q}&formato=csv`} className="btn-borde" download>Descargar CSV para el contador</a>
+        <a href={`/api/reportes/iva?${q}&formato=excel`} className="btn-borde" download>Descargar en Excel para el contador</a>
       </Cabecera>
       <Pestanas actual="/reportes/iva" rango={q} />
       <p role="note" className="rounded-xl bg-aviso-soft text-aviso px-4 py-3 font-semibold">Auxiliar para tu contador, no reemplaza la declaración.

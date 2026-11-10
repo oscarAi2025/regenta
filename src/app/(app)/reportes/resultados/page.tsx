@@ -24,7 +24,7 @@ export default async function Resultados({ searchParams }: { searchParams: Promi
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
       <Cabecera titulo="Estado de resultados" sub={textoRango(r)}>
-        <a href={`/api/reportes/resultados?${q}&formato=csv`} className="btn-borde" download>Descargar CSV</a>
+        <a href={`/api/reportes/resultados?${q}&formato=excel`} className="btn-borde" download>Descargar en Excel</a>
         <a href="/gastos" className="btn-borde">Registrar un gasto</a>
       </Cabecera>
       <Pestanas actual="/reportes/resultados" rango={q} />

@@ -5,6 +5,7 @@ import { leerSesion, puede } from "@/lib/sesion";
 import { Cabecera } from "@/components/ui/Cabecera";
 import { pesos } from "@/lib/formato";
 import { EditarCliente } from "./EditarCliente";
+import { Paginas } from "@/components/ui/Paginas";
 
 export const metadata = { title: "Clientes" };
 
@@ -50,19 +51,19 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
       </form>
       {total > 0 && <p className="text-sm text-muted num -mt-2">{total <= POR_PAGINA ? `${total.toLocaleString("es-CO")} ${total === 1 ? "cliente" : "clientes"}` : `Clientes ${((pagina - 1) * POR_PAGINA + 1).toLocaleString("es-CO")} a ${Math.min(pagina * POR_PAGINA, total).toLocaleString("es-CO")} de ${total.toLocaleString("es-CO")}`}{alegra ? " · las compras incluyen las hechas en Alegra" : ""}</p>}
       <div className="tarjeta overflow-x-auto relative">
-        <table className="w-full text-[15px] min-w-[860px]">
+        <table className="tabla-tarjetas w-full text-[15px] min-w-[860px]">
           <thead className="text-left text-sm text-muted border-b border-line"><tr><th className="px-4 py-3 font-semibold">Cliente</th><th className="px-4 py-3 font-semibold">Contacto</th><th className="px-4 py-3 font-semibold text-right">Compras</th><th className="px-4 py-3 font-semibold">Última</th><th className="px-4 py-3 font-semibold text-right">Debe</th><th className="px-4 py-3 font-semibold"><span className="sr-only">Acciones</span></th></tr></thead>
           <tbody className="divide-y divide-line">
             {filas.map((f) => (
               <tr key={f.id} className="align-top">
                 <td className="px-4 py-3"><Link href={`/clientes/${f.id}`} className="font-semibold hover:underline">{f.nombre}</Link><p className="text-sm text-muted">{f.tipo_doc} {f.numero_doc}{f.dv ? `-${f.dv}` : ""}{f.ciudad ? ` · ${f.ciudad}` : ""}</p></td>
-                <td className="px-4 py-3 text-sm">{f.email ?? <span className="text-muted">sin correo</span>}<br />{f.telefono ?? ""}</td>
-                <td className="px-4 py-3 text-right num">{(f.compras + f.compras_alegra).toLocaleString("es-CO")}<p className="text-sm text-muted">{pesos(f.total_regenta + f.total_alegra)}</p>
+                <td data-etiqueta="Contacto" className="px-4 py-3 text-sm">{f.email ?? <span className="text-muted">sin correo</span>}<br />{f.telefono ?? ""}</td>
+                <td data-etiqueta="Compras" className="px-4 py-3 text-right num">{(f.compras + f.compras_alegra).toLocaleString("es-CO")}<p className="text-sm text-muted">{pesos(f.total_regenta + f.total_alegra)}</p>
                   {f.compras_alegra > 0 && <Link href={`/ventas/historial?cliente=${f.id}`} className="text-xs text-cruz font-semibold hover:underline">{f.compras_alegra} en Alegra</Link>}</td>
-                <td className="px-4 py-3 text-sm">{f.ultima ?? "—"}</td>
-                <td className="px-4 py-3 text-right num">{f.saldo ? <span className="font-semibold">{pesos(f.saldo)}</span> : <span className="text-muted">—</span>}
+                <td data-etiqueta="Última" className="px-4 py-3 text-sm">{f.ultima ?? "—"}</td>
+                <td data-etiqueta="Debe" className="px-4 py-3 text-right num">{f.saldo ? <span className="font-semibold">{pesos(f.saldo)}</span> : <span className="text-muted">—</span>}
                   <p className="text-sm text-muted">{f.bloqueado ? "crédito bloqueado" : f.cupo === null ? "sin cupo" : `cupo ${pesos(f.cupo)}`}</p></td>
-                <td className="px-4 py-3"><EditarCliente c={{ id: f.id, tipo_doc: f.tipo_doc, numero_doc: f.numero_doc, nombre: f.nombre, email: f.email ?? "", telefono: f.telefono ?? "", autoriza_datos: !!f.autoriza_datos }} /></td>
+                <td className="ancho px-4 py-3"><EditarCliente c={{ id: f.id, tipo_doc: f.tipo_doc, numero_doc: f.numero_doc, nombre: f.nombre, email: f.email ?? "", telefono: f.telefono ?? "", autoriza_datos: !!f.autoriza_datos }} /></td>
               </tr>
             ))}
             {filas.length === 0 && <tr><td colSpan={6} className="px-4 py-12 text-center text-muted">{t ? "No hay clientes con esa búsqueda." : "Aún no hay clientes: se crean al facturar con documento desde la caja."}</td></tr>}
@@ -70,11 +71,7 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
         </table>
       </div>
       {paginas > 1 && (
-        <nav className="flex flex-wrap items-center gap-2" aria-label="Páginas de clientes">
-          {pagina > 1 ? <a href={enlace(pagina - 1)} className="btn-borde h-10 text-sm" rel="prev">Anterior</a> : <span className="btn-borde h-10 text-sm opacity-40" aria-disabled="true">Anterior</span>}
-          <span className="text-sm num px-2">Página {pagina} de {paginas}</span>
-          {pagina < paginas ? <a href={enlace(pagina + 1)} className="btn-borde h-10 text-sm" rel="next">Siguiente</a> : <span className="btn-borde h-10 text-sm opacity-40" aria-disabled="true">Siguiente</span>}
-        </nav>
+        <Paginas pagina={pagina} paginas={paginas} enlace={enlace} etiqueta="Páginas de clientes" />
       )}
     </main>
   );

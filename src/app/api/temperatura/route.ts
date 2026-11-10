@@ -2,7 +2,7 @@ import { z } from "zod";
 import { cajaElegida } from "@/lib/caja-elegida";
 import { comoUsuario, puestoDeTrabajo } from "@/lib/db";
 import { conSesion, json } from "@/lib/api";
-import { csv } from "@/lib/reportes";
+import { excel, respuestaExcel } from "@/lib/reportes";
 import { datosMes, hoyBogota, mesValido, puedeRangos, puedeTemperatura } from "@/lib/temperatura";
 import { AREAS, JORNADAS, dec } from "@/lib/temperatura-comun";
 
@@ -50,7 +50,7 @@ export const PATCH = conSesion(async (s, req) => {
   return json({ ok: true });
 });
 
-/** Exporta la planilla del mes (?mes=YYYY-MM) a CSV para Excel, con los registros anulados por corrección. */
+/** Exporta la planilla del mes (?mes=YYYY-MM) a Excel (.xlsx), con los registros anulados por corrección. */
 export const GET = conSesion(async (s, req) => {
   if (!puedeTemperatura(s.rol)) return json({ error: "Tu usuario no ve la planilla de temperatura" }, 403);
   const mes = mesValido(new URL(req.url).searchParams.get("mes"));
@@ -60,8 +60,8 @@ export const GET = conSesion(async (s, req) => {
     ...r, jornada: JORNADAS[r.jornada], area: AREAS[r.area], rango_t: `${dec(r.temp_min)} a ${dec(r.temp_max)}`, rango_h: r.hum_min === null ? "Sin control" : `${dec(r.hum_min)} a ${dec(r.hum_max)}`,
     fuera: r.fuera_rango ? "Sí" : "No", estado: r.vigente ? "Vigente" : "Anulado por corrección", responsable: r.responsable.split(" (")[0],
   }));
-  const cuerpo = csv(filas, [["fecha", "Fecha"], ["jornada", "Jornada"], ["area", "Área"], ["temperatura", "Temperatura °C"], ["humedad", "Humedad relativa %"],
+  const libro = excel("Temperatura y humedad", filas, [["fecha", "Fecha"], ["jornada", "Jornada"], ["area", "Área"], ["temperatura", "Temperatura °C"], ["humedad", "Humedad relativa %"],
     ["rango_t", "Rango temperatura °C"], ["rango_h", "Rango humedad %"], ["fuera", "Fuera de rango"], ["accion", "Acción correctiva"], ["observacion", "Observación"],
     ["responsable", "Responsable"], ["creado", "Registrado"], ["estado", "Estado"], ["motivo", "Motivo de la corrección"]]);
-  return new Response(cuerpo, { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="regenta-temperatura-${mes}.csv"`, "cache-control": "no-store" } });
+  return respuestaExcel(libro, `regenta-temperatura-${mes}.xlsx`);
 });

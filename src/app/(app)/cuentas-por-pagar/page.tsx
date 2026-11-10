@@ -17,7 +17,7 @@ export default async function Pagina() {
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
       <Cabecera titulo="Cuentas por pagar" sub="Lo que les debes a tus proveedores: vencido, lo que vence esta semana y lo que está al día.">
-        <a href="/api/cuentas-por-pagar?formato=csv" className="btn-borde" download>Descargar CSV</a>
+        <a href="/api/cuentas-por-pagar?formato=excel" className="btn-borde" download>Descargar en Excel</a>
         <Link href="/compras" className="btn-borde">Compras</Link>
         <Link href="/proveedores" className="btn-borde">Proveedores</Link>
       </Cabecera>

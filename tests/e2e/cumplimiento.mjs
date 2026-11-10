@@ -3,6 +3,7 @@
 // acción obligatoria, corrección sin borrar, rangos configurables, informe mensual, CSV). Permisos de la cajera y la bodega,
 // sin errores de consola y sin desbordes en el celular. Capturas en OUT (escritorio 1440 e iPhone 13).
 // Uso: servidor con la base sembrada → BASE=http://localhost:4502 DATABASE_URL=… node tests/e2e/cumplimiento.mjs
+import { esXlsx, filasXlsx, textoXlsx } from "../ayudas/xlsx.mjs";
 import { chromium, devices } from "playwright-core";
 import { mkdirSync } from "node:fs";
 import pg from "pg";
@@ -121,10 +122,10 @@ const docDe = async (venta, nc = false) => (await pool.query(`select prefijo || 
 
   // CSV
   const r = await p.request.get(B + `/api/documentos?desde=${hoy}&hasta=${hoy}`);
-  const cuerpo = await r.text();
-  ok(r.ok() && cuerpo.charCodeAt(0) === 0xfeff && cuerpo.slice(1).split("\r\n")[0] === "Fecha;Tipo;Número;Venta;Cliente;Documento del cliente;Total;Estado DIAN;Emisión simulada;CUFE/CUDE;Motivo del rechazo", "exporta a CSV para Excel", cuerpo.split("\r\n")[0]);
-  ok([D.pos.n, D.fac.n, D.ncA.n, D.ncD.n].every((n) => cuerpo.includes(n)), "el CSV trae los cuatro documentos");
-  ok((r.headers()["content-disposition"] ?? "").includes(`regenta-documentos-${hoy}-a-${hoy}.csv`), "el CSV trae nombre con el rango");
+  const cuerpo = textoXlsx(await r.body());
+  ok(r.ok() && esXlsx(r.headers()["content-type"], r.headers()["content-disposition"]) && cuerpo.split("\n")[0] === "Fecha;Tipo;Número;Venta;Cliente;Documento del cliente;Total;Estado DIAN;Emisión simulada;CUFE/CUDE;Motivo del rechazo", "exporta a Excel (.xlsx)", cuerpo.split("\n")[0]);
+  ok([D.pos.n, D.fac.n, D.ncA.n, D.ncD.n].every((n) => cuerpo.includes(n)), "el Excel trae los cuatro documentos");
+  ok((r.headers()["content-disposition"] ?? "").includes(`regenta-documentos-${hoy}-a-${hoy}.xlsx`), "el Excel trae nombre con el rango");
 
   await p.goto(B + `/documentos?desde=${hoy}&hasta=${hoy}`); await p.waitForLoadState("networkidle");
   await p.screenshot({ path: `${OUT}/documentos-escritorio.png` });
@@ -244,9 +245,9 @@ const slot = async (area, jornada) => (await pool.query(`select id, temperatura:
 
   // CSV
   const r = await p.request.get(B + `/api/temperatura?mes=${mes}`);
-  const cuerpo = await r.text();
-  ok(r.ok() && cuerpo.charCodeAt(0) === 0xfeff && cuerpo.slice(1).split("\r\n")[0].startsWith("Fecha;Jornada;Área;Temperatura °C;Humedad relativa %"), "exporta la planilla a CSV", cuerpo.split("\r\n")[0]);
-  ok(cuerpo.split("\r\n").length === 4 && /Anulado por corrección/.test(cuerpo) && /22,5/.test(cuerpo), "el CSV trae los 3 registros, incluido el anulado");
+  const cuerpo = textoXlsx(await r.body());
+  ok(r.ok() && esXlsx(r.headers()["content-type"], r.headers()["content-disposition"]) && cuerpo.split("\n")[0].startsWith("Fecha;Jornada;Área;Temperatura °C;Humedad relativa %"), "exporta la planilla a Excel", cuerpo.split("\n")[0]);
+  ok(cuerpo.split("\n").length === 4 && /Anulado por corrección/.test(cuerpo) && /;22\.5;/.test(cuerpo), "el Excel trae los 3 registros, incluido el anulado, con la temperatura como número");
   ok(errs.length === 0, "sin errores de consola (temperatura)", errs.join(" | "));
   await ctx.close();
 }

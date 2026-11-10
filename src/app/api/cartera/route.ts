@@ -4,22 +4,22 @@ import { comoUsuario, puestoDeTrabajo } from "@/lib/db";
 import { conSesion, json } from "@/lib/api";
 import { puede } from "@/lib/sesion";
 import { cajaElegida } from "@/lib/caja-elegida";
-import { csv } from "@/lib/reportes";
+import { excel, pideExcel, respuestaExcel } from "@/lib/reportes";
 import { carteraPorCliente, esEdad, permisoCartera } from "@/lib/cartera";
 
-/** Cartera por cliente con edades (JSON, o CSV para Excel con ?formato=csv). Dueño o administrador. */
+/** Cartera por cliente con edades (JSON, o Excel con ?formato=excel). Dueño o administrador. */
 export const GET = conSesion(async (s, req) => {
   if (!permisoCartera.gestionar(s.rol)) return json({ error: "Solo el dueño o el administrador ven la cartera" }, 403);
   const sp = new URL(req.url).searchParams;
   const edad = sp.get("edad"), q = sp.get("q") ?? "";
   if (edad && !esEdad(edad)) return json({ error: "Edad no válida" }, 400);
   const filas = await comoUsuario(s, (c) => carteraPorCliente(c, s.empresa, esEdad(edad) ? edad : null, q));
-  if (sp.get("formato") !== "csv") return json({ clientes: filas });
+  if (!pideExcel(sp.get("formato"))) return json({ clientes: filas });
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
-  const cuerpo = csv(filas.map((f) => ({ ...f, cupo: f.cupo ?? "", bloqueado: f.bloqueado ? "sí" : "no" })), [
+  const libro = excel("Cartera", filas.map((f) => ({ ...f, cupo: f.cupo ?? "", bloqueado: f.bloqueado ? "sí" : "no" })), [
     ["cliente", "Cliente"], ["documento", "Documento"], ["telefono", "Teléfono"], ["facturas", "Facturas"], ["saldo", "Saldo"],
     ["e0", "0-30 días"], ["e31", "31-60 días"], ["e61", "61-90 días"], ["e91", "Más de 90 días"], ["mora", "Mora máxima (días)"], ["cupo", "Cupo"], ["bloqueado", "Crédito bloqueado"]]);
-  return new Response(cuerpo, { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="regenta-cartera-${hoy}.csv"`, "cache-control": "no-store" } });
+  return respuestaExcel(libro, `regenta-cartera-${hoy}.xlsx`);
 });
 
 const Abono = z.object({

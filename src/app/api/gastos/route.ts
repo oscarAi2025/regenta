@@ -5,7 +5,7 @@ import { cajaElegida } from "@/lib/caja-elegida";
 import { MEDIO_IDS, nombreMedio } from "@/lib/compras";
 import { CATEGORIA_IDS, nombreCategoria, puedeResultados } from "@/lib/gastos";
 import { filtroGastos, listaGastos } from "@/lib/gastos-datos";
-import { csv, hoyBogota, respuestaCsv } from "@/lib/reportes";
+import { excel, hoyBogota, pideExcel, respuestaExcel } from "@/lib/reportes";
 import { fechaReal } from "@/lib/validar";
 
 const Gasto = z.object({
@@ -21,18 +21,18 @@ const Gasto = z.object({
 const Anular = z.object({ id: z.string().uuid("Gasto no válido"), motivo: z.string().trim().min(4, "Escribe el motivo de la anulación").max(300, "El motivo admite máximo 300 caracteres") });
 const NEGADO = "Los gastos los maneja el dueño o el administrador";
 
-/** Gastos con filtros (?desde, hasta, categoria, estado, q). JSON o CSV (?formato=csv). Solo dueño o administrador. */
+/** Gastos con filtros (?desde, hasta, categoria, estado, q). JSON o Excel (?formato=excel). Solo dueño o administrador. */
 export const GET = conSesion(async (s, req) => {
   if (!puedeResultados(s.rol)) return json({ error: NEGADO }, 403);
   const sp = new URL(req.url).searchParams;
   const f = filtroGastos(sp);
   const gastos = await comoUsuario(s, (c) => listaGastos(c, s.empresa, f));
-  if (sp.get("formato") === "csv") {
+  if (pideExcel(sp.get("formato"))) {
     const filas = gastos.map((g) => ({ ...g, numero: `G-${g.numero}`, categoria: nombreCategoria(g.categoria), medio: nombreMedio(g.medio), estado: g.anulado ? "Anulado" : "Vigente",
       usuario: String(g.usuario ?? "").split(" (")[0] }));
-    return respuestaCsv(csv(filas, [["numero", "Gasto"], ["fecha", "Fecha"], ["categoria", "Categoría"], ["descripcion", "Descripción"], ["medio", "Medio"], ["referencia", "Referencia"],
+    return respuestaExcel(excel("Gastos", filas, [["numero", "Gasto"], ["fecha", "Fecha"], ["categoria", "Categoría"], ["descripcion", "Descripción"], ["medio", "Medio"], ["referencia", "Referencia"],
       ["caja", "Salió de la caja"], ["valor", "Valor"], ["estado", "Estado"], ["motivo", "Motivo de anulación"], ["usuario", "Registró"], ["creado", "Registrado"]]),
-      `regenta-gastos-${f.desde || "inicio"}-a-${f.hasta || hoyBogota()}.csv`);
+      `regenta-gastos-${f.desde || "inicio"}-a-${f.hasta || hoyBogota()}.xlsx`);
   }
   return json({ gastos });
 });

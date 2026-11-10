@@ -5,6 +5,7 @@ import { leerSesion, puede } from "@/lib/sesion";
 import { Cabecera, Dato } from "@/components/ui/Cabecera";
 import { pesos } from "@/lib/formato";
 import { ESTADO_HISTORIAL, documentosHistorial, leerFiltro, resumenHistorial } from "@/lib/historial-alegra";
+import { Paginas } from "@/components/ui/Paginas";
 
 export const metadata = { title: "Historial de Alegra" };
 
@@ -133,11 +134,7 @@ export default async function Historial({ searchParams }: { searchParams: Promis
           </table>
         </div>
         {paginas > 1 && (
-          <nav className="flex flex-wrap items-center gap-2" aria-label="Páginas del historial">
-            {pagina > 1 ? <a href={enlace(pagina - 1)} className="btn-borde h-10 text-sm" rel="prev">Anterior</a> : <span className="btn-borde h-10 text-sm opacity-40" aria-disabled="true">Anterior</span>}
-            <span className="text-sm num px-2">Página {pagina} de {paginas} · {docsTotales.toLocaleString("es-CO")} documentos</span>
-            {pagina < paginas ? <a href={enlace(pagina + 1)} className="btn-borde h-10 text-sm" rel="next">Siguiente</a> : <span className="btn-borde h-10 text-sm opacity-40" aria-disabled="true">Siguiente</span>}
-          </nav>
+          <Paginas pagina={pagina} paginas={paginas} enlace={enlace} etiqueta="Páginas del historial" resumen={`${docsTotales.toLocaleString("es-CO")} documentos`} />
         )}
       </section>
     </main>

@@ -522,3 +522,16 @@ FARMAHUB AMBALA y no se migran). Cartera de Farmagenéricos: 6 facturas por $3.9
 - [ ] Pendientes de UX no bloqueantes: tablas como tarjetas en celular (cartera/clientes), paginación con números, menú
       «Mi droguería/Salir» fijo abajo, pasar todas las descargas CSV a Excel
 
+
+## 10/11/2026 · POS electrónico de Farmagenéricos + pendientes de UX (pedido de Oscar)
+- [x] Nombre en la factura: ya sale «Software: Regenta · Fabricante: IA DEV INVESTIMENTS COLOMBIA S.A.S. · NIT» (art. 11 num. 18 y
+      art. 19 num. 10 Res. 165/2023); MATIAS no va (software propio, sin proveedor tecnológico: «si lo tuviere»)
+- [x] DIAN habilitación → Documentos equivalentes → Software propio «Regenta POS» (ID 3d3b74bd-…, PIN 77433, TestSetId f4139e2f-…)
+- [x] Registrado en MATIAS (software 5066, tipo 4) y set de pruebas iniciado
+- [ ] Set de pruebas superado → producción (DIAN «Sincronizar a Producción» si hace falta)
+- [ ] Numeración POS de producción (MUISCA / la POSF de Alegra) asociada a Regenta POS → «Traer numeraciones» → resolución en Regenta
+- [ ] Caja de Farmagenéricos ofrece POS + factura; prueba real de un POS
+- [ ] Descargas CSV → Excel (.xlsx) en todas las pantallas
+- [ ] Paginación con números de página
+- [ ] Menú: «Mi droguería / Salir» fijos abajo
+- [ ] Tablas como tarjetas en el celular (cartera, clientes…)

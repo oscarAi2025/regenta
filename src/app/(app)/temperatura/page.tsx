@@ -30,7 +30,7 @@ export default async function Temperatura({ searchParams }: { searchParams: Prom
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
       <Cabecera titulo="Temperatura y humedad" sub={<>Planilla de {mesLargo(mes)}{d.sede ? ` · sede ${d.sede}` : ""}</>}>
         <Link href={`/informes/temperatura?mes=${mes}`} className="btn-borde">Informe del mes</Link>
-        <a href={`/api/temperatura?mes=${mes}`} className="btn-borde" download>Exportar CSV</a>
+        <a href={`/api/temperatura?mes=${mes}`} className="btn-borde" download>Descargar en Excel</a>
       </Cabecera>
       <nav className="flex flex-wrap items-center gap-2" aria-label="Mes">
         <Link href={`/temperatura?mes=${otroMes(mes, -1)}`} className="btn-borde h-10 text-sm" aria-label="Mes anterior">← {mesLargo(otroMes(mes, -1)).split(" ")[0]}</Link>

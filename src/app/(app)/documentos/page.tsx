@@ -6,6 +6,7 @@ import { Cabecera, pesos } from "@/components/ui/Cabecera";
 import { ESTADOS, POR_PAGINA, TIPOS, consultaDian, contarDocumentos, leerFiltro, listarDocumentos, qs, resta, reenviosRechazados, rutaReenvio, type Documento, type EstadoDoc } from "@/lib/documentos";
 import { nombreClave } from "@/lib/dian/xml";
 import { ReenviarDoc, ReenviarTodos } from "./Reenviar";
+import { Paginas } from "@/components/ui/Paginas";
 
 export const metadata = { title: "Documentos electrónicos" };
 
@@ -99,7 +100,7 @@ export default async function Documentos({ searchParams }: { searchParams: Promi
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
       <Cabecera titulo="Documentos electrónicos" sub={`Tiquetes POS, facturas, notas y documentos soporte ante la DIAN · ${f.desde === f.hasta ? fechaLarga(f.desde) : `${fechaLarga(f.desde)} – ${fechaLarga(f.hasta)}`}`}>
-        <a href={`/api/documentos?${qs(f)}`} className="btn-borde" download>Exportar a Excel (CSV)</a>
+        <a href={`/api/documentos?${qs(f)}`} className="btn-borde" download>Descargar en Excel</a>
         <a href={`/api/documentos/xml?${qs(f)}`} className="btn-borde" download>Descargar XML (ZIP)</a>
       </Cabecera>
 
@@ -218,13 +219,9 @@ export default async function Documentos({ searchParams }: { searchParams: Promi
             ))}
           </ul>
 
-          <nav className="flex flex-wrap items-center justify-between gap-3 text-sm" aria-label="Páginas">
-            <p className="text-muted">{totalFiltro.toLocaleString("es-CO")} documento{totalFiltro === 1 ? "" : "s"} · página {Math.min(f.pagina, paginas)} de {paginas}</p>
-            <div className="flex gap-2">
-              {f.pagina > 1 ? <a href={`/documentos?${qs(f, { pagina: f.pagina - 1 })}`} className="btn-borde h-10">← Anteriores</a> : null}
-              {f.pagina < paginas ? <a href={`/documentos?${qs(f, { pagina: f.pagina + 1 })}`} className="btn-borde h-10">Siguientes →</a> : null}
-            </div>
-          </nav>
+          {paginas > 1
+            ? <Paginas pagina={f.pagina} paginas={paginas} enlace={(n) => `/documentos?${qs(f, { pagina: n })}`} etiqueta="Páginas de documentos" resumen={`${totalFiltro.toLocaleString("es-CO")} documento${totalFiltro === 1 ? "" : "s"}`} />
+            : <p className="text-sm text-muted">{totalFiltro.toLocaleString("es-CO")} documento{totalFiltro === 1 ? "" : "s"}</p>}
         </>
       )}
       <p className="text-sm text-muted max-w-3xl">El XML y el PDF de cada documento los genera el proveedor de facturación electrónica: cuando los entrega, aparecen aquí (en la emisión simulada el XML es de prueba y lo dice). Con el CUFE, CUDE o CUDS se consulta el documento en la DIAN. El documento soporte se genera desde la compra, para compras a proveedores no obligados a facturar.</p>

@@ -3,6 +3,7 @@
 // conteo físico con diferencias y cierre que deja existencias = contadas, conteo cerrado inmodificable, sin errores de
 // consola y pantallas sin desborde en el celular. Guarda capturas de escritorio (1440) y iPhone 13.
 // Uso: servidor con la base sembrada → BASE=http://localhost:4501 DATABASE_URL=… node tests/e2e/inventario-control.mjs
+import { esXlsx, textoXlsx } from "../ayudas/xlsx.mjs";
 import { chromium, devices } from "playwright-core";
 import { mkdirSync } from "node:fs";
 import pg from "pg";
@@ -169,9 +170,9 @@ const D = await entrar("Carlos");
   await p.screenshot({ path: `${OUT}/kardex-1440.png`, fullPage: true });
   await p.selectOption("#k-lote", L2.lote_id); await p.getByRole("button", { name: "Filtrar" }).click(); await p.waitForLoadState("networkidle");
   ok(new RegExp(`cuadra con las existencias actuales del lote: ${(await stockLote(L2.lote_id)).toLocaleString("es-CO")} und`).test(await p.locator("#kardex").innerText()), "kardex por lote cuadra con el lote");
-  const csv = await p.request.get(`${B}/api/inventario/kardex?producto=${P.id}&formato=csv`);
-  const txt = await csv.text();
-  ok(csv.ok() && /text\/csv/.test(csv.headers()["content-type"]) && /Saldo \(und\)/.test(txt) && /Devolución/.test(txt), "kardex exporta CSV", csv.headers()["content-disposition"]);
+  const xl = await p.request.get(`${B}/api/inventario/kardex?producto=${P.id}&formato=excel`);
+  const txt = textoXlsx(await xl.body());
+  ok(xl.ok() && esXlsx(xl.headers()["content-type"], xl.headers()["content-disposition"]) && /Saldo \(und\)/.test(txt) && /Devolución/.test(txt), "kardex se descarga en Excel", xl.headers()["content-disposition"]);
 
   // 4) Conteo físico: diferencias y cierre que deja existencias = contadas
   await ir(p, "/inventario/conteos");
