@@ -502,6 +502,9 @@ FARMAHUB AMBALA y no se migran). Cartera de Farmagenéricos: 6 facturas por $3.9
 - [x] Historial de Alegra como informe: rango de fechas, resumen, por mes, productos y clientes, paginación y Excel; tarjeta en Ventas e Informes
 - [x] Clientes: compras de Regenta + Alegra, ciudad, paginación (antes 0 compras y corte en 200)
 - [x] Pruebas: factura-carta.mjs 39/39, migracion.mjs 54/54, letras unitaria
-- [ ] Oscar pega db/produccion/bloque4-045.sql → publicar → subir el logo de Farmagenéricos desde la consola → comprobar
+- [x] Oscar pegó bloque4-045.sql → publicado (a31b110) → logo de Farmagenéricos subido desde «Mi droguería» → comprobado en producción:
+      FGE1 en carta con logo, QR y CUFE; clientes 255; historial $589.660.131 / 1.035 doc.; cartera $3.993.462; Excel 200;
+      inventario 413 activos (los 474 inactivos de Alegra quedan retirados, como en Alegra)
+- [ ] Factura carta: «1 unidad» en singular (corregido en la rama; sale con la próxima publicación)
 - [ ] POS electrónico de Farmagenéricos: falta su habilitación DIAN (set de pruebas POS); mientras, la caja solo factura
 

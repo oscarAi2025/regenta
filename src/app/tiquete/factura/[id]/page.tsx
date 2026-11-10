@@ -62,6 +62,7 @@ export default async function Factura({ params, searchParams }: { params: Promis
   const bruto = lineas.reduce((a, l) => a + l.total + l.descuento, 0); // con IVA, antes de descuentos (como el precio de venta)
   const descuentos = lineas.reduce((a, l) => a + l.descuento, 0);
   const ivaTotal = lineas.reduce((a, l) => a + l.iva, 0);
+  const cantidadTotal = lineas.reduce((a, l) => a + l.cantidad, 0);
   const qr = doc?.qr && /^https?:\/\//.test(doc.qr) ? await QRCode.toString(doc.qr, { type: "svg", margin: 0, errorCorrectionLevel: "M" }) : null;
   const nombre = v.nombre_comercial || v.razon_social;
   const credito = v.condicion === "credito";
@@ -187,7 +188,7 @@ export default async function Factura({ params, searchParams }: { params: Promis
         <div>
           <p><b>Valor en letras:</b></p>
           <p className="letras">{pesosEnLetras(v.total)}</p>
-          <p style={{ marginTop: "3mm" }}><b>{lineas.length}</b> {lineas.length === 1 ? "producto" : "productos"} · <b>{lineas.reduce((a, l) => a + l.cantidad, 0).toLocaleString("es-CO")}</b> unidades de venta</p>
+          <p style={{ marginTop: "3mm" }}><b>{lineas.length}</b> {lineas.length === 1 ? "producto" : "productos"} · <b>{cantidadTotal.toLocaleString("es-CO")}</b> {cantidadTotal === 1 ? "unidad" : "unidades"} de venta</p>
           {credito && <p style={{ marginTop: "2mm" }}>Esta factura se paga a más tardar el <b>{v.vence ? fechaLarga(v.vence) : "—"}</b>. Los abonos se registran con recibo de caja.</p>}
           {v.estado === "anulada" && <p style={{ marginTop: "4mm" }}><span className="sello">ANULADA</span></p>}
         </div>
