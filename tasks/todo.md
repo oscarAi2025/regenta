@@ -490,4 +490,5 @@ FARMAHUB AMBALA y no se migran). Cartera de Farmagenéricos: 6 facturas por $3.9
 - [x] Corregir lotes (pedido de Oscar): migración 044 corregir_lote (código y fecha, motivo, auditoría, sin tocar existencias;
       el código de un lote con alerta INVIMA no cambia) + PATCH /api/inventario/lotes/[id] + /inventario/lotes con la lista de
       vencidos con existencias; tests/e2e/lotes-corregir.mjs 25/25
-- [ ] Oscar pega db/produccion/bloque4-044.sql → publicar → comprobar en producción
+- [x] Oscar pegó bloque4-044.sql (Success) → publicado en main (e57fb99) → en producción la ruta nueva responde (401 sin sesión)
+- [ ] Intermitente: tras una baja, el historial de /inventario/ajustes a veces no se refresca sin recargar (1 de 3 corridas; router.refresh del App Router)
