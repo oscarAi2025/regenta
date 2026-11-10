@@ -109,6 +109,11 @@
      "voz": "Lo más rápido es buscarlo en el catálogo Regenta, que tiene casi diez mil productos: escribes el nombre o escaneas el código de barras, ¡y solo pones tu precio! Si no está, lo creas a mano en «Producto nuevo»."
     },
     {
+     "img": "10b-producto-lote",
+     "texto": "Si el producto ya está en tu droguería, llena «Lote y fecha de vencimiento»: el lote, la fecha de vencimiento, la cantidad en unidades (Regenta te muestra cuántas cajas son) y, si quieres, el costo por unidad sin IVA. Te avisa si vence en menos de 90 días y no deja entrar un lote vencido. Si todavía no lo tienes, déjalo vacío: entra al recibir la factura del proveedor. Pulsa «Agregar a mi droguería».",
+     "voz": "Y algo vital para tu droguería: si ya tienes el producto, llena el lote y la fecha de vencimiento, con la cantidad en unidades. Regenta te avisa si vence pronto, no deja entrar un lote vencido, y siempre vende primero lo que vence antes. Pulsa «Agregar a mi droguería». ¡Listo!"
+    },
+    {
      "img": "11-importar",
      "texto": "«Cargar productos desde Excel»: sube el archivo de tu sistema anterior (.xlsx o .csv) o descarga la plantilla y llénala, una fila por producto; el lote, el vencimiento y las existencias son opcionales. Antes de guardar ves qué va a pasar con cada producto; nada se guarda hasta que confirmas.",
      "voz": "¿Tienes muchos productos? Cárgalos desde Excel. Sube el archivo de tu sistema anterior o descarga la plantilla y llénala. Antes de guardar ves exactamente qué va a pasar, y nada se guarda hasta que tú confirmas."
@@ -422,9 +427,9 @@
    "intro": "Estamos contigo desde la primera venta.",
    "pasos": [
     {
-     "img": "02-inicio",
-     "texto": "Pregúntale a Regenta IA dentro del programa, o escríbenos por WhatsApp al +57 321 214 1970 o al correo gerencia@farmagenericoscolombia.com. Te acompañamos en tu primera venta.",
-     "voz": "¿Tienes alguna duda? Pregúntale a Regenta IA, o escríbenos por WhatsApp al trescientos veintiuno, doscientos catorce, diecinueve setenta. ¡Con gusto te acompañamos en tu primera venta! ¡Te damos la bienvenida a Regenta!"
+     "img": "53-ayuda",
+     "texto": "En el menú, «Ayuda» tiene este video formativo, con sus capítulos para ir directo al tema que necesitas, y esta guía en PDF para abrirla o descargarla. ¿Más dudas? Pregúntale a Regenta IA dentro del programa, o escríbenos por WhatsApp al +57 321 214 1970 o al correo gerencia@farmagenericoscolombia.com. Te acompañamos en tu primera venta.",
+     "voz": "Y cuando lo necesites, en el menú tienes «Ayuda», con este video por capítulos y la guía en PDF. ¿Tienes alguna duda? Pregúntale a Regenta IA, o escríbenos por WhatsApp al trescientos veintiuno, doscientos catorce, diecinueve setenta. ¡Con gusto te acompañamos en tu primera venta! ¡Te damos la bienvenida a Regenta!"
     }
    ]
   }

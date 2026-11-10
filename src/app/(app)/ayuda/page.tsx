@@ -15,7 +15,7 @@ export default function PaginaAyuda() {
       <section className="grid md:grid-cols-2 gap-4" aria-label="Guía y soporte">
         <div className="tarjeta p-5 grid gap-3 content-start">
           <h2 className="titulo text-xl">Guía de usuario en PDF</h2>
-          <p className="text-muted">43 páginas con imágenes reales: primer acceso, caja, factura electrónica, inventario por lote, cartera, cumplimiento, reportes y cierre de turno. Imprímela o guárdala en el celular.</p>
+          <p className="text-muted">Con imágenes reales, paso a paso: primer acceso, caja, factura electrónica, inventario por lote, cartera, cumplimiento, reportes y cierre de turno. Imprímela o guárdala en el celular.</p>
           <div className="flex flex-wrap gap-2">
             <a href="/manual/regenta-guia-de-usuario.pdf" target="_blank" rel="noopener" className="btn-primario">Abrir la guía</a>
             <a href="/manual/regenta-guia-de-usuario.pdf" download="Regenta - Guia de usuario.pdf" className="btn-borde">Descargar PDF</a>

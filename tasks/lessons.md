@@ -323,3 +323,11 @@
   (consola → Sistema muestra la última migración aplicada, o la consulta a regenta_migraciones que pega Oscar). Y
   después del despliegue, abrir /caja e /inicio de verdad (con captura), no solo hacer fetch: el error de Next llega
   dentro del HTML en streaming y un fetch con «ok» no prueba nada.
+
+## 10/11/2026 · «Producto agotado» tras crearlo (bajalenguas caja x 500)
+- El formulario de producto no tenía dónde poner existencias: el usuario escribió sus 36 cajas en «Unidades por caja» y el
+  producto quedó sin lotes (agotado) y con precios absurdos. Regla: todo formulario de alta debe ofrecer el dato que el
+  usuario espera poner ahí (en droguerías: lote, vencimiento y cantidad); las casillas que se confunden llevan aclaración
+  («no son las existencias») y avisos cuando el dato no cuadra con otro (nombre «caja x N», precio por unidad × unidades).
+- Los límites de cantidad tienen que ser los del negocio, no un número cómodo (antes 1.000 unidades por caja en el
+  formulario y 10.000 en la importación: incoherente).
