@@ -314,3 +314,12 @@
   (tests/ayudas/carga.mjs): React 19 agrupa el cambio del esqueleto a la pantalla (~300 ms).
 - Un detector de errores que busca «digest» en el HTML siempre acierta (Next lo manda siempre): mirar el registro del servidor.
 - Con loading.tsx un campo aparece en el HTML antes de que React lo active: una prueba que sube un archivo justo al cargar pierde el evento. Esperar a networkidle (o a que se vaya «Cargando») antes de interactuar.
+
+## 10/11/2026 · Publicar sin comprobar la migración tumbó la caja (incidente)
+- Se publicó el código que usa columnas de la migración 046 con el «listo» de Oscar, sin comprobar que la migración
+  estuviera en la base de producción. No estaba: /caja y /equipo dieron error de servidor. Se volvió producción a la
+  versión anterior con un commit nuevo (commit-tree del árbol anterior; nada se borra) en minutos.
+- Regla: antes de empujar a main un código que necesita una migración, VERIFICAR en producción que la migración está
+  (consola → Sistema muestra la última migración aplicada, o la consulta a regenta_migraciones que pega Oscar). Y
+  después del despliegue, abrir /caja e /inicio de verdad (con captura), no solo hacer fetch: el error de Next llega
+  dentro del HTML en streaming y un fetch con «ok» no prueba nada.
