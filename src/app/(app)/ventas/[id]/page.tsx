@@ -79,7 +79,7 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
       </article>
       <section className="grid gap-4">
         <Link href="/ventas" className="text-sm font-semibold text-cruz">← Volver a ventas</Link>
-        <Imprimir id={v.id} />
+        <Imprimir id={v.id} factura={v.tipo_doc === "factura"} />
         <div className="tarjeta p-5">
           <h2 className="titulo text-xl">Estado</h2>
           {v.estado === "anulada" ? (

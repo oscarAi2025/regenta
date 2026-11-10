@@ -288,3 +288,14 @@
   y como último recurso se recarga. Medido después: 0 de 60, sin recargas ni pérdida del mensaje de éxito.
 - Regla: no usar router.refresh() directo; siempre `void refrescar()`. Un fallo intermitente en e2e es real hasta medirlo
   en bucle; leer el cuerpo de la respuesta en el reproductor cambia los tiempos y oculta el fallo.
+
+## 10/11/2026 · Datos migrados que la pantalla no muestra (corrección de Oscar)
+- Migrar los datos no basta: hay que mirar CADA pantalla donde el usuario los va a buscar. Clientes contaba solo las
+  compras de Regenta (los 255 de Alegra salían «0 compras») y cortaba en 200 sin avisar; Inventario «Todo» cortaba en
+  200 de 872; el historial de Alegra solo se veía con un botón aparte y sin informes. Regla: toda lista con `limit`
+  dice «N a M de T» y pagina; nada se corta en silencio.
+- Una droguería que vende a empresas necesita la factura en tamaño carta con logo, cliente completo y lote/vencimiento
+  por producto; la tirilla térmica es para el mostrador. Una factura agrupa por producto vendido (los lotes van dentro),
+  nunca reparte la cantidad en decimales por lote.
+- Lo que el usuario usa para trabajar fuera (inventario, historial) se descarga en Excel real (.xlsx), no solo CSV.
+- En la demo pública no se suben imágenes (logo): cualquiera la usa.

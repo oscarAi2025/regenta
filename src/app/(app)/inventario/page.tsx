@@ -12,13 +12,16 @@ export const metadata = { title: "Inventario" };
 const fmt = (d: string | null) => (d ? new Date(d + "T00:00:00").toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" }) : "—");
 const dias = (d: string | null) => (d ? Math.round((Date.parse(d + "T00:00:00") - Date.now()) / 864e5) : null);
 
-type Fila = { id: string; nombre: string; laboratorio: string | null; unidades_por_caja: number; precio_caja: number; unidades: number; stock_minimo: number;
+type Fila = { id: string; nombre: string; laboratorio: string | null; unidades_por_caja: number; precio_caja: number; unidades: number; stock_minimo: number; total: number;
   lotes: { lote: string; vence: string | null; unidades: number; costo: number | null; bloqueado: boolean }[] };
 
-export default async function Inventario({ searchParams }: { searchParams: Promise<{ ver?: string; q?: string }> }) {
+const POR_PAGINA = 100;
+
+export default async function Inventario({ searchParams }: { searchParams: Promise<{ ver?: string; q?: string; pagina?: string }> }) {
   const s = await leerSesion();
   if (!s) redirect("/entrar");
-  const { ver = "vencen", q = "" } = await searchParams;
+  const { ver = "vencen", q = "", pagina: pg = "1" } = await searchParams;
+  const pagina = Math.min(Math.max(Number.parseInt(pg, 10) || 1, 1), 10000);
   const costos = puede.verCostos(s.rol);
   const datos = await comoUsuario(s, async (c) => {
     const resumen = (await c.query(`
@@ -32,14 +35,14 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
     const filtro = ver === "agotados" ? "and coalesce(st.unidades, 0) <= 0" : ver === "todos" ? "" : "and st.proximo <= current_date + 90";
     const palabras = q.trim().toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6).map(sinComodines);
     const filas: Fila[] = (await c.query(`
-      select p.id, p.nombre, p.laboratorio, p.unidades_por_caja, p.precio_caja::float, p.stock_minimo, coalesce(st.unidades, 0)::int unidades,
+      select p.id, p.nombre, p.laboratorio, p.unidades_por_caja, p.precio_caja::float, p.stock_minimo, coalesce(st.unidades, 0)::int unidades, count(*) over ()::int total,
         coalesce((select json_agg(json_build_object('lote', l.lote, 'vence', l.vence, 'unidades', l.unidades, 'bloqueado', l.bloqueado, 'costo', ${costos ? "(select costo_unidad::float from lote_costos where lote_id = l.lote_id)" : "null"}) order by l.vence nulls last)
                   from v_stock_lotes l where l.producto_id = p.id and l.unidades > 0), '[]') lotes
       from productos p
       left join lateral (select sum(unidades) filter (where (vence is null or vence >= current_date) and not bloqueado) unidades, min(vence) filter (where unidades > 0) proximo from v_stock_lotes where producto_id = p.id) st on true
       where p.empresa_id = $1 and p.activo ${filtro}
         and (cardinality($2::text[]) = 0 or (select bool_and(sin_tildes(p.nombre || ' ' || coalesce(p.laboratorio, '')) like '%' || sin_tildes(w) || '%') from unnest($2::text[]) w))
-      order by st.proximo nulls last, p.nombre limit 200`, [s.empresa, palabras])).rows;
+      order by st.proximo nulls last, p.nombre limit ${POR_PAGINA} offset $3`, [s.empresa, palabras, (pagina - 1) * POR_PAGINA])).rows;
     // Lotes con existencias que entraron sin costo (los recibe la bodega): el dueño o el administrador lo completan.
     const sinCosto = costos ? (await c.query(`select l.lote_id, p.nombre, l.lote, l.unidades, p.unidades_por_caja,
         (select m.motivo from movimientos m where m.lote_id = l.lote_id and m.tipo = 'compra' order by m.creado desc limit 1) motivo,
@@ -54,6 +57,10 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
   });
   const kardex = puede.moverInventario(s.rol);
   const tabs = [["vencen", "Vencen en 90 días"], ["agotados", "Agotados"], ["todos", "Todo"]] as const;
+  if (pagina > 1 && datos.filas.length === 0) redirect(`/inventario?ver=${ver}${q ? `&q=${encodeURIComponent(q)}` : ""}`); // página que ya no existe
+  const total = datos.filas[0]?.total ?? 0, paginas = Math.ceil(total / POR_PAGINA);
+  const enlace = (n: number) => `?ver=${ver}${q ? `&q=${encodeURIComponent(q)}` : ""}${n > 1 ? `&pagina=${n}` : ""}`;
+  const costosTexto = paginas > 1 ? " · busca un producto o descarga todo en Excel" : "";
   return (
     <main className="p-4 sm:p-6">
       <Cabecera titulo="Inventario" sub={kardex ? "Lotes, vencimientos y lo que se acabó. Toca un producto para ver su kardex." : "Lotes, vencimientos y lo que se acabó."}>
@@ -90,7 +97,9 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
         <input type="hidden" name="ver" value={ver} />
         <label htmlFor="q" className="sr-only">Buscar en el inventario</label>
         <input id="q" name="q" defaultValue={q} placeholder="Buscar producto" className="h-11 rounded-xl border border-line bg-surface px-4 flex-1 min-w-48" />
+        <a href="/api/inventario/exportar" download className="btn-borde h-11 inline-flex items-center">Descargar en Excel</a>
       </form>
+      {total > 0 && <p className="mt-3 text-sm text-muted num">{total <= POR_PAGINA ? `${total.toLocaleString("es-CO")} ${total === 1 ? "producto" : "productos"}` : `Productos ${((pagina - 1) * POR_PAGINA + 1).toLocaleString("es-CO")} a ${Math.min(pagina * POR_PAGINA, total).toLocaleString("es-CO")} de ${total.toLocaleString("es-CO")}`}{costosTexto}</p>}
       <div className="mt-4 bg-surface border border-line rounded-2xl overflow-x-auto">
         <table className="w-full text-sm min-w-[720px]">
           <thead className="text-left text-muted border-b border-line">
@@ -122,6 +131,13 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
           </tbody>
         </table>
       </div>
+      {paginas > 1 && (
+        <nav className="mt-4 flex flex-wrap items-center gap-2" aria-label="Páginas del inventario">
+          {pagina > 1 ? <a href={enlace(pagina - 1)} className="btn-borde h-10 text-sm" rel="prev">Anterior</a> : <span className="btn-borde h-10 text-sm opacity-40" aria-disabled="true">Anterior</span>}
+          <span className="text-sm num px-2">Página {pagina} de {paginas}</span>
+          {pagina < paginas ? <a href={enlace(pagina + 1)} className="btn-borde h-10 text-sm" rel="next">Siguiente</a> : <span className="btn-borde h-10 text-sm opacity-40" aria-disabled="true">Siguiente</span>}
+        </nav>
+      )}
     </main>
   );
 }

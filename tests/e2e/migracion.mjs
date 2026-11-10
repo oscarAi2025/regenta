@@ -159,12 +159,49 @@ await p.goto(`${B}/ventas/historial?q=${encodeURIComponent(ventas.at(-1).lineas[
 ok(await p.locator("tbody tr").count() >= 1 && await p.getByText(/Nada coincide/).count() === 0, "el historial busca por producto");
 const dia = ventas.find((v) => v.estado === "por_cobrar").fecha_hora.slice(0, 10);
 await p.goto(`${B}/ventas?dia=${dia}`);
-ok(await p.getByText(/Historial de Alegra/).count() >= 1 && await p.locator("tbody a", { hasText: "POSF" }).count() === 0, "las ventas del día no mezclan Alegra y enlazan al historial");
+ok(await p.getByText(/Historial de ventas de Alegra/).count() >= 1 && await p.locator("tbody a", { hasText: "POSF" }).count() === 0, "las ventas del día no mezclan Alegra y enlazan al historial");
 const rep = await (await p.request.get(`${B}/api/reportes?desde=${dia}&hasta=${dia}`)).json().catch(() => null);
 ok(!rep || JSON.stringify(rep).includes('"ventas":0') || !JSON.stringify(rep).includes(String(porCobrar[0].saldo)), "los informes de Regenta no cuentan las ventas de Alegra", JSON.stringify(rep).slice(0, 200));
 const cid = (await q(`select cliente_id from ventas where id = $1`, [ventaAlegra.id]))[0].cliente_id;
 await p.goto(`${B}/clientes/${cid}`);
 ok(/Compras en Alegra \(1/.test(await p.locator(`a[href="/ventas/historial?cliente=${cid}"]`).first().innerText().catch(() => "")), "la ficha del cliente enlaza sus compras en Alegra", p.url() + " " + (await p.locator("main").innerText()).slice(0, 400));
+// ── Historial de Alegra como informe: resumen, por mes, productos, clientes, páginas y Excel
+{
+  const vivas = ventas.filter((v) => v.estado !== "anulada");
+  const facturado = vivas.reduce((a, v) => a + v.total, 0);
+  await p.goto(`${B}/ventas/historial`);
+  const main = await p.locator("main").innerText();
+  ok(main.includes(pesosTexto(facturado)) && main.includes(`${vivas.length.toLocaleString("es-CO")} documentos`), "el historial resume lo facturado en Alegra", `${pesosTexto(facturado)} · ${vivas.length}`);
+  const porProd = new Map(); for (const v of vivas) for (const l of v.lineas) porProd.set(l.nombre, (porProd.get(l.nombre) ?? 0) + l.total);
+  const top = [...porProd].sort((a, b) => b[1] - a[1])[0];
+  ok((await p.locator('section[aria-labelledby="productos-t"] tbody tr').first().innerText()).includes(top[0]), "el producto más vendido es el que dicen los datos de Alegra", top[0]);
+  const meses = new Set(vivas.map((v) => v.fecha_hora.slice(0, 7)));
+  ok(await p.locator('section[aria-labelledby="meses-t"] li').count() === meses.size, "ventas por mes: un renglón por cada mes con ventas", `${meses.size}`);
+  ok(await p.locator('section[aria-labelledby="clientes-t"] li').count() >= 1, "lista los clientes que más compraron");
+  ok(await p.getByText(`Página 1 de ${Math.ceil(ventas.length / 100)}`).count() === 1, "el historial pagina todos los documentos (no solo los 300 últimos)");
+  await p.getByRole("link", { name: "Siguiente" }).click(); await p.waitForURL(/pagina=2/);
+  ok(await p.locator('section[aria-labelledby="docs-t"] tbody tr').count() === 100, "la página 2 trae otros 100 documentos");
+  const x = await p.request.get(`${B}/api/ventas/historial/exportar`);
+  const buf = Buffer.from(await x.body());
+  const { readSheet } = await import("read-excel-file/node");
+  const h1 = await readSheet(buf, 1), h2 = await readSheet(buf, 2);
+  const lineasTot = ventas.reduce((a, v) => a + v.lineas.length, 0);
+  ok(x.ok() && /spreadsheetml/.test(x.headers()["content-type"]) && h1.length === ventas.length + 1 && h2.length === lineasTot + 1, "el historial se descarga en Excel: todos los documentos y todas las líneas", `${h1.length - 1}/${ventas.length} · ${h2.length - 1}/${lineasTot}`);
+  const iTot = h1[0].indexOf("Total"), iEst = h1[0].indexOf("Estado");
+  ok(Math.round(h1.slice(1).filter((r) => r[iEst] !== "Anulada").reduce((a, r) => a + r[iTot], 0)) === Math.round(facturado), "el Excel suma lo mismo que Alegra");
+  const mes = [...meses].sort()[0];
+  const enMes = ventas.filter((v) => v.fecha_hora.startsWith(mes)).length;
+  await p.goto(`${B}/ventas/historial?desde=${mes}-01&hasta=${mes}-31`.replace(/-31$/, "-" + new Date(+mes.slice(0, 4), +mes.slice(5, 7), 0).getDate()));
+  ok(await p.locator('section[aria-labelledby="docs-t"] tbody tr').count() === Math.min(enMes, 100), "filtra el historial por fechas", `${mes}: ${enMes}`);
+  const rangoA = ventas.map((v) => v.fecha_hora.slice(0, 10)).sort();
+  await p.goto(`${B}/reportes?desde=${rangoA[0]}&hasta=${rangoA.at(-1)}`);
+  ok(await p.getByText(/En este periodo también vendiste/).count() === 1, "los informes avisan cuánto se vendió en Alegra en el periodo y enlazan al historial");
+  const nCli = (await q(`select count(*)::int n from clientes where empresa_id = $1`, [E]))[0].n;
+  await p.goto(`${B}/clientes`);
+  const tc = await p.locator("main").innerText();
+  ok(nCli > 100 ? tc.includes(`de ${nCli.toLocaleString("es-CO")}`) : tc.includes(`${nCli} clientes`), "clientes: dice cuántos hay y pagina (no corta en 200)", `${nCli}`);
+  ok(await p.locator('a[href^="/ventas/historial?cliente="]').count() >= 1 && /en Alegra/.test(tc), "clientes: las compras incluyen las hechas en Alegra");
+}
 await p.goto(`${B}/inventario?ver=todos&q=${encodeURIComponent(comun.nombre.split(" ")[0])}`);
 ok(await p.getByText(comun.lote.toUpperCase()).count() >= 1, "el inventario muestra el lote de Alegra");
 // La consola: subir el archivo, simular y aplicar (ya estaba aplicado: no cambia nada).

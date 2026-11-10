@@ -1,6 +1,6 @@
 "use client";
 import { pesos } from "@/lib/formato";
-import { imprimirTiquete, type Impresora } from "@/lib/impresion";
+import { imprimirFactura, imprimirTiquete, imprimirVenta, type Impresora } from "@/lib/impresion";
 import { imprimirProvisional } from "@/lib/sin-conexion";
 import type { Resultado } from "./tipos";
 
@@ -10,6 +10,7 @@ const fechaCorta = (f: string) => new Date(f + "T00:00:00").toLocaleDateString("
 export function Hecho({ hecho, control, impresora, cambiarImpresora, nombreEmpresa, nueva, pedido }: {
   hecho: Resultado; control: boolean; impresora: Impresora; cambiarImpresora: (i: Impresora) => void; nombreEmpresa: string; nueva: () => void; pedido: string | null;
 }) {
+  const esFactura = !hecho.provisional && hecho.documento?.tipo === "factura";
   return (
     <div className="px-6 pt-6">
       {hecho.provisional ? <>
@@ -46,14 +47,28 @@ export function Hecho({ hecho, control, impresora, cambiarImpresora, nombreEmpre
       </div>}
       {hecho.documento?.cufe && <p className="mt-2 text-[11px] text-muted break-all font-cond">{hecho.documento.tipo === "factura" ? "CUFE" : "CUDE"} {hecho.documento.cufe}</p>}
       <div className="mt-6 grid grid-cols-[auto_1fr] gap-2">
-        <button onClick={() => hecho.provisional ? imprimirProvisional(hecho.provisional, nombreEmpresa, impresora.ancho) : imprimirTiquete(hecho.venta.venta_id, impresora.ancho)} className="h-14 px-4 rounded-xl border border-line font-semibold">Imprimir <kbd className="ml-1">F8</kbd></button>
+        <button onClick={() => hecho.provisional ? imprimirProvisional(hecho.provisional, nombreEmpresa, impresora.ancho) : imprimirVenta(hecho.venta.venta_id, hecho.documento?.tipo, impresora)} className="h-14 px-4 rounded-xl border border-line font-semibold">
+          {esFactura ? (impresora.factura === "carta" ? "Imprimir factura" : "Imprimir tirilla") : "Imprimir"} <kbd className="ml-1">F8</kbd></button>
         <button onClick={nueva} className="h-14 rounded-xl bg-ink text-white text-lg font-semibold">Nueva venta <kbd className="ml-2 !bg-transparent !text-white/70 !border-white/30">Enter</kbd></button>
       </div>
+      {esFactura && (
+        <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+          {impresora.factura === "carta"
+            ? <button type="button" onClick={() => imprimirTiquete(hecho.venta.venta_id, impresora.ancho)} className="underline font-semibold">Imprimir también la tirilla</button>
+            : <button type="button" onClick={() => imprimirFactura(hecho.venta.venta_id)} className="underline font-semibold">Imprimir la factura en tamaño carta</button>}
+          <a href={`/tiquete/factura/${hecho.venta.venta_id}`} target="_blank" rel="noopener" className="underline font-semibold">Ver la factura</a>
+        </p>
+      )}
       <details className="mt-3 text-sm text-muted">
         <summary className="cursor-pointer">Impresora de esta caja</summary>
         <div className="mt-2 grid gap-2">
-          <label className="flex items-center gap-2"><input type="checkbox" checked={impresora.auto} onChange={(e) => cambiarImpresora({ ...impresora, auto: e.target.checked })} /> Imprimir la tirilla al cobrar</label>
-          <label className="flex items-center gap-2">Papel
+          <label className="flex items-center gap-2"><input type="checkbox" checked={impresora.auto} onChange={(e) => cambiarImpresora({ ...impresora, auto: e.target.checked })} /> Imprimir al cobrar</label>
+          <label className="flex items-center gap-2">Facturas electrónicas
+            <select className="campo !h-9 !w-auto" value={impresora.factura} onChange={(e) => cambiarImpresora({ ...impresora, factura: e.target.value as Impresora["factura"] })}>
+              <option value="carta">Tamaño carta (con logo y datos completos)</option><option value="tirilla">Tirilla de la térmica</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2">Papel de la tirilla
             <select className="campo !h-9 !w-auto" value={impresora.ancho} onChange={(e) => cambiarImpresora({ ...impresora, ancho: e.target.value as Impresora["ancho"] })}>
               <option value="80">80 mm</option><option value="58">58 mm</option>
             </select>

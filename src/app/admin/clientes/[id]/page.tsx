@@ -13,6 +13,7 @@ import { Facturacion } from "./Facturacion";
 import { NOMBRE_NUMERACION } from "@/lib/dian/tipos";
 import { Eliminar } from "./Eliminar";
 import { Fiscal } from "./Fiscal";
+import { SubirLogo } from "@/components/SubirLogo";
 import { PagoManual } from "./PagoManual";
 
 export const metadata = { title: "Cliente" };
@@ -76,6 +77,7 @@ export default async function Cliente({ params }: { params: Promise<{ id: string
       </div>
       {!e.demo && <Fiscal empresa={id} nitFijo={d.resoluciones.some((r) => !r.pruebas)} inicial={{ razon_social: e.razon_social ?? "", nombre_comercial: e.nombre_comercial ?? "", nit: String(e.nit ?? ""),
         responsable_iva: !!e.responsable_iva, direccion: e.direccion ?? "", ciudad: e.ciudad ?? "", telefono: e.telefono ?? "", email: e.email ?? "" }} />}
+      {!e.demo && <SubirLogo endpoint={`/api/admin/clientes/${id}/logo`} inicial={e.logo ?? null} />}
       {!e.demo && <Habilitacion empresa={id} />}
       {!e.demo && <Migracion empresa={id} />}
       {!e.demo && <Facturacion empresa={id} cliente={e.matias_cliente ?? ""} emisor={process.env.REGENTA_DIAN ?? "simulado"} complementario={!!e.dian_complementario}

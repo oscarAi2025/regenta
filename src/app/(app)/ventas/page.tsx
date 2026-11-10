@@ -26,7 +26,9 @@ export default async function Ventas({ searchParams }: { searchParams: Promise<{
     left join documentos_dian d on d.venta_id = v.id and d.tipo = v.tipo_doc
     where v.empresa_id = $1 and v.origen is null and ${dian ? "d.estado = any($3)" : "(v.creado at time zone 'America/Bogota')::date = $2::date"}
     order by v.creado desc limit 300`, dian ? [s.empresa, dia, dian === "pendiente" ? ["pendiente", "enviando"] : ["rechazado"]] : [s.empresa, dia])).rows);
-  const historial = await comoUsuario(s, async (c) => (await c.query(`select exists (select 1 from ventas_externas where empresa_id = $1) h`, [s.empresa])).rows[0].h as boolean);
+  const historial = await comoUsuario(s, async (c) => (await c.query(`select count(*)::int n, coalesce(sum(total) filter (where estado <> 'anulada'), 0)::float total,
+    min(fecha)::text desde, max(fecha)::text hasta from ventas_externas where empresa_id = $1`, [s.empresa])).rows[0] as { n: number; total: number; desde: string | null; hasta: string | null });
+  const corta = (d: string) => new Date(d + "T12:00:00").toLocaleDateString("es-CO", { month: "short", year: "numeric" });
   const cerradas = filas.filter((f) => f.estado === "cerrada");
   // Neto: lo devuelto no es venta (igual que «Ventas netas» en el turno).
   const total = cerradas.reduce((a, f) => a + f.total - f.devuelto, 0);
@@ -41,8 +43,14 @@ export default async function Ventas({ searchParams }: { searchParams: Promise<{
         </>}
         {dian && <Link href="/ventas" className="btn-borde">Ver ventas de hoy</Link>}
         {puede.anular(s.rol) && <Link href="/documentos" className="btn-borde">Documentos DIAN</Link>}
-        {historial && <Link href="/ventas/historial" className="btn-borde">Historial de Alegra</Link>}
       </Cabecera>
+      {historial.n > 0 && !dian && (
+        <Link href="/ventas/historial" className="tarjeta px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-1 hover:border-ink/40">
+          <span className="flex-1 min-w-[220px]"><span className="font-semibold">Historial de ventas de Alegra</span>
+            <span className="block text-sm text-muted num">{historial.n.toLocaleString("es-CO")} documentos · {pesos(historial.total)} facturados{historial.desde ? ` · ${corta(historial.desde)} a ${corta(historial.hasta!)}` : ""} · por mes, productos y clientes</span></span>
+          <span className="btn-borde h-10 text-sm">Ver historial</span>
+        </Link>
+      )}
       {!dian && (
         <section className="grid grid-cols-2 lg:grid-cols-3 gap-3">
           <Dato titulo="Total del día" valor={pesos(total)} tono="cruz" nota={cerradas.some((f) => f.devuelto > 0) ? "sin lo devuelto" : undefined} />

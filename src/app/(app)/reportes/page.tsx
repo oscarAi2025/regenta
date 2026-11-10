@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { comoUsuario } from "@/lib/db";
 import { leerSesion, puede } from "@/lib/sesion";
@@ -17,7 +18,9 @@ export default async function Reportes({ searchParams }: { searchParams: Promise
   if (!puede.verCostos(s.rol)) redirect("/inicio?aviso=permiso"); // reportes de gerencia: dueño y administrador
   const sp = await searchParams;
   const r = rango(sp.desde, sp.hasta);
-  const d = await comoUsuario(s, (c) => datosReporte(c, s.empresa, r, true));
+  const [d, alegra] = await comoUsuario(s, async (c) => [await datosReporte(c, s.empresa, r, true),
+    (await c.query(`select count(*)::int n, coalesce(sum(total), 0)::float total from ventas_externas where empresa_id = $1 and estado <> 'anulada' and fecha between $2::date and $3::date`,
+      [s.empresa, r.desde, r.hasta])).rows[0] as { n: number; total: number }] as const);
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
   const atajos = rangosRapidos();
   const res = d.resultados!;
@@ -37,6 +40,13 @@ export default async function Reportes({ searchParams }: { searchParams: Promise
         </form>
       </Cabecera>
       <Pestanas actual="/reportes" rango={q} />
+      {alegra.n > 0 && (
+        <Link href={`/ventas/historial?desde=${r.desde}&hasta=${r.hasta}`} className="tarjeta px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-1 hover:border-ink/40">
+          <span className="flex-1 min-w-[220px]"><span className="font-semibold">En este periodo también vendiste {pesos(alegra.total)} en Alegra</span>
+            <span className="block text-sm text-muted num">{alegra.n.toLocaleString("es-CO")} documentos de antes de pasar a Regenta. No suman aquí (no tienen costo ni caja): míralos por mes, producto y cliente en el historial.</span></span>
+          <span className="btn-borde h-10 text-sm">Ver historial</span>
+        </Link>
+      )}
       <nav className="flex flex-wrap gap-2" aria-label="Rangos rápidos">
         {atajos.map(([t, a, b]) => <a key={t} href={`/reportes?desde=${a}&hasta=${b}`} aria-current={a === r.desde && b === r.hasta ? "true" : undefined}
           className={`pastilla border ${a === r.desde && b === r.hasta ? "bg-ink text-white border-ink" : "bg-surface border-line hover:border-ink"}`}>{t}</a>)}

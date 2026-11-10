@@ -1,5 +1,5 @@
 "use client";
-import { guardarImpresora, imprimirTiquete, leerImpresora, type Impresora } from "@/lib/impresion";
+import { guardarImpresora, imprimirVenta, leerImpresora, type Impresora } from "@/lib/impresion";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { pesos } from "@/lib/formato";
 import { ClienteFactura, documento, type Cliente, type CreditoCaja, esConsumidorFinal } from "./ClienteFactura";
@@ -37,7 +37,7 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, r
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState("");
   const [hecho, setHecho] = useState<Resultado | null>(null);
-  const [impresora, setImpresora] = useState<Impresora>({ auto: true, ancho: "80" });
+  const [impresora, setImpresora] = useState<Impresora>({ auto: true, ancho: "80", factura: "carta" });
   useEffect(() => setImpresora(leerImpresora()), []);
   const cambiarImpresora = (i: Impresora) => { setImpresora(i); guardarImpresora(i); };
   const [vencen, setVencen] = useState<Producto[]>([]);
@@ -326,7 +326,7 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, r
       setHecho(j); setCobrando(false); setCobrado(pedido ? etiquetaPedido(pedido) : null); setPedido(null); setAviso("");
       setTimeout(() => buscador.current?.focus(), 0); // el lector queda listo para el siguiente cliente
       window.dispatchEvent(new CustomEvent("regenta:venta", { detail: { total: Number(j.venta?.total ?? 0), documento: j.documento?.estado ?? null } }));
-      if (impresora.auto && j.venta?.venta_id) imprimirTiquete(j.venta.venta_id, impresora.ancho);
+      if (impresora.auto && j.venta?.venta_id) imprimirVenta(j.venta.venta_id, j.documento?.tipo ?? tipoDoc, impresora);
     } catch (e) {
       if (!esFallaDeRed(e)) { setError("No se pudo registrar la venta. Vuelve a confirmar (no se duplicará)."); return; }
       setEnLinea(false);
@@ -371,7 +371,7 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, r
       else if (e.key === "Escape" && mult !== null) { setMult(null); }
       if (e.key === "Enter" && hecho && !(e.target instanceof HTMLInputElement && e.target.id === "buscar" && e.target.value)) { e.preventDefault(); nueva(); }
       if (e.key === "F8" && hecho?.provisional) { e.preventDefault(); imprimirProvisional(hecho.provisional, nombreEmpresa, impresora.ancho); }
-      else if (e.key === "F8" && hecho?.venta.venta_id) { e.preventDefault(); imprimirTiquete(hecho.venta.venta_id, impresora.ancho); }
+      else if (e.key === "F8" && hecho?.venta.venta_id) { e.preventDefault(); imprimirVenta(hecho.venta.venta_id, hecho.documento?.tipo, impresora); }
     };
   });
   useEffect(() => {

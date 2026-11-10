@@ -1,8 +1,10 @@
 // Impresión de la tirilla desde el navegador de la caja (impresora térmica instalada en el computador).
 // La preferencia es de cada equipo (cada caja tiene su impresora): se guarda en este navegador.
-export type Impresora = { auto: boolean; ancho: "80" | "58" };
+/** factura: cómo sale la factura electrónica al cobrar (carta para empresas y droguerías, o la tirilla de la térmica).
+ *  El tiquete POS siempre sale en la tirilla. */
+export type Impresora = { auto: boolean; ancho: "80" | "58"; factura: "carta" | "tirilla" };
 const CLAVE = "regenta.impresora";
-const POR_DEFECTO: Impresora = { auto: true, ancho: "80" };
+const POR_DEFECTO: Impresora = { auto: true, ancho: "80", factura: "carta" };
 
 export function leerImpresora(): Impresora {
   try { return { ...POR_DEFECTO, ...JSON.parse(localStorage.getItem(CLAVE) ?? "{}") }; } catch { return POR_DEFECTO; }
@@ -24,3 +26,10 @@ export function imprimirRuta(ruta: string, ancho = leerImpresora().ancho) {
 
 /** Tirilla de una venta. */
 export const imprimirTiquete = (ventaId: string, ancho = leerImpresora().ancho) => imprimirRuta(`/tiquete/${ventaId}`, ancho);
+
+/** Factura en tamaño carta (con logo, datos completos del cliente, lote y vencimiento). */
+export const imprimirFactura = (ventaId: string) => imprimirRuta(`/tiquete/factura/${ventaId}`);
+
+/** Lo que sale al cobrar o con F8: la factura según la preferencia de esta caja; el tiquete POS, en la tirilla. */
+export const imprimirVenta = (ventaId: string, tipo: string | null | undefined, i: Impresora = leerImpresora()) =>
+  tipo === "factura" && i.factura === "carta" ? imprimirFactura(ventaId) : imprimirTiquete(ventaId, i.ancho);

@@ -492,3 +492,16 @@ FARMAHUB AMBALA y no se migran). Cartera de Farmagenéricos: 6 facturas por $3.9
       vencidos con existencias; tests/e2e/lotes-corregir.mjs 25/25
 - [x] Oscar pegó bloque4-044.sql (Success) → publicado en main (e57fb99) → en producción la ruta nueva responde (401 sin sesión)
 - [ ] Intermitente: tras una baja, el historial de /inventario/ajustes a veces no se refresca sin recargar (1 de 3 corridas; router.refresh del App Router)
+
+## 10/11/2026 · Factura carta, Excel, historial y clientes completos (pedidos de Oscar)
+- [x] Refrescos garantizados (useRefrescar + MarcaRender) en las 15 pantallas que guardan y refrescan: 0 de 60 fallos (antes 2 de 20)
+- [x] Factura en tamaño carta /tiquete/factura/[id]: logo, cliente completo, una fila por producto con sus lotes, totales por tarifa, valor en letras, CUFE/QR; una hoja carta
+- [x] Caja: la factura sale en carta por defecto (preferencia por caja: carta o tirilla), F8, «Imprimir también la tirilla», «Ver la factura»; detalle de venta y Documentos llevan a la carta
+- [x] Logo de la droguería (migración 045): dueño en «Mi droguería», soporte en la consola; PNG/JPG/WebP reducido; SVG no; la demo no
+- [x] Inventario en Excel (.xlsx, hoja de productos y de lotes; costos solo para gerencia) y paginación de 100 con «N a M de T»
+- [x] Historial de Alegra como informe: rango de fechas, resumen, por mes, productos y clientes, paginación y Excel; tarjeta en Ventas e Informes
+- [x] Clientes: compras de Regenta + Alegra, ciudad, paginación (antes 0 compras y corte en 200)
+- [x] Pruebas: factura-carta.mjs 39/39, migracion.mjs 54/54, letras unitaria
+- [ ] Oscar pega db/produccion/bloque4-045.sql → publicar → subir el logo de Farmagenéricos desde la consola → comprobar
+- [ ] POS electrónico de Farmagenéricos: falta su habilitación DIAN (set de pruebas POS); mientras, la caja solo factura
+

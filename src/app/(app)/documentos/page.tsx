@@ -25,7 +25,7 @@ const tipoDian = (d: Documento) => (d.tipo === "nc_anulacion" || d.tipo === "nc_
 /** Comprobante, XML, PDF del proveedor (si lo hay), nota débito (facturas) y CUFE/CUDE/CUDS con su consulta en la DIAN. */
 function Soporte({ d }: { d: Documento }) {
   const comprobante = d.tipo === "nc_devolucion" ? (d.devolucion_id ? `/tiquete/devolucion/${d.devolucion_id}` : null)
-    : d.tipo === "pos" || d.tipo === "factura" ? `/tiquete/${d.venta_id}` : null;
+    : d.tipo === "factura" ? `/tiquete/factura/${d.venta_id}` : d.tipo === "pos" ? `/tiquete/${d.venta_id}` : null;
   const clave = nombreClave(tipoDian(d));
   return (
     <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
