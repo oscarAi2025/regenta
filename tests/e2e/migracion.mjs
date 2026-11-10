@@ -192,6 +192,19 @@ ok(/Compras en Alegra \(1/.test(await p.locator(`a[href="/ventas/historial?clien
   ok(await p.locator('section[aria-labelledby="meses-t"] li').count() === meses.size, "ventas por mes: un renglón por cada mes con ventas", `${meses.size}`);
   ok(await p.locator('section[aria-labelledby="clientes-t"] li').count() >= 1, "lista los clientes que más compraron");
   ok(await p.getByText(`Página 1 de ${Math.ceil(ventas.length / 100)}`).count() === 1, "el historial pagina todos los documentos (no solo los 300 últimos)");
+  // Con datos reales (nombres de clientes largos) la página no se sale de la pantalla, ni en escritorio ni en el celular.
+  for (const [ancho, alto] of [[1440, 900], [390, 844], [320, 640]]) {
+    await p.setViewportSize({ width: ancho, height: alto }); await p.reload(); await p.waitForLoadState("networkidle");
+    const sw = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    ok(sw <= 1, `el historial no se desborda a ${ancho} px`, `${sw} px de más`);
+  }
+  for (const r of ["/clientes", "/cartera", "/inventario?ver=todos", "/ventas", "/inicio"]) for (const [ancho, alto] of [[1440, 900], [390, 844]]) {
+    await p.setViewportSize({ width: ancho, height: alto }); await p.goto(B + r); await p.waitForLoadState("networkidle");
+    const sw = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    ok(sw <= 1, `${r} con los datos de Alegra no se desborda a ${ancho} px`, `${sw} px de más`);
+  }
+  await p.setViewportSize({ width: 1440, height: 900 });
+  await p.goto(B + "/ventas/historial"); await p.waitForLoadState("networkidle");
   await p.getByRole("link", { name: "Siguiente" }).click(); await p.waitForURL(/pagina=2/);
   ok(await p.locator('section[aria-labelledby="docs-t"] tbody tr').count() === 100, "la página 2 trae otros 100 documentos");
   const x = await p.request.get(`${B}/api/ventas/historial/exportar`);

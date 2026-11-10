@@ -71,7 +71,7 @@ export default async function Historial({ searchParams }: { searchParams: Promis
         <section className="tarjeta p-4 sm:p-5 min-w-0" aria-labelledby="meses-t">
           <h2 id="meses-t" className="titulo text-xl mb-3">Ventas por mes</h2>
           {d.meses.length === 0 ? <p className="text-muted">Sin ventas en este filtro.</p> : (
-            <ul className="grid gap-2">
+            <ul className="grid grid-cols-[minmax(0,1fr)] gap-2">
               {d.meses.map((m) => (
                 <li key={m.mes} className="grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)_auto] items-center gap-3 text-sm">
                   <span className="font-semibold">{mesTexto(m.mes)}</span>
@@ -84,9 +84,9 @@ export default async function Historial({ searchParams }: { searchParams: Promis
         </section>
         <section className="tarjeta p-4 sm:p-5 min-w-0" aria-labelledby="clientes-t">
           <h2 id="clientes-t" className="titulo text-xl mb-3">Clientes que más compraron</h2>
-          <ol className="grid gap-1.5 text-sm">
+          <ol className="grid grid-cols-[minmax(0,1fr)] gap-1.5 text-sm">
             {d.clientes.map((c, i) => (
-              <li key={i} className="flex items-baseline gap-3">
+              <li key={i} className="flex items-baseline gap-3 min-w-0">
                 <span className="text-muted num w-5 text-right">{i + 1}</span>
                 <span className="flex-1 min-w-0 truncate">{c.cliente_id ? <Link href={`/clientes/${c.cliente_id}`} className="font-semibold hover:underline">{c.cliente}</Link> : <span className="font-semibold">{c.cliente}</span>}
                   <span className="text-muted"> · {c.documentos} doc. · última {fecha(c.ultima)}</span></span>
