@@ -124,7 +124,7 @@ export default async function Historial({ searchParams }: { searchParams: Promis
                   <td className="px-4 py-3 num text-muted">{fecha(x.fecha)}</td>
                   <td className="px-4 py-3"><Link href={`/ventas/historial/${x.id}`} className="num font-semibold hover:underline">{x.numero}</Link><span className="text-muted text-sm"> · {x.lineas} línea{x.lineas === 1 ? "" : "s"}</span></td>
                   <td className="px-4 py-3">{x.cliente_nombre ?? "—"}{x.cliente_doc && <span className="text-muted text-sm num"> · {x.cliente_doc}</span>}</td>
-                  <td className={`px-4 py-3 ${x.estado === "por_cobrar" ? "text-alerta font-semibold" : x.estado === "anulada" ? "text-muted line-through" : ""}`}>{ESTADO_HISTORIAL[x.estado]}{x.estado === "por_cobrar" ? ` · debe ${pesos(x.saldo)}` : ""}</td>
+                  <td className={`px-4 py-3 ${x.estado === "por_cobrar" ? "text-alerta font-semibold" : x.estado === "anulada" ? "text-muted line-through" : ""}`}>{x.estado === "por_cobrar" && x.saldo_hoy === 0 ? "Pagada en Regenta" : ESTADO_HISTORIAL[x.estado]}{x.estado === "por_cobrar" && x.saldo_hoy > 0 ? ` · debe ${pesos(x.saldo_hoy)}` : ""}</td>
                   <td className="px-4 py-3 num text-right">{pesos(x.total)}</td>
                 </tr>
               ))}

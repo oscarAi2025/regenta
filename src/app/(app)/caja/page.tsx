@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { leerSesion, puede } from "@/lib/sesion";
 import { comoUsuario, puestoDeTrabajo } from "@/lib/db";
@@ -22,6 +23,8 @@ export default async function PaginaCaja() {
     cajas: (await c.query(`select id, nombre from cajas where empresa_id = $1 and activa order by nombre`, [s.empresa])).rows as { id: string; nombre: string }[],
     actual: (await puestoDeTrabajo(c, s.empresa, elegida)).caja_id,
   }));
+  // Sin turno abierto en esta caja (cuando la droguería no lo exige): se vende, pero el efectivo no entra en ningún cierre.
+  const sinTurno = await comoUsuario(s, async (c) => !(await c.query(`select 1 from turnos where caja_id = $1 and estado = 'abierto'`, [actual])).rowCount);
   return (
     <main>
       <h1 className="sr-only">Caja</h1>
@@ -29,6 +32,12 @@ export default async function PaginaCaja() {
         <div role="status" className="mx-4 mt-4 rounded-lg border-2 border-aviso bg-aviso-soft px-4 py-3 text-sm">
           <b>Tu droguería aún no está habilitada ante la DIAN.</b> La caja vende en cuanto carguemos tu resolución de numeración.
           Mientras tanto, deja todo listo: carga tus productos e inventario y crea a tu equipo. ¿Dudas? WhatsApp +57 321 214 1970.
+        </div>
+      )}
+      {sinTurno && (
+        <div role="status" className="mx-4 mt-4 rounded-lg border-2 border-aviso bg-aviso-soft px-4 py-3 text-sm flex flex-wrap items-center justify-between gap-2">
+          <span><b>No hay turno abierto en esta caja.</b> Puedes vender, pero el efectivo de estas ventas no entra en ningún cierre de caja.</span>
+          <Link href="/turno" className="btn-borde h-9 text-sm bg-surface">Abrir turno</Link>
         </div>
       )}
       {cajas.length > 1 && <div className="mx-4 mt-3 flex justify-end"><ElegirCaja cajas={cajas} actual={actual} /></div>}

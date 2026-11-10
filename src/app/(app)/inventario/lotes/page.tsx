@@ -6,7 +6,7 @@ import { leerSesion, puede } from "@/lib/sesion";
 import { Cabecera } from "@/components/ui/Cabecera";
 import { CorregirLotes } from "./CorregirLotes";
 
-export const metadata = { title: "Lotes y vencimientos" };
+export const metadata = { title: "Corregir lotes" };
 
 const fecha = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" });
 
@@ -23,7 +23,7 @@ export default async function Pagina({ searchParams }: { searchParams: Promise<{
   }));
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
-      <Cabecera titulo="Lotes y vencimientos" sub="Corrige el código o la fecha de vencimiento de un lote que quedó mal registrado. Cada corrección pide un motivo y queda en la auditoría; las existencias no cambian.">
+      <Cabecera titulo="Corregir lotes" sub="Corrige el código o la fecha de vencimiento de un lote que quedó mal registrado. Cada corrección pide un motivo y queda en la auditoría; las existencias no cambian.">
         <Link href="/inventario" className="btn-borde">Volver a inventario</Link>
       </Cabecera>
       {d.vencidos.length > 0 && (

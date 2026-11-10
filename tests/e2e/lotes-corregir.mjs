@@ -38,8 +38,8 @@ const antes1 = await lote(L1), antes2 = await lote(L2);
 {
   const { ctx, p, errs } = await entrar("Carlos");
   await p.goto(B + "/inventario"); await p.waitForLoadState("networkidle");
-  ok(await p.getByRole("link", { name: "Lotes y vencimientos" }).isVisible(), "inventario lleva a «Lotes y vencimientos»");
-  await p.getByRole("link", { name: "Lotes y vencimientos" }).click(); await p.waitForURL(/\/inventario\/lotes/);
+  ok(await p.getByRole("link", { name: "Corregir lotes" }).isVisible(), "inventario lleva a «Corregir lotes»");
+  await p.getByRole("link", { name: "Corregir lotes" }).click(); await p.waitForURL(/\/inventario\/lotes/);
   await p.fill("#buscar-lote", x.nombre.slice(0, 18));
   ok(await p.locator('[aria-label="Resultados"] button').first().waitFor({ timeout: 8000 }).then(() => true, () => false), "la búsqueda de producto muestra resultados");
   await p.goto(B + `/inventario/lotes?producto=${x.producto_id}`); await p.waitForLoadState("networkidle");

@@ -14,6 +14,9 @@ const fechaValida = (s?: string | null) => {
 };
 /** Lo que cuenta como vendido: las facturas pagadas o por cobrar (no las anuladas ni los borradores de Alegra). */
 export const VENDIDA = "x.estado in ('pagada', 'por_cobrar')";
+/** Lo abonado en Regenta a la factura de Alegra que quedó en Cartera (el saldo de hoy = saldo al migrar − esto). */
+const ABONADO = `coalesce((select sum(a.valor) from abonos a join ventas v on v.id = a.venta_id
+  where v.empresa_id = x.empresa_id and v.origen = 'alegra' and v.externo_id = x.externo_id and not a.anulado), 0)`;
 
 export function leerFiltro(sp: { q?: string; cliente?: string; desde?: string; hasta?: string }): FiltroHistorial {
   return {
@@ -39,7 +42,7 @@ export type Resumen = { todos: number; n: number; facturado: number; iva: number
 export async function resumenHistorial(c: PoolClient, empresa: string, f: FiltroHistorial) {
   const w = donde(empresa, f);
   const resumen = (await c.query(`select count(*)::int todos, count(*) filter (where estado in ('pagada', 'por_cobrar'))::int n, coalesce(sum(total) filter (where estado in ('pagada', 'por_cobrar')), 0)::float facturado,
-      coalesce(sum(iva) filter (where estado in ('pagada', 'por_cobrar')), 0)::float iva, coalesce(sum(saldo) filter (where estado = 'por_cobrar'), 0)::float por_cobrar,
+      coalesce(sum(iva) filter (where estado in ('pagada', 'por_cobrar')), 0)::float iva, coalesce(sum(greatest(saldo - ${ABONADO}, 0)) filter (where estado = 'por_cobrar'), 0)::float por_cobrar,
       count(*) filter (where estado = 'anulada')::int anuladas, count(distinct coalesce(cliente_doc, cliente_nombre)) filter (where estado in ('pagada', 'por_cobrar'))::int clientes,
       min(fecha)::text desde, max(fecha)::text hasta,
       (select min(fecha)::text from ventas_externas where empresa_id = $1) minimo, (select max(fecha)::text from ventas_externas where empresa_id = $1) maximo
@@ -56,12 +59,13 @@ export async function resumenHistorial(c: PoolClient, empresa: string, f: Filtro
 }
 
 export type DocHistorial = { id: string; numero: string; documento: string; fecha: string; vence: string | null; cliente_nombre: string | null; cliente_doc: string | null;
-  subtotal: number; descuento: number; iva: number; total: number; pagado: number; saldo: number; estado: string; forma_pago: string | null; lineas: number };
+  subtotal: number; descuento: number; iva: number; total: number; pagado: number; saldo: number; abonado: number; saldo_hoy: number; estado: string; forma_pago: string | null; lineas: number };
 
 export async function documentosHistorial(c: PoolClient, empresa: string, f: FiltroHistorial, limite: number, desplazar = 0) {
   const w = donde(empresa, f);
   return (await c.query(`select x.id, coalesce(x.prefijo, '') || coalesce(x.numero::text, '') numero, x.documento, x.fecha::text, x.vence::text, x.cliente_nombre, x.cliente_doc,
-      x.subtotal::float, x.descuento::float, x.iva::float, x.total::float, x.pagado::float, x.saldo::float, x.estado, x.forma_pago, jsonb_array_length(x.lineas)::int lineas
+      x.subtotal::float, x.descuento::float, x.iva::float, x.total::float, x.pagado::float, x.saldo::float, ${ABONADO}::float abonado,
+      greatest(x.saldo - ${ABONADO}, 0)::float saldo_hoy, x.estado, x.forma_pago, jsonb_array_length(x.lineas)::int lineas
     from ventas_externas x where ${w.sql} order by x.fecha desc, x.numero desc nulls last limit ${limite} offset ${desplazar}`, w.params)).rows as DocHistorial[];
 }
 

@@ -78,7 +78,7 @@ export function DetalleCambio({ inicial, aplicado }: { inicial: Cambio; aplicado
           <tbody className="divide-y divide-line">
             {c.lineas.map((l) => (
               <tr key={l.producto_id} data-producto={l.producto_id}>
-                <td className="px-3 py-2 max-w-[300px]"><p className="font-semibold leading-snug">{l.nombre}</p><p className="text-xs text-muted">{l.laboratorio ?? "Genérico"}{l.revertida ? " · revertido" : ""}{l.heredado ? " · costo heredado" : ""}</p></td>
+                <td className="px-3 py-2 max-w-[300px]"><p className="font-semibold leading-snug">{l.nombre}</p><p className="text-xs text-muted">{l.laboratorio ?? "Sin laboratorio"}{l.revertida ? " · revertido" : ""}{l.heredado ? " · costo heredado" : ""}</p></td>
                 <td className="px-3 py-2 text-right num whitespace-nowrap">{pesosMano(l.caja_antes)} → <b>{pesosMano(l.caja_despues)}</b></td>
                 <td className="px-3 py-2 text-right num whitespace-nowrap">{l.unidad_antes === null ? "—" : <>{pesosMano(l.unidad_antes)} → <b>{pesosMano(l.unidad_despues ?? 0)}</b></>}</td>
                 <td className="px-3 py-2 text-right num whitespace-nowrap">{pct(margen(l.caja_antes, l.iva, l.costo, l.upc))} → {pct(margen(l.caja_despues, l.iva, l.costo, l.upc))}</td>

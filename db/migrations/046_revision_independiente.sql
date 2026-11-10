@@ -57,3 +57,63 @@ grant execute on function corregir_lote(uuid, text, date, text) to authenticated
 alter table empresas add column if not exists calidades_tributarias text;
 alter table empresas drop constraint if exists empresas_calidades_tributarias_check;
 alter table empresas add constraint empresas_calidades_tributarias_check check (calidades_tributarias is null or length(calidades_tributarias) <= 200);
+
+
+-- 5) Recibo de caja también al abonar una factura concreta desde Cartera (antes ese abono no dejaba recibo): el recibo se
+--    aplica solo a esa factura. Sin factura, igual que antes: el pago se reparte desde la que vence primero.
+drop function if exists registrar_recibo(uuid, text, numeric, text, uuid);
+create or replace function registrar_recibo(p_cliente uuid, p_medio text, p_valor numeric, p_referencia text default null, p_caja uuid default null, p_venta uuid default null)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare cl clientes; v_rol text; v_caja uuid; v_turno uuid; f record; v_saldo_total numeric := 0; v_resta numeric; v_toma numeric;
+  v_aplicado jsonb := '[]'; v_num integer; v_id bigint; x jsonb; v_ref text := nullif(trim(coalesce(p_referencia, '')), '');
+begin
+  select * into cl from clientes where id = p_cliente;
+  v_rol := case when found then rol_en(cl.empresa_id) end;
+  if coalesce(v_rol, '') not in ('dueno', 'admin', 'cajero') then raise exception 'No tienes permiso para recibir pagos en esta droguería' using errcode = '42501'; end if;
+  if (select estado from empresas where id = cl.empresa_id) <> 'activa' then raise exception 'La suscripción de esta empresa está suspendida' using errcode = 'P0001'; end if;
+  if p_medio is null or p_medio not in ('efectivo', 'transferencia', 'nequi', 'daviplata', 'tarjeta', 'bre_b', 'qr') then raise exception 'Medio de pago no válido' using errcode = 'P0001'; end if;
+  if p_valor is null or p_valor <= 0 or p_valor <> trunc(p_valor) then raise exception 'El pago debe ser un valor en pesos mayor que cero' using errcode = 'P0001'; end if;
+  if length(v_ref) > 60 then raise exception 'La referencia va hasta 60 caracteres' using errcode = 'P0001'; end if;
+  select c.caja_id, c.turno_id into v_caja, v_turno from caja_y_turno(cl.empresa_id, p_caja) c;
+  if v_rol = 'cajero' and v_turno is null then
+    raise exception 'Abre el turno de tu caja para recibir abonos (Caja → Turno); si no, lo registra el dueño o el administrador' using errcode = 'P0001';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext('credito:' || cl.id::text));
+  v_resta := p_valor;
+  for f in
+    select v.id, v.prefijo || v.numero factura, v.vence_pago, saldo_factura(v.id) saldo
+    from ventas v where v.cliente_id = cl.id and v.empresa_id = cl.empresa_id and v.condicion = 'credito' and v.estado = 'cerrada'
+      and (p_venta is null or v.id = p_venta)
+    order by v.vence_pago, v.creado, v.numero for update of v
+  loop
+    continue when f.saldo <= 0;
+    v_saldo_total := v_saldo_total + f.saldo;
+    if v_resta > 0 then
+      v_toma := least(v_resta, f.saldo);
+      v_aplicado := v_aplicado || jsonb_build_object('venta_id', f.id, 'factura', f.factura, 'vence', f.vence_pago, 'valor', v_toma, 'saldo', f.saldo - v_toma);
+      v_resta := v_resta - v_toma;
+    end if;
+  end loop;
+  if v_saldo_total = 0 then raise exception '%', case when p_venta is null then 'Este cliente no tiene saldo pendiente' else 'Esa factura no tiene saldo pendiente' end using errcode = 'P0001'; end if;
+  if v_resta > 0 then
+    raise exception 'El pago (%) supera lo que debe % (%): recibe como máximo el saldo', pesos_texto(p_valor), case when p_venta is null then 'el cliente' else 'esa factura' end, pesos_texto(v_saldo_total) using errcode = 'P0001';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext('recibo:' || cl.empresa_id::text));
+  select coalesce(max(numero), 0) + 1 into v_num from recibos_caja where empresa_id = cl.empresa_id;
+  insert into recibos_caja (empresa_id, numero, cliente_id, medio, valor, referencia, caja_id, turno_id, usuario_id, saldo_anterior, aplicado)
+  values (cl.empresa_id, v_num, cl.id, p_medio, p_valor, v_ref, v_caja, v_turno, auth.uid(), v_saldo_total, v_aplicado) returning id into v_id;
+  for x in select * from jsonb_array_elements(v_aplicado) loop
+    insert into abonos (empresa_id, venta_id, medio, valor, referencia, usuario_id, caja_id, turno_id, recibo_id)
+    values (cl.empresa_id, (x ->> 'venta_id')::uuid, p_medio, (x ->> 'valor')::numeric, left('RC-' || v_num || coalesce(' · ' || v_ref, ''), 60), auth.uid(), v_caja, v_turno, v_id);
+  end loop;
+  insert into auditoria (empresa_id, usuario_id, accion, entidad, entidad_id, datos)
+  values (cl.empresa_id, auth.uid(), 'recibo_caja', 'clientes', cl.id::text,
+          jsonb_build_object('recibo', v_id, 'numero', 'RC-' || v_num, 'valor', p_valor, 'medio', p_medio, 'facturas', jsonb_array_length(v_aplicado)));
+  return jsonb_build_object('id', v_id, 'numero', v_num, 'valor', p_valor, 'medio', p_medio, 'aplicado', v_aplicado,
+                            'saldo_anterior', v_saldo_total, 'saldo', v_saldo_total - p_valor, 'turno_id', v_turno);
+end $$;
+
+revoke execute on function registrar_recibo(uuid, text, numeric, text, uuid, uuid) from public, anon;
+grant execute on function registrar_recibo(uuid, text, numeric, text, uuid, uuid) to authenticated;

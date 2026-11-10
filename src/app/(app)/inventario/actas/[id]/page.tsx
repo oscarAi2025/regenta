@@ -73,7 +73,7 @@ export default async function Acta({ params }: { params: Promise<{ id: string }>
               {lineas.map((l, i) => (
                 <tr key={i} className="border-b border-line align-top">
                   <td className="py-2 pr-2 num">{i + 1}</td>
-                  <td className="py-2 pr-2"><span className="font-semibold">{l.nombre}</span><span className="block text-xs text-muted">{l.laboratorio ?? "Genérico"}{l.registro_sanitario ? ` · Reg. ${l.registro_sanitario}` : ""}</span></td>
+                  <td className="py-2 pr-2"><span className="font-semibold">{l.nombre}</span><span className="block text-xs text-muted">{l.laboratorio ?? "Sin laboratorio"}{l.registro_sanitario ? ` · Reg. ${l.registro_sanitario}` : ""}</span></td>
                   <td className="py-2 pr-2 num font-semibold">{l.lote}</td>
                   <td className="py-2 pr-2 num">{fecha(l.vence)}</td>
                   <td className="py-2 pr-2 num text-right whitespace-nowrap">{l.unidades > 0 ? "+" : "−"}{Math.abs(l.unidades).toLocaleString("es-CO")} und{l.unidades_por_caja > 1 && Math.abs(l.unidades) >= l.unidades_por_caja ? <span className="block text-xs text-muted">{unidadesTexto(Math.abs(l.unidades), l.unidades_por_caja)}</span> : null}</td>

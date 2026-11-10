@@ -84,7 +84,7 @@ export default async function Prediccion({ searchParams }: { searchParams: Promi
               <tbody className="divide-y divide-line">
                 {d.riesgo.map((r) => (
                   <tr key={r.lote_id}>
-                    <td className="px-4 py-3"><p className="font-semibold">{r.nombre}</p><p className="text-muted">{r.laboratorio ?? "Genérico"}</p></td>
+                    <td className="px-4 py-3"><p className="font-semibold">{r.nombre}</p><p className="text-muted">{r.laboratorio ?? "Sin laboratorio"}</p></td>
                     <td className="px-4 py-3"><span className={`rounded-md px-2 py-0.5 font-semibold ${r.dias <= 30 ? "bg-alerta-soft text-alerta" : r.dias <= 90 ? "bg-aviso-soft text-aviso" : "bg-paper"}`}>{r.lote} · {fecha(r.vence)}</span><p className="text-muted mt-1">en {r.dias} días</p></td>
                     <td className="px-4 py-3 text-right num">{r.unidades} und</td>
                     <td className="px-4 py-3 text-right num">{r.venta_dia > 0 ? `${semana(r.venta_dia)} und` : <span className="text-alerta">sin ventas</span>}</td>
@@ -108,7 +108,7 @@ export default async function Prediccion({ searchParams }: { searchParams: Promi
               <tbody className="divide-y divide-line">
                 {d.quietos.map((q) => (
                   <tr key={q.id}>
-                    <td className="px-4 py-3"><p className="font-semibold">{q.nombre}</p><p className="text-muted">{q.laboratorio ?? "Genérico"}</p></td>
+                    <td className="px-4 py-3"><p className="font-semibold">{q.nombre}</p><p className="text-muted">{q.laboratorio ?? "Sin laboratorio"}</p></td>
                     <td className="px-4 py-3 num">{existenciasTexto(q.existencias, q.unidades_por_caja)}</td>
                     <td className="px-4 py-3">{q.ultima_venta ? fecha(q.ultima_venta) : <span className="text-muted">No se ha vendido en 8 semanas</span>}</td>
                     {costos && <td className="px-4 py-3 text-right num font-semibold">{q.valor !== null ? pesos(q.valor) : "—"}</td>}

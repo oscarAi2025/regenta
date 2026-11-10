@@ -46,7 +46,7 @@ export function Fila({ p, activo, onHover, agregar, iva = true }: { p: Producto;
       <div className="min-w-0 flex-1 basis-64">
         <p className="font-semibold leading-snug">{p.nombre}</p>
         <p className="text-sm text-muted flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span>{p.laboratorio ?? "Genérico"}</span>
+          <span>{p.laboratorio ?? "Sin laboratorio"}</span>
           <span aria-hidden>·</span>
           <span className={agotado ? "text-alerta font-semibold" : p.unidades <= p.stock_minimo * Math.max(1, p.unidades_por_caja) ? "text-aviso font-semibold" : ""}>{existencias(p)}</span>
           <Vence fecha={p.proximo_vence} />
@@ -95,7 +95,7 @@ function Alternativas({ id, agregar }: { id: string; agregar: (p: Producto, pr: 
           <ul className="mt-2 grid gap-1.5">
             {lista.map((a) => (
               <li key={a.id} className="flex items-center justify-between gap-3 text-sm">
-                <span className="min-w-0"><span className="font-semibold">{a.nombre}</span> <span className="text-muted">· {a.laboratorio ?? "Genérico"} · {existencias(a)}</span></span>
+                <span className="min-w-0"><span className="font-semibold">{a.nombre}</span> <span className="text-muted">· {a.laboratorio ?? "Sin laboratorio"} · {existencias(a)}</span></span>
                 <button onClick={() => agregar(a, "caja")} className="shrink-0 rounded-lg border-2 border-ink px-2.5 py-1 font-semibold num hover:bg-ink hover:text-white">+ {pesos(a.precio_caja)}</button>
               </li>
             ))}

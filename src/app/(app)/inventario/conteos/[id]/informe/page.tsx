@@ -84,7 +84,7 @@ export default async function Informe({ params, searchParams }: { params: Promis
             <tbody>
               {filas.map((l) => { const x = l.contado === null ? null : l.contado - l.sistema; return (
                 <tr key={l.id} className="border-b border-line align-top">
-                  <td className="py-1.5 pr-2"><span className="font-semibold">{l.nombre}</span><span className="block text-xs text-muted">{l.laboratorio ?? "Genérico"}</span></td>
+                  <td className="py-1.5 pr-2"><span className="font-semibold">{l.nombre}</span><span className="block text-xs text-muted">{l.laboratorio ?? "Sin laboratorio"}</span></td>
                   <td className="py-1.5 pr-2 num">{l.lote}</td><td className="py-1.5 pr-2 num">{fecha(l.vence)}</td>
                   <td className="py-1.5 pr-2 num text-right">{l.sistema}</td><td className="py-1.5 pr-2 num text-right">{l.contado ?? "—"}</td>
                   <td className="py-1.5 pr-2 num text-right font-semibold">{x === null ? "Sin contar" : x === 0 ? "0" : `${x > 0 ? "+" : "−"}${Math.abs(x)}`}</td>

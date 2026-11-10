@@ -22,7 +22,7 @@ export default async function Inicio() {
     const hoy = (await c.query(`
       select count(*)::int ventas, coalesce(sum(total), 0)::float
                - coalesce((select sum(d.total) from devoluciones d where d.empresa_id = $1 and d.creado >= date_trunc('day', now() at time zone 'America/Bogota') at time zone 'America/Bogota'), 0)::float total,
-             coalesce(avg(total), 0)::float promedio
+             coalesce(sum(total - devuelto) / nullif(count(*), 0), 0)::float promedio  -- igual que Ventas: neto de lo devuelto
       from ventas where empresa_id = $1 and origen is null and estado = 'cerrada' and creado >= date_trunc('day', now() at time zone 'America/Bogota') at time zone 'America/Bogota'`, [s.empresa])).rows[0];
     const medios = (await c.query(`
       select p.medio, sum(p.valor - case when p.medio = 'efectivo' and p.primero_efectivo then v.cambio else 0 end)::float valor
@@ -39,6 +39,7 @@ export default async function Inicio() {
     const alertas = (await c.query(`
       select
         (select count(distinct producto_id) from v_stock_lotes where empresa_id = $1 and unidades > 0 and vence between current_date and current_date + 30)::int vencen,
+        (select count(*) from v_stock_lotes where empresa_id = $1 and unidades > 0 and vence < current_date)::int vencidos,
         (select count(*) from productos p where empresa_id = $1 and activo and coalesce((select sum(unidades) from v_stock_vigente where producto_id = p.id), 0) <= 0)::int agotados,
         (select count(*) from productos p where empresa_id = $1 and activo and stock_minimo > 0
            and coalesce((select sum(unidades) from v_stock_vigente where producto_id = p.id), 0) between 1 and p.stock_minimo * p.unidades_por_caja)::int bajos,
@@ -127,7 +128,7 @@ export default async function Inicio() {
               {d.invima.lote > 0 && <li><Link href="/alertas" className="block hover:underline"><b className="text-[#ffb4ab]">Separa el lote con alerta del INVIMA</b> que tienes en existencias.</Link></li>}
               {d.pred.agotan > 0 && <li><Link href="/prediccion" className="block hover:underline"><b className="text-white">{d.pred.agotan} productos se agotan esta semana</b>{d.pred.agotan_top.length ? `: ${d.pred.agotan_top.map((x) => x.nombre.split(" ").slice(0, 3).join(" ")).join(", ")}` : ""}. Tu pedido sugerido tiene {d.pred.pedir} productos.</Link></li>}
               {d.pred.top_riesgo && <li><Link href="/prediccion?ver=vencimiento" className="block hover:underline"><b className="text-white">Mueve el lote {d.pred.top_riesgo.lote}</b> de {d.pred.top_riesgo.nombre.split(" ").slice(0, 4).join(" ")}: vence en {d.pred.top_riesgo.dias} días y {d.pred.top_riesgo.unidades} unidades no alcanzarían a venderse{d.pred.top_riesgo.valor ? ` (${pesos(d.pred.top_riesgo.valor)})` : ""}.</Link></li>}
-              {d.hoyPatron?.frente_al_promedio != null && Math.abs(d.hoyPatron.frente_al_promedio) >= 10 && <li>Los {d.hoyPatron.nombre}{d.hoyPatron.nombre.endsWith("s") ? "" : "s"} sueles vender <b className="text-white">{d.hoyPatron.frente_al_promedio > 0 ? "+" : ""}{d.hoyPatron.frente_al_promedio} %</b> frente a tu promedio.</li>}
+              {d.hoyPatron?.frente_al_promedio != null && Math.abs(d.hoyPatron.frente_al_promedio) >= 10 && d.hoyPatron.frente_al_promedio > -100 && <li>Los {d.hoyPatron.nombre}{d.hoyPatron.nombre.endsWith("s") ? "" : "s"} sueles vender <b className="text-white">{Math.abs(d.hoyPatron.frente_al_promedio)} % {d.hoyPatron.frente_al_promedio > 0 ? "más" : "menos"}</b> que tu promedio.</li>}
             </ol>
           </div>
           <div className="grid content-start gap-3">
@@ -173,6 +174,7 @@ export default async function Inicio() {
           <h2 className="titulo text-xl">Para revisar</h2>
           <ul className="mt-3 divide-y divide-line">
             {[
+              { n: d.alertas.vencidos, t: "lotes vencidos con existencias: dar de baja", href: "/inventario?ver=vencidos", tono: "text-alerta" },
               { n: d.alertas.vencen, t: "productos con lotes que vencen en 30 días", href: "/inventario", tono: "text-alerta" },
               { n: d.alertas.agotados, t: "productos agotados", href: "/inventario?ver=agotados", tono: "text-ink" },
               { n: d.alertas.bajos, t: "productos por debajo del mínimo", href: "/productos?ver=bajos", tono: "text-aviso" },

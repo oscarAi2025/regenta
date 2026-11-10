@@ -45,7 +45,7 @@ export default async function VentaAlegra({ params }: { params: Promise<{ id: st
             <li key={i}>
               <p className="text-[15px] leading-snug">{l.nombre}</p>
               <p className="flex justify-between text-sm text-muted num"><span>{l.cantidad} × {pesos(l.precio)}{l.iva_pct ? ` · IVA ${l.iva_pct} %` : ""}{l.lote ? ` · lote ${l.lote}` : ""}</span><span className="text-ink font-semibold">{pesos(l.total)}</span></p>
-              {l.descuento > 0 && <p className="text-sm text-cruz num">Descuento −{pesos(l.descuento)}</p>}
+              {l.descuento > 0 && <p className="text-sm text-cruz num">Descuento {l.descuento.toLocaleString("es-CO", { maximumFractionDigits: 2 })} % (−{pesos(l.cantidad * l.precio * l.descuento / 100)})</p>}
             </li>
           ))}
         </ul>
@@ -61,7 +61,7 @@ export default async function VentaAlegra({ params }: { params: Promise<{ id: st
         <Link href="/ventas/historial" className="text-sm font-semibold text-cruz w-fit">← Historial de Alegra</Link>
         <div className="tarjeta p-5 grid gap-2">
           <p className="titulo text-lg">{ESTADO[x.estado]}{x.estado === "por_cobrar" && !d.cartera ? ` · debía ${pesos(Number(x.saldo))}` : ""}</p>
-          <p className="text-sm text-muted">{DIAN[x.estado_dian ?? ""] ?? x.estado_dian ?? "Sin estado DIAN"}{x.forma_pago ? ` · pago: ${MEDIO[String(x.forma_pago).toLowerCase()] ?? x.forma_pago}` : ""}</p>
+          <p className="text-sm text-muted">{DIAN[x.estado_dian ?? ""] ?? x.estado_dian ?? "Sin estado DIAN"}{x.estado === "por_cobrar" ? " · forma de pago: crédito" : x.forma_pago ? ` · pago: ${MEDIO[String(x.forma_pago).toLowerCase()] ?? x.forma_pago}` : ""}</p>
           {x.cufe && <p className="text-xs text-muted break-all">CUFE {x.cufe}</p>}
           <p className="text-sm">Esta venta se hizo en Alegra: para anularla o hacer una devolución, hazlo en Alegra.</p>
         </div>

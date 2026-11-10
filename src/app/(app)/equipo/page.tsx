@@ -63,13 +63,18 @@ export default async function PaginaEquipo() {
         </div>
         <div className="tarjeta p-5">
           <h2 className="text-sm text-muted">Habilitación DIAN</h2>
-          {d.res.length === 0 || d.res.some((r: any) => r.tipo === "pos" && r.pruebas) ? (
-            <p className="mt-1 text-sm"><b className="text-aviso">En proceso.</b> La caja vende cuando quede cargada tu resolución. Te avisamos por correo.</p>
+          {d.res.length === 0 ? (
+            <p className="mt-1 text-sm"><b className="text-aviso">Sin numeración.</b> La caja factura cuando quede cargada tu resolución de la DIAN. Te avisamos por correo.</p>
           ) : (
-            <ul className="mt-1 text-sm grid gap-1">
-              {d.res.map((r: any) => { const usados = Math.max(0, Number(r.actual) - Number(r.desde) + 1), total = Number(r.hasta) - Number(r.desde) + 1;
-                return <li key={r.tipo}><b>{TIPO[r.tipo] ?? r.tipo}</b> {r.prefijo} · usados {usados.toLocaleString("es-CO")} de {total.toLocaleString("es-CO")}{r.vence ? ` · vence ${r.vence}` : ""}</li>; })}
-            </ul>
+            <>
+              {d.res.every((r: any) => r.pruebas) && <p className="mt-1 text-sm"><b className="text-aviso">Numeración de pruebas:</b> la caja vende, pero los documentos no tienen validez fiscal hasta pasar a producción.</p>}
+              <ul className="mt-1 text-sm grid gap-1">
+                {d.res.map((r: any) => { const usados = Math.max(0, Number(r.actual) - Number(r.desde) + 1), total = Number(r.hasta) - Number(r.desde) + 1;
+                  return <li key={r.tipo + r.prefijo}><b>{TIPO[r.tipo] ?? r.tipo}</b> {r.prefijo} · {r.pruebas ? "pruebas · " : ""}usados {usados.toLocaleString("es-CO")} de {total.toLocaleString("es-CO")}{r.vence ? ` · vence ${r.vence}` : ""}</li>; })}
+              </ul>
+              {d.res.some((r: any) => r.tipo === "factura" && !r.pruebas) && d.res.some((r: any) => r.tipo === "pos" && r.pruebas) &&
+                <p className="mt-1 text-sm text-muted">El tiquete POS sigue en habilitación: mientras tanto la caja vende con factura electrónica.</p>}
+            </>
           )}
         </div>
       </section>

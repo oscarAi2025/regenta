@@ -124,7 +124,7 @@ export function CambioMasivo({ opciones }: { opciones: Opciones }) {
               <input id="f-buscar" className="campo" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Escanea o escribe el nombre" autoComplete="off" />
               {res.length > 0 && (
                 <ul aria-label="Resultados" className="absolute z-10 mt-1 w-full tarjeta shadow-lg divide-y divide-line max-h-80 overflow-auto">
-                  {res.map((p) => <li key={p.id}><button type="button" onClick={() => agregar(p)} className="w-full text-left px-4 py-2.5 hover:bg-paper"><span className="font-semibold">{p.nombre}</span><span className="block text-sm text-muted">{p.laboratorio ?? "Genérico"}</span></button></li>)}
+                  {res.map((p) => <li key={p.id}><button type="button" onClick={() => agregar(p)} className="w-full text-left px-4 py-2.5 hover:bg-paper"><span className="font-semibold">{p.nombre}</span><span className="block text-sm text-muted">{p.laboratorio ?? "Sin laboratorio"}</span></button></li>)}
                 </ul>
               )}
             </div>
@@ -206,7 +206,7 @@ export function CambioMasivo({ opciones }: { opciones: Opciones }) {
                         {(l.aplica || fuera) ? <input type="checkbox" checked={!fuera} disabled={cargando} onChange={() => alternar(l.producto_id)} aria-label={`Aplicar a ${l.nombre}`} className="w-4 h-4 accent-[var(--ink)]" /> : <span className="text-xs">—</span>}
                       </td>
                       <td className="px-3 py-2 max-w-[320px]"><p className="font-semibold leading-snug text-ink">{l.nombre}</p>
-                        <p className="text-xs text-muted">{l.laboratorio ?? "Genérico"}{fuera ? " · excluido" : l.omitido ? ` · ${l.omitido}` : ""}</p></td>
+                        <p className="text-xs text-muted">{l.laboratorio ?? "Sin laboratorio"}{fuera ? " · excluido" : l.omitido ? ` · ${l.omitido}` : ""}</p></td>
                       <td className="px-3 py-2 text-right num whitespace-nowrap">{l.costo === null ? "—" : pesosMano(Number(l.costo))}{l.heredado && <span className="block text-xs text-aviso font-semibold">heredado</span>}</td>
                       <td className="px-3 py-2 text-right num whitespace-nowrap" data-campo="caja">{pesosMano(Number(l.caja_antes))}{l.aplica && <> → <b className="text-ink">{pesosMano(Number(l.caja_despues))}</b></>}</td>
                       <td className="px-3 py-2 text-right num whitespace-nowrap" data-campo="unidad">{l.unidad_antes === null ? "—" : <>{pesosMano(Number(l.unidad_antes))}{l.aplica && Number(l.unidad_despues) !== Number(l.unidad_antes) && <> → <b className="text-ink">{pesosMano(Number(l.unidad_despues))}</b></>}</>}</td>

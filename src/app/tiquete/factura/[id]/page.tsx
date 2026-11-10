@@ -5,6 +5,7 @@ import { comoUsuario } from "@/lib/db";
 import { leerSesion, puede } from "@/lib/sesion";
 import { MEDIO, pesos, presentacionTexto } from "@/lib/formato";
 import { pesosEnLetras } from "@/lib/letras";
+import { consultaDian } from "@/lib/documentos";
 import { AutoImprimir } from "../../[id]/AutoImprimir";
 
 // Factura en tamaño carta: la representación gráfica completa para entregar a empresas y droguerías (la tirilla de 80 mm
@@ -64,7 +65,11 @@ export default async function Factura({ params, searchParams }: { params: Promis
   const descuentos = lineas.reduce((a, l) => a + l.descuento, 0);
   const ivaTotal = lineas.reduce((a, l) => a + l.iva, 0);
   const cantidadTotal = lineas.reduce((a, l) => a + l.cantidad, 0);
-  const qr = doc?.qr && /^https?:\/\//.test(doc.qr) ? await QRCode.toString(doc.qr, { type: "svg", margin: 0, errorCorrectionLevel: "M" }) : null;
+  // El QR lleva a la consulta de la DIAN: el que devolvió el emisor o, con el CUFE/CUDE, el enlace de consulta.
+  const enlaceQr = doc?.qr && /^https?:\/\//.test(doc.qr) ? doc.qr : doc?.cufe && !doc.simulado ? consultaDian(doc.cufe) : null;
+  const qr = enlaceQr ? await QRCode.toString(enlaceQr, { type: "svg", margin: 0, errorCorrectionLevel: "M" }) : null;
+  // El régimen que muestra la factura es el de la venta: si cobró IVA, la droguería lo era al vender (el dato de la empresa pudo cambiar después).
+  const responsable = Number(v.iva) > 0 || !!v.responsable_iva;
   const nombre = v.nombre_comercial || v.razon_social;
   const credito = v.condicion === "credito";
   const tipo = v.tipo_doc as "pos" | "factura";
@@ -108,7 +113,10 @@ export default async function Factura({ params, searchParams }: { params: Promis
         .dian { display: grid; grid-template-columns: 26mm minmax(0, 1fr); gap: 4mm; align-items: center; margin-top: 4mm; border-top: 1px solid var(--linea); padding-top: 3mm; break-inside: avoid; }
         .dian svg { width: 26mm; height: 26mm; display: block; }
         .clave { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 8px; overflow-wrap: anywhere; }
-        .legal { margin-top: 4mm; font-size: 8px; color: #444; text-align: center; }
+        .legal { margin-top: 6mm; font-size: 8px; color: #444; text-align: center; }
+        .sinqr { width: 26mm; height: 26mm; border: 1px dashed var(--linea); display: grid; place-items: center; text-align: center; font-size: 7.5px; color: #666; padding: 2mm; }
+        .piepag { display: none; }
+        @media print { .piepag { display: block; position: fixed; bottom: 0; left: 0; right: 0; font-size: 7.5px; color: #555; text-align: right; } }
         .sello { display: inline-block; border: 2px solid #b00020; color: #b00020; font-weight: 700; font-size: 16px; padding: 1mm 4mm; transform: rotate(-4deg); }
         .aviso { border: 1px solid #b00020; color: #b00020; font-weight: 700; padding: 2mm 3mm; border-radius: 2mm; text-align: center; margin-top: 3mm; }
         .firma { margin-top: 8mm; break-inside: avoid; display: grid; grid-template-columns: 1fr 1fr; gap: 10mm; }
@@ -122,7 +130,7 @@ export default async function Factura({ params, searchParams }: { params: Promis
           <div>
             <h1 className="nom">{nombre}</h1>
             {v.nombre_comercial && <p className="dato">{v.razon_social}</p>}
-            <p className="dato">NIT {v.nit}{v.dv ? `-${v.dv}` : ""} · {v.responsable_iva ? "Responsable de IVA" : "No responsable de IVA"}</p>
+            <p className="dato">NIT {v.nit}{v.dv ? `-${v.dv}` : ""} · {responsable ? "Responsable de IVA" : "No responsable de IVA"}</p>
             {v.calidades_tributarias && <p className="dato">{v.calidades_tributarias}</p>}
             {(v.direccion || v.ciudad) && <p className="dato">{[v.direccion, v.ciudad].filter(Boolean).join(" · ")}</p>}
             {(v.telefono || v.email) && <p className="dato">{[v.telefono ? `Tel. ${v.telefono}` : "", v.email].filter(Boolean).join(" · ")}</p>}
@@ -131,7 +139,7 @@ export default async function Factura({ params, searchParams }: { params: Promis
         <div className="numero">
           <p className="t">{TITULO[tipo]}</p>
           <p className="n">No. {v.prefijo}{v.numero}</p>
-          {res && <p className="r">{res.pruebas ? "Numeración de PRUEBAS (habilitación DIAN) · " : ""}Resolución DIAN {res.numero_resolucion ?? "—"}{res.vd ? ` del ${res.vd}` : ""}<br />Prefijo {v.prefijo} del {res.desde} al {res.hasta}{res.vh ? ` · vigente hasta ${res.vh}` : ""}</p>}
+          {res && <p className="r">{res.pruebas ? "Numeración de PRUEBAS (habilitación DIAN) · " : ""}{res.numero_resolucion ? `Resolución DIAN ${res.numero_resolucion}${res.vd ? ` del ${res.vd}` : ""}` : "Sin resolución de numeración cargada"}<br />Prefijo {v.prefijo} del {res.desde} al {res.hasta}{res.vh ? ` · vigente hasta ${res.vh}` : ""}</p>}
         </div>
       </header>
 
@@ -196,11 +204,11 @@ export default async function Factura({ params, searchParams }: { params: Promis
           {v.estado === "anulada" && <p style={{ marginTop: "4mm" }}><span className="sello">ANULADA</span></p>}
         </div>
         <div className="totales">
-          <div className="f"><span>Valor antes de descuentos</span><span className="num">{pesos(bruto)}</span></div>
+          {descuentos > 0 && <div className="f"><span>Valor antes de descuentos</span><span className="num">{pesos(bruto)}</span></div>}
           {descuentos > 0 && <div className="f"><span>Descuentos</span><span className="num">−{pesos(descuentos)}</span></div>}
           {[...tarifas].sort((a, b) => b[0] - a[0]).map(([pct, t]) => pct > 0
             ? <div className="f" key={pct}><span>Base gravada {pct}% · IVA</span><span className="num">{pesos(t.base)} · {pesos(t.iva)}</span></div>
-            : <div className="f" key={pct}><span>{v.responsable_iva ? "Excluido / exento" : "Total sin IVA (no responsable)"}</span><span className="num">{pesos(t.base)}</span></div>)}
+            : <div className="f" key={pct}><span>{responsable ? "Excluido / exento de IVA" : "Total (no responsable de IVA)"}</span><span className="num">{pesos(t.base)}</span></div>)}
           {ivaTotal > 0 && <div className="f"><span>Total IVA</span><span className="num">{pesos(ivaTotal)}</span></div>}
           <div className="f"><span>TOTAL A PAGAR</span><span className="num">{pesos(v.total)}</span></div>
         </div>
@@ -208,7 +216,7 @@ export default async function Factura({ params, searchParams }: { params: Promis
 
       {doc?.simulado && <p className="aviso">EMISIÓN SIMULADA · SIN VALIDEZ FISCAL</p>}
       <section className="dian">
-        {qr ? <div dangerouslySetInnerHTML={{ __html: qr }} /> : <div />}
+        {qr ? <div dangerouslySetInnerHTML={{ __html: qr }} /> : <div className="sinqr">Sin código QR: {doc?.simulado ? "emisión simulada" : "pendiente de validación DIAN"}</div>}
         <div>
           {doc?.cufe
             ? <>
@@ -216,12 +224,14 @@ export default async function Factura({ params, searchParams }: { params: Promis
                 <p className="clave"><b>{tipo === "pos" ? "CUDE" : "CUFE"}:</b> {doc.cufe}</p>
               </>
             : <p><b>Pendiente de validación DIAN.</b> Esta representación gráfica se completa con el {tipo === "pos" ? "CUDE" : "CUFE"} y el código QR cuando la DIAN valida el documento.</p>}
-          <p style={{ marginTop: "1.5mm" }}>Representación gráfica de {tipo === "pos" ? "documento equivalente electrónico" : "factura electrónica de venta"}. Consúltela en catalogo-vpfe.dian.gov.co con el código QR.</p>
+          <p style={{ marginTop: "1.5mm" }}>Representación gráfica de {tipo === "pos" ? "documento equivalente electrónico" : "factura electrónica de venta"}. {qr ? " Consúltela en la DIAN con el código QR." : ""}</p>
         </div>
       </section>
 
       {credito && <div className="firma"><div>Recibí conforme (nombre, firma y sello)</div><div>Fecha de recibido</div></div>}
       <p className="legal">Software: {FABRICANTE.software} · Fabricante: {FABRICANTE.nombre} · NIT {FABRICANTE.nit}</p>
+      {/* Al imprimir se repite en cada hoja: así una hoja suelta se sabe de qué factura es. */}
+      <p className="piepag" aria-hidden="true">{TITULO[tipo]} {v.prefijo}{v.numero} · {nombre} · NIT {v.nit}{v.dv ? `-${v.dv}` : ""}</p>
     </main>
   );
 }
