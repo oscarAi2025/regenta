@@ -1,13 +1,13 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRefrescar } from "@/lib/refrescar";
 
 type Datos = { razon_social: string; nombre_comercial: string; nit: string; responsable_iva: boolean; direccion: string; ciudad: string; telefono: string; email: string };
 
 /** Datos fiscales del cliente (salen en sus facturas). El NIT se bloquea cuando ya factura en producción ante la DIAN. */
 export function Fiscal({ empresa, inicial, nitFijo }: { empresa: string; inicial: Datos; nitFijo: boolean }) {
   const [d, setD] = useState(inicial), [msg, setMsg] = useState(""), [enviando, setEnviando] = useState(false);
-  const router = useRouter();
+  const refrescar = useRefrescar();
   const campo = (k: keyof Datos, etiqueta: string, extra: Record<string, unknown> = {}) => (
     <label className="grid gap-1 text-sm font-semibold">{etiqueta}
       <input className="campo font-normal" value={String(d[k])} onChange={(e) => setD({ ...d, [k]: e.target.value })} {...extra} />
@@ -18,7 +18,7 @@ export function Fiscal({ empresa, inicial, nitFijo }: { empresa: string; inicial
     const r = await fetch(`/api/admin/clientes/${empresa}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ fiscal: d }) }).catch(() => null);
     const j = await r?.json().catch(() => ({}));
     setMsg(r?.ok ? j.mensaje ?? "Guardado" : j?.error ?? "No se pudo guardar"); setEnviando(false);
-    if (r?.ok) router.refresh();
+    if (r?.ok) void refrescar();
   }
   return (
     <section className="tarjeta p-5 grid gap-3" aria-labelledby="fiscal-t">

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRefrescar } from "@/lib/refrescar";
 
 const PRECIO: Record<string, Record<string, number>> = { esencial: { mes: 89900, anio: 899000 }, pro: { mes: 139900, anio: 1399000 } };
 
@@ -9,7 +9,7 @@ export function PagoManual({ empresa, plan }: { empresa: string; plan: string })
   const [abierto, setAbierto] = useState(false);
   const [f, setF] = useState({ plan: plan === "pro" ? "pro" : "esencial", periodo: "mes", monto: String(PRECIO[plan === "pro" ? "pro" : "esencial"].mes), medio: "Transferencia", soporte: "" });
   const [msg, setMsg] = useState(""), [enviando, setEnviando] = useState(false);
-  const router = useRouter();
+  const refrescar = useRefrescar();
   const cambiar = (k: string, v: string) => { const n = { ...f, [k]: v }; if (k === "plan" || k === "periodo") n.monto = String(PRECIO[n.plan][n.periodo]); setF(n); };
   async function guardar(e: React.FormEvent) {
     e.preventDefault(); setEnviando(true); setMsg("");
@@ -17,7 +17,7 @@ export function PagoManual({ empresa, plan }: { empresa: string; plan: string })
       body: JSON.stringify({ ...f, monto: Number(f.monto.replace(/\D/g, "")), soporte: f.soporte || undefined }) }).catch(() => null);
     const j = await r?.json().catch(() => ({}));
     setMsg(r?.ok ? j.mensaje : j?.error ?? "Sin conexión"); setEnviando(false);
-    if (r?.ok) { setAbierto(false); router.refresh(); }
+    if (r?.ok) { setAbierto(false); void refrescar(); }
   }
   if (!abierto) return <div className="flex flex-wrap items-center gap-2"><button onClick={() => setAbierto(true)} className="btn-borde h-10 text-sm">Registrar pago manual</button>{msg && <span role="status" className="text-sm text-muted">{msg}</span>}</div>;
   return (

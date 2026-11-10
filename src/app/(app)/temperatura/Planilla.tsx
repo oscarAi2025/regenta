@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRefrescar } from "@/lib/refrescar";
 import {
   AREAS, AREA_CORTA, JORNADAS, celdas, dec, diaCorto, diaLargo, fueraDeRango, nombreCorto, rangoTexto,
   type Area, type Celda, type Jornada, type Rango, type Registro,
@@ -18,7 +18,7 @@ const igual = (a: Slot, b: Slot) => a.fecha === b.fecha && a.jornada === b.jorna
 
 /** Planilla del mes: registrar la jornada (con alerta inmediata fuera de rango), ver qué falta y corregir sin borrar. */
 export function Planilla({ mes, hoy, jornada, registros: deServidor, rangos, inicio: inicioServidor, puedeRegistrar, limite, children }: Props) {
-  const router = useRouter();
+  const refrescar = useRefrescar();
   // Los datos del mes vienen del servidor y, al guardar, de la respuesta de la API: la planilla se actualiza al instante.
   const [datos, setDatos] = useState({ registros: deServidor, inicio: inicioServidor });
   const [previos, setPrevios] = useState({ registros: deServidor, inicio: inicioServidor });
@@ -80,7 +80,7 @@ export function Planilla({ mes, hoy, jornada, registros: deServidor, rangos, ini
     setMsg({ ok: true, t: fueCorreccion ? "Corrección guardada. El registro anterior queda en el historial." : j.registro?.fuera_rango ? "Registro guardado fuera de rango, con su acción correctiva." : "Registro guardado." });
     setElegida(fueCorreccion ? slot : null);
     if (j.mes?.mes === mes) setDatos({ registros: j.mes.registros, inicio: j.mes.inicio });
-    router.refresh(); // el resto de la pantalla (resumen e informe) también se pone al día
+    void refrescar(); // el resto de la pantalla (resumen e informe) también se pone al día
   }
 
   const etiquetaSlot = `${slot.fecha === hoy ? "Hoy" : diaLargo(slot.fecha).replace(/^./, (x) => x.toUpperCase())}, ${JORNADAS[slot.jornada].toLowerCase()}`;

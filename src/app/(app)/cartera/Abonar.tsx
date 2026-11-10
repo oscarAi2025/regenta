@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRefrescar } from "@/lib/refrescar";
 import { MEDIO, pesos } from "@/lib/formato";
 
 /** Registrar un abono a una factura a crédito, en la misma fila. */
@@ -11,7 +11,7 @@ export function Abonar({ venta, saldo, numero }: { venta: string; saldo: number;
   const [ref, setRef] = useState("");
   const [error, setError] = useState("");
   const [enviando, setEnviando] = useState(false);
-  const router = useRouter();
+  const refrescar = useRefrescar();
   const idem = useRef(crypto.randomUUID()); // un doble clic no registra dos abonos
   const n = Number(valor.replace(/\D/g, "")) || 0;
 
@@ -26,7 +26,7 @@ export function Abonar({ venta, saldo, numero }: { venta: string; saldo: number;
       if (!r.ok) { setError(j.error ?? "No se pudo registrar el abono"); return; }
       window.dispatchEvent(new CustomEvent("regenta:abono", { detail: { venta, abonado: Number(j.abonado), saldo: Number(j.saldo) } }));
       idem.current = crypto.randomUUID();
-      setAbierto(false); setValor(""); setRef(""); router.refresh();
+      setAbierto(false); setValor(""); setRef(""); void refrescar();
     } catch { setError("Sin conexión con el servidor: vuelve a intentarlo"); } finally { setEnviando(false); }
   }
 

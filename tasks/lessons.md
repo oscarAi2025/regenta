@@ -278,3 +278,13 @@
   una forma de corregirse en la aplicación ANTES de migrar: si no, el error de origen queda congelado (los 3 lotes
   «vencidos» de Alegra no se podían arreglar). Cada corrección con motivo y auditoría antes/después, sin tocar existencias.
 - Una prueba que elige datos de la demo con `limit 1` sin `order by` cambia de producto entre corridas: ordenar siempre.
+
+## 10/11/2026 · Refrescos que no llegan a la pantalla (Next.js 15)
+- Mismo fallo del enrutador que las navegaciones colgadas, pero con router.refresh(): la respuesta del servidor llega
+  (200) y la pantalla no la aplica. Medido tras guardar un ajuste: 2 de 20 sin el historial al día. Afectaba a las 15
+  pantallas que guardan y refrescan (abonos, cartera, turnos, clientes, temperatura, consola…).
+- Solución: `useRefrescar()` (src/lib/refrescar.ts) + `<MarcaRender />` en los layouts de la app y la consola. Cada render
+  del servidor lleva una marca nueva; tras router.refresh() se espera a que la marca cambie, si no se reintenta (3 veces)
+  y como último recurso se recarga. Medido después: 0 de 60, sin recargas ni pérdida del mensaje de éxito.
+- Regla: no usar router.refresh() directo; siempre `void refrescar()`. Un fallo intermitente en e2e es real hasta medirlo
+  en bucle; leer el cuerpo de la respuesta en el reproductor cambia los tiempos y oculta el fallo.

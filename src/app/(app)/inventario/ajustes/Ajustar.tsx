@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRefrescar } from "@/lib/refrescar";
 import Link from "next/link";
 import { MOTIVOS, llevaActa, nombreMotivo, unidadesTexto, type Motivo } from "@/lib/ajustes";
 
@@ -14,7 +14,7 @@ const fecha = (d: string | null) => (d ? new Date(d + "T00:00:00").toLocaleDateS
 const pesos = (v: number) => "$" + Math.round(v).toLocaleString("es-CO");
 
 export function Ajustar({ verCosto }: { verCosto: boolean }) {
-  const router = useRouter();
+  const refrescar = useRefrescar();
   const [motivo, setMotivo] = useState<Motivo | "">("");
   const [detalle, setDetalle] = useState("");
   const [q, setQ] = useState("");
@@ -108,7 +108,7 @@ export function Ajustar({ verCosto }: { verCosto: boolean }) {
     if (!r.ok) { setError(j.error ?? "No se pudo registrar el ajuste"); return; }
     setHecho({ id: j.id, numero: j.numero, acta: !!j.acta, motivo, unidades: neto });
     setLineas([]); setDetalle(""); idem.current = crypto.randomUUID();
-    router.refresh();
+    void refrescar();
     setTimeout(() => document.getElementById("ajuste-hecho")?.focus(), 0);
   }
 

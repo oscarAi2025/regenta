@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRefrescar } from "@/lib/refrescar";
 import { pesos, MEDIO } from "@/lib/formato";
 import { imprimirRuta } from "@/lib/impresion";
 
@@ -14,7 +14,7 @@ const entero = (v: string) => Number(v.replace(/\D/g, "") || 0);
 
 /** `ciego`: la cajera cuenta el cajón sin ver cuánto «debería» haber (cierre ciego); lo ve al cerrar. */
 export function Turno({ estado, dueno, ciego = false }: { estado: Estado; dueno: boolean; ciego?: boolean }) {
-  const router = useRouter();
+  const refrescar = useRefrescar();
   const [error, setError] = useState("");
   const [ocupado, setOcupado] = useState(false);
   const [base, setBase] = useState("");
@@ -30,7 +30,7 @@ export function Turno({ estado, dueno, ciego = false }: { estado: Estado; dueno:
       const r = await fetch("/api/turnos", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(cuerpo) });
       const j = await r.json();
       if (!r.ok) { setError(j.error ?? "No se pudo"); return null; }
-      router.refresh();
+      void refrescar();
       return j;
     } catch { setError("Sin conexión con el servidor"); return null; } finally { setOcupado(false); }
   }

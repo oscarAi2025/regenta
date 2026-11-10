@@ -13,6 +13,7 @@ import { AvisoPlan } from "@/components/app/AvisoPlan";
 import Link from "next/link";
 import { ModoDemo } from "@/components/app/ModoDemo";
 import { GARANTIA, PRECIO_DESDE } from "@/lib/oferta";
+import { MarcaRender } from "@/components/MarcaRender";
 
 // La aplicación nunca se indexa: solo la portada comercial es pública.
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -57,7 +58,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         )}
         {!emp.demo && <AvisoPlan rol={s.rol} dias={emp.dias === null ? null : Number(emp.dias)} vence={emp.vence} autorenueva={emp.autorenueva} plan={emp.plan} cargos={emp.cargos} />}
         <AvisoPermiso />
-        <div className="pb-24">{children}</div>
+        <div className="pb-24">{children}<MarcaRender /></div>
       </div>
       <Buscador rol={s.rol} />
       <Asistente activa={iaActiva()} />

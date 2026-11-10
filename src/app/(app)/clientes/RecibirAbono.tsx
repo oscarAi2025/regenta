@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRefrescar } from "@/lib/refrescar";
 import { MEDIO, pesos } from "@/lib/formato";
 import { imprimirRuta } from "@/lib/impresion";
 
@@ -24,7 +24,7 @@ export function RecibirAbono({ cliente, abierto: abiertoInicial = false }: { cli
   const [hecho, setHecho] = useState<Hecho | null>(null);
   const buscar = useRef<HTMLInputElement>(null);
   const idem = useRef(crypto.randomUUID()); // un doble clic no registra dos recibos
-  const router = useRouter();
+  const refrescar = useRefrescar();
 
   useEffect(() => {
     if (!abierto || elegido) return;
@@ -54,7 +54,7 @@ export function RecibirAbono({ cliente, abierto: abiertoInicial = false }: { cli
       idem.current = crypto.randomUUID();
       setHecho(rc);
       imprimirRuta(`/tiquete/recibo/${rc.id}`);
-      router.refresh(); // el resto de la pantalla (turno, estado de cuenta); lo guardado ya se ve aquí
+      void refrescar(); // el resto de la pantalla (turno, estado de cuenta); lo guardado ya se ve aquí
     } catch { setError("Sin conexión con el servidor: vuelve a intentarlo"); } finally { setEnviando(false); }
   }
 

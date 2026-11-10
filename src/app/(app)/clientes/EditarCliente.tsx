@@ -1,18 +1,18 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRefrescar } from "@/lib/refrescar";
 
 type C = { id: string; tipo_doc: string; numero_doc: string; nombre: string; email: string; telefono: string; autoriza_datos: boolean };
 
 export function EditarCliente({ c }: { c: C }) {
   const [abierto, setAbierto] = useState(false), [d, setD] = useState(c), [msg, setMsg] = useState(""), [enviando, setEnviando] = useState(false);
-  const router = useRouter();
+  const refrescar = useRefrescar();
   async function enviar(cuerpo: unknown) {
     setEnviando(true); setMsg("");
     const r = await fetch(`/api/clientes/${c.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(cuerpo) }).catch(() => null);
     const j = await r?.json().catch(() => ({}));
     setMsg(r?.ok ? j.mensaje : j?.error ?? "Sin conexión"); setEnviando(false);
-    if (r?.ok) { setAbierto(false); router.refresh(); }
+    if (r?.ok) { setAbierto(false); void refrescar(); }
   }
   if (!abierto) return <span className="inline-flex flex-wrap gap-2 items-center"><button onClick={() => setAbierto(true)} className="btn-borde h-9 text-sm">Corregir</button>{msg && <span role="status" className="text-sm text-muted">{msg}</span>}</span>;
   const id = (k: string) => `cl-${c.id.slice(0, 8)}-${k}`;

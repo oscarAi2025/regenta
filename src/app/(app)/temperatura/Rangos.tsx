@@ -1,13 +1,13 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRefrescar } from "@/lib/refrescar";
 import { AREAS, dec, rangoTexto, type Area, type Rango } from "@/lib/temperatura-comun";
 
 const num = (t: string) => { const v = t.trim().replace(",", "."); return v === "" ? null : /^-?\d+(\.\d+)?$/.test(v) ? Number(v) : NaN; };
 
 /** Rangos aceptables por área. Los define cada droguería (vienen valores de partida); dueño y administrador los cambian. */
 export function Rangos({ rangos, editable, demo = false }: { rangos: Rango[]; editable: boolean; demo?: boolean }) {
-  const router = useRouter();
+  const refrescar = useRefrescar();
   const [editando, setEditando] = useState<Area | null>(null);
   const [v, setV] = useState({ tmin: "", tmax: "", hmin: "", hmax: "" });
   const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
@@ -26,7 +26,7 @@ export function Rangos({ rangos, editable, demo = false }: { rangos: Rango[]; ed
     if (!r) { setMsg({ ok: false, t: "Sin conexión: revisa internet e intenta de nuevo." }); return; }
     if (!r.ok) { setMsg({ ok: false, t: (await r.json().catch(() => ({}))).error ?? "No se pudo guardar" }); return; }
     setEditando(null); setMsg({ ok: true, t: "Rango guardado. Aplica a los registros que se hagan desde ahora." });
-    router.refresh();
+    void refrescar();
   }
   const campo = (k: keyof typeof v, etiqueta: string) => (
     <label className="grid gap-1 text-sm font-semibold">{etiqueta}

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRefrescar } from "@/lib/refrescar";
 
 type Lote = { lote_id: string; nombre: string; lote: string; unidades: number; unidades_por_caja: number; motivo: string | null };
 const n = (s: string) => Number(String(s).replace(/\D/g, "")) || 0;
@@ -9,14 +9,14 @@ const n = (s: string) => Number(String(s).replace(/\D/g, "")) || 0;
 export function CostosPendientes({ lotes, compras = [] }: { lotes: Lote[]; compras?: { id: string; numero: number; numero_factura: string; proveedor: string }[] }) {
   const [abierto, setAbierto] = useState(false), [v, setV] = useState<Record<string, string>>({}), [porCaja, setPorCaja] = useState<Record<string, boolean>>({});
   const [msg, setMsg] = useState<Record<string, string>>({});
-  const router = useRouter();
+  const refrescar = useRefrescar();
   async function guardar(l: Lote) {
     const valor = n(v[l.lote_id] ?? ""), unidad = porCaja[l.lote_id] && l.unidades_por_caja > 1 ? valor / l.unidades_por_caja : valor;
     if (!valor) { setMsg({ ...msg, [l.lote_id]: "Escribe el costo" }); return; }
     const r = await fetch("/api/inventario/costos", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ lote_id: l.lote_id, costo_unidad: Math.round(unidad * 10000) / 10000 }) }).catch(() => null);
     const j = await r?.json().catch(() => ({}));
     setMsg({ ...msg, [l.lote_id]: r?.ok ? "Guardado" : j?.error ?? "Sin conexión" });
-    if (r?.ok) router.refresh();
+    if (r?.ok) void refrescar();
   }
   return (
     <section className="mt-4 tarjeta p-4 sm:p-5 border-aviso" aria-labelledby="sin-costo-t">

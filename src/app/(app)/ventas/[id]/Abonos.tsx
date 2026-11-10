@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRefrescar } from "@/lib/refrescar";
 import { pesos } from "@/lib/formato";
 
 type Abono = { id: string; fecha: string; medio: string; valor: number; referencia: string | null; anulado: boolean; anulado_motivo: string | null };
@@ -10,14 +10,14 @@ export function Abonos({ abonos, puedeAnular }: { abonos: Abono[]; puedeAnular: 
   const [abierto, setAbierto] = useState<string | null>(null);
   const [motivo, setMotivo] = useState("");
   const [error, setError] = useState("");
-  const router = useRouter();
+  const refrescar = useRefrescar();
   async function anular(id: string) {
     setError("");
     try {
       const r = await fetch(`/api/cartera/${id}`, { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ motivo }) });
       const j = await r.json();
       if (!r.ok) { setError(j.error ?? "No se pudo anular"); return; }
-      setAbierto(null); setMotivo(""); router.refresh();
+      setAbierto(null); setMotivo(""); void refrescar();
     } catch { setError("Sin conexión con el servidor"); }
   }
   return (

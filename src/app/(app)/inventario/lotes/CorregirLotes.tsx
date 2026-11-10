@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRefrescar } from "@/lib/refrescar";
 
 type Prod = { id: string; nombre: string; laboratorio: string | null; exacto?: boolean };
 type Lote = { lote_id: string; lote: string; vence: string | null; unidades: number; bloqueado: boolean; vencido: boolean };
@@ -9,7 +9,7 @@ const fecha = (d: string | null) => (d ? new Date(d + "T00:00:00").toLocaleDateS
 
 /** Buscar un producto, ver sus lotes y corregir el código o la fecha de vencimiento de uno (con motivo). */
 export function CorregirLotes({ inicial }: { inicial?: Prod | null }) {
-  const router = useRouter();
+  const refrescar = useRefrescar();
   const [q, setQ] = useState("");
   const [res, setRes] = useState<Prod[]>([]);
   const [prod, setProd] = useState<Prod | null>(null);
@@ -68,7 +68,7 @@ export function CorregirLotes({ inicial }: { inicial?: Prod | null }) {
     setAviso(`Lote ${j.lote.lote} corregido: vence ${fecha(j.lote.vence)}. Quedó registrado en la auditoría.`);
     setEditando(null);
     if (prod) await cargar(prod);
-    router.refresh();
+    void refrescar();
   }
 
   return (

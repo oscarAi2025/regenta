@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRefrescar } from "@/lib/refrescar";
 import { Enlace } from "@/components/admin/Enlace";
 
 type U = { user_id: string; nombre: string; email: string | null; rol: string; rol_nombre: string; activo: boolean; activada: boolean; ultimo: string };
@@ -11,7 +11,7 @@ export function Usuarios({ empresa, usuarios }: { empresa: string; usuarios: U[]
   const [enlace, setEnlace] = useState<{ url: string; nombre: string } | null>(null);
   const [error, setError] = useState("");
   const [correo, setCorreo] = useState<{ id: string; v: string } | null>(null);
-  const router = useRouter();
+  const refrescar = useRefrescar();
   async function llamar(metodo: string, cuerpo: unknown, nombre: string) {
     setError("");
     try {
@@ -19,7 +19,7 @@ export function Usuarios({ empresa, usuarios }: { empresa: string; usuarios: U[]
       const j = await r.json();
       if (!r.ok) { setError(j.error ?? "No se pudo"); return; }
       if (j.enlace) setEnlace({ url: j.enlace, nombre });
-      router.refresh();
+      void refrescar();
       return true;
     } catch { setError("Sin conexión"); }
   }

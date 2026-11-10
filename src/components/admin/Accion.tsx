@@ -1,12 +1,12 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRefrescar } from "@/lib/refrescar";
 
 /** Botón de una sola acción de la consola: llama a la API, muestra el resultado y refresca la pantalla. */
 export function Accion({ url, metodo = "POST", cuerpo, texto, confirmar, clase = "btn-borde h-10 text-sm", ir }: { url: string; metodo?: string; cuerpo?: unknown; texto: string; confirmar?: string; clase?: string; ir?: string }) {
   const [estado, setEstado] = useState<"" | "enviando" | "pregunta">("");
   const [msg, setMsg] = useState("");
-  const router = useRouter();
+  const refrescar = useRefrescar();
   async function hacer() {
     if (confirmar && estado !== "pregunta") { setEstado("pregunta"); return; }
     setEstado("enviando"); setMsg("");
@@ -15,7 +15,7 @@ export function Accion({ url, metodo = "POST", cuerpo, texto, confirmar, clase =
       const j = await r.json().catch(() => ({}));
       if (!r.ok) { setMsg(j.error ?? "No se pudo"); setEstado(""); return; }
       if (j.ir || ir) { location.href = j.ir ?? ir; return; }
-      setMsg(j.mensaje ?? ""); setEstado(""); router.refresh();
+      setMsg(j.mensaje ?? ""); setEstado(""); void refrescar();
     } catch { setMsg("Sin conexión"); setEstado(""); }
   }
   return (

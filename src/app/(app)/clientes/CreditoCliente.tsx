@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRefrescar } from "@/lib/refrescar";
 import { pesos } from "@/lib/formato";
 
 type Credito = { cupo: number | null; cupo_disponible: number | null; saldo: number; dias_mora: number; motivo: string | null; plazo_dias: number | null; bloqueado: boolean };
@@ -17,7 +17,7 @@ export function CreditoCliente({ id, inicial, notas: notasIni }: { id: string; i
   const [notas, setNotas] = useState(notasIni ?? "");
   const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
   const [enviando, setEnviando] = useState(false);
-  const router = useRouter();
+  const refrescar = useRefrescar();
 
   async function guardar(e: React.FormEvent) {
     e.preventDefault();
@@ -28,7 +28,7 @@ export function CreditoCliente({ id, inicial, notas: notasIni }: { id: string; i
         body: JSON.stringify({ cupo_credito: conCupo ? entero(cupo) : null, plazo_dias_defecto: plazo ? Number(plazo) : null, credito_bloqueado: bloq, notas: notas.trim() || null }) });
       const j = await r.json();
       if (!r.ok) { setMsg({ ok: false, t: j.error ?? "No se pudo guardar" }); return; }
-      setCr(j.credito); setMsg({ ok: true, t: j.mensaje }); router.refresh();
+      setCr(j.credito); setMsg({ ok: true, t: j.mensaje }); void refrescar();
     } catch { setMsg({ ok: false, t: "Sin conexión con el servidor: vuelve a intentarlo" }); } finally { setEnviando(false); }
   }
 
