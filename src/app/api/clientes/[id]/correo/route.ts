@@ -3,7 +3,7 @@ import { comoUsuario } from "@/lib/db";
 import { conSesion, json } from "@/lib/api";
 import { puede } from "@/lib/sesion";
 
-const esUuid = (v: string) => /^[0-9a-f-]{36}$/i.test(v);
+const esUuid = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 
 /** Desde la caja: poner el correo a un cliente que no lo tiene (la factura electrónica lo necesita). Solo si está vacío:
  *  cambiar un correo ya guardado lo hacen el dueño o el administrador en Clientes. */

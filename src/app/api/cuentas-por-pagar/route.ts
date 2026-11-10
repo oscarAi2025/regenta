@@ -11,7 +11,7 @@ export const GET = conSesion(async (s, req) => {
   if (!puedeCompras.dinero(s.rol)) return json({ error: "Las cuentas por pagar las ve el dueño o el administrador" }, 403);
   const sp = new URL(req.url).searchParams;
   const prov = sp.get("proveedor");
-  const filas = await comoUsuario(s, (c) => cuentasPorPagar(c, s.empresa, prov && /^[0-9a-f-]{36}$/i.test(prov) ? prov : null));
+  const filas = await comoUsuario(s, (c) => cuentasPorPagar(c, s.empresa, prov && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(prov) ? prov : null));
   if (sp.get("formato") === "csv") {
     const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
     const datos = filas.map((f) => ({ ...f, nit: f.nit ? `${f.nit}${f.dv ? "-" + f.dv : ""}` : "", estado: GRUPO[grupoCxP(f.dias)],

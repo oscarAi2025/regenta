@@ -11,7 +11,7 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
   if (!s) redirect("/entrar");
   if (!puedeDian.emitir(s.rol)) redirect("/inicio?aviso=permiso"); // dueño y administrador
   const { id } = await params;
-  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
   const { f, responsable } = await comoUsuario(s, async (c) => ({ f: await facturaParaNotaDebito(c, s.empresa, id),
     responsable: (await c.query(`select responsable_iva from empresas where id = $1`, [s.empresa])).rows[0]?.responsable_iva !== false }));
   if (!f) notFound();

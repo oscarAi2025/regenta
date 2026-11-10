@@ -16,7 +16,7 @@ export default async function VentaAlegra({ params }: { params: Promise<{ id: st
   if (!s) redirect("/entrar");
   if (!puede.vender(s.rol)) redirect("/inicio?aviso=permiso");
   const { id } = await params;
-  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
   const d = await comoUsuario(s, async (c) => {
     const x = (await c.query(`select x.*, x.fecha::text fecha_txt, x.vence::text vence_txt, e.razon_social, e.nit, e.dv from ventas_externas x join empresas e on e.id = x.empresa_id
       where x.id = $1 and x.empresa_id = $2`, [id, s.empresa])).rows[0];

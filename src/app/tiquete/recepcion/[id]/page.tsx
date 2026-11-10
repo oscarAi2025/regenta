@@ -19,7 +19,7 @@ export default async function ActaRecepcion({ params }: { params: Promise<{ id: 
   if (!s) redirect("/entrar");
   if (!puedeCompras.ver(s.rol)) redirect("/inicio?aviso=permiso");
   const { id } = await params;
-  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
   const d = await comoUsuario(s, async (c) => {
     const k = await detalleCompra(c, s.empresa, id, false); // el acta no lleva costos
     if (!k) return null;

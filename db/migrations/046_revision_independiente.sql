@@ -31,6 +31,10 @@ begin
   perform pg_advisory_xact_lock(hashtext(l.producto_id::text));  -- igual que la venta: no se cruza con una venta del mismo producto
   select * into l from lotes where id = p_lote for update;
   if v_codigo = l.lote and p_vence is not distinct from l.vence then raise exception 'El lote ya tiene ese código y esa fecha' using errcode = 'P0001'; end if;
+  -- Un código nuevo: solo letras, números y separadores visibles (con caracteres invisibles o saltos de línea se vería igual a otro).
+  if v_codigo <> l.lote and v_codigo !~ '^[[:alnum:]][[:alnum:] ._/-]*$' then
+    raise exception 'El código del lote solo lleva letras, números, espacios, puntos, guiones o barras' using errcode = 'P0001';
+  end if;
   if l.vence < current_date and p_vence >= current_date and v_rol = 'bodeguero' then
     raise exception 'El lote % está vencido: volverlo vendible con otra fecha lo decide el dueño o el administrador', l.lote using errcode = '42501';
   end if;

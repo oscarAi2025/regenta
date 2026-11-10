@@ -26,7 +26,7 @@ export default async function Factura({ params, searchParams }: { params: Promis
   if (!puede.vender(s.rol)) redirect("/inicio?aviso=permiso");
   const { id } = await params;
   const { auto } = await searchParams;
-  if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) notFound();
 
   const d = await comoUsuario(s, async (c) => {
     const v = (await c.query(
@@ -46,11 +46,16 @@ export default async function Factura({ params, searchParams }: { params: Promis
       `select vl.descripcion, vl.presentacion, coalesce(p.ean, left(p.id::text, 8)) codigo, p.laboratorio,
               sum(vl.cantidad)::float cantidad, vl.precio::float precio, sum(vl.total)::float total, vl.iva_pct::float iva_pct, sum(vl.base)::float base,
               sum(vl.iva)::float iva, sum(vl.descuento)::float descuento, vl.descuento_pct::float descuento_pct, max(p.unidades_por_caja) upc,
-              json_agg(json_build_object('lote', l.lote, 'vence', to_char(l.vence, 'DD/MM/YYYY'), 'unidades', vl.unidades) order by l.vence, l.lote) lotes
+              json_agg(json_build_object('lote', l.lote, 'vence', to_char(l.vence, 'DD/MM/YYYY'), 'unidades', vl.unidades,
+                -- Si el lote se corrigió después de la venta, lo que decía al vender (para rastrear un retiro del INVIMA).
+                'original', (select jsonb_build_object('lote', a.datos -> 'antes' ->> 'lote', 'vence', to_char((a.datos -> 'antes' ->> 'vence')::date, 'DD/MM/YYYY'))
+                  from auditoria a where a.empresa_id = vl.empresa_id and a.entidad = 'lotes' and a.entidad_id = l.id::text
+                    and a.accion in ('corregir_lote', 'lote_vencido_reactivado') and a.creado > (select creado from ventas where id = vl.venta_id) order by a.id limit 1)
+              ) order by l.vence, l.lote) lotes
        from venta_lineas vl join productos p on p.id = vl.producto_id join lotes l on l.id = vl.lote_id where vl.venta_id = $1
        group by vl.descripcion, vl.presentacion, vl.precio, vl.iva_pct, vl.descuento_pct, vl.producto_id, p.ean, p.id, p.laboratorio order by min(vl.id)`, [id])).rows as
       { descripcion: string; presentacion: string; codigo: string; laboratorio: string | null; cantidad: number; precio: number; total: number; iva_pct: number; base: number;
-        iva: number; descuento: number; descuento_pct: number; upc: number; lotes: { lote: string; vence: string | null; unidades: number }[] }[];
+        iva: number; descuento: number; descuento_pct: number; upc: number; lotes: { lote: string; vence: string | null; unidades: number; original: { lote: string; vence: string | null } | null }[] }[];
     const pagos = (await c.query(`select medio, valor::float from pagos where venta_id = $1 order by id`, [id])).rows;
     const doc = (await c.query(`select estado, cufe, qr, simulado, case when estado = 'aceptado' then to_char(actualizado at time zone 'America/Bogota', 'DD/MM/YYYY HH24:MI:SS') end validado
       from documentos_dian where venta_id = $1 and tipo <> 'nota_credito'`, [id])).rows[0];
@@ -63,7 +68,12 @@ export default async function Factura({ params, searchParams }: { params: Promis
   for (const l of lineas) { const t = tarifas.get(l.iva_pct) ?? { base: 0, iva: 0 }; t.base += l.base; t.iva += l.iva; tarifas.set(l.iva_pct, t); }
   const bruto = lineas.reduce((a, l) => a + l.total + l.descuento, 0); // con IVA, antes de descuentos (como el precio de venta)
   const descuentos = lineas.reduce((a, l) => a + l.descuento, 0);
-  const ivaTotal = lineas.reduce((a, l) => a + l.iva, 0);
+  const ivaTotal = Math.round(lineas.reduce((a, l) => a + l.iva, 0));
+  // IVA por tarifa redondeado a pesos de forma que la suma de las tarifas dé exactamente el total (el peso de diferencia
+  // del redondeo va a la tarifa con más IVA).
+  const ivaPor = new Map([...tarifas].map(([k, t]) => [k, Math.round(t.iva)]));
+  const mayor = [...tarifas].sort((a, b) => b[1].iva - a[1].iva)[0]?.[0];
+  if (mayor !== undefined) ivaPor.set(mayor, (ivaPor.get(mayor) ?? 0) + ivaTotal - [...ivaPor.values()].reduce((a, b) => a + b, 0));
   const cantidadTotal = lineas.reduce((a, l) => a + l.cantidad, 0);
   // El QR lleva a la consulta de la DIAN: el que devolvió el emisor o, con el CUFE/CUDE, el enlace de consulta.
   const enlaceQr = doc?.qr && /^https?:\/\//.test(doc.qr) ? doc.qr : doc?.cufe && !doc.simulado ? consultaDian(doc.cufe) : null;
@@ -79,7 +89,7 @@ export default async function Factura({ params, searchParams }: { params: Promis
       <style>{`
         @page { size: letter; margin: 12mm 12mm 14mm; }
         html, body { background: #fff !important; margin: 0; }
-        .fac { --tinta: #10233a; --linea: #c9d2dc; --suave: #f1f4f7; max-width: 196mm; margin: 0 auto; padding: 8mm 0 12mm; color: #111; font: 10px/1.4 "Helvetica Neue", Helvetica, Arial, sans-serif; }
+        .fac { -webkit-print-color-adjust: exact; print-color-adjust: exact; --tinta: #10233a; --linea: #c9d2dc; --suave: #f1f4f7; max-width: 196mm; margin: 0 auto; padding: 8mm 0 12mm; color: #111; font: 10px/1.4 "Helvetica Neue", Helvetica, Arial, sans-serif; }
         .fac p { margin: 0; } .fac h1, .fac h2 { margin: 0; }
         .barra { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; }
         .barra button { font: 600 14px system-ui; padding: 8px 14px; border-radius: 8px; border: 1px solid #000; background: #fff; cursor: pointer; }
@@ -103,7 +113,7 @@ export default async function Factura({ params, searchParams }: { params: Promis
         tbody td { padding: 1.1mm 1.5mm; border-bottom: 1px solid var(--linea); vertical-align: top; }
         tbody tr:nth-child(even) td { background: var(--suave); }
         .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-        .desc b { display: block; font-weight: 600; } .desc span { color: #555; font-size: 8px; } .lotes span { display: block; white-space: nowrap; font-size: 8.5px; }
+        .desc b { display: block; font-weight: 600; } .desc span { color: #555; font-size: 8px; } .lotes span { display: block; white-space: nowrap; font-size: 8.5px; } .lotes .corr { display: block; font-size: 7.5px; color: #8a5a00; font-style: normal; white-space: normal; }
         thead { display: table-header-group; } tr { break-inside: avoid; }
         .pie { display: grid; grid-template-columns: minmax(0, 1fr) 70mm; gap: 5mm; margin-top: 4mm; break-inside: avoid; }
         .totales { border: 1px solid var(--linea); border-radius: 2mm; overflow: hidden; }
@@ -184,7 +194,8 @@ export default async function Factura({ params, searchParams }: { params: Promis
               <td>{i + 1}</td>
               <td className="clave" style={{ fontSize: 8, whiteSpace: "nowrap" }}>{l.codigo}</td>
               <td className="desc"><b>{l.descripcion}</b><span>{presentacionTexto(l.presentacion, l.upc)}{l.laboratorio ? ` · ${l.laboratorio}` : ""}</span></td>
-              <td className="lotes">{l.lotes.map((x, j) => <span key={j}>{x.lote} · {x.vence ?? "s. f."}{l.lotes.length > 1 ? ` · ${x.unidades} und` : ""}</span>)}</td>
+              <td className="lotes">{l.lotes.map((x, j) => <span key={j}>{x.lote} · {x.vence ?? "s. f."}{l.lotes.length > 1 ? ` · ${x.unidades} und` : ""}
+                {x.original && <em className="corr">corregido; al vender: {x.original.lote} · {x.original.vence ?? "s. f."}</em>}</span>)}</td>
               <td className="num">{l.cantidad.toLocaleString("es-CO")}</td>
               <td className="num">{pesos(l.precio)}</td>
               <td className="num">{l.descuento > 0 ? `${l.descuento_pct.toLocaleString("es-CO", { maximumFractionDigits: 2 })} %` : "—"}</td>
@@ -207,7 +218,7 @@ export default async function Factura({ params, searchParams }: { params: Promis
           {descuentos > 0 && <div className="f"><span>Valor antes de descuentos</span><span className="num">{pesos(bruto)}</span></div>}
           {descuentos > 0 && <div className="f"><span>Descuentos</span><span className="num">−{pesos(descuentos)}</span></div>}
           {[...tarifas].sort((a, b) => b[0] - a[0]).map(([pct, t]) => pct > 0
-            ? <div className="f" key={pct}><span>Base gravada {pct}% · IVA</span><span className="num">{pesos(t.base)} · {pesos(t.iva)}</span></div>
+            ? <div className="f" key={pct}><span>Base gravada {pct}% · IVA</span><span className="num">{pesos(t.base)} · {pesos(ivaPor.get(pct) ?? t.iva)}</span></div>
             : <div className="f" key={pct}><span>{responsable ? "Excluido / exento de IVA" : "Total (no responsable de IVA)"}</span><span className="num">{pesos(t.base)}</span></div>)}
           {ivaTotal > 0 && <div className="f"><span>Total IVA</span><span className="num">{pesos(ivaTotal)}</span></div>}
           <div className="f"><span>TOTAL A PAGAR</span><span className="num">{pesos(v.total)}</span></div>

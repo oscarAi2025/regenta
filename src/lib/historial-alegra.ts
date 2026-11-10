@@ -18,11 +18,18 @@ export const VENDIDA = "x.estado in ('pagada', 'por_cobrar')";
 const ABONADO = `coalesce((select sum(a.valor) from abonos a join ventas v on v.id = a.venta_id
   where v.empresa_id = x.empresa_id and v.origen = 'alegra' and v.externo_id = x.externo_id and not a.anulado), 0)`;
 
-export function leerFiltro(sp: { q?: string; cliente?: string; desde?: string; hasta?: string }): FiltroHistorial {
+type Param = string | string[] | undefined;
+/** Next entrega un parámetro repetido en la URL (?q=a&q=b) como lista: vale el primero. */
+export const uno = (v: Param) => (Array.isArray(v) ? v[0] : v);
+
+export function leerFiltro(sp: { q?: Param; cliente?: Param; desde?: Param; hasta?: Param }): FiltroHistorial {
+  let desde = fechaValida(uno(sp.desde)), hasta = fechaValida(uno(sp.hasta));
+  if (desde && hasta && desde > hasta) [desde, hasta] = [hasta, desde]; // fechas al revés: se entiende el rango
+  const cliente = uno(sp.cliente) ?? "";
   return {
-    q: (sp.q ?? "").replace(/\0/g, "").trim().slice(0, 80),
-    cliente: /^[0-9a-f-]{36}$/i.test(sp.cliente ?? "") ? sp.cliente! : null,
-    desde: fechaValida(sp.desde), hasta: fechaValida(sp.hasta),
+    q: (uno(sp.q) ?? "").replace(/\0/g, "").trim().slice(0, 80),
+    cliente: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cliente) ? cliente : null,
+    desde, hasta,
   };
 }
 

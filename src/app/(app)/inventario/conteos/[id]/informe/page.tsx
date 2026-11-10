@@ -16,7 +16,7 @@ export default async function Informe({ params, searchParams }: { params: Promis
   if (!puede.moverInventario(s.rol)) redirect("/inventario?aviso=permiso");
   const { id } = await params;
   const todo = (await searchParams).todo === "1";
-  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
   const costos = puede.verCostos(s.rol);
   const d = await comoUsuario(s, async (c) => {
     const k = (await c.query(`select k.*, aj.numero ajuste_numero, to_char(k.creado at time zone 'America/Bogota', 'DD/MM/YYYY HH24:MI') inicio,

@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 export default async function Cliente({ params }: { params: Promise<{ id: string }> }) {
   await exigirAdmin();
   const { id } = await params;
-  if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) notFound();
   const d = await sinRLS(async (c) => {
     const e = (await c.query(`select * from empresas where id = $1`, [id])).rows[0];
     if (!e) return null;

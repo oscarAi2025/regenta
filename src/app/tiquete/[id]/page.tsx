@@ -21,7 +21,7 @@ export default async function Tiquete({ params, searchParams }: { params: Promis
   if (!puede.vender(s.rol)) redirect("/inicio?aviso=permiso");
   const { id } = await params;
   const { ancho = "80", auto } = await searchParams;
-  if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) notFound();
   const mm = ancho === "58" ? 58 : 80;
 
   const d = await comoUsuario(s, async (c) => {

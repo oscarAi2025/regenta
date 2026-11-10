@@ -17,9 +17,10 @@ export function useRefrescar() {
   return useCallback(async () => {
     const antes = marca();
     if (antes === null) { router.refresh(); return; } // pantalla sin marca: refresco normal
-    for (let intento = 0; intento < 3; intento++) {
+    // Lo normal es que llegue en menos de un segundo: si no, se reintenta pronto y, al final, se recarga (máx. ~5 s).
+    for (const ms of [1500, 1500, 2000]) {
       router.refresh();
-      if (await esperar(() => marca() !== antes, intento === 0 ? 4000 : 6000)) return;
+      if (await esperar(() => marca() !== antes, ms)) return;
     }
     window.location.reload();
   }, [router]);

@@ -21,7 +21,7 @@ export default async function DocumentoPedido({ params, searchParams }: { params
   if (!puedePedidos.armar(s.rol)) redirect("/inicio?aviso=permiso");
   const { id } = await params;
   const { ancho = "80", auto } = await searchParams;
-  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
   const d = await comoUsuario(s, async (c) => {
     const p = await detallePedido(c, s.empresa, id);
     const e = (await c.query(`select razon_social, nombre_comercial, nit, dv, direccion, ciudad, telefono, email from empresas where id = $1`, [s.empresa])).rows[0];

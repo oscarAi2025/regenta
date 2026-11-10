@@ -232,7 +232,7 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, r
     }
     listo.current = true;
     const id = new URLSearchParams(location.search).get("pedido");
-    if (id && /^[0-9a-f-]{36}$/i.test(id)) {
+    if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
       history.replaceState(history.state, "", location.pathname);
       setPedidoInicial(id);
     }

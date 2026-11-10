@@ -40,7 +40,9 @@ const Venta = z.object({
   cliente_tipo: z.enum(["CC", "NIT", "CE", "PP", "TI", "PEP"]).nullish(), cliente_doc: opc(30), cliente_nombre: opc(200),
   subtotal: z.number(), descuento: z.number(), iva: z.number(), total: z.number(), pagado: z.number(), saldo: z.number().min(0),
   estado: z.enum(["pagada", "por_cobrar", "anulada", "borrador"]), estado_dian: opc(60), cufe: opc(200), forma_pago: opc(60), lineas: z.array(Linea).max(500),
-}).refine((v) => v.numero != null || /^\d{1,15}$/.test(v.externo_id), { message: "Cada venta necesita su número (o un id numérico de Alegra)" });
+}).refine((v) => v.numero != null || /^\d{1,15}$/.test(v.externo_id), { message: "Cada venta necesita su número (o un id numérico de Alegra)" })
+  .refine((v) => v.total >= 0 && v.saldo <= v.total + 1 && v.pagado >= 0, { message: "Hay una venta con total negativo o con saldo mayor que su total: revisa el archivo" })
+  .refine((v) => v.fecha_hora.slice(0, 10) <= new Date(Date.now() + 2 * 864e5).toISOString().slice(0, 10), { message: "Hay una venta con fecha futura: revisa el archivo" });
 const Peticion = z.discriminatedUnion("parte", [
   z.object({ parte: z.literal("productos"), simular: z.boolean(), reemplazar: z.boolean(), filas: z.array(Producto).min(1).max(5000)
     .superRefine((fs, ctx) => { const vistos = new Set<string>(), rep = new Set<string>(); for (const f of fs) (vistos.has(f.externo_id) ? rep : vistos).add(f.externo_id);
@@ -70,6 +72,8 @@ export const POST = conAdmin(async (a, req, ctx) => {
 
 /** Corre `fn` y, si es simulación, deshace todo al final (lo que devuelve es exactamente lo que pasaría). */
 class Simulado { constructor(public r: unknown) {} }
+/** Error que se le muestra a soporte tal cual (la consola lo responde como 400 con este mensaje). */
+const aviso = (mensaje: string) => Object.assign(new Error(mensaje), { code: "P0001" });
 async function talCual<T>(simular: boolean, correr: (fn: (c: Tx) => Promise<T>) => Promise<T>, fn: (c: Tx) => Promise<T>): Promise<T> {
   try { return await correr(async (c) => { const r = await fn(c); if (simular) throw new Simulado(r); return r; }); }
   catch (e) { if (e instanceof Simulado) return e.r as T; throw e; }
@@ -146,7 +150,7 @@ async function productos(emp: string, dueno: string, admin: string, d: Extract<P
     // Comprobación: lo que quedó es lo que pide el archivo, producto por producto.
     const quedo = new Map((await c.query(`select producto_id, sum(unidades)::int u from v_stock_lotes where empresa_id = $1 and sede_id = $2 and producto_id = any($3) group by 1`, [emp, sede, ids])).rows.map((x) => [x.producto_id as string, x.u as number]));
     const mal = [...new Set(ids)].filter((pid) => (quedo.get(pid) ?? 0) !== (objetivo.get(pid)?.unidades ?? 0));
-    if (mal.length) throw new Error(`Las existencias no cuadran en ${mal.length} productos tras la migración`);
+    if (mal.length) throw aviso(`Las existencias no cuadran en ${mal.length} productos tras la migración`);
     return { resumen: { ...resumen, valor_costo: Math.round(resumen.valor_costo) }, cambios: detalle.sort((x, y) => x.nombre.localeCompare(y.nombre)).slice(0, 1500), simulado: d.simular };
   });
 }
@@ -193,7 +197,8 @@ async function ventas(emp: string, dueno: string, d: Extract<P, { parte: "ventas
   return talCual(d.simular, sinRLS, async (c) => {
     const sede = (await c.query(`select id from sedes where empresa_id = $1 order by creado limit 1`, [emp])).rows[0]?.id as string;
     const cli = new Map((await c.query(`select id, tipo_doc || ':' || numero_doc k from clientes where empresa_id = $1`, [emp])).rows.map((x) => [x.k as string, x.id as string]));
-    const resumen = { historial_nuevas: 0, historial_ya_estaban: 0, historial_actualizadas: 0, cartera_nuevas: 0, cartera_ya_estaban: 0, saldo_cartera: 0, sin_cliente: 0, plazo_recortado: 0 };
+    const resumen = { historial_nuevas: 0, historial_ya_estaban: 0, historial_actualizadas: 0, cartera_nuevas: 0, cartera_ya_estaban: 0, saldo_cartera: 0, sin_cliente: 0, plazo_recortado: 0,
+      cartera_pagada_en_alegra: 0, valor_pagado_en_alegra: 0 };
     for (const f of d.filas) {
       const cid = f.cliente_doc ? cli.get(`${f.cliente_tipo ?? "CC"}:${f.cliente_doc.toUpperCase()}`) ?? null : null;
       if (f.cliente_doc && !cid) resumen.sin_cliente++;
@@ -209,10 +214,27 @@ async function ventas(emp: string, dueno: string, d: Extract<P, { parte: "ventas
           f.subtotal, f.descuento, f.iva, f.total, f.pagado, f.saldo, f.estado, f.estado_dian, f.cufe, f.forma_pago, JSON.stringify(f.lineas)]);
       // Repetir la migración pone al día el estado y el saldo que tenga Alegra (pagos recibidos allá durante el cambio).
       if (!h.rowCount) resumen.historial_ya_estaban++; else if (h.rows[0].nueva) resumen.historial_nuevas++; else resumen.historial_actualizadas++;
+      // Factura que ya está en la cartera de Regenta: si en Alegra le entró un pago (o quedó pagada o anulada) durante el
+      // cambio, la diferencia entra como abono «pagado en Alegra», para no cobrarle al cliente lo que ya pagó.
+      const enCartera = (await c.query(`select id, saldo_factura(id)::float saldo from ventas where empresa_id = $1 and origen = $2 and externo_id = $3`, [emp, ORIGEN, f.externo_id])).rows[0];
+      if (enCartera) {
+        const quiere = f.estado === "por_cobrar" ? f.saldo : 0;
+        const pagado = Math.round(enCartera.saldo - quiere);
+        if (pagado > 0) {
+          const medio = ({ efectivo: "efectivo", transferencia: "transferencia", tarjeta: "tarjeta" } as Record<string, string>)[String(f.forma_pago ?? "").toLowerCase()] ?? "transferencia";
+          await c.query(`insert into abonos (empresa_id, venta_id, medio, valor, referencia, usuario_id) values ($1, $2, $3, $4, 'Pagado en Alegra (migración)', $5)`,
+            [emp, enCartera.id, medio, pagado, dueno]);
+          await c.query(`insert into auditoria (empresa_id, usuario_id, accion, entidad, entidad_id, datos) values ($1, $2, 'abono_pagado_en_alegra', 'ventas', $3, $4)`,
+            [emp, dueno, enCartera.id, { externo_id: f.externo_id, valor: pagado, estado_alegra: f.estado, saldo_alegra: f.saldo }]);
+          resumen.cartera_pagada_en_alegra++; resumen.valor_pagado_en_alegra += pagado;
+        }
+        resumen.cartera_ya_estaban++;
+        continue;
+      }
       if (f.estado !== "por_cobrar" || f.saldo <= 0) continue;
       if (!cid) {
         if (d.simular) { resumen.cartera_nuevas++; resumen.saldo_cartera += f.saldo; continue; } // al simular, los clientes aún no se han cargado
-        throw new Error(`La factura ${f.prefijo ?? ""}${f.numero ?? ""} tiene saldo pero su cliente (${f.cliente_doc}) no está: carga primero los clientes`);
+        throw aviso(`La factura ${f.prefijo ?? ""}${f.numero ?? ""} tiene saldo pero su cliente (${f.cliente_doc}) no está: carga primero los clientes`);
       }
       // Cartera: la factura abierta, con lo que falta por cobrar (lo ya pagado en Alegra no se vuelve a cobrar aquí) y el
       // mismo vencimiento que tenía en Alegra (el plazo, en días, nunca baja de 1).
@@ -224,7 +246,7 @@ async function ventas(emp: string, dueno: string, d: Extract<P, { parte: "ventas
       // Una venta de Regenta (u otra de Alegra) con el mismo tipo, prefijo y número: no se descarta en silencio.
       const choca = (await c.query(`select 1 from ventas where empresa_id = $1 and tipo_doc = $2 and prefijo = $3 and numero = $4
         and (origen is distinct from $5 or externo_id is distinct from $6)`, [emp, f.documento, prefijo, numero, ORIGEN, f.externo_id])).rowCount;
-      if (choca) throw new Error(`La factura ${prefijo}${numero} de Alegra tiene el mismo número que otra venta en Regenta: revisa la numeración antes de migrar la cartera`);
+      if (choca) throw aviso(`La factura ${prefijo}${numero} de Alegra tiene el mismo número que otra venta en Regenta: revisa la numeración antes de migrar la cartera`);
       const v = await c.query(`insert into ventas (empresa_id, sede_id, caja_id, cliente_id, usuario_id, idem_key, tipo_doc, prefijo, numero, base, iva, total, recibido, cambio,
           creado, condicion, plazo_dias, vence_pago, origen, externo_id)
         values ($1, $2, null, $3, $4, $5, $6, $7, $8, $9, 0, $9, 0, 0, ($10::timestamp at time zone 'America/Bogota'), 'credito', $11::int, $12::date, $13, $14)

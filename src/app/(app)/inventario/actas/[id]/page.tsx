@@ -15,7 +15,7 @@ export default async function Acta({ params }: { params: Promise<{ id: string }>
   if (!s) redirect("/entrar");
   if (!puede.moverInventario(s.rol)) redirect("/inventario?aviso=permiso");
   const { id } = await params;
-  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
   const costos = puede.verCostos(s.rol);
   const d = await comoUsuario(s, async (c) => {
     const a = (await c.query(`select a.*, to_char(a.creado at time zone 'America/Bogota', 'DD/MM/YYYY') dia, to_char(a.creado at time zone 'America/Bogota', 'HH24:MI') hora,

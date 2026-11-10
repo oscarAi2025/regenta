@@ -17,7 +17,7 @@ export default async function Editar({ params, searchParams }: { params: Promise
   const gestiona = s.rol === "dueno" || s.rol === "admin";
   if (!gestiona && !puede.moverInventario(s.rol)) redirect("/productos?aviso=permiso");
   const { id } = await params;
-  if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) notFound();
   const filtros = await searchParams;
   const d = await comoUsuario(s, async (c) => {
     const p = (await c.query(`select p.*, coalesce((select sum(unidades) from v_stock_vigente v where v.producto_id = p.id), 0)::int vigentes

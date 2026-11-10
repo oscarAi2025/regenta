@@ -20,7 +20,7 @@ export default async function FichaCliente({ params, searchParams }: { params: P
   if (!permisoCartera.gestionar(s.rol)) redirect("/inicio?aviso=permiso");
   const { id } = await params;
   const { anulado } = await searchParams;
-  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
   const d = await comoUsuario(s, async (c) => {
     const ec = await estadoCuenta(c, s.empresa, id);
     if (!ec) return null;
