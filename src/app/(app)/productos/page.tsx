@@ -52,7 +52,7 @@ export default async function Productos({ searchParams }: { searchParams: Promis
               const bajo = p.stock_minimo > 0 && p.unidades <= p.stock_minimo * p.unidades_por_caja;
               return (
                 <tr key={p.id} className="hover:bg-paper/50">
-                  <td className="px-4 py-3"><p className="font-semibold leading-snug">{p.nombre}</p><p className="text-sm text-muted">{p.laboratorio ?? "Sin laboratorio"}{p.iva ? ` · IVA ${p.iva} %` : ""}
+                  <td className="px-4 py-3"><p className="font-semibold leading-snug">{p.nombre}</p><p className="text-sm text-muted">{p.laboratorio ?? "Genérico"}{p.iva ? ` · IVA ${p.iva} %` : ""}
                     {p.control_especial ? <span className="ml-2 inline-block rounded px-1.5 py-0.5 text-[12px] font-semibold bg-alerta-soft text-alerta">Control especial</span>
                       : p.requiere_formula ? <span className="ml-2 inline-block rounded px-1.5 py-0.5 text-[12px] font-semibold bg-aviso-soft text-aviso">Con fórmula</span> : null}</p></td>
                   <td className="px-4 py-3 num text-sm text-muted">{p.ean ?? "—"}</td>

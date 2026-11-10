@@ -92,7 +92,7 @@ export function Emparejar({ l, dinero, nuevo, error, creando, alElegir, alQuitar
             <label htmlFor={id} className="sr-only">Buscar el producto en tu catálogo</label>
             <input id={id} value={q} onChange={(e) => setQ(e.target.value)} className="campo" placeholder="Busca el producto en tu catálogo" autoComplete="off" />
             {res.length > 0 && <ul className="absolute z-10 mt-1 w-full tarjeta shadow-lg divide-y divide-line max-h-72 overflow-auto">{res.map((p) => (
-              <li key={p.id}><button type="button" onClick={() => alElegir(p)} className="w-full text-left px-4 py-2.5 hover:bg-paper"><span className="font-semibold">{p.nombre}</span><span className="block text-sm text-muted">{p.laboratorio ?? "Sin laboratorio"} · hay {p.unidades} und</span></button></li>))}</ul>}
+              <li key={p.id}><button type="button" onClick={() => alElegir(p)} className="w-full text-left px-4 py-2.5 hover:bg-paper"><span className="font-semibold">{p.nombre}</span><span className="block text-sm text-muted">{p.laboratorio ?? "Genérico"} · hay {p.unidades} und</span></button></li>))}</ul>}
           </div>
           {dinero
             ? <button type="button" onClick={alAbrirNuevo} className="btn-borde">Es nuevo: crearlo</button>

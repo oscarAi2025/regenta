@@ -19,7 +19,7 @@ export default async function ActaRecepcion({ params }: { params: Promise<{ id: 
   if (!s) redirect("/entrar");
   if (!puedeCompras.ver(s.rol)) redirect("/inicio?aviso=permiso");
   const { id } = await params;
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
+  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const d = await comoUsuario(s, async (c) => {
     const k = await detalleCompra(c, s.empresa, id, false); // el acta no lleva costos
     if (!k) return null;
@@ -64,7 +64,7 @@ export default async function ActaRecepcion({ params }: { params: Promise<{ id: 
               {lineas.map((l, i) => (
                 <tr key={l.id} className="border-b border-line align-top">
                   <td className="py-2 pr-2 num">{i + 1}</td>
-                  <td className="py-2 pr-2"><span className="font-semibold">{l.nombre}</span><span className="block text-xs text-muted">{l.laboratorio ?? "Sin laboratorio"}</span></td>
+                  <td className="py-2 pr-2"><span className="font-semibold">{l.nombre}</span><span className="block text-xs text-muted">{l.laboratorio ?? "Genérico"}</span></td>
                   <td className="py-2 pr-2 num">{l.registro_sanitario ?? "—"}</td>
                   <td className="py-2 pr-2 num font-semibold">{l.lote}</td>
                   <td className="py-2 pr-2 num">{fecha(l.vence)}</td>

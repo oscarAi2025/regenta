@@ -14,7 +14,7 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
     select e.id, coalesce(e.nombre_comercial, e.razon_social) nombre, e.razon_social, e.nit, e.dv, e.plan, e.estado, e.demo, e.ciudad, e.creado,
            (select count(*) from miembros m where m.empresa_id = e.id and m.activo)::int usuarios,
            (select max(cu.ultimo_ingreso) from miembros m join cuentas cu on cu.id = m.user_id where m.empresa_id = e.id) ultimo,
-           (select coalesce(sum(total), 0) from ventas v where v.empresa_id = e.id and v.origen is null and v.estado = 'cerrada' and v.creado > now() - interval '30 days')::float ventas30
+           (select coalesce(sum(total), 0) from ventas v where v.empresa_id = e.id and v.estado = 'cerrada' and v.creado > now() - interval '30 days')::float ventas30
     from empresas e
     where ($1 = '' or lower(e.razon_social || ' ' || coalesce(e.nombre_comercial, '') || ' ' || e.nit) like '%' || $1 || '%')
       and ($2 = '' or e.estado = $2)

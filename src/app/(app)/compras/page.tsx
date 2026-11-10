@@ -19,7 +19,7 @@ export default async function Compras({ searchParams }: { searchParams: Promise<
   const sp = await searchParams;
   const estado = ["por_costear", "registrada", "anulada"].includes(sp.estado ?? "") ? sp.estado! : "";
   const f = (v?: string) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) && fechaReal(v) ? v : "");
-  const desde = f(sp.desde), hasta = f(sp.hasta), q = (sp.q ?? "").slice(0, 60), proveedor = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sp.proveedor ?? "") ? sp.proveedor! : "";
+  const desde = f(sp.desde), hasta = f(sp.hasta), q = (sp.q ?? "").slice(0, 60), proveedor = /^[0-9a-f-]{36}$/i.test(sp.proveedor ?? "") ? sp.proveedor! : "";
   const dinero = puedeCompras.dinero(s.rol);
   const { filas, proveedores, porCostear } = await comoUsuario(s, async (c) => ({
     filas: await listaCompras(c, s.empresa, { estado, proveedor, desde, hasta, q }, dinero),

@@ -12,7 +12,6 @@ import { createHmac } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import pg from "pg";
 import { codigoTotp, olvidarUltimo } from "../ayudas/totp.mjs";
-import { esperarCarga } from "../ayudas/carga.mjs";
 
 const B = process.env.BASE ?? "http://localhost:4500";
 const DB = process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp";
@@ -44,7 +43,6 @@ const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw
 
 const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
 const p = await ctx.newPage();
-esperarCarga(p); // la consola tiene «Cargando» (loading.tsx)
 const errs = []; p.on("pageerror", (e) => errs.push(new URL(p.url()).pathname + ": " + e.message)); p.on("console", (m) => m.type() === "error" && !/status of 4\d\d/.test(m.text()) && errs.push(m.text()));
 
 // ── Entrar a la consola
@@ -176,7 +174,7 @@ ok([400, 404].includes(sesDemo.status), "el acceso de demo no abre la sesión de
   await pool.query(`update empresas set plan = $2 where id = $1`, [emp.id, planAntes]);
   await q.goto(B + "/equipo"); await q.waitForLoadState("networkidle");
   ok(await q.getByRole("region", { name: "Cajas" }).getByText("Caja 2").count() === 1, "Mi droguería lista las cajas");
-  ok(await q.getByText("Cajera Equipo").count() === 1 && await q.getByText(/Sin numeración|Numeración de pruebas/).count() >= 1, "Mi droguería muestra el equipo y el estado real de su numeración DIAN (aún no en producción)");
+  ok(await q.getByText("Cajera Equipo").count() === 1 && await q.getByText(/En proceso/).count() === 1, "Mi droguería muestra el equipo y la habilitación en proceso");
   await q.goto(B + "/inicio");
   ok(await q.getByRole("region", { name: "Primeros pasos" }).waitFor({ timeout: 10000 }).then(() => true).catch(() => false), "Inicio muestra los primeros pasos al dueño nuevo");
   await q.goto(B + "/caja"); await q.waitForLoadState("networkidle");

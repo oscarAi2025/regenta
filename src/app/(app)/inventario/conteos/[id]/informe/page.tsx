@@ -16,7 +16,7 @@ export default async function Informe({ params, searchParams }: { params: Promis
   if (!puede.moverInventario(s.rol)) redirect("/inventario?aviso=permiso");
   const { id } = await params;
   const todo = (await searchParams).todo === "1";
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
+  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const costos = puede.verCostos(s.rol);
   const d = await comoUsuario(s, async (c) => {
     const k = (await c.query(`select k.*, aj.numero ajuste_numero, to_char(k.creado at time zone 'America/Bogota', 'DD/MM/YYYY HH24:MI') inicio,
@@ -84,7 +84,7 @@ export default async function Informe({ params, searchParams }: { params: Promis
             <tbody>
               {filas.map((l) => { const x = l.contado === null ? null : l.contado - l.sistema; return (
                 <tr key={l.id} className="border-b border-line align-top">
-                  <td className="py-1.5 pr-2"><span className="font-semibold">{l.nombre}</span><span className="block text-xs text-muted">{l.laboratorio ?? "Sin laboratorio"}</span></td>
+                  <td className="py-1.5 pr-2"><span className="font-semibold">{l.nombre}</span><span className="block text-xs text-muted">{l.laboratorio ?? "Genérico"}</span></td>
                   <td className="py-1.5 pr-2 num">{l.lote}</td><td className="py-1.5 pr-2 num">{fecha(l.vence)}</td>
                   <td className="py-1.5 pr-2 num text-right">{l.sistema}</td><td className="py-1.5 pr-2 num text-right">{l.contado ?? "—"}</td>
                   <td className="py-1.5 pr-2 num text-right font-semibold">{x === null ? "Sin contar" : x === 0 ? "0" : `${x > 0 ? "+" : "−"}${Math.abs(x)}`}</td>

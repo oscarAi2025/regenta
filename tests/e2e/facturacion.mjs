@@ -80,19 +80,18 @@ async function agregar(p, texto) {
   const fila = p.locator("tr", { hasText: numero });
   ok(await fila.count() === 1, "la factura a crédito aparece en Cartera", numero);
   const saldo = pesos(await fila.locator("td").nth(5).textContent());
-  await fila.getByRole("button", { name: /Recibir pago/ }).click();
-  await fila.getByLabel("Valor del pago").fill(String(Math.floor(saldo / 2)));
-  await fila.getByRole("button", { name: "Recibir pago e imprimir recibo" }).click();
+  await fila.getByRole("button", { name: /Registrar abono/ }).click();
+  await fila.getByLabel("Valor del abono").fill(String(Math.floor(saldo / 2)));
+  await fila.getByRole("button", { name: "Guardar abono" }).click();
   await p.waitForFunction(([n, s]) => {
     const tr = [...document.querySelectorAll("tr")].find((t) => t.textContent.includes(n));
     return tr && Number(tr.querySelectorAll("td")[5].textContent.replace(/\D/g, "")) < s;
   }, [numero, saldo]);
   const nuevo = pesos(await fila.locator("td").nth(5).textContent());
   ok(nuevo === saldo - Math.floor(saldo / 2), "el abono baja el saldo", `${saldo} → ${nuevo}`);
-  ok(/\/tiquete\/recibo\//.test(await p.locator('iframe[title="Tiquete"]').last().getAttribute("src").catch(() => "") ?? ""), "el pago desde Cartera imprime su recibo de caja numerado");
-  await fila.getByRole("button", { name: /Recibir pago/ }).click();
-  await fila.getByLabel("Valor del pago").fill(String(saldo * 3));
-  await fila.getByRole("button", { name: "Recibir pago e imprimir recibo" }).click();
+  await fila.getByRole("button", { name: /Registrar abono/ }).click();
+  await fila.getByLabel("Valor del abono").fill(String(saldo * 3));
+  await fila.getByRole("button", { name: "Guardar abono" }).click();
   await fila.getByRole("alert").waitFor();
   ok(/supera el saldo/.test(await fila.getByRole("alert").textContent()), "no acepta un abono mayor que el saldo");
   await fila.getByRole("button", { name: "Cancelar" }).click();

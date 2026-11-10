@@ -42,7 +42,7 @@ export const GET = conSesion(async (s) => {
   ];
   const estado = (x: { vendibles: number; stock_minimo: number }) => (x.vendibles <= 0 ? "Agotado" : x.stock_minimo > 0 && x.vendibles <= x.stock_minimo ? "Bajo el mínimo" : "Disponible");
   const filasP = d.productos.map((x) => [
-    x.ean, x.nombre, x.laboratorio ?? "", x.categoria, x.upc, x.vendibles, x.upc > 1 ? Math.floor(x.vendibles / x.upc) : x.vendibles, x.no_vendibles, x.lotes,
+    x.ean, x.nombre, x.laboratorio ?? "Genérico", x.categoria, x.upc, x.vendibles, x.upc > 1 ? Math.floor(x.vendibles / x.upc) : x.vendibles, x.no_vendibles, x.lotes,
     x.proximo, x.stock_minimo, estado(x), x.precio_caja, x.precio_unidad, (x.iva ?? 0) / 100,
     ...(costos ? [x.valor_costo === null ? null : Math.round(x.valor_costo)] : []),
     Math.round((x.vendibles / Math.max(x.upc, 1)) * x.precio_caja),
@@ -55,7 +55,7 @@ export const GET = conSesion(async (s) => {
   ];
   const BLOQUEO: Record<string, string> = { invima: "Alerta INVIMA: no se vende", cuarentena: "Cuarentena: no se vende", devolucion: "Devolución en revisión" };
   const filasL = d.lotes.map((x) => [
-    x.ean, x.nombre, x.laboratorio ?? "", x.lote, x.vence, x.dias, x.unidades, x.upc > 1 ? Math.floor(x.unidades / x.upc) : x.unidades,
+    x.ean, x.nombre, x.laboratorio ?? "Genérico", x.lote, x.vence, x.dias, x.unidades, x.upc > 1 ? Math.floor(x.unidades / x.upc) : x.unidades,
     x.bloqueado ? BLOQUEO[x.bloqueo_tipo] ?? "Separado: no se vende" : x.dias !== null && x.dias < 0 ? "Vencido: no se vende" : x.dias !== null && x.dias <= 90 ? "Vence en 90 días o menos" : "Vigente",
     ...(costos ? [x.costo, x.costo === null ? null : Math.round(x.costo * x.unidades)] : []),
   ]);

@@ -27,7 +27,7 @@ export const GET = conSesion(async (s, req) => {
   const id = new URL(req.url).searchParams.get("id");
   const dinero = puedeCompras.dinero(s.rol);
   if (id) {
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return json({ error: "Proveedor no válido" }, 400);
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Proveedor no válido" }, 400);
     const r = await comoUsuario(s, async (c) => {
       const p = (await listaProveedores(c, s.empresa, dinero, id))[0];
       if (!p) return null;

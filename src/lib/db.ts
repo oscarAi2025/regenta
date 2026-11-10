@@ -1,4 +1,3 @@
-import { AsyncLocalStorage } from "node:async_hooks";
 import "server-only";
 import pg from "pg";
 import type { Sesion } from "./sesion";
@@ -85,16 +84,10 @@ export async function comoUsuario<T>(s: Pick<Sesion, "uid"> & { soporte?: string
 }
 
 /** Conexión del servidor sin RLS: solo para procesos internos. */
-/** Soporte de Regenta que entró como el cliente en esta petición (lo pone conSesion). sinRLS lo pasa a la base para que la
- *  auditoría lo anote (soporte_id) también en las rutas que escriben sin RLS. Solo eso: no cambia auth.uid() ni el rol. */
-export const soporteActual = new AsyncLocalStorage<string | undefined>();
-
 export async function sinRLS<T>(fn: (c: Tx) => Promise<T>): Promise<T> {
   const c = medir(await pool.connect());
   try {
-    const soporte = soporteActual.getStore();
-    const claims = soporte ? c.escapeLiteral(JSON.stringify({ soporte })) : null;
-    await c.query(`begin; set local timezone = 'America/Bogota'${claims ? `; select set_config('request.jwt.claims', ${claims}, true)` : ""}`);
+    await c.query("begin; set local timezone = 'America/Bogota'");
     const r = await fn(c);
     await c.query("commit");
     return r;
@@ -133,7 +126,7 @@ export const sinComodines = (w: string) => w.replace(/[\\%_]/g, (m) => "\\" + m)
 
 /** Sede y caja de trabajo: la caja que eligió este equipo (si es de la empresa y está activa) o la primera caja activa. */
 export async function puestoDeTrabajo(c: Tx, empresa: string, cajaElegida?: string | null): Promise<{ sede_id: string; caja_id: string | null }> {
-  if (cajaElegida && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cajaElegida)) {
+  if (cajaElegida && /^[0-9a-f-]{36}$/i.test(cajaElegida)) {
     const e = (await c.query(`select id, sede_id from cajas where id = $1 and empresa_id = $2 and activa`, [cajaElegida, empresa])).rows[0];
     if (e) return { sede_id: e.sede_id, caja_id: e.id };
   }

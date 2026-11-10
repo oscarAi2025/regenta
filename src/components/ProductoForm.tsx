@@ -76,7 +76,7 @@ export function ProductoForm({ id, inicial }: { id?: string; inicial?: Datos }) 
           <ul className="mt-3 divide-y divide-line">
             {res.map((m) => (
               <li key={m.id} className="flex items-center gap-3 py-2.5">
-                <div className="flex-1 min-w-0"><p className="font-semibold leading-snug">{m.nombre}</p><p className="text-sm text-muted">{m.laboratorio ?? "Sin laboratorio"}{m.ean ? ` · ${m.ean}` : ""}{m.iva ? ` · IVA ${m.iva} %` : ""}</p></div>
+                <div className="flex-1 min-w-0"><p className="font-semibold leading-snug">{m.nombre}</p><p className="text-sm text-muted">{m.laboratorio ?? "Genérico"}{m.ean ? ` · ${m.ean}` : ""}{m.iva ? ` · IVA ${m.iva} %` : ""}</p></div>
                 <button onClick={() => elegir(m)} className="btn-borde h-9 px-4 text-sm">Agregar</button>
               </li>
             ))}

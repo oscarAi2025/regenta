@@ -163,7 +163,7 @@ export function Contar({ conteo, inicial, verCosto, ciego = false }: { conteo: {
           </div>
           {res.length > 0 && (
             <ul aria-label="Resultados" className="absolute top-full z-10 mt-1 w-full tarjeta shadow-lg divide-y divide-line max-h-80 overflow-auto">
-              {res.map((p) => <li key={p.id}><button type="button" onClick={() => porProducto(p)} className="w-full text-left px-4 py-3 hover:bg-paper"><span className="font-semibold">{p.nombre}</span><span className="block text-sm text-muted">{p.laboratorio ?? "Sin laboratorio"}</span></button></li>)}
+              {res.map((p) => <li key={p.id}><button type="button" onClick={() => porProducto(p)} className="w-full text-left px-4 py-3 hover:bg-paper"><span className="font-semibold">{p.nombre}</span><span className="block text-sm text-muted">{p.laboratorio ?? "Genérico"}</span></button></li>)}
             </ul>
           )}
         </form>

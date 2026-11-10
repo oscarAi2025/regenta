@@ -17,7 +17,7 @@ const mesTexto = (m: string) => { const t = new Date(m + "-15T12:00:00").toLocal
 export default async function Historial({ searchParams }: { searchParams: Promise<{ q?: string; cliente?: string; desde?: string; hasta?: string; pagina?: string }> }) {
   const s = await leerSesion();
   if (!s) redirect("/entrar");
-  if (!puede.verCostos(s.rol)) redirect("/ventas?aviso=permiso"); // informe de gerencia: dueño y administrador
+  if (!puede.vender(s.rol)) redirect("/inicio?aviso=permiso");
   const sp = await searchParams;
   const f = leerFiltro(sp);
   const pagina = Math.min(Math.max(Number.parseInt(sp.pagina ?? "1", 10) || 1, 1), 1000);
@@ -30,8 +30,7 @@ export default async function Historial({ searchParams }: { searchParams: Promis
   });
   const filtros = new URLSearchParams(Object.entries({ q: f.q, cliente: f.cliente ?? "", desde: f.desde ?? "", hasta: f.hasta ?? "" }).filter(([, v]) => v));
   const enlace = (n: number) => { const p = new URLSearchParams(filtros); if (n > 1) p.set("pagina", String(n)); const t = p.toString(); return `/ventas/historial${t ? `?${t}` : ""}`; };
-  const docsTotales = d.resumen.todos;
-  if (pagina > 1 && d.docs.length === 0 && docsTotales > 0) redirect(enlace(Math.ceil(docsTotales / POR_PAGINA))); // página que ya no existe
+  const docsTotales = d.resumen.n + d.resumen.anuladas;
   const paginas = Math.max(1, Math.ceil(docsTotales / POR_PAGINA));
   const hayFiltro = !!(f.q || f.cliente || f.desde || f.hasta);
   const maxMes = Math.max(1, ...d.meses.map((m) => m.total));
@@ -124,7 +123,7 @@ export default async function Historial({ searchParams }: { searchParams: Promis
                   <td className="px-4 py-3 num text-muted">{fecha(x.fecha)}</td>
                   <td className="px-4 py-3"><Link href={`/ventas/historial/${x.id}`} className="num font-semibold hover:underline">{x.numero}</Link><span className="text-muted text-sm"> · {x.lineas} línea{x.lineas === 1 ? "" : "s"}</span></td>
                   <td className="px-4 py-3">{x.cliente_nombre ?? "—"}{x.cliente_doc && <span className="text-muted text-sm num"> · {x.cliente_doc}</span>}</td>
-                  <td className={`px-4 py-3 ${x.estado === "por_cobrar" ? "text-alerta font-semibold" : x.estado === "anulada" ? "text-muted line-through" : ""}`}>{x.estado === "por_cobrar" && x.saldo_hoy === 0 ? "Pagada en Regenta" : ESTADO_HISTORIAL[x.estado]}{x.estado === "por_cobrar" && x.saldo_hoy > 0 ? ` · debe ${pesos(x.saldo_hoy)}` : ""}</td>
+                  <td className={`px-4 py-3 ${x.estado === "por_cobrar" ? "text-alerta font-semibold" : x.estado === "anulada" ? "text-muted line-through" : ""}`}>{ESTADO_HISTORIAL[x.estado]}{x.estado === "por_cobrar" ? ` · debe ${pesos(x.saldo)}` : ""}</td>
                   <td className="px-4 py-3 num text-right">{pesos(x.total)}</td>
                 </tr>
               ))}

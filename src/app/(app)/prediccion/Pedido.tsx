@@ -30,7 +30,7 @@ export function Pedido({ lineas }: { lineas: LineaPedido[] }) {
           <tbody className="divide-y divide-line">
             {lineas.map((l) => (
               <tr key={l.id}>
-                <td className="px-4 py-3"><p className="font-semibold">{l.nombre}</p><p className="text-muted">{l.laboratorio ?? "Sin laboratorio"}{l.upc > 1 ? ` · caja x ${l.upc}` : ""}</p></td>
+                <td className="px-4 py-3"><p className="font-semibold">{l.nombre}</p><p className="text-muted">{l.laboratorio ?? "Genérico"}{l.upc > 1 ? ` · caja x ${l.upc}` : ""}</p></td>
                 <td className="px-4 py-3 text-right num">{l.existencias} und</td>
                 <td className="px-4 py-3 text-right num">{semana(l.venta_dia)} und{l.tendencia !== null && l.tendencia >= 1.25 ? <span className="text-cruz font-semibold" title="Se está vendiendo más que antes"> ↑</span> : l.tendencia !== null && l.tendencia <= 0.8 ? <span className="text-aviso font-semibold" title="Se está vendiendo menos que antes"> ↓</span> : null}</td>
                 <td className={`px-4 py-3 text-right num font-semibold ${(l.dias_cobertura ?? 0) < 7 ? "text-alerta" : ""}`}>{l.existencias <= 0 ? "Agotado" : `${Math.floor(l.dias_cobertura ?? 0)} días`}</td>

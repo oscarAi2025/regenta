@@ -31,7 +31,7 @@ export function filtroBitacora(sp: Record<string, string | undefined> | URLSearc
   const pagina = Math.max(1, Math.min(10000, Math.floor(Number(g("pagina")) || 1)));
   let desde = fechaValida(g("desde")) ? g("desde") : "", hasta = fechaValida(g("hasta")) ? g("hasta") : "";
   if (desde && hasta && desde > hasta) [desde, hasta] = [hasta, desde];
-  return { tipo: g("tipo") in TIPOS_BITACORA ? g("tipo") : "", usuario: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(g("usuario")) ? g("usuario").toLowerCase() : "", desde, hasta, pagina };
+  return { tipo: g("tipo") in TIPOS_BITACORA ? g("tipo") : "", usuario: /^[0-9a-f-]{36}$/i.test(g("usuario")) ? g("usuario").toLowerCase() : "", desde, hasta, pagina };
 }
 
 export type FilaBitacora = { clave: string; fecha: string; usuario: string; tipo: string; tipo_nombre: string; titulo: string; detalle: string };

@@ -21,7 +21,7 @@ export default async function Tiquete({ params, searchParams }: { params: Promis
   if (!puede.vender(s.rol)) redirect("/inicio?aviso=permiso");
   const { id } = await params;
   const { ancho = "80", auto } = await searchParams;
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) notFound();
+  if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const mm = ancho === "58" ? 58 : 80;
 
   const d = await comoUsuario(s, async (c) => {
@@ -74,7 +74,7 @@ export default async function Tiquete({ params, searchParams }: { params: Promis
       <p className="c b g">{v.nombre_comercial || v.razon_social}</p>
       {v.nombre_comercial && <p className="c">{v.razon_social}</p>}
       <p className="c">NIT {v.nit}{v.dv ? `-${v.dv}` : ""}</p>
-      <p className="c">{Number(v.iva) > 0 || v.responsable_iva ? "Responsable de IVA" : "No responsable de IVA"}</p>
+      <p className="c">{v.responsable_iva ? "Responsable de IVA" : "No responsable de IVA"}</p>
       {(v.direccion || v.ciudad) && <p className="c">{[v.direccion, v.ciudad].filter(Boolean).join(", ")}</p>}
       {v.telefono && <p className="c">Tel. {v.telefono}</p>}
       <hr />
@@ -104,7 +104,7 @@ export default async function Tiquete({ params, searchParams }: { params: Promis
       <hr />
       {[...tarifas].sort((a, b) => b[0] - a[0]).map(([pct, t]) => (
         <div key={pct}>
-          {pct > 0 ? <>{doble(`Base gravada ${pct}%`, pesos(t.base))}{doble(`IVA ${pct}%`, pesos(t.iva))}</> : doble(Number(v.iva) > 0 || v.responsable_iva ? "Excluido / exento de IVA" : "Total (no responsable de IVA)", pesos(t.base))}
+          {pct > 0 ? <>{doble(`Base gravada ${pct}%`, pesos(t.base))}{doble(`IVA ${pct}%`, pesos(t.iva))}</> : doble(v.responsable_iva ? "Excluido / exento" : "Total sin IVA (no responsable)", pesos(t.base))}
         </div>
       ))}
       {lineas.some((l) => l.descuento > 0) && doble("Ahorro total", pesos(lineas.reduce((a, l) => a + l.descuento, 0)))}

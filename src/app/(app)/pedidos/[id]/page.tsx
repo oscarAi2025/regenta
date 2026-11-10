@@ -13,7 +13,7 @@ export default async function EditarPedido({ params }: { params: Promise<{ id: s
   if (!s) redirect("/entrar");
   if (!puedePedidos.armar(s.rol)) redirect("/inicio?aviso=permiso");
   const { id } = await params;
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
+  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const { p, empresa } = await comoUsuario(s, async (c) => ({
     p: await detallePedido(c, s.empresa, id),
     empresa: (await c.query(`select coalesce(nombre_comercial, razon_social) n from empresas where id = $1`, [s.empresa])).rows[0]?.n as string,

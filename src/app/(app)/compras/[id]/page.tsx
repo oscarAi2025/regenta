@@ -14,7 +14,7 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
   if (!s) redirect("/entrar");
   if (!puedeCompras.ver(s.rol)) redirect("/caja?aviso=permiso");
   const { id } = await params;
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
+  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const dinero = puedeCompras.dinero(s.rol);
   const { d, soporte } = await comoUsuario(s, async (c) => {
     const d = await detalleCompra(c, s.empresa, id, dinero);

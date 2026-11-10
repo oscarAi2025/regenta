@@ -15,7 +15,7 @@ export default async function EstadoCuentaTiquete({ params, searchParams }: { pa
   if (!permisoCartera.gestionar(s.rol)) redirect("/inicio?aviso=permiso");
   const { id } = await params;
   const { ancho = "80", auto } = await searchParams;
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) notFound();
+  if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const mm = ancho === "58" ? 58 : 80;
   const d = await comoUsuario(s, async (c) => {
     const ec = await estadoCuenta(c, s.empresa, id);

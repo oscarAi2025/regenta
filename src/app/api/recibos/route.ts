@@ -19,8 +19,6 @@ const Pago = z.object({
   medio: z.enum(["efectivo", "transferencia", "nequi", "daviplata", "tarjeta", "bre_b", "qr"], { message: "Elige el medio de pago" }),
   valor: z.number().int("El pago va en pesos, sin centavos").positive("Escribe el valor del pago").max(1_000_000_000, "Revisa el valor del pago"),
   referencia: z.string().trim().max(60, "La referencia va hasta 60 caracteres").nullish(),
-  /** Opcional: aplicar el pago solo a esta factura (abono desde Cartera). Sin ella, se reparte desde la que vence primero. */
-  venta_id: z.string().uuid("La factura no es válida").nullish(),
 });
 
 /** Recibo de caja: el pago se reparte entre las facturas del cliente (la que vence antes primero). La cajera necesita su
@@ -35,7 +33,7 @@ export const POST = conSesion(async (s, req) => {
     if (!(await c.query(`select 1 from clientes where id = $1 and empresa_id = $2`, [p.data.cliente_id, s.empresa])).rowCount) return null;
     const puesto = await puestoDeTrabajo(c, s.empresa, caja);
     return idempotente(c, s.empresa, claveIdem(cuerpo?.idem_key), async () =>
-      (await c.query(`select registrar_recibo($1, $2, $3, $4, $5, $6) r`, [p.data.cliente_id, p.data.medio, p.data.valor, p.data.referencia ?? null, puesto.caja_id, p.data.venta_id ?? null])).rows[0].r);
+      (await c.query(`select registrar_recibo($1, $2, $3, $4, $5) r`, [p.data.cliente_id, p.data.medio, p.data.valor, p.data.referencia ?? null, puesto.caja_id])).rows[0].r);
   });
   if (!r) return json({ error: "Ese cliente no existe en tu droguería" }, 404);
   return json({ recibo: { ...r, valor: Number(r.valor), saldo: Number(r.saldo), saldo_anterior: Number(r.saldo_anterior) } }, 201);

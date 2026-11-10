@@ -19,7 +19,7 @@ export default async function Reportes({ searchParams }: { searchParams: Promise
   const sp = await searchParams;
   const r = rango(sp.desde, sp.hasta);
   const [d, alegra] = await comoUsuario(s, async (c) => [await datosReporte(c, s.empresa, r, true),
-    (await c.query(`select count(*)::int n, coalesce(sum(total), 0)::float total from ventas_externas where empresa_id = $1 and estado in ('pagada', 'por_cobrar') and fecha between $2::date and $3::date`,
+    (await c.query(`select count(*)::int n, coalesce(sum(total), 0)::float total from ventas_externas where empresa_id = $1 and estado <> 'anulada' and fecha between $2::date and $3::date`,
       [s.empresa, r.desde, r.hasta])).rows[0] as { n: number; total: number }] as const);
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
   const atajos = rangosRapidos();

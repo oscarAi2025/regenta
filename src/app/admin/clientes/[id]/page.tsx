@@ -22,15 +22,15 @@ export const dynamic = "force-dynamic";
 export default async function Cliente({ params }: { params: Promise<{ id: string }> }) {
   await exigirAdmin();
   const { id } = await params;
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) notFound();
+  if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const d = await sinRLS(async (c) => {
     const e = (await c.query(`select * from empresas where id = $1`, [id])).rows[0];
     if (!e) return null;
     const usuarios = (await c.query(`select m.user_id, m.nombre, m.rol, m.activo, cu.email, cu.ultimo_ingreso, cu.clave_hash is not null activada
       from miembros m left join cuentas cu on cu.id = m.user_id where m.empresa_id = $1 order by m.activo desc, m.creado`, [id])).rows;
     const cifras = (await c.query(`select
-        (select coalesce(sum(total), 0) from ventas where empresa_id = $1 and origen is null and estado = 'cerrada' and creado > now() - interval '30 days')::float ventas30,
-        (select count(*) from ventas where empresa_id = $1 and origen is null and estado = 'cerrada' and creado > now() - interval '30 days')::int n30,
+        (select coalesce(sum(total), 0) from ventas where empresa_id = $1 and estado = 'cerrada' and creado > now() - interval '30 days')::float ventas30,
+        (select count(*) from ventas where empresa_id = $1 and estado = 'cerrada' and creado > now() - interval '30 days')::int n30,
         (select count(*) from productos where empresa_id = $1 and activo)::int productos,
         (select count(*) from documentos_dian where empresa_id = $1 and estado = 'rechazado')::int rechazados`, [id])).rows[0];
     const resoluciones = (await c.query(`select tipo, prefijo, desde, hasta, actual, vigente_hasta::text, pruebas, activa, coalesce(numero_resolucion, '') numero_resolucion from resoluciones_dian where empresa_id = $1 order by tipo`, [id])).rows;
@@ -76,7 +76,7 @@ export default async function Cliente({ params }: { params: Promise<{ id: string
         <Nota empresa={id} inicial={e.nota_admin ?? ""} />
       </div>
       {!e.demo && <Fiscal empresa={id} nitFijo={d.resoluciones.some((r) => !r.pruebas)} inicial={{ razon_social: e.razon_social ?? "", nombre_comercial: e.nombre_comercial ?? "", nit: String(e.nit ?? ""),
-        responsable_iva: !!e.responsable_iva, direccion: e.direccion ?? "", ciudad: e.ciudad ?? "", telefono: e.telefono ?? "", email: e.email ?? "", calidades_tributarias: e.calidades_tributarias ?? "" }} />}
+        responsable_iva: !!e.responsable_iva, direccion: e.direccion ?? "", ciudad: e.ciudad ?? "", telefono: e.telefono ?? "", email: e.email ?? "" }} />}
       {!e.demo && <SubirLogo endpoint={`/api/admin/clientes/${id}/logo`} inicial={e.logo ?? null} />}
       {!e.demo && <Habilitacion empresa={id} />}
       {!e.demo && <Migracion empresa={id} />}

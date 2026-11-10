@@ -40,13 +40,9 @@ const Venta = z.object({
   cliente_tipo: z.enum(["CC", "NIT", "CE", "PP", "TI", "PEP"]).nullish(), cliente_doc: opc(30), cliente_nombre: opc(200),
   subtotal: z.number(), descuento: z.number(), iva: z.number(), total: z.number(), pagado: z.number(), saldo: z.number().min(0),
   estado: z.enum(["pagada", "por_cobrar", "anulada", "borrador"]), estado_dian: opc(60), cufe: opc(200), forma_pago: opc(60), lineas: z.array(Linea).max(500),
-}).refine((v) => v.numero != null || /^\d{1,15}$/.test(v.externo_id), { message: "Cada venta necesita su número (o un id numérico de Alegra)" })
-  .refine((v) => v.total >= 0 && v.saldo <= v.total + 1 && v.pagado >= 0, { message: "Hay una venta con total negativo o con saldo mayor que su total: revisa el archivo" })
-  .refine((v) => v.fecha_hora.slice(0, 10) <= new Date(Date.now() + 2 * 864e5).toISOString().slice(0, 10), { message: "Hay una venta con fecha futura: revisa el archivo" });
+});
 const Peticion = z.discriminatedUnion("parte", [
-  z.object({ parte: z.literal("productos"), simular: z.boolean(), reemplazar: z.boolean(), filas: z.array(Producto).min(1).max(5000)
-    .superRefine((fs, ctx) => { const vistos = new Set<string>(), rep = new Set<string>(); for (const f of fs) (vistos.has(f.externo_id) ? rep : vistos).add(f.externo_id);
-      if (rep.size) ctx.addIssue({ code: "custom", message: `El archivo repite el id de Alegra de ${rep.size} producto(s): ${[...rep].slice(0, 5).join(", ")}` }); }) }),
+  z.object({ parte: z.literal("productos"), simular: z.boolean(), reemplazar: z.boolean(), filas: z.array(Producto).min(1).max(5000) }),
   z.object({ parte: z.literal("clientes"), simular: z.boolean(), filas: z.array(Cliente).min(1).max(5000) }),
   z.object({ parte: z.literal("proveedores"), simular: z.boolean(), filas: z.array(Proveedor).min(1).max(1000) }),
   z.object({ parte: z.literal("ventas"), simular: z.boolean(), filas: z.array(Venta).min(1).max(400) }),
@@ -72,8 +68,6 @@ export const POST = conAdmin(async (a, req, ctx) => {
 
 /** Corre `fn` y, si es simulación, deshace todo al final (lo que devuelve es exactamente lo que pasaría). */
 class Simulado { constructor(public r: unknown) {} }
-/** Error que se le muestra a soporte tal cual (la consola lo responde como 400 con este mensaje). */
-const aviso = (mensaje: string) => Object.assign(new Error(mensaje), { code: "P0001" });
 async function talCual<T>(simular: boolean, correr: (fn: (c: Tx) => Promise<T>) => Promise<T>, fn: (c: Tx) => Promise<T>): Promise<T> {
   try { return await correr(async (c) => { const r = await fn(c); if (simular) throw new Simulado(r); return r; }); }
   catch (e) { if (e instanceof Simulado) return e.r as T; throw e; }
@@ -83,8 +77,8 @@ async function productos(emp: string, dueno: string, admin: string, d: Extract<P
   return talCual(d.simular, (fn) => comoUsuario({ uid: dueno, soporte: admin }, fn), async (c) => {
     await c.query(`select pg_advisory_xact_lock(hashtext('importar:' || $1))`, [emp]);
     const sede = (await puestoDeTrabajo(c, emp)).sede_id;
-    const ex = (await c.query(`select id, nombre, laboratorio, ean, externo_id, activo, unidades_por_caja upc from productos where empresa_id = $1`, [emp])).rows as
-      { id: string; nombre: string; laboratorio: string | null; ean: string | null; externo_id: string | null; activo: boolean; upc: number }[];
+    const ex = (await c.query(`select id, nombre, laboratorio, ean, externo_id, activo from productos where empresa_id = $1`, [emp])).rows as
+      { id: string; nombre: string; laboratorio: string | null; ean: string | null; externo_id: string | null; activo: boolean }[];
     const porExt = new Map(ex.filter((e) => e.externo_id).map((e) => [e.externo_id!, e]));
     const porEan = new Map(ex.filter((e) => e.ean).map((e) => [e.ean!, e]));
     const porNombre = new Map<string, (typeof ex)[number]>();
@@ -93,9 +87,6 @@ async function productos(emp: string, dueno: string, admin: string, d: Extract<P
     const resumen = { crear: 0, actualizar: 0, por_ean: 0, por_nombre: 0, lotes_nuevos: 0, lotes_ajustados: 0, en_cero: 0, unidades: 0, valor_costo: 0 };
     const detalle: { nombre: string; accion: string; antes: number; despues: number }[] = [];
     const destino: string[] = [];
-    // Cada artículo de Alegra es una unidad de venta: en un producto que ya existía con N unidades por caja, esa unidad es
-    // la caja (el precio de Alegra pasa a ser el precio de la caja), así que las existencias y el costo se llevan a unidades.
-    const factor: number[] = [];
     for (const f of d.filas) {
       let e = porExt.get(f.externo_id);
       if (!e && f.ean && porEan.get(f.ean) && !porEan.get(f.ean)!.externo_id) { e = porEan.get(f.ean); resumen.por_ean++; }
@@ -106,12 +97,12 @@ async function productos(emp: string, dueno: string, admin: string, d: Extract<P
         await c.query(`update productos set externo_id = $2, nombre = $3, ean = coalesce($4, ean), iva = $5, precio_caja = $6,
           precio_unidad = case when unidades_por_caja > 1 then precio_unidad end, activo = $7 or $8 > 0, actualizado = now() where id = $1`,
           [e.id, f.externo_id, f.nombre, f.ean ?? null, f.iva, f.precio_caja, f.activo, f.unidades]);
-        destino.push(e.id); factor.push(Math.max(1, e.upc));
+        destino.push(e.id);
       } else {
         resumen.crear++;
         const nuevo = (await c.query(`insert into productos (empresa_id, externo_id, nombre, ean, iva, unidades_por_caja, precio_caja, activo)
           values ($1, $2, $3, $4, $5, 1, $6, $7) returning id`, [emp, f.externo_id, f.nombre, f.ean ?? null, f.iva, f.precio_caja, f.activo || f.unidades > 0])).rows[0].id as string;
-        usados.add(nuevo); destino.push(nuevo); factor.push(1);
+        usados.add(nuevo); destino.push(nuevo);
       }
     }
     // Existencias: el archivo manda. Estado actual por lote (sede principal).
@@ -119,8 +110,7 @@ async function productos(emp: string, dueno: string, admin: string, d: Extract<P
     const lotes = (await c.query(`select l.lote_id, l.producto_id, l.lote, l.vence::text, l.unidades from v_stock_lotes l
       where l.empresa_id = $1 and l.sede_id = $2 and l.producto_id = any($3)`, [emp, sede, ids])).rows as { lote_id: string; producto_id: string; lote: string; vence: string | null; unidades: number }[];
     const objetivo = new Map<string, { lote: string; vence: string | null; unidades: number; costo: number | null; nombre: string }>();
-    d.filas.forEach((f, i) => { if (f.unidades > 0) objetivo.set(destino[i], { lote: (f.lote || "SIN-LOTE").toUpperCase().trim(), vence: f.vence ?? null,
-      unidades: f.unidades * factor[i], costo: f.costo_unidad == null ? null : f.costo_unidad / factor[i], nombre: f.nombre }); });
+    d.filas.forEach((f, i) => { if (f.unidades > 0) objetivo.set(destino[i], { lote: (f.lote || "SIN-LOTE").toUpperCase().trim(), vence: f.vence ?? null, unidades: f.unidades, costo: f.costo_unidad ?? null, nombre: f.nombre }); });
     const ajuste: { lote_id: string; unidades: number }[] = [];
     const entradas: { inicial: object[]; vencidas: object[] } = { inicial: [], vencidas: [] };
     const nombres = new Map(d.filas.map((f, i) => [destino[i], f.nombre]));
@@ -150,7 +140,7 @@ async function productos(emp: string, dueno: string, admin: string, d: Extract<P
     // Comprobación: lo que quedó es lo que pide el archivo, producto por producto.
     const quedo = new Map((await c.query(`select producto_id, sum(unidades)::int u from v_stock_lotes where empresa_id = $1 and sede_id = $2 and producto_id = any($3) group by 1`, [emp, sede, ids])).rows.map((x) => [x.producto_id as string, x.u as number]));
     const mal = [...new Set(ids)].filter((pid) => (quedo.get(pid) ?? 0) !== (objetivo.get(pid)?.unidades ?? 0));
-    if (mal.length) throw aviso(`Las existencias no cuadran en ${mal.length} productos tras la migración`);
+    if (mal.length) throw new Error(`Las existencias no cuadran en ${mal.length} productos tras la migración`);
     return { resumen: { ...resumen, valor_costo: Math.round(resumen.valor_costo) }, cambios: detalle.sort((x, y) => x.nombre.localeCompare(y.nombre)).slice(0, 1500), simulado: d.simular };
   });
 }
@@ -197,61 +187,31 @@ async function ventas(emp: string, dueno: string, d: Extract<P, { parte: "ventas
   return talCual(d.simular, sinRLS, async (c) => {
     const sede = (await c.query(`select id from sedes where empresa_id = $1 order by creado limit 1`, [emp])).rows[0]?.id as string;
     const cli = new Map((await c.query(`select id, tipo_doc || ':' || numero_doc k from clientes where empresa_id = $1`, [emp])).rows.map((x) => [x.k as string, x.id as string]));
-    const resumen = { historial_nuevas: 0, historial_ya_estaban: 0, historial_actualizadas: 0, cartera_nuevas: 0, cartera_ya_estaban: 0, saldo_cartera: 0, sin_cliente: 0, plazo_recortado: 0,
-      cartera_pagada_en_alegra: 0, valor_pagado_en_alegra: 0 };
+    const resumen = { historial_nuevas: 0, historial_ya_estaban: 0, cartera_nuevas: 0, cartera_ya_estaban: 0, saldo_cartera: 0, sin_cliente: 0 };
     for (const f of d.filas) {
       const cid = f.cliente_doc ? cli.get(`${f.cliente_tipo ?? "CC"}:${f.cliente_doc.toUpperCase()}`) ?? null : null;
       if (f.cliente_doc && !cid) resumen.sin_cliente++;
       const h = await c.query(`insert into ventas_externas (empresa_id, origen, externo_id, documento, prefijo, numero, fecha, vence, cliente_id, cliente_nombre, cliente_doc,
           subtotal, descuento, iva, total, pagado, saldo, estado, estado_dian, cufe, forma_pago, lineas)
         values ($1, $2, $3, $4, $5, $6, $7::date, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
-        on conflict (empresa_id, origen, externo_id) do update set estado = excluded.estado, pagado = excluded.pagado, saldo = excluded.saldo,
-          estado_dian = excluded.estado_dian, cufe = excluded.cufe
-        where (ventas_externas.estado, ventas_externas.pagado, ventas_externas.saldo, ventas_externas.estado_dian, ventas_externas.cufe)
-          is distinct from (excluded.estado, excluded.pagado, excluded.saldo, excluded.estado_dian, excluded.cufe)
-        returning (xmax = 0) nueva`,
+        on conflict (empresa_id, origen, externo_id) do nothing`,
         [emp, ORIGEN, f.externo_id, f.documento, f.prefijo, f.numero ?? null, f.fecha_hora.slice(0, 10), f.vence ?? null, cid, f.cliente_nombre, f.cliente_doc,
           f.subtotal, f.descuento, f.iva, f.total, f.pagado, f.saldo, f.estado, f.estado_dian, f.cufe, f.forma_pago, JSON.stringify(f.lineas)]);
-      // Repetir la migración pone al día el estado y el saldo que tenga Alegra (pagos recibidos allá durante el cambio).
-      if (!h.rowCount) resumen.historial_ya_estaban++; else if (h.rows[0].nueva) resumen.historial_nuevas++; else resumen.historial_actualizadas++;
-      // Factura que ya está en la cartera de Regenta: si en Alegra le entró un pago (o quedó pagada o anulada) durante el
-      // cambio, la diferencia entra como abono «pagado en Alegra», para no cobrarle al cliente lo que ya pagó.
-      const enCartera = (await c.query(`select id, saldo_factura(id)::float saldo from ventas where empresa_id = $1 and origen = $2 and externo_id = $3`, [emp, ORIGEN, f.externo_id])).rows[0];
-      if (enCartera) {
-        const quiere = f.estado === "por_cobrar" ? f.saldo : 0;
-        const pagado = Math.round(enCartera.saldo - quiere);
-        if (pagado > 0) {
-          const medio = ({ efectivo: "efectivo", transferencia: "transferencia", tarjeta: "tarjeta" } as Record<string, string>)[String(f.forma_pago ?? "").toLowerCase()] ?? "transferencia";
-          await c.query(`insert into abonos (empresa_id, venta_id, medio, valor, referencia, usuario_id) values ($1, $2, $3, $4, 'Pagado en Alegra (migración)', $5)`,
-            [emp, enCartera.id, medio, pagado, dueno]);
-          await c.query(`insert into auditoria (empresa_id, usuario_id, accion, entidad, entidad_id, datos) values ($1, $2, 'abono_pagado_en_alegra', 'ventas', $3, $4)`,
-            [emp, dueno, enCartera.id, { externo_id: f.externo_id, valor: pagado, estado_alegra: f.estado, saldo_alegra: f.saldo }]);
-          resumen.cartera_pagada_en_alegra++; resumen.valor_pagado_en_alegra += pagado;
-        }
-        resumen.cartera_ya_estaban++;
-        continue;
-      }
+      if (h.rowCount) resumen.historial_nuevas++; else resumen.historial_ya_estaban++;
       if (f.estado !== "por_cobrar" || f.saldo <= 0) continue;
       if (!cid) {
         if (d.simular) { resumen.cartera_nuevas++; resumen.saldo_cartera += f.saldo; continue; } // al simular, los clientes aún no se han cargado
-        throw aviso(`La factura ${f.prefijo ?? ""}${f.numero ?? ""} tiene saldo pero su cliente (${f.cliente_doc}) no está: carga primero los clientes`);
+        throw new Error(`La factura ${f.prefijo ?? ""}${f.numero ?? ""} tiene saldo pero su cliente (${f.cliente_doc}) no está: carga primero los clientes`);
       }
       // Cartera: la factura abierta, con lo que falta por cobrar (lo ya pagado en Alegra no se vuelve a cobrar aquí) y el
       // mismo vencimiento que tenía en Alegra (el plazo, en días, nunca baja de 1).
       const fecha = f.fecha_hora.slice(0, 10), vence = f.vence && f.vence > fecha ? f.vence : fecha;
-      const dias = Math.max(1, Math.round((Date.parse(vence) - Date.parse(fecha)) / 864e5));
-      const plazo = Math.min(180, dias); // Regenta admite crédito hasta 180 días; el vencimiento queda el de Alegra
-      if (dias > 180) resumen.plazo_recortado++;
-      const prefijo = f.prefijo ?? "ALG", numero = f.numero ?? Number(f.externo_id);
-      // Una venta de Regenta (u otra de Alegra) con el mismo tipo, prefijo y número: no se descarta en silencio.
-      const choca = (await c.query(`select 1 from ventas where empresa_id = $1 and tipo_doc = $2 and prefijo = $3 and numero = $4
-        and (origen is distinct from $5 or externo_id is distinct from $6)`, [emp, f.documento, prefijo, numero, ORIGEN, f.externo_id])).rowCount;
-      if (choca) throw aviso(`La factura ${prefijo}${numero} de Alegra tiene el mismo número que otra venta en Regenta: revisa la numeración antes de migrar la cartera`);
+      const plazo = Math.max(1, Math.round((Date.parse(vence) - Date.parse(fecha)) / 864e5));
       const v = await c.query(`insert into ventas (empresa_id, sede_id, caja_id, cliente_id, usuario_id, idem_key, tipo_doc, prefijo, numero, base, iva, total, recibido, cambio,
           creado, condicion, plazo_dias, vence_pago, origen, externo_id)
         values ($1, $2, null, $3, $4, $5, $6, $7, $8, $9, 0, $9, 0, 0, ($10::timestamp at time zone 'America/Bogota'), 'credito', $11::int, $12::date, $13, $14)
-        on conflict (empresa_id, origen, externo_id) where origen is not null do nothing`,
-        [emp, sede, cid, dueno, `${ORIGEN}:${f.externo_id}`, f.documento, prefijo, numero, f.saldo,
+        on conflict do nothing`,
+        [emp, sede, cid, dueno, `${ORIGEN}:${f.externo_id}`, f.documento, f.prefijo ?? "ALG", f.numero ?? Number(f.externo_id), f.saldo,
           f.fecha_hora.length > 10 ? f.fecha_hora : `${f.fecha_hora} 12:00`, plazo, vence, ORIGEN, f.externo_id]);
       if (v.rowCount) { resumen.cartera_nuevas++; resumen.saldo_cartera += f.saldo; } else resumen.cartera_ya_estaban++;
     }

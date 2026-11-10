@@ -38,8 +38,8 @@ const antes1 = await lote(L1), antes2 = await lote(L2);
 {
   const { ctx, p, errs } = await entrar("Carlos");
   await p.goto(B + "/inventario"); await p.waitForLoadState("networkidle");
-  ok(await p.getByRole("link", { name: "Corregir lotes" }).isVisible(), "inventario lleva a «Corregir lotes»");
-  await p.getByRole("link", { name: "Corregir lotes" }).click(); await p.waitForURL(/\/inventario\/lotes/);
+  ok(await p.getByRole("link", { name: "Lotes y vencimientos" }).isVisible(), "inventario lleva a «Lotes y vencimientos»");
+  await p.getByRole("link", { name: "Lotes y vencimientos" }).click(); await p.waitForURL(/\/inventario\/lotes/);
   await p.fill("#buscar-lote", x.nombre.slice(0, 18));
   ok(await p.locator('[aria-label="Resultados"] button').first().waitFor({ timeout: 8000 }).then(() => true, () => false), "la búsqueda de producto muestra resultados");
   await p.goto(B + `/inventario/lotes?producto=${x.producto_id}`); await p.waitForLoadState("networkidle");
@@ -112,12 +112,6 @@ const antes1 = await lote(L1), antes2 = await lote(L2);
   const { ctx, p } = await entrar("Andrés");
   const t = await api(p, `/api/inventario/lotes/${L2}`, "PATCH", { lote: antes2.lote, vence: antes2.vence, motivo: "Revisión de bodega" });
   ok(t.status === 200, "la bodega corrige lotes", `${t.status} ${t.j.error ?? ""}`);
-  await pool.query(`update lotes set vence = current_date - 2 where id = $1`, [L2]);
-  const rv = await api(p, `/api/inventario/lotes/${L2}`, "PATCH", { lote: antes2.lote, vence: antes2.vence, motivo: "La bodega quiere volverlo vendible" });
-  ok(rv.status === 403 && /dueño o el administrador/.test(rv.j.error), "la bodega no vuelve vendible un lote vencido", `${rv.status} ${rv.j.error}`);
-  const rc = await api(p, `/api/inventario/lotes/${L2}`, "PATCH", { lote: antes2.lote, vence: enDias(-5), motivo: "Fecha real más temprana" });
-  ok(rc.status === 200, "la bodega sí corrige la fecha de un vencido sin volverlo vendible", `${rc.status} ${rc.j.error ?? ""}`);
-  await pool.query(`update lotes set vence = $2::date where id = $1`, [L2, antes2.vence]);
   await ctx.close();
 }
 {

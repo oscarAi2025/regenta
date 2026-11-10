@@ -25,9 +25,7 @@ export const POST = conSesion(async (s, req, ctx) => {
   const p = Devolucion.safeParse(cuerpo);
   if (!p.success) return json({ error: p.error.issues[0]?.message ?? "Datos de la devolución incompletos" }, 400);
   const r = await comoUsuario(s, async (c) => {
-    const v = (await c.query(`select origen from ventas where id = $1 and empresa_id = $2`, [id, s.empresa])).rows[0];
-    if (!v) return null;
-    if (v.origen) return { deAlegra: true }; // las ventas traídas de Alegra se devuelven en Alegra
+    if (!(await c.query(`select 1 from ventas where id = $1 and empresa_id = $2`, [id, s.empresa])).rowCount) return null;
     // La nota crédito referencia la factura: si la DIAN la rechazó, primero se corrige y se reenvía.
     if ((await c.query(`select 1 from documentos_dian where venta_id = $1 and devolucion_id is null and tipo <> 'nota_credito' and estado = 'rechazado'`, [id])).rowCount)
       return { rechazada: true };
@@ -36,8 +34,7 @@ export const POST = conSesion(async (s, req, ctx) => {
       (await c.query(`select devolver_venta($1) r`, [{ ...p.data, venta_id: id, caja_id: puesto?.caja_id ?? null }])).rows[0].r);
   });
   if (!r) return json({ error: "Ese registro no existe en tu droguería" }, 404);
-  if ("deAlegra" in r) return json({ error: "Esta venta viene de Alegra: la devolución se hace en Alegra" }, 422);
-  if ("rechazada" in r && r.rechazada) return json({ error: "La DIAN rechazó el documento de esta venta: corrígelo y reenvíalo antes de hacer la devolución." }, 409);
+  if (r.rechazada) return json({ error: "La DIAN rechazó el documento de esta venta: corrígelo y reenvíalo antes de hacer la devolución." }, 409);
   await procesarCola(3, id).catch((e) => console.error("cola DIAN", e));
   return json({ devolucion: r });
 });

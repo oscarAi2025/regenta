@@ -332,7 +332,7 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
           <input id="buscar-recibir" ref={buscar} value={q} onChange={(e) => setQ(e.target.value)} className="campo h-12 text-lg" placeholder="Escanea o escribe el nombre" autoComplete="off" />
           {res.length > 0 && (
             <ul aria-label="Resultados" className="absolute z-10 mt-1 w-full tarjeta shadow-lg divide-y divide-line max-h-80 overflow-auto">
-              {res.map((p) => <li key={p.id}><button onClick={() => agregar(p)} className="w-full text-left px-4 py-2.5 hover:bg-paper"><span className="font-semibold">{p.nombre}</span><span className="block text-sm text-muted">{p.laboratorio ?? "Sin laboratorio"} · hay {p.unidades} und</span></button></li>)}
+              {res.map((p) => <li key={p.id}><button onClick={() => agregar(p)} className="w-full text-left px-4 py-2.5 hover:bg-paper"><span className="font-semibold">{p.nombre}</span><span className="block text-sm text-muted">{p.laboratorio ?? "Genérico"} · hay {p.unidades} und</span></button></li>)}
             </ul>
           )}
           {q.trim().length >= 2 && res.length === 0 && <p className="text-sm text-muted mt-2">¿No aparece? Créalo primero en <a href="/productos/nuevo" className="underline">Productos → Agregar</a>.</p>}
@@ -348,7 +348,7 @@ export function NuevaCompra({ dinero, proveedores: iniciales, hoy }: { dinero: b
             const precioNuevo = ent(l.precio), m = costoUnd !== null && pagadas(l) > 0 ? margen(costoUnd, precioNuevo || l.p.precio_caja, Number(l.p.iva) || 0, upc) : null;
             return (
               <article key={l.key} className="tarjeta p-4 grid gap-3 min-w-0">
-                <div className="flex items-start gap-3"><div className="flex-1 min-w-0"><p className="font-semibold">{l.p.nombre}</p><p className="text-sm text-muted">{l.p.laboratorio ?? "Sin laboratorio"}{upc > 1 ? ` · caja x ${upc}` : ""}{dinero ? ` · precio actual ${pesosExactos(l.p.precio_caja)}${upc > 1 ? " la caja" : ""}` : ""}</p>
+                <div className="flex items-start gap-3"><div className="flex-1 min-w-0"><p className="font-semibold">{l.p.nombre}</p><p className="text-sm text-muted">{l.p.laboratorio ?? "Genérico"}{upc > 1 ? ` · caja x ${upc}` : ""}{dinero ? ` · precio actual ${pesosExactos(l.p.precio_caja)}${upc > 1 ? " la caja" : ""}` : ""}</p>
                   {l.factura && <p className="text-sm text-muted mt-0.5">En la factura: «{l.factura.descripcion}»{l.factura.por ? ` · ${POR[l.factura.por]}` : " · elegido por ti"}</p>}
                   {l.factura?.revisar && upc > 1 && <p className="text-sm font-semibold text-aviso mt-0.5">Revisa si la factura trae cajas (x {upc}) o unidades sueltas.</p>}</div>
                   <button onClick={() => setLineas((ls) => ls.filter((x) => x.key !== l.key))} className="text-sm text-alerta underline" aria-label={`Quitar ${l.p.nombre}`}>Quitar</button></div>

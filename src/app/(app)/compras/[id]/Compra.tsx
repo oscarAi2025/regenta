@@ -111,7 +111,7 @@ export function Compra({ inicial, dinero }: { inicial: DetalleCompra; dinero: bo
               const k = costos[l.id], x = calc(l);
               return (
                 <tr key={l.id} className="align-top">
-                  <td className="px-4 py-3"><p className="font-semibold">{l.nombre}</p><p className="text-muted">{l.laboratorio ?? "Sin laboratorio"}{l.registro_sanitario ? ` · Reg. ${l.registro_sanitario}` : ""}</p></td>
+                  <td className="px-4 py-3"><p className="font-semibold">{l.nombre}</p><p className="text-muted">{l.laboratorio ?? "Genérico"}{l.registro_sanitario ? ` · Reg. ${l.registro_sanitario}` : ""}</p></td>
                   <td className="px-3 py-3 num"><b>{l.lote}</b><br />{fecha(l.vence)}</td>
                   <td className="px-3 py-3 num text-right whitespace-nowrap">{miles(cantidad(l))} und{l.bonificadas ? <span className="block text-muted">{l.bonificadas} bonificadas</span> : null}{l.devueltas ? <span className="block text-alerta">{l.devueltas} devueltas</span> : null}</td>
                   {dinero && !porCostear && <>

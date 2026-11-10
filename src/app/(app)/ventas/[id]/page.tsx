@@ -17,7 +17,7 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
   if (!s) redirect("/entrar");
   if (!puede.vender(s.rol)) redirect("/inicio?aviso=permiso"); // bodega no ve ventas ni clientes
   const { id } = await params;
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) notFound();
+  if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const d = await comoUsuario(s, async (c) => {
     const v = (await c.query(`select v.*, to_char(v.creado at time zone 'America/Bogota', 'DD/MM/YYYY HH24:MI') fecha, m.nombre cajero, e.razon_social, e.nit, e.dv, e.direccion, e.ciudad,
       cl.nombre cliente, cl.tipo_doc cli_tipo, cl.numero_doc cli_num, cl.dv cli_dv, to_char(v.vence_pago, 'DD/MM/YYYY') vence

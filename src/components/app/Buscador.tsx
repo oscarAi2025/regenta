@@ -38,7 +38,7 @@ export function Buscador({ rol }: { rol: string }) {
     const n = q.trim().toLowerCase();
     const ir = (h: string) => () => { setAbierto(false); router.push(h); };
     const pags = PAGINAS.filter((p) => (p.roles === "*" || p.roles.split(",").includes(rol)) && (!n || p.t.toLowerCase().includes(n))).map((p) => ({ id: p.href, titulo: p.t, ir: ir(p.href) }));
-    const pr = prods.map((p) => ({ id: p.id, titulo: p.nombre, sub: `${p.laboratorio ?? "Sin laboratorio"} · ${p.unidades > 0 ? `${p.unidades} und` : "agotado"}`, ir: ir(rol === "dueno" || rol === "admin" ? `/productos/${p.id}` : `/inventario?ver=todos&q=${encodeURIComponent(p.nombre)}`) }));
+    const pr = prods.map((p) => ({ id: p.id, titulo: p.nombre, sub: `${p.laboratorio ?? "Genérico"} · ${p.unidades > 0 ? `${p.unidades} und` : "agotado"}`, ir: ir(rol === "dueno" || rol === "admin" ? `/productos/${p.id}` : `/inventario?ver=todos&q=${encodeURIComponent(p.nombre)}`) }));
     const ia = n.length > 3 ? [{ id: "ia", titulo: `Preguntar a Regenta IA: «${q.trim()}»`, ir: () => { setAbierto(false); window.dispatchEvent(new CustomEvent("regenta-ia", { detail: q.trim() })); } }] : [];
     return [...pr, ...pags, ...ia];
   }, [q, prods, rol, router]);

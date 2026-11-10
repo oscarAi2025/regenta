@@ -4,8 +4,7 @@ import { conSesion, esUuid, json } from "@/lib/api";
 import { puede } from "@/lib/sesion";
 
 const Cuerpo = z.object({
-  lote: z.string().trim().min(1, "Escribe el código del lote").max(60, "El código del lote es muy largo")
-    .refine((v) => !/[\p{C}]/u.test(v), "El código del lote tiene caracteres invisibles o saltos de línea"),
+  lote: z.string().trim().min(1, "Escribe el código del lote").max(60, "El código del lote es muy largo"),
   vence: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Escribe la fecha de vencimiento"),
   motivo: z.string().trim().min(4, "Escribe por qué se corrige el lote").max(200, "El motivo es muy largo"),
 });

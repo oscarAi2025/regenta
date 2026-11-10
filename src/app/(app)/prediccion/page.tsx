@@ -20,7 +20,7 @@ export default async function Prediccion({ searchParams }: { searchParams: Promi
   const { ver = "pedido" } = await searchParams;
   const costos = puede.verCostos(s.rol);
   const d = await comoUsuario(s, async (c) => {
-    const historia = (await c.query(`select coalesce(current_date - min((creado at time zone 'America/Bogota')::date), 0)::int dias from ventas where empresa_id = $1 and origen is null`, [s.empresa])).rows[0].dias as number;
+    const historia = (await c.query(`select coalesce(current_date - min((creado at time zone 'America/Bogota')::date), 0)::int dias from ventas where empresa_id = $1`, [s.empresa])).rows[0].dias as number;
     // Una sola pasada por la predicción; los filtros se hacen aquí.
     const todos = (await c.query(`select producto_id id, nombre, laboratorio, unidades_por_caja upc, existencias, venta_dia::float, dias_cobertura::float, tendencia::float,
         sugerido_unidades, sugerido_cajas, ultima_venta::text from prediccion_productos($1)`, [s.empresa])).rows as (LineaPedido & { sugerido_unidades: number; ultima_venta: string | null })[];
@@ -84,7 +84,7 @@ export default async function Prediccion({ searchParams }: { searchParams: Promi
               <tbody className="divide-y divide-line">
                 {d.riesgo.map((r) => (
                   <tr key={r.lote_id}>
-                    <td className="px-4 py-3"><p className="font-semibold">{r.nombre}</p><p className="text-muted">{r.laboratorio ?? "Sin laboratorio"}</p></td>
+                    <td className="px-4 py-3"><p className="font-semibold">{r.nombre}</p><p className="text-muted">{r.laboratorio ?? "Genérico"}</p></td>
                     <td className="px-4 py-3"><span className={`rounded-md px-2 py-0.5 font-semibold ${r.dias <= 30 ? "bg-alerta-soft text-alerta" : r.dias <= 90 ? "bg-aviso-soft text-aviso" : "bg-paper"}`}>{r.lote} · {fecha(r.vence)}</span><p className="text-muted mt-1">en {r.dias} días</p></td>
                     <td className="px-4 py-3 text-right num">{r.unidades} und</td>
                     <td className="px-4 py-3 text-right num">{r.venta_dia > 0 ? `${semana(r.venta_dia)} und` : <span className="text-alerta">sin ventas</span>}</td>
@@ -108,7 +108,7 @@ export default async function Prediccion({ searchParams }: { searchParams: Promi
               <tbody className="divide-y divide-line">
                 {d.quietos.map((q) => (
                   <tr key={q.id}>
-                    <td className="px-4 py-3"><p className="font-semibold">{q.nombre}</p><p className="text-muted">{q.laboratorio ?? "Sin laboratorio"}</p></td>
+                    <td className="px-4 py-3"><p className="font-semibold">{q.nombre}</p><p className="text-muted">{q.laboratorio ?? "Genérico"}</p></td>
                     <td className="px-4 py-3 num">{existenciasTexto(q.existencias, q.unidades_por_caja)}</td>
                     <td className="px-4 py-3">{q.ultima_venta ? fecha(q.ultima_venta) : <span className="text-muted">No se ha vendido en 8 semanas</span>}</td>
                     {costos && <td className="px-4 py-3 text-right num font-semibold">{q.valor !== null ? pesos(q.valor) : "—"}</td>}
