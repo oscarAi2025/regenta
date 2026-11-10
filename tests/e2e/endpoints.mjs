@@ -54,8 +54,9 @@ async function pedir(metodo, ruta, { cookie = "", origen = B, cuerpo, crudo, cab
 }
 // Nada de lo que vea un cliente puede delatar el interior: trazas, SQL, rutas del servidor.
 const FUGA = /\bat .+\.(js|ts):\d+|relation "|column "|syntax error|violates|duplicate key|ECONN|node_modules|\/home\/|stack|pg_|SELECT |INSERT /i;
-// Un ZIP es binario comprimido: sus bytes pueden formar «pg_» al azar (falso positivo); no se revisa como texto.
-const limpio = (r) => /application\/zip/.test(r.tipo) || !FUGA.test(r.texto);
+// Un ZIP (y un Excel .xlsx, que es un ZIP) es binario comprimido: sus bytes pueden formar «pg_» al azar (falso positivo); no se revisa como texto.
+const BINARIO = /application\/zip|spreadsheetml/;
+const limpio = (r) => BINARIO.test(r.tipo) || !FUGA.test(r.texto);
 
 // ── Mapa de endpoints. acceso: quién puede; basura: se le mandan datos rotos; rol: [rol sin permiso, estado esperado]
 const R = [
@@ -292,7 +293,7 @@ for (const e of R) {
     ok(r.s < 500 || ((e.acceso === "firma" || e.sinConfig) && r.s === 503), `${n}: responde sin error interno`, `${r.s} ${r.texto.slice(0, 120)}`);
     if (e.espera) ok(r.s === e.espera, `${n}: responde ${e.espera}`, String(r.s));
     ok(limpio(r), `${n}: no deja ver detalles internos`, r.texto.slice(0, 160));
-    if (!/text\/csv|application\/zip/.test(r.tipo) && r.texto.trim() && !/ndjson/.test(r.tipo)) ok(/json/.test(r.tipo), `${n}: responde JSON`, r.tipo);
+    if (!/text\/csv/.test(r.tipo) && !BINARIO.test(r.tipo) && r.texto.trim() && !/ndjson/.test(r.tipo)) ok(/json/.test(r.tipo), `${n}: responde JSON`, r.tipo);
   }
   // 5. Datos basura: siempre 4xx (o el flujo propio), jamás 500 ni fugas
   if (e.basura) for (const crudo of BASURA) {

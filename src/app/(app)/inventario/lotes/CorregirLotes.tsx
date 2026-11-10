@@ -65,9 +65,10 @@ export function CorregirLotes({ inicial }: { inicial?: Prod | null }) {
     setGuardando(false);
     const j = await r?.json().catch(() => ({}));
     if (!r?.ok) { setError(j?.error ?? "Sin conexión: revisa internet y vuelve a guardar."); return; }
-    setAviso(`Lote ${j.lote.lote} corregido: vence ${fecha(j.lote.vence)}. Quedó registrado en la auditoría.`);
-    setEditando(null);
+    // Primero la lista al día; después el aviso (que nunca anuncie algo que la lista todavía no muestra).
     if (prod) await cargar(prod);
+    setEditando(null);
+    setAviso(`Lote ${j.lote.lote} corregido: vence ${fecha(j.lote.vence)}. Quedó registrado en la auditoría.`);
     void refrescar();
   }
 
