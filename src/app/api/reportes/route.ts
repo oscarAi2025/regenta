@@ -17,12 +17,13 @@ export async function GET(req: Request) {
   const tablas: Record<string, [Record<string, unknown>[], [string, string][]]> = {
     // Ganancia neta de lo devuelto y solo de las líneas con costo; lo vendido sin costo (sin IVA) va en su columna.
     productos: [d.productos.map((x) => ({ ...x, cajas: x.unidades_por_caja && x.unidades_por_caja > 1 ? Math.round((x.unidades / x.unidades_por_caja) * 100) / 100 : null,
+        alegra_cantidad: x.alegra_cantidad || null, alegra_total: x.alegra_total || null,
         ganancia: x.con_costo ? x.ganancia : null, sin_costo: x.sin_costo || null, por_revisar: x.por_revisar || null, heredado: x.heredado ? "Sí: puede incluir IVA" : "" })),
       [["producto", "Producto"], ["unidades", "Unidades"], ["cajas", "Cajas"], ["devueltas", "Devueltas"], ["total", "Vendido"], ["ganancia", "Ganancia"], ["sin_costo", "Vendido sin costo registrado"],
-        ["por_revisar", "Vendido con costo por revisar"], ["heredado", "Costo anterior a compras"]]],
+        ["por_revisar", "Vendido con costo por revisar"], ["heredado", "Costo anterior a compras"], ["alegra_cantidad", "Cantidad en Alegra"], ["alegra_total", "Vendido en Alegra (incluido)"]]],
     cajeros: [d.cajeros.map((x) => ({ ...x, cajero: String(x.cajero).split(" (")[0] })), [["cajero", "Cajero"], ["ventas", "Ventas"], ["promedio", "Ticket promedio"], ["total", "Total"]]],
     medios: [d.medios.map((x) => ({ ...x, medio: MEDIO[x.medio] ?? x.medio })), [["medio", "Medio de pago"], ["ventas", "Ventas"], ["valor", "Valor"]]],
-    dias: [d.dias, [["dia", "Día"], ["ventas", "Ventas"], ["total", "Total"]]],
+    dias: [d.dias, [["dia", "Día"], ["ventas", "Ventas"], ["total", "Total"], ["regenta", "Regenta"], ["alegra", "Alegra"]]],
   };
   const t = tablas[tipo];
   if (!t) return NextResponse.json({ error: "Reporte no válido" }, { status: 400 });

@@ -554,4 +554,6 @@ Causa raíz: el lote inicial de «kennedy bajalenguas caja x 500» se creó con 
 - [x] Historial por fechas: también las ventas de Regenta
 - [x] Caja: cambiar el precio de una línea antes de cobrar (y descuentos visibles)
 - [x] Pruebas: reportes-costos 23, reportes 19, resultados 88, descuentos 7, producto-lote 24, caja 22, mostrador 79, migración 69, factura-carta 45, sin-conexión 15, auditoría 322 pantallas, gestión 88, endpoints 2.497: 0 fallos
-- [ ] Publicar y verificar en regenta.pro
+- [x] Publicado (994661f) y visto en producción: aviso de costos, ganancia $246.947
+- [x] Totales del rango = Regenta + Alegra (vendido, ventas, IVA, días, medios, productos); reportes-costos 26, reportes 19, resultados 88, migración 69, auditoría 322, endpoints 2.497: 0 fallos
+- [ ] Publicar y verificar
