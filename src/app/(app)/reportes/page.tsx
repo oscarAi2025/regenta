@@ -7,9 +7,17 @@ import { MEDIO } from "@/lib/formato";
 import { atajos as rangosRapidos, datosReporte, rango } from "@/lib/reportes";
 import { pesosExactos } from "@/lib/compras";
 import { Pestanas } from "./Pestanas";
+import { CostosPorRevisar } from "./CostosPorRevisar";
 
 export const metadata = { title: "Reportes" };
 
+/** «18.000 und (36 cajas)»: con cajas grandes, el número solo de unidades no se entiende. */
+const unidadesTexto = (u: number, upc: number | null) => {
+  const t = u.toLocaleString("es-CO");
+  if (!upc || upc <= 1 || u < upc) return t;
+  const cajas = u / upc;
+  return `${t} und · ${Number.isInteger(cajas) ? cajas.toLocaleString("es-CO") : cajas.toLocaleString("es-CO", { maximumFractionDigits: 1 })} caja${cajas === 1 ? "" : "s"}`;
+};
 const fecha = (f: string) => new Date(f + "T12:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
 
 export default async function Reportes({ searchParams }: { searchParams: Promise<{ desde?: string; hasta?: string }> }) {
@@ -58,9 +66,12 @@ export default async function Reportes({ searchParams }: { searchParams: Promise
         <Dato titulo="Ventas" valor={d.resumen.ventas} nota={`ticket promedio ${pesos(d.promedio)}${d.resumen.anuladas ? ` · ${d.resumen.anuladas} anuladas` : ""}`} />
         <Dato titulo="Ganancia bruta" valor={pesos(res.utilidad_bruta)} nota={<>{res.margen === null ? "Sin ventas con costo en el rango" : `margen ${String(res.margen).replace(".", ",")} % sobre la venta sin IVA`}
           {res.sin_costo.netas > 0 && <span className="block text-aviso">{pesosExactos(res.sin_costo.netas)} vendidos sin costo registrado (no cuentan)</span>}
+          {res.por_revisar.netas > 0 && <a href="#revisar-t" className="block text-alerta font-semibold">{pesosExactos(res.por_revisar.netas)} vendidos con costo por revisar (no cuentan)</a>}
           <a href={`/reportes/resultados?${q}`} className="block underline">Ver estado de resultados</a></>} />
         <Dato titulo="IVA cobrado" valor={pesos(d.resumen.iva - d.devoluciones.iva)} nota={d.resumen.credito ? `${pesos(d.resumen.credito)} vendido a crédito` : `${d.devoluciones.n} devoluciones`} />
       </section>
+
+      {res.revisar.length > 0 && <CostosPorRevisar lotes={res.revisar} netas={res.por_revisar.netas} />}
 
       <div className="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-2 gap-5">
         <section className="tarjeta p-5" aria-label="Ventas por día">
@@ -119,8 +130,8 @@ export default async function Reportes({ searchParams }: { searchParams: Promise
             <thead><tr className="text-left text-muted"><th className="py-2 font-medium">Producto</th><th className="text-right font-medium">Unidades</th><th className="text-right font-medium">Devueltas</th><th className="text-right font-medium">Vendido</th><th className="text-right font-medium">Ganancia</th></tr></thead>
             <tbody className="divide-y divide-line">{d.productos.map((x, i) => {
               const g = x.ganancia ?? 0;
-              return <tr key={i}><td className="py-2 font-sans">{x.producto}{x.heredado && <span className="ml-1.5 text-xs text-muted" title="Costo anterior a compras: puede incluir IVA">(costo anterior)</span>}</td><td className="text-right">{x.unidades}</td><td className="text-right">{x.devueltas || ""}</td><td className="text-right font-semibold">{pesos(x.total)}</td>
-                <td className={`text-right ${!x.con_costo ? "text-muted" : g < 0 ? "text-alerta" : ""}`}>{x.con_costo ? pesos(g) : "sin costo"}{x.con_costo && (x.sin_costo ?? 0) > 0 && <span className="block text-xs text-aviso">+{pesos(x.sin_costo!)} sin costo</span>}</td></tr>;
+              return <tr key={i}><td className="py-2 font-sans">{x.producto}{x.heredado && <span className="ml-1.5 text-xs text-muted" title="Costo anterior a compras: puede incluir IVA">(costo anterior)</span>}</td><td className="text-right">{unidadesTexto(x.unidades, x.unidades_por_caja)}</td><td className="text-right">{x.devueltas || ""}</td><td className="text-right font-semibold">{pesos(x.total)}</td>
+                <td className={`text-right ${!x.con_costo ? "text-muted" : g < 0 ? "text-alerta" : ""}`}>{x.con_costo ? pesos(g) : (x.por_revisar ?? 0) > 0 ? <a href="#revisar-t" className="text-alerta underline">costo por revisar</a> : "sin costo"}{x.con_costo && (x.por_revisar ?? 0) > 0 && <a href="#revisar-t" className="block text-xs text-alerta underline">+{pesos(x.por_revisar!)} por revisar</a>}{x.con_costo && (x.sin_costo ?? 0) > 0 && <span className="block text-xs text-aviso">+{pesos(x.sin_costo!)} sin costo</span>}</td></tr>;
             })}</tbody>
           </table>
         </div>

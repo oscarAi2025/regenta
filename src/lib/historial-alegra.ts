@@ -87,3 +87,23 @@ export async function lineasHistorial(c: PoolClient, empresa: string, f: FiltroH
 }
 
 export const ESTADO_HISTORIAL: Record<string, string> = { pagada: "Pagada", por_cobrar: "Por cobrar", anulada: "Anulada", borrador: "Borrador" };
+
+export type VentaRegenta = { id: string; fecha: string; hora: string; numero: string; cliente: string | null; estado: string; total: number; lineas: number };
+
+/** Ventas hechas en Regenta con los mismos filtros (fechas en zona Bogotá, cliente, número o producto): el historial por
+ *  fechas también las muestra (11/11/2026: «las ventas de ayer no salen en el buscador por fecha»: solo buscaba Alegra). */
+export async function ventasRegenta(c: PoolClient, empresa: string, f: FiltroHistorial, limite = 200) {
+  const palabras = f.q.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 5).map(sinComodines);
+  const p = [empresa, f.cliente, palabras, f.desde, f.hasta];
+  const w = `v.empresa_id = $1 and v.origen is null and ($2::uuid is null or v.cliente_id = $2)
+    and ($4::date is null or (v.creado at time zone 'America/Bogota')::date >= $4::date) and ($5::date is null or (v.creado at time zone 'America/Bogota')::date <= $5::date)
+    and (cardinality($3::text[]) = 0 or (select bool_and(sin_tildes(lower(coalesce(v.prefijo, '') || v.numero::text || ' ' || coalesce(cl.nombre, '') || ' ' || coalesce(cl.numero_doc, '') || ' ' ||
+      coalesce((select string_agg(l.descripcion, ' ') from venta_lineas l where l.venta_id = v.id), ''))) like '%' || sin_tildes(x) || '%') from unnest($3::text[]) x))`;
+  const resumen = (await c.query(`select count(*) filter (where v.estado = 'cerrada')::int n, count(*) filter (where v.estado = 'anulada')::int anuladas,
+      coalesce(sum(v.total) filter (where v.estado = 'cerrada'), 0)::float total
+    from ventas v left join clientes cl on cl.id = v.cliente_id where ${w}`, p)).rows[0] as { n: number; anuladas: number; total: number };
+  const filas = (await c.query(`select v.id, to_char(v.creado at time zone 'America/Bogota', 'YYYY-MM-DD') fecha, to_char(v.creado at time zone 'America/Bogota', 'HH24:MI') hora,
+      coalesce(v.prefijo, '') || v.numero numero, cl.nombre cliente, v.estado, v.total::float, (select count(*) from venta_lineas l where l.venta_id = v.id)::int lineas
+    from ventas v left join clientes cl on cl.id = v.cliente_id where ${w} order by v.creado desc limit ${Math.min(Math.max(1, limite), 500)}`, p)).rows as VentaRegenta[];
+  return { ...resumen, filas };
+}

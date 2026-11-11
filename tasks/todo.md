@@ -544,3 +544,14 @@ FARMAHUB AMBALA y no se migran). Cartera de Farmagenéricos: 6 facturas por $3.9
 - [x] PDF A4 de 43 páginas; video 13:42 con voz es-CO (Salomé), subtítulos y zoom; audio normalizado
 - [x] Correo de contraseña nueva: nombra «¿Olvidaste tu contraseña?» como en pantalla
 - [ ] Publicar el arreglo del correo con la próxima publicación
+
+## 11/11/2026 · Reportes con datos reales + precio editable en caja (Oscar: «ganancia −561 millones», «las ventas de ayer no salen en el buscador por fecha»)
+Causa raíz: el lote inicial de «kennedy bajalenguas caja x 500» se creó con costo por unidad = $31.280 (costo de la caja); 18.000 unidades vendidas × $31.280 = −$562 M. El historial con fechas solo busca Alegra.
+- [x] Reportes/Resultados/Inicio: costo «por revisar» (costo por unidad > 3 × precio vendido sin IVA) fuera de la utilidad y aviso con corrección en el sitio
+- [x] Corregir el costo de un lote sin compra (dueño/admin, motivo, auditoría); con compra, se corrige en la compra
+- [x] Unidades del reporte por producto en cajas + unidades
+- [x] Formulario de producto: costo por caja cuando se cuenta en cajas; aviso y bloqueo (cliente y servidor) de costo por unidad que no cuadra con el precio
+- [x] Historial por fechas: también las ventas de Regenta
+- [x] Caja: cambiar el precio de una línea antes de cobrar (y descuentos visibles)
+- [x] Pruebas: reportes-costos 23, reportes 19, resultados 88, descuentos 7, producto-lote 24, caja 22, mostrador 79, migración 69, factura-carta 45, sin-conexión 15, auditoría 322 pantallas, gestión 88, endpoints 2.497: 0 fallos
+- [ ] Publicar y verificar en regenta.pro

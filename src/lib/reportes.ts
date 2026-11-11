@@ -18,7 +18,11 @@ import { libroXlsx, type Celda, type Columna, type Tipo } from "./xlsx";
 export type Rango = { desde: string; hasta: string };
 const RANGO_V = `v.empresa_id = $1 and v.origen is null and (v.creado at time zone 'America/Bogota')::date between $2::date and $3::date`;
 const RANGO_D = `d.empresa_id = $1 and (d.creado at time zone 'America/Bogota')::date between $2::date and $3::date`;
-const GRUPO = `case when lc.lote_id is null then 'sin_costo' when lc.heredado then 'heredado' else 'con_costo' end`;
+/** Costo que no cuadra: el costo por unidad del lote pasa de 3 veces lo que se cobró por unidad (sin IVA). Casi siempre es el
+ *  costo de la caja escrito como costo por unidad (11/11/2026: una caja x 500 con costo $31.280 «por unidad» dio una ganancia
+ *  de −$562 millones). Esas líneas no entran en la utilidad hasta que se corrija el costo; se avisan con su corrección. */
+export const COSTO_POR_REVISAR = `(l.unidades > 0 and l.base > 0 and lc.costo_unidad > 3 * l.base / l.unidades)`;
+const GRUPO = `case when lc.lote_id is null then 'sin_costo' when ${COSTO_POR_REVISAR} then 'por_revisar' when lc.heredado then 'heredado' else 'con_costo' end`;
 /** La venta existe para la DIAN: cerrada, o anulada después de emitirse (tiene su nota crédito de anulación). */
 const VENTA_FISCAL = `(v.estado = 'cerrada' or exists (select 1 from documentos_dian na where na.venta_id = v.id and na.tipo = 'nota_credito' and na.devolucion_id is null))`;
 /** Notas crédito de anulación del rango (por su fecha). */
@@ -59,10 +63,26 @@ export type Resultados = {
   con_costo: Tramo;                                              // lo que entra en la utilidad (incluye el heredado)
   heredado: Tramo;                                               // parte con costo anterior a compras (puede incluir IVA)
   sin_costo: Omit<Tramo, "costo" | "utilidad">;                  // vendido sin costo registrado: fuera de la utilidad
+  por_revisar: Omit<Tramo, "costo" | "utilidad">;                // vendido con un costo que no cuadra: fuera de la utilidad
+  revisar: CostoPorRevisar[];                                     // esos lotes, para corregirlos desde el aviso
   utilidad_bruta: number; margen: number | null;
   gastos: { categoria: string; valor: number; n: number }[]; total_gastos: number;
   utilidad_operativa: number;
 };
+
+export type CostoPorRevisar = { lote_id: string; lote: string; producto_id: string; producto: string; unidades_por_caja: number;
+  costo_unidad: number; cobrado_unidad: number; unidades: number; desde_compra: boolean };
+
+/** Lotes vendidos en el rango con un costo por unidad que no cuadra con lo cobrado (ver COSTO_POR_REVISAR). */
+export async function costosPorRevisar(c: Tx, empresa: string, r: Rango): Promise<CostoPorRevisar[]> {
+  return (await c.query(`select lo.id lote_id, lo.lote, p.id producto_id, p.nombre producto, p.unidades_por_caja::int, lc.costo_unidad::float,
+      round(sum(l.base) / nullif(sum(l.unidades), 0), 2)::float cobrado_unidad, sum(l.unidades)::int unidades,
+      exists (select 1 from compra_lineas cl where cl.lote_id = lo.id) desde_compra
+    from venta_lineas l join ventas v on v.id = l.venta_id join lote_costos lc on lc.lote_id = l.lote_id join lotes lo on lo.id = l.lote_id
+    join productos p on p.id = lo.producto_id
+    where ${RANGO_V} and ${VENTA_FISCAL} and ${COSTO_POR_REVISAR}
+    group by lo.id, lo.lote, p.id, p.nombre, p.unidades_por_caja, lc.costo_unidad order by sum(l.unidades * lc.costo_unidad) desc limit 50`, [empresa, r.desde, r.hasta])).rows;
+}
 
 /** Ventas, costo de lo vendido y utilidad del rango, netos de devoluciones; gastos por categoría y utilidad operativa. */
 export async function resultados(c: Tx, empresa: string, r: Rango): Promise<Resultados> {
@@ -95,13 +115,16 @@ export async function resultados(c: Tx, empresa: string, r: Rango): Promise<Resu
     const costo = cent(ks.reduce((a, k) => a + g(k).costo, 0)), netas = cent(ventas - devoluciones);
     return { ventas, devoluciones, netas, costo, utilidad: cent(netas - costo) };
   };
-  const con = tramo("con_costo", "heredado"), her = tramo("heredado"), sin = tramo("sin_costo"), todo = tramo("con_costo", "heredado", "sin_costo");
+  const con = tramo("con_costo", "heredado"), her = tramo("heredado"), sin = tramo("sin_costo"), rev = tramo("por_revisar"),
+    todo = tramo("con_costo", "heredado", "sin_costo", "por_revisar");
+  const revisar = rev.ventas || rev.devoluciones ? await costosPorRevisar(c, empresa, r) : [];
   const gastos = (await c.query(`select categoria, sum(valor)::float valor, count(*)::int n from gastos
     where empresa_id = $1 and not anulado and fecha between $2::date and $3::date group by categoria order by 2 desc`, p)).rows as Resultados["gastos"];
   const total_gastos = cent(gastos.reduce((a, x) => a + x.valor, 0));
   return {
     rango: r, ventas: todo.ventas, devoluciones: todo.devoluciones, netas: todo.netas,
     con_costo: con, heredado: her, sin_costo: { ventas: sin.ventas, devoluciones: sin.devoluciones, netas: sin.netas },
+    por_revisar: { ventas: rev.ventas, devoluciones: rev.devoluciones, netas: rev.netas }, revisar,
     utilidad_bruta: con.utilidad, margen: con.netas > 0 ? Math.round((con.utilidad / con.netas) * 1000) / 10 : null,
     gastos, total_gastos, utilidad_operativa: cent(con.utilidad - total_gastos),
   };
@@ -124,15 +147,18 @@ export async function datosReporte(c: Tx, empresa: string, r: Rango, costos: boo
     where ${RANGO_V} and v.estado = 'cerrada' group by 1 order by 3 desc`, p)).rows;
   // Por producto: lo vendido en el rango y, de eso, lo que ya se devolvió (en cualquier fecha). La ganancia es solo de las
   // líneas con costo y neta de lo devuelto; lo vendido sin costo se muestra aparte.
+  // «Con costo» excluye los costos por revisar (no cuadran con lo cobrado): esas líneas van aparte en «por_revisar».
+  const OK = `lc.lote_id is not null and not ${COSTO_POR_REVISAR}`;
   const productos = (await c.query(`select l.descripcion producto, sum(l.unidades)::int unidades, sum(l.total)::float total, sum(l.base)::float base,
-      coalesce(sum(dv.unidades), 0)::int devueltas
-      ${costos ? `, bool_or(lc.lote_id is not null) con_costo, bool_or(lc.heredado) heredado,
-        round(coalesce(sum(l.base - coalesce(dv.base, 0)) filter (where lc.lote_id is not null), 0) - coalesce(sum((l.unidades - coalesce(dv.unidades, 0)) * lc.costo_unidad), 0), 2)::float ganancia,
-        coalesce(sum(l.base - coalesce(dv.base, 0)) filter (where lc.lote_id is null), 0)::float sin_costo` : ""}
-    from venta_lineas l join ventas v on v.id = l.venta_id ${costos ? "left join lote_costos lc on lc.lote_id = l.lote_id" : ""}
+      coalesce(sum(dv.unidades), 0)::int devueltas, max(pr.unidades_por_caja)::int unidades_por_caja
+      ${costos ? `, bool_or(${OK}) con_costo, bool_or(lc.heredado) heredado,
+        round(coalesce(sum(l.base - coalesce(dv.base, 0)) filter (where ${OK}), 0) - coalesce(sum((l.unidades - coalesce(dv.unidades, 0)) * lc.costo_unidad) filter (where ${OK}), 0), 2)::float ganancia,
+        coalesce(sum(l.base - coalesce(dv.base, 0)) filter (where lc.lote_id is null), 0)::float sin_costo,
+        coalesce(sum(l.base - coalesce(dv.base, 0)) filter (where lc.lote_id is not null and ${COSTO_POR_REVISAR}), 0)::float por_revisar` : ""}
+    from venta_lineas l join ventas v on v.id = l.venta_id left join productos pr on pr.id = l.producto_id ${costos ? "left join lote_costos lc on lc.lote_id = l.lote_id" : ""}
     left join lateral (select sum(dl.unidades) unidades, sum(dl.base) base from devolucion_lineas dl where dl.venta_linea_id = l.id) dv on true
     where ${RANGO_V} and v.estado = 'cerrada' group by l.producto_id, l.descripcion order by 3 desc limit 200`, p)).rows as
-    { producto: string; unidades: number; total: number; base: number; devueltas: number; con_costo?: boolean; heredado?: boolean; ganancia?: number; sin_costo?: number }[];
+    { producto: string; unidades: number; total: number; base: number; devueltas: number; unidades_por_caja: number | null; con_costo?: boolean; heredado?: boolean; ganancia?: number; sin_costo?: number; por_revisar?: number }[];
   const dias = (await c.query(`select (v.creado at time zone 'America/Bogota')::date::text dia, count(*)::int ventas, sum(v.total)::float total
     from ventas v where ${RANGO_V} and v.estado = 'cerrada' group by 1 order by 1`, p)).rows;
   const horas = (await c.query(`select extract(hour from v.creado at time zone 'America/Bogota')::int hora, count(*)::int ventas, sum(v.total)::float total
@@ -299,6 +325,7 @@ export function lineasResultado(d: Resultados): { concepto: string; valor: numbe
     { concepto: "Menos devoluciones (notas crédito)", valor: -d.devoluciones, nivel: 1 },
     { concepto: "Ventas netas", valor: d.netas, nivel: 0 },
     ...(d.sin_costo.netas ? [{ concepto: "Menos vendido sin costo registrado", valor: -d.sin_costo.netas, nivel: 2 as const, nota: "No entra en la utilidad: registra el costo de esos lotes" }] : []),
+    ...(d.por_revisar.netas ? [{ concepto: "Menos vendido con costo por revisar", valor: -d.por_revisar.netas, nivel: 2 as const, nota: "No entra en la utilidad: el costo por unidad no cuadra con lo cobrado (¿costo de la caja?)" }] : []),
     { concepto: "Ventas netas con costo", valor: d.con_costo.netas, nivel: 1 },
     { concepto: "Menos costo de lo vendido", valor: -d.con_costo.costo, nivel: 1, nota: "Neto de devoluciones" },
     { concepto: "Utilidad bruta", valor: d.utilidad_bruta, nivel: 0, nota: d.margen === null ? undefined : `Margen ${String(d.margen).replace(".", ",")} %` },
