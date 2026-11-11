@@ -10,7 +10,7 @@ import { fechaValida } from "./reportes";
 // descuentos, de las líneas de venta con un descuento mayor al tope que hoy tiene la cajera.
 
 export const TIPOS_BITACORA: Record<string, { nombre: string; acciones: string[] }> = {
-  precio: { nombre: "Precios y costos", acciones: ["cambio_precio", "completar_costo"] },
+  precio: { nombre: "Precios y costos", acciones: ["cambio_precio", "completar_costo", "corregir_costo"] },
   anulacion: { nombre: "Anulaciones", acciones: ["anular_venta", "anular_compra", "anular_pago_proveedor", "anular_recibo", "anular_abono", "anular_gasto", "anular_conteo", "pedido_cancelado"] },
   devolucion: { nombre: "Devoluciones", acciones: ["devolucion", "devolucion_proveedor", "nc_proveedor"] },
   descuento: { nombre: "Descuentos sobre el tope", acciones: [] },
@@ -105,6 +105,7 @@ function describir(x: Cruda): FilaBitacora {
       detalle = `${x.producto ?? "Producto"}: ${partes.join(" · ") || "sin cambio de valor"}.`; break;
     }
     case "completar_costo": titulo = "Costo de un lote"; detalle = `Lote ${x.lote ?? ""}: costo por unidad ${$(d.costo_unidad)} (sin IVA).`; break;
+    case "corregir_costo": titulo = "Costo de un lote corregido"; detalle = `Lote ${x.lote ?? ""}: costo por unidad de ${$(d.antes)} a ${$(d.despues)} (sin IVA). Motivo: ${d.motivo ?? ""}.`; break;
     case "anular_venta": titulo = "Anulación de venta"; detalle = `Venta ${x.venta || ""} por ${$(d.total)}.${motivo(d)}`; break;
     case "anular_compra": titulo = "Anulación de compra"; detalle = `Compra N.º ${d.numero} (factura ${d.factura}) por ${$(d.total)}.${motivo(d)}`; break;
     case "anular_pago_proveedor": titulo = "Anulación de pago a proveedor"; detalle = `Pago de ${$(d.valor)} a ${d.proveedor}.${motivo(d)}`; break;

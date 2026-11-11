@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 type Datos = { maestro_id?: string | null; nombre: string; laboratorio: string; ean: string; iva: 0 | 5 | 19; categoria?: string | null; unidades_por_caja: number; precio_caja: string; precio_unidad: string; stock_minimo: number; registro_sanitario?: string; requiere_formula?: boolean; control_especial?: boolean };
 type Maestro = { id: string; nombre: string; laboratorio: string | null; ean: string | null; iva: number; categoria: string | null };
 
-type Existencia = { lote: string; vence: string; unidades: string; costo: string; enCajas: boolean };
-const sinExistencia: Existencia = { lote: "", vence: "", unidades: "", costo: "", enCajas: false };
+type Existencia = { lote: string; vence: string; unidades: string; costo: string; enCajas: boolean; costoCaja: boolean };
+const sinExistencia: Existencia = { lote: "", vence: "", unidades: "", costo: "", enCajas: false, costoCaja: false };
+const pesosCO = (n: number) => "$" + (Math.round(n * 100) / 100).toLocaleString("es-CO", { maximumFractionDigits: n < 100 ? 2 : 0 });
 const hoyBogota = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
 const diasHasta = (f: string) => Math.round((Date.parse(f + "T00:00:00Z") - Date.parse(hoyBogota() + "T00:00:00Z")) / 864e5);
 const vacio: Datos = { nombre: "", laboratorio: "", ean: "", iva: 0, unidades_por_caja: 1, precio_caja: "", precio_unidad: "", stock_minimo: 0, requiere_formula: false, control_especial: false };
@@ -51,12 +52,13 @@ export function ProductoForm({ id, inicial }: { id?: string; inicial?: Datos }) 
       const falta = !ex.lote.trim() ? "Escribe el lote" : !ex.vence ? "Escribe la fecha de vencimiento del lote" : !num(ex.unidades) ? (ex.enCajas && d.unidades_por_caja > 1 ? "Escribe cuántas cajas entran" : "Escribe cuántas unidades entran") : "";
       if (falta) { setError(falta); document.getElementById(!ex.lote.trim() ? "ex-lote" : !ex.vence ? "ex-vence" : "ex-unidades")?.focus(); return; }
       if (diasHasta(ex.vence) < 0) { setError("Ese lote ya está vencido: no puede entrar a la venta"); document.getElementById("ex-vence")?.focus(); return; }
+      if (costoRaro) { setError(costoRaro); document.getElementById("ex-costo")?.focus(); return; }
     }
     setEnviando(true);
     const cuerpo = { maestro_id: d.maestro_id ?? null, nombre: d.nombre, laboratorio: d.laboratorio || null, ean: d.ean || "", iva: d.iva, categoria: d.categoria ?? null,
       unidades_por_caja: d.unidades_por_caja, precio_caja: num(d.precio_caja), precio_unidad: d.unidades_por_caja > 1 && num(d.precio_unidad) ? num(d.precio_unidad) : null, stock_minimo: d.stock_minimo, registro_sanitario: d.registro_sanitario || null,
       requiere_formula: !!(d.requiere_formula || d.control_especial), control_especial: !!d.control_especial,
-      ...(conExistencia ? { existencia: { lote: ex.lote.trim().toUpperCase(), vence: ex.vence, unidades: num(ex.unidades) * (ex.enCajas && d.unidades_por_caja > 1 ? d.unidades_por_caja : 1), costo_unidad: ex.costo.trim() ? num(ex.costo) : null } } : {}) };
+      ...(conExistencia ? { existencia: { lote: ex.lote.trim().toUpperCase(), vence: ex.vence, unidades: num(ex.unidades) * (ex.enCajas && d.unidades_por_caja > 1 ? d.unidades_por_caja : 1), costo_unidad: costoUnidad } } : {}) };
     const r = await fetch(id ? `/api/productos/${id}` : "/api/productos", { method: id ? "PATCH" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(cuerpo) }).catch(() => null);
     if (!r) { setError("Sin conexión: revisa internet e intenta de nuevo."); setEnviando(false); return; }
     if (r.ok) { location.href = id ? "/productos" : "/productos?q=" + encodeURIComponent(d.ean || d.nombre); return; }
@@ -82,6 +84,13 @@ export function ProductoForm({ id, inicial }: { id?: string; inicial?: Datos }) 
   const porCajas = ex.enCajas && d.unidades_por_caja > 1;
   const und = num(ex.unidades) * (porCajas ? d.unidades_por_caja : 1);
   const unitario = d.unidades_por_caja > 1 && num(d.precio_caja) ? Math.ceil(num(d.precio_caja) / d.unidades_por_caja / 50) * 50 : 0;
+  // Costo del lote: por unidad o por caja (se guarda por unidad). Si pasa de 3 veces el precio de venta por unidad sin IVA,
+  // casi seguro es el costo de la caja escrito como costo por unidad (11/11/2026: −$562 millones de «ganancia»).
+  const costoCaja = ex.costoCaja && d.unidades_por_caja > 1;
+  const costoUnidad = ex.costo.trim() && num(ex.costo) ? Math.round((num(ex.costo) / (costoCaja ? d.unidades_por_caja : 1)) * 10000) / 10000 : null;
+  const ventaUnidad = (pu || (pc && d.unidades_por_caja ? pc / d.unidades_por_caja : 0)) / (1 + d.iva / 100);
+  const costoRaro = costoUnidad && ventaUnidad > 0 && costoUnidad > ventaUnidad * 3
+    ? `El costo por unidad (${pesosCO(costoUnidad)}) es mucho mayor que el precio de venta por unidad sin IVA (${pesosCO(ventaUnidad)})${d.unidades_por_caja > 1 && !costoCaja ? ": si escribiste el costo de la caja, elige «Caja»" : ": revisa el costo"}` : "";
 
   return (
     <div className="grid gap-5 max-w-3xl">
@@ -142,8 +151,15 @@ export function ProductoForm({ id, inicial }: { id?: string; inicial?: Datos }) 
                       className={`px-2.5 py-0.5 rounded-md font-semibold ${ex.enCajas === v ? "bg-ink text-white" : "text-muted"}`}>{t}</button>)}</span>}</div>
                 <input id="ex-unidades" inputMode="numeric" className="campo num" value={fmt(ex.unidades)} onChange={(e) => setEx({ ...ex, unidades: e.target.value })} placeholder="0" />
                 {d.unidades_por_caja > 1 && und > 0 && <p className="mt-1 text-sm text-muted">{porCajas ? `= ${und.toLocaleString("es-CO")} unidades` : `= ${Math.floor(und / d.unidades_por_caja).toLocaleString("es-CO")} ${Math.floor(und / d.unidades_por_caja) === 1 ? "caja" : "cajas"}${und % d.unidades_por_caja ? ` + ${und % d.unidades_por_caja} und` : ""}`}</p>}</div>
-              <div><label htmlFor="ex-costo" className="etiqueta">Costo por unidad sin IVA <span className="text-muted font-normal">(opcional, para la ganancia)</span></label>
-                <input id="ex-costo" inputMode="numeric" className="campo num" value={fmt(ex.costo)} onChange={(e) => setEx({ ...ex, costo: e.target.value })} placeholder="$" /></div>
+              <div><div className="flex flex-wrap items-baseline justify-between gap-2"><label htmlFor="ex-costo" className="etiqueta">Costo {costoCaja ? "por caja" : "por unidad"} sin IVA <span className="text-muted font-normal">(opcional, para la ganancia)</span></label>
+                  {d.unidades_por_caja > 1 && <span className="inline-flex rounded-lg bg-paper p-0.5 text-sm mb-1.5" role="group" aria-label="Costo por">
+                    {([[false, "Unidad"], [true, "Caja"]] as const).map(([v, t]) => <button key={t} type="button" aria-pressed={ex.costoCaja === v} onClick={() => setEx({ ...ex, costoCaja: v })}
+                      className={`px-2.5 py-0.5 rounded-md font-semibold ${ex.costoCaja === v ? "bg-ink text-white" : "text-muted"}`}>{t}</button>)}</span>}</div>
+                <input id="ex-costo" inputMode="numeric" className="campo num" value={fmt(ex.costo)} onChange={(e) => setEx({ ...ex, costo: e.target.value })} placeholder="$"
+                  aria-invalid={!!costoRaro} aria-describedby={costoRaro ? "ex-costo-aviso" : undefined} />
+                {costoRaro ? <p id="ex-costo-aviso" className="mt-1 text-sm font-semibold text-alerta">{costoRaro}{d.unidades_por_caja > 1 && !costoCaja &&
+                    <button type="button" onClick={() => setEx({ ...ex, costoCaja: true })} className="ml-1 underline">Es el costo de la caja</button>}</p>
+                  : costoCaja && costoUnidad ? <p className="mt-1 text-sm text-muted">= {pesosCO(costoUnidad)} por unidad</p> : null}</div>
             </fieldset>
           )}
           <fieldset className="sm:col-span-2 rounded-xl border-2 border-line p-4 grid gap-3">

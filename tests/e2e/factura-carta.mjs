@@ -108,7 +108,7 @@ const PNG = "data:image/png;base64," + readFileSync(new URL("../../public/qr-pag
   ok(fr.status() === 400, "un formato que no existe se rechaza", `${fr.status()}`);
   // Historial de Alegra con fechas imposibles: no rompe la página
   await p.goto(B + "/ventas/historial?desde=2026-02-30&hasta=2026-04-31"); await p.waitForLoadState("networkidle");
-  ok(!/Application error|server-side exception/i.test(await p.locator("body").innerText()) && await p.getByRole("heading", { name: /Historial de Alegra|Compras de/ }).count() >= 1 || /\/inicio|\/ventas/.test(p.url()), "el historial no se cae con fechas que no existen", p.url());
+  ok(!/Application error|server-side exception/i.test(await p.locator("body").innerText()) && await p.getByRole("heading", { name: /Historial de ventas|Historial de Alegra|Compras de/ }).count() >= 1 || /\/inicio|\/ventas/.test(p.url()), "el historial no se cae con fechas que no existen", p.url());
 
   // Inventario: Excel completo y paginación
   const total = (await q(`select count(*)::int n from productos p join empresas e on e.id = p.empresa_id join miembros m on m.empresa_id = e.id where m.user_id = (select user_id from miembros where rol = 'dueno' and empresa_id = $1 limit 1) and e.id = $1 and p.activo`, [e.id]))[0].n;

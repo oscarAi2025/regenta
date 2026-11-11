@@ -331,3 +331,9 @@
   («no son las existencias») y avisos cuando el dato no cuadra con otro (nombre «caja x N», precio por unidad × unidades).
 - Los límites de cantidad tienen que ser los del negocio, no un número cómodo (antes 1.000 unidades por caja en el
   formulario y 10.000 en la importación: incoherente).
+
+## 11/11/2026 · «Ganancia −$561 millones» y «las ventas de ayer no salen»
+- Un campo «costo por unidad» junto a un selector «Contar en cajas» invita a escribir el costo de la caja. Regla: el costo sigue la misma unidad que elige la persona (caja o unidad), se guarda por unidad y se valida contra el precio de venta (cliente y servidor: más de 3 veces el precio por unidad sin IVA no entra).
+- Un reporte nunca debe mostrar una cifra absurda sin explicarla: lo que no cuadra (costo > 3 × lo cobrado) se saca de la utilidad, se dice cuánto es y se corrige desde el mismo aviso.
+- Un buscador por fechas que se llama «Historial» tiene que encontrar TODAS las ventas (Regenta y Alegra), no solo las migradas.
+- Cantidades en unidades base («18000») no se entienden en productos por caja: mostrar «18.000 und · 36 cajas».

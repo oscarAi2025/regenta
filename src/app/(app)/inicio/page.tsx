@@ -107,7 +107,8 @@ export default async function Inicio() {
         <Dato titulo="Vendido hoy" valor={pesos(d.hoy.total)} tono="cruz" nota={`${d.hoy.ventas} venta${d.hoy.ventas === 1 ? "" : "s"}`} />
         <Dato titulo="Ticket promedio" valor={pesos(d.hoy.promedio)} />
         {ganancia !== null ? <Dato titulo="Ganancia bruta hoy" valor={pesos(ganancia)} nota={<>{d.margen!.margen !== null ? `Margen ${Math.round(d.margen!.margen)} % sobre la venta sin IVA` : "Sin ventas con costo todavía"}
-            {d.margen!.sin_costo.netas > 0 && <span className="block text-aviso">{pesos(d.margen!.sin_costo.netas)} vendidos sin costo registrado</span>}</>} />
+            {d.margen!.sin_costo.netas > 0 && <span className="block text-aviso">{pesos(d.margen!.sin_costo.netas)} vendidos sin costo registrado</span>}
+            {d.margen!.por_revisar.netas > 0 && <Link href="/reportes/resultados" className="block text-alerta font-semibold underline">{pesos(d.margen!.por_revisar.netas)} con costo por revisar</Link>}</>} />
           : <Dato titulo="Ventas de hoy" valor={d.hoy.ventas} />}
         <Dato titulo="Por vencer en 30 días" valor={d.alertas.vencen} tono={d.alertas.vencen ? "alerta" : undefined} nota={<Link className="inline-block underline" href="/inventario">Ver lotes</Link>} />
       </section>

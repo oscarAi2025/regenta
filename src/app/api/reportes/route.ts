@@ -16,8 +16,10 @@ export async function GET(req: Request) {
   if (!d) return NextResponse.json({ error: "No se pudo armar el reporte. Inténtalo de nuevo." }, { status: 503 });
   const tablas: Record<string, [Record<string, unknown>[], [string, string][]]> = {
     // Ganancia neta de lo devuelto y solo de las líneas con costo; lo vendido sin costo (sin IVA) va en su columna.
-    productos: [d.productos.map((x) => ({ ...x, ganancia: x.con_costo ? x.ganancia : null, sin_costo: x.sin_costo || null, heredado: x.heredado ? "Sí: puede incluir IVA" : "" })),
-      [["producto", "Producto"], ["unidades", "Unidades"], ["devueltas", "Devueltas"], ["total", "Vendido"], ["ganancia", "Ganancia"], ["sin_costo", "Vendido sin costo registrado"], ["heredado", "Costo anterior a compras"]]],
+    productos: [d.productos.map((x) => ({ ...x, cajas: x.unidades_por_caja && x.unidades_por_caja > 1 ? Math.round((x.unidades / x.unidades_por_caja) * 100) / 100 : null,
+        ganancia: x.con_costo ? x.ganancia : null, sin_costo: x.sin_costo || null, por_revisar: x.por_revisar || null, heredado: x.heredado ? "Sí: puede incluir IVA" : "" })),
+      [["producto", "Producto"], ["unidades", "Unidades"], ["cajas", "Cajas"], ["devueltas", "Devueltas"], ["total", "Vendido"], ["ganancia", "Ganancia"], ["sin_costo", "Vendido sin costo registrado"],
+        ["por_revisar", "Vendido con costo por revisar"], ["heredado", "Costo anterior a compras"]]],
     cajeros: [d.cajeros.map((x) => ({ ...x, cajero: String(x.cajero).split(" (")[0] })), [["cajero", "Cajero"], ["ventas", "Ventas"], ["promedio", "Ticket promedio"], ["total", "Total"]]],
     medios: [d.medios.map((x) => ({ ...x, medio: MEDIO[x.medio] ?? x.medio })), [["medio", "Medio de pago"], ["ventas", "Ventas"], ["valor", "Valor"]]],
     dias: [d.dias, [["dia", "Día"], ["ventas", "Ventas"], ["total", "Total"]]],

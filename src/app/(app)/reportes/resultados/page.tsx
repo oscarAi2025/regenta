@@ -7,6 +7,7 @@ import { nombreCategoria, puedeResultados } from "@/lib/gastos";
 import { lineasResultado, rango, resultados } from "@/lib/reportes";
 import { Pestanas } from "../Pestanas";
 import { FiltroRango, textoRango } from "../FiltroRango";
+import { CostosPorRevisar } from "../CostosPorRevisar";
 
 export const metadata = { title: "Estado de resultados" };
 
@@ -43,6 +44,7 @@ export default async function Resultados({ searchParams }: { searchParams: Promi
           <a href="/inventario" className="underline font-semibold">Completar costos en Inventario</a>
         </p>
       )}
+      {d.revisar.length > 0 && <CostosPorRevisar lotes={d.revisar} netas={d.por_revisar.netas} />}
       {(d.heredado.netas !== 0 || d.heredado.costo !== 0) && (
         <p role="note" aria-label="Costo anterior a compras" className="rounded-xl bg-paper border border-line px-4 py-3 text-[15px]">
           <b>Costo anterior a compras: puede incluir IVA.</b> <span className="num">{pesosExactos(d.heredado.netas)}</span> de las ventas con costo (utilidad{" "}

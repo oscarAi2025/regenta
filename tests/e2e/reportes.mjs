@@ -40,7 +40,7 @@ const devuelto = Number((await pool.query(`select coalesce(sum(total), 0) t from
   // Exportar
   const resp = await p.request.get(B + `/api/reportes?desde=${desde}&hasta=${hoy}&tipo=productos`);
   const cuerpo = textoXlsx(await resp.body());
-  ok(resp.ok() && esXlsx(resp.headers()["content-type"], resp.headers()["content-disposition"]) && cuerpo.split("\n")[0].includes("Producto;Unidades;Devueltas;Vendido;Ganancia"), "exporta productos a Excel (.xlsx)", cuerpo.split("\n")[0]);
+  ok(resp.ok() && esXlsx(resp.headers()["content-type"], resp.headers()["content-disposition"]) && cuerpo.split("\n")[0].includes("Producto;Unidades;Cajas;Devueltas;Vendido;Ganancia"), "exporta productos a Excel (.xlsx)", cuerpo.split("\n")[0]);
   ok((resp.headers()["content-disposition"] ?? "").includes(`regenta-productos-${desde}-a-${hoy}.xlsx`), "el archivo trae nombre con el rango");
   for (const t of ["cajeros", "medios", "dias"]) ok((await p.request.get(B + `/api/reportes?desde=${desde}&hasta=${hoy}&tipo=${t}`)).ok(), `exporta ${t}`);
   // Rango rápido
