@@ -1,3 +1,4 @@
+import { saludoPersonal } from "@/lib/saludo";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { comoUsuario } from "@/lib/db";
@@ -76,10 +77,11 @@ export default async function Inicio() {
   const hora = Number(new Date().toLocaleString("en-US", { timeZone: "America/Bogota", hour: "numeric", hour12: false }));
   const saludo = hora < 5 ? "Buenas noches" : hora < 12 ? "Buenos días" : hora < 19 ? "Buenas tardes" : "Buenas noches";
   const ganancia = d.margen ? d.margen.utilidad_bruta : null;
+  const personal = await saludoPersonal(s.uid);
 
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
-      <Cabecera titulo={`${saludo}, ${s.nombre.split(" (")[0]}`} sub={new Date().toLocaleDateString("es-CO", { timeZone: "America/Bogota", weekday: "long", day: "numeric", month: "long" })}>
+      <Cabecera titulo={personal ?? `${saludo}, ${s.nombre.split(" (")[0]}`} sub={new Date().toLocaleDateString("es-CO", { timeZone: "America/Bogota", weekday: "long", day: "numeric", month: "long" })}>
         {puede.vender(s.rol) && <Link href="/caja" className="btn-primario">Ir a la caja</Link>}
         {puede.moverInventario(s.rol) && <Link href="/inventario/recibir" className="btn-borde">Recibir mercancía</Link>}
       </Cabecera>
