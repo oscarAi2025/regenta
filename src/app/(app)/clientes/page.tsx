@@ -30,7 +30,7 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
     from clientes cl
     left join lateral (select count(*) compras, sum(v.total - v.devuelto) total, max((v.creado at time zone 'America/Bogota')::date) ultima
       from ventas v where v.cliente_id = cl.id and v.estado = 'cerrada' and v.origen is null) rg on true
-    left join lateral (select count(*) compras, sum(x.total) total, max(x.fecha) ultima
+    left join lateral (select count(*) compras, sum(x.total - x.devuelto) total, max(x.fecha) ultima
       from ventas_externas x where x.cliente_id = cl.id and x.estado in ('pagada', 'por_cobrar')) al on true
     where cl.empresa_id = $1 and ($2 = '' or cl.numero_doc like $3 || '%' or sin_tildes(cl.nombre) like '%' || sin_tildes($4) || '%')
     order by greatest(rg.ultima, al.ultima) desc nulls last, cl.nombre limit ${POR_PAGINA} offset $5`,

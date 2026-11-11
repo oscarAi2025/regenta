@@ -16,10 +16,10 @@ export const GET = conSesion(async (s, req) => {
     { nombre: "Documentos", columnas: [
       { titulo: "Número", ancho: 12, tipo: "texto" }, { titulo: "Tipo", ancho: 10, tipo: "texto" }, { titulo: "Fecha", ancho: 12, tipo: "fecha" }, { titulo: "Vence", ancho: 12, tipo: "fecha" },
       { titulo: "Cliente", ancho: 34, tipo: "texto" }, { titulo: "Documento del cliente", ancho: 16, tipo: "texto" }, { titulo: "Subtotal", ancho: 14, tipo: "pesos" },
-      { titulo: "Descuento", ancho: 12, tipo: "pesos" }, { titulo: "IVA", ancho: 12, tipo: "pesos" }, { titulo: "Total", ancho: 14, tipo: "pesos" }, { titulo: "Pagado", ancho: 14, tipo: "pesos" },
+      { titulo: "Descuento", ancho: 12, tipo: "pesos" }, { titulo: "IVA", ancho: 12, tipo: "pesos" }, { titulo: "Total", ancho: 14, tipo: "pesos" }, { titulo: "Notas crédito (devuelto)", ancho: 14, tipo: "pesos" }, { titulo: "Pagado", ancho: 14, tipo: "pesos" },
       { titulo: "Saldo al migrar", ancho: 14, tipo: "pesos" }, { titulo: "Abonado en Regenta", ancho: 14, tipo: "pesos" }, { titulo: "Saldo hoy", ancho: 14, tipo: "pesos" },
       { titulo: "Estado", ancho: 12, tipo: "texto" }, { titulo: "Forma de pago", ancho: 14, tipo: "texto" }, { titulo: "Líneas", ancho: 8, tipo: "entero" }],
-      filas: d.docs.map((x) => [x.numero, x.documento === "pos" ? "POS" : "Factura", x.fecha, x.vence, x.cliente_nombre, x.cliente_doc, x.subtotal, x.descuento, x.iva, x.total,
+      filas: d.docs.map((x) => [x.numero, x.documento === "pos" ? "POS" : "Factura", x.fecha, x.vence, x.cliente_nombre, x.cliente_doc, x.subtotal, x.descuento, x.iva, x.total, x.devuelto || null,
         x.pagado, x.saldo, x.abonado, x.saldo_hoy, ESTADO_HISTORIAL[x.estado] ?? x.estado, x.forma_pago ? MEDIO[x.forma_pago] ?? x.forma_pago : null, x.lineas]) },
     { nombre: "Líneas vendidas", columnas: [
       { titulo: "Número", ancho: 12, tipo: "texto" }, { titulo: "Fecha", ancho: 12, tipo: "fecha" }, { titulo: "Cliente", ancho: 30, tipo: "texto" }, { titulo: "Documento del cliente", ancho: 16, tipo: "texto" },

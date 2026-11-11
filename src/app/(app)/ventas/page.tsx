@@ -26,7 +26,7 @@ export default async function Ventas({ searchParams }: { searchParams: Promise<{
     left join documentos_dian d on d.venta_id = v.id and d.tipo = v.tipo_doc
     where v.empresa_id = $1 and v.origen is null and ${dian ? "d.estado = any($3)" : "(v.creado at time zone 'America/Bogota')::date = $2::date"}
     order by v.creado desc limit 300`, dian ? [s.empresa, dia, dian === "pendiente" ? ["pendiente", "enviando"] : ["rechazado"]] : [s.empresa, dia])).rows);
-  const historial = await comoUsuario(s, async (c) => (await c.query(`select count(*)::int n, coalesce(sum(total) filter (where estado in ('pagada', 'por_cobrar')), 0)::float total,
+  const historial = await comoUsuario(s, async (c) => (await c.query(`select count(*)::int n, coalesce(sum(total - devuelto) filter (where estado in ('pagada', 'por_cobrar')), 0)::float total,
     min(fecha)::text desde, max(fecha)::text hasta from ventas_externas where empresa_id = $1`, [s.empresa])).rows[0] as { n: number; total: number; desde: string | null; hasta: string | null });
   const corta = (d: string) => new Date(d + "T12:00:00").toLocaleDateString("es-CO", { month: "short", year: "numeric" });
   const cerradas = filas.filter((f) => f.estado === "cerrada");

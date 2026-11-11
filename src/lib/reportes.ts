@@ -168,10 +168,10 @@ export async function datosReporte(c: Tx, empresa: string, r: Rango, costos: boo
   // en lo vendido, el IVA, los días, los medios de pago y los productos; no tienen costo, así que no entran en la ganancia.
   // (11/11/2026: «del 1 al 10 salen 3 millones y en Alegra teníamos más de 8»: el total tiene que ser el real.)
   const ALEGRA = `x.empresa_id = $1 and x.estado in ('pagada', 'por_cobrar') and x.fecha between $2::date and $3::date`;
-  const alegraResumen = (await c.query(`select count(*)::int n, coalesce(sum(x.total), 0)::float total, coalesce(sum(x.iva), 0)::float iva,
+  const alegraResumen = (await c.query(`select count(*)::int n, coalesce(sum(x.total - x.devuelto), 0)::float total, coalesce(sum(x.iva), 0)::float iva, coalesce(sum(x.devuelto), 0)::float devuelto,
       coalesce(sum(x.saldo), 0)::float por_cobrar, max(x.fecha)::text ultima from ventas_externas x where ${ALEGRA}`, p)).rows[0] as
     { n: number; total: number; iva: number; por_cobrar: number; ultima: string | null };
-  const alegraDias = alegraResumen.n ? (await c.query(`select x.fecha::text dia, count(*)::int ventas, sum(x.total)::float total
+  const alegraDias = alegraResumen.n ? (await c.query(`select x.fecha::text dia, count(*)::int ventas, sum(x.total - x.devuelto)::float total
     from ventas_externas x where ${ALEGRA} group by 1 order by 1`, p)).rows as { dia: string; ventas: number; total: number }[] : [];
   const alegraMedios = alegraResumen.n ? (await c.query(`select case lower(coalesce(x.forma_pago, '')) when 'efectivo' then 'efectivo' when 'tarjeta' then 'tarjeta'
       when 'transferencia' then 'transferencia' when 'nequi' then 'nequi' when 'daviplata' then 'daviplata' else 'transferencia' end medio,

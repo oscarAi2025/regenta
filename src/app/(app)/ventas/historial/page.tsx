@@ -162,7 +162,7 @@ export default async function Historial({ searchParams }: { searchParams: Promis
                   <td className="px-4 py-3"><Link href={`/ventas/historial/${x.id}`} className="num font-semibold hover:underline">{x.numero}</Link><span className="text-muted text-sm"> · {x.lineas} línea{x.lineas === 1 ? "" : "s"}</span></td>
                   <td className="px-4 py-3">{x.cliente_nombre ?? "—"}{x.cliente_doc && <span className="text-muted text-sm num"> · {x.cliente_doc}</span>}</td>
                   <td className={`px-4 py-3 ${x.estado === "por_cobrar" ? "text-alerta font-semibold" : x.estado === "anulada" ? "text-muted line-through" : ""}`}>{x.estado === "por_cobrar" && x.saldo_hoy === 0 ? "Pagada en Regenta" : ESTADO_HISTORIAL[x.estado]}{x.estado === "por_cobrar" && x.saldo_hoy > 0 ? ` · debe ${pesos(x.saldo_hoy)}` : ""}</td>
-                  <td className="px-4 py-3 num text-right">{pesos(x.total)}</td>
+                  <td className="px-4 py-3 num text-right">{x.estado === "anulada" ? <span className="text-muted line-through">{pesos(x.total)}</span> : pesos(x.total - x.devuelto)}{x.devuelto > 0 && x.estado !== "anulada" && <span className="block text-xs text-alerta">devuelto {pesos(x.devuelto)}</span>}</td>
                 </tr>
               ))}
               {d.docs.length === 0 && <tr><td colSpan={5} className="px-4 py-10 text-center text-muted">{f.q ? `Nada coincide con «${f.q}».` : "No hay documentos en estas fechas."}</td></tr>}

@@ -28,6 +28,7 @@ const Producto = z.object({
 const Cliente = z.object({
   tipo_doc: z.enum(["CC", "NIT", "CE", "PP", "TI", "PEP"]), numero_doc: z.string().trim().regex(/^[0-9A-Za-z]{3,20}$/), dv: z.string().regex(/^\d$/).nullish(),
   nombre: txt(200).min(2), email: z.string().trim().email().max(160).nullish().catch(null), telefono: opc(30), direccion: opc(160), ciudad: opc(80),
+  plazo_dias: z.number().int().min(1).max(180).nullish(), // plazo de crédito que tenía en Alegra («30 días»)
 });
 const Proveedor = z.object({
   nombre: txt(160).min(2), nit: z.string().regex(/^\d{5,12}$/).nullish(), dv: z.string().regex(/^\d$/).nullish(), telefono: opc(30),
@@ -40,8 +41,12 @@ const Venta = z.object({
   cliente_tipo: z.enum(["CC", "NIT", "CE", "PP", "TI", "PEP"]).nullish(), cliente_doc: opc(30), cliente_nombre: opc(200),
   subtotal: z.number(), descuento: z.number(), iva: z.number(), total: z.number(), pagado: z.number(), saldo: z.number().min(0),
   estado: z.enum(["pagada", "por_cobrar", "anulada", "borrador"]), estado_dian: opc(60), cufe: opc(200), forma_pago: opc(60), lineas: z.array(Linea).max(500),
+  // Notas crédito de Alegra sobre esta venta (anulación completa → estado «anulada»; devolución parcial → «devuelto»).
+  devuelto: z.number().min(0).default(0),
+  notas: z.array(z.object({ numero: txt(30).min(1), fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), tipo: z.enum(["anulacion", "devolucion", "otro"]), total: z.number().min(0) })).max(50).default([]),
 }).refine((v) => v.numero != null || /^\d{1,15}$/.test(v.externo_id), { message: "Cada venta necesita su número (o un id numérico de Alegra)" })
   .refine((v) => v.total >= 0 && v.saldo <= v.total + 1 && v.pagado >= 0, { message: "Hay una venta con total negativo o con saldo mayor que su total: revisa el archivo" })
+  .refine((v) => v.devuelto <= v.total + 1, { message: "Hay una venta con notas crédito por más de su total: revisa el archivo" })
   .refine((v) => v.fecha_hora.slice(0, 10) <= new Date(Date.now() + 2 * 864e5).toISOString().slice(0, 10), { message: "Hay una venta con fecha futura: revisa el archivo" });
 const Peticion = z.discriminatedUnion("parte", [
   z.object({ parte: z.literal("productos"), simular: z.boolean(), reemplazar: z.boolean(), filas: z.array(Producto).min(1).max(5000)
@@ -159,13 +164,15 @@ async function clientes(emp: string, d: Extract<P, { parte: "clientes" }>) {
   return talCual(d.simular, sinRLS, async (c) => {
     const resumen = { crear: 0, completar: 0, iguales: 0 };
     for (const f of d.filas) {
-      const r = (await c.query(`insert into clientes (empresa_id, tipo_doc, numero_doc, dv, nombre, email, telefono, direccion, ciudad)
-        values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      const r = (await c.query(`insert into clientes (empresa_id, tipo_doc, numero_doc, dv, nombre, email, telefono, direccion, ciudad, plazo_dias_defecto)
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         on conflict (empresa_id, tipo_doc, numero_doc) do update set dv = coalesce(clientes.dv, excluded.dv), email = coalesce(clientes.email, excluded.email),
-          telefono = coalesce(clientes.telefono, excluded.telefono), direccion = coalesce(clientes.direccion, excluded.direccion), ciudad = coalesce(clientes.ciudad, excluded.ciudad)
+          telefono = coalesce(clientes.telefono, excluded.telefono), direccion = coalesce(clientes.direccion, excluded.direccion), ciudad = coalesce(clientes.ciudad, excluded.ciudad),
+          plazo_dias_defecto = coalesce(clientes.plazo_dias_defecto, excluded.plazo_dias_defecto)
         where (clientes.dv is null and excluded.dv is not null) or (clientes.email is null and excluded.email is not null) or (clientes.telefono is null and excluded.telefono is not null)
           or (clientes.direccion is null and excluded.direccion is not null) or (clientes.ciudad is null and excluded.ciudad is not null)
-        returning (xmax = 0) nuevo`, [emp, f.tipo_doc, f.numero_doc.toUpperCase(), f.dv ?? null, f.nombre, f.email?.toLowerCase() ?? null, f.telefono, f.direccion, f.ciudad])).rows[0];
+          or (clientes.plazo_dias_defecto is null and excluded.plazo_dias_defecto is not null)
+        returning (xmax = 0) nuevo`, [emp, f.tipo_doc, f.numero_doc.toUpperCase(), f.dv ?? null, f.nombre, f.email?.toLowerCase() ?? null, f.telefono, f.direccion, f.ciudad, f.plazo_dias ?? null])).rows[0];
       if (!r) resumen.iguales++; else if (r.nuevo) resumen.crear++; else resumen.completar++;
     }
     return { resumen, simulado: d.simular };
@@ -203,15 +210,15 @@ async function ventas(emp: string, dueno: string, d: Extract<P, { parte: "ventas
       const cid = f.cliente_doc ? cli.get(`${f.cliente_tipo ?? "CC"}:${f.cliente_doc.toUpperCase()}`) ?? null : null;
       if (f.cliente_doc && !cid) resumen.sin_cliente++;
       const h = await c.query(`insert into ventas_externas (empresa_id, origen, externo_id, documento, prefijo, numero, fecha, vence, cliente_id, cliente_nombre, cliente_doc,
-          subtotal, descuento, iva, total, pagado, saldo, estado, estado_dian, cufe, forma_pago, lineas)
-        values ($1, $2, $3, $4, $5, $6, $7::date, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+          subtotal, descuento, iva, total, pagado, saldo, estado, estado_dian, cufe, forma_pago, lineas, devuelto, notas)
+        values ($1, $2, $3, $4, $5, $6, $7::date, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
         on conflict (empresa_id, origen, externo_id) do update set estado = excluded.estado, pagado = excluded.pagado, saldo = excluded.saldo,
-          estado_dian = excluded.estado_dian, cufe = excluded.cufe
-        where (ventas_externas.estado, ventas_externas.pagado, ventas_externas.saldo, ventas_externas.estado_dian, ventas_externas.cufe)
-          is distinct from (excluded.estado, excluded.pagado, excluded.saldo, excluded.estado_dian, excluded.cufe)
+          estado_dian = excluded.estado_dian, cufe = excluded.cufe, devuelto = excluded.devuelto, notas = excluded.notas
+        where (ventas_externas.estado, ventas_externas.pagado, ventas_externas.saldo, ventas_externas.estado_dian, ventas_externas.cufe, ventas_externas.devuelto, ventas_externas.notas)
+          is distinct from (excluded.estado, excluded.pagado, excluded.saldo, excluded.estado_dian, excluded.cufe, excluded.devuelto, excluded.notas)
         returning (xmax = 0) nueva`,
         [emp, ORIGEN, f.externo_id, f.documento, f.prefijo, f.numero ?? null, f.fecha_hora.slice(0, 10), f.vence ?? null, cid, f.cliente_nombre, f.cliente_doc,
-          f.subtotal, f.descuento, f.iva, f.total, f.pagado, f.saldo, f.estado, f.estado_dian, f.cufe, f.forma_pago, JSON.stringify(f.lineas)]);
+          f.subtotal, f.descuento, f.iva, f.total, f.pagado, f.saldo, f.estado, f.estado_dian, f.cufe, f.forma_pago, JSON.stringify(f.lineas), f.devuelto, JSON.stringify(f.notas)]);
       // Repetir la migración pone al día el estado y el saldo que tenga Alegra (pagos recibidos allá durante el cambio).
       if (!h.rowCount) resumen.historial_ya_estaban++; else if (h.rows[0].nueva) resumen.historial_nuevas++; else resumen.historial_actualizadas++;
       // Factura que ya está en la cartera de Regenta: si en Alegra le entró un pago (o quedó pagada o anulada) durante el
