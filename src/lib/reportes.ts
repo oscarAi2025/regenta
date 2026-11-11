@@ -164,11 +164,49 @@ export async function datosReporte(c: Tx, empresa: string, r: Rango, costos: boo
   const horas = (await c.query(`select extract(hour from v.creado at time zone 'America/Bogota')::int hora, count(*)::int ventas, sum(v.total)::float total
     from ventas v where ${RANGO_V} and v.estado = 'cerrada' group by 1 order by 1`, p)).rows;
   const res = costos ? await resultados(c, empresa, r) : null;
+  // Ventas de Alegra del rango (las de antes de pasar a Regenta y las que se sigan haciendo allí mientras conviven): suman
+  // en lo vendido, el IVA, los días, los medios de pago y los productos; no tienen costo, así que no entran en la ganancia.
+  // (11/11/2026: «del 1 al 10 salen 3 millones y en Alegra teníamos más de 8»: el total tiene que ser el real.)
+  const ALEGRA = `x.empresa_id = $1 and x.estado in ('pagada', 'por_cobrar') and x.fecha between $2::date and $3::date`;
+  const alegraResumen = (await c.query(`select count(*)::int n, coalesce(sum(x.total), 0)::float total, coalesce(sum(x.iva), 0)::float iva,
+      coalesce(sum(x.saldo), 0)::float por_cobrar, max(x.fecha)::text ultima from ventas_externas x where ${ALEGRA}`, p)).rows[0] as
+    { n: number; total: number; iva: number; por_cobrar: number; ultima: string | null };
+  const alegraDias = alegraResumen.n ? (await c.query(`select x.fecha::text dia, count(*)::int ventas, sum(x.total)::float total
+    from ventas_externas x where ${ALEGRA} group by 1 order by 1`, p)).rows as { dia: string; ventas: number; total: number }[] : [];
+  const alegraMedios = alegraResumen.n ? (await c.query(`select case lower(coalesce(x.forma_pago, '')) when 'efectivo' then 'efectivo' when 'tarjeta' then 'tarjeta'
+      when 'transferencia' then 'transferencia' when 'nequi' then 'nequi' when 'daviplata' then 'daviplata' else 'transferencia' end medio,
+      sum(x.pagado)::float valor, count(*)::int ventas from ventas_externas x where ${ALEGRA} and x.pagado > 0 group by 1`, p)).rows as { medio: string; valor: number; ventas: number }[] : [];
+  const alegraProductos = alegraResumen.n ? (await c.query(`select l ->> 'nombre' producto, sum((l ->> 'cantidad')::numeric)::float cantidad, sum((l ->> 'total')::numeric)::float total
+    from ventas_externas x cross join jsonb_array_elements(x.lineas) l where ${ALEGRA} group by 1 order by 3 desc limit 200`, p)).rows as { producto: string; cantidad: number; total: number }[] : [];
+  // Días: Regenta y Alegra juntos.
+  const porDia = new Map<string, { dia: string; ventas: number; total: number; regenta: number; alegra: number }>();
+  for (const x of dias as { dia: string; ventas: number; total: number }[]) porDia.set(x.dia, { dia: x.dia, ventas: x.ventas, total: x.total, regenta: x.total, alegra: 0 });
+  for (const x of alegraDias) { const y = porDia.get(x.dia) ?? { dia: x.dia, ventas: 0, total: 0, regenta: 0, alegra: 0 }; y.ventas += x.ventas; y.total += x.total; y.alegra += x.total; porDia.set(x.dia, y); }
+  // Medios: lo cobrado en Alegra se suma a su medio.
+  const medTodos = new Map<string, { medio: string; valor: number; ventas: number }>();
+  for (const m of [...(medios as { medio: string; valor: number; ventas: number }[]), ...alegraMedios]) {
+    const y = medTodos.get(m.medio) ?? { medio: m.medio, valor: 0, ventas: 0 }; y.valor += m.valor; y.ventas += m.ventas; medTodos.set(m.medio, y);
+  }
+  // Productos: lo vendido en Alegra se suma a la fila del mismo nombre (sin tildes ni mayúsculas) o entra como fila propia.
+  const clave = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+  const prods = productos.map((x) => ({ ...x, alegra_cantidad: 0, alegra_total: 0 }));
+  const idx = new Map(prods.map((x, i) => [clave(x.producto), i]));
+  for (const a of alegraProductos) {
+    const i = idx.get(clave(a.producto));
+    if (i !== undefined) { prods[i].alegra_cantidad += a.cantidad; prods[i].alegra_total += a.total; prods[i].total += a.total; }
+    else { idx.set(clave(a.producto), prods.length); prods.push({ producto: a.producto, unidades: 0, total: a.total, base: 0, devueltas: 0, unidades_por_caja: null, alegra_cantidad: a.cantidad, alegra_total: a.total }); }
+  }
+  prods.sort((a, b) => b.total - a.total);
+  const netas = resumen.bruto - dev.total;
   return {
     rango: r, resumen, devoluciones: dev,
-    netas: resumen.bruto - dev.total, promedio: resumen.ventas ? Math.round(resumen.bruto / resumen.ventas) : 0,
+    netas, promedio: resumen.ventas ? Math.round(resumen.bruto / resumen.ventas) : 0,
     ganancia: res ? res.utilidad_bruta : null, margen: res ? res.margen : null, resultados: res,
-    medios, cajeros, productos, dias, horas,
+    alegra: alegraResumen,
+    // Totales reales del rango: Regenta + Alegra.
+    total: { vendido: netas + alegraResumen.total, ventas: resumen.ventas + alegraResumen.n, iva: resumen.iva - dev.iva + alegraResumen.iva },
+    medios: [...medTodos.values()].sort((a, b) => b.valor - a.valor), cajeros, productos: prods.slice(0, 200),
+    dias: [...porDia.values()].sort((a, b) => a.dia.localeCompare(b.dia)), horas,
   };
 }
 

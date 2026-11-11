@@ -221,7 +221,10 @@ ok(/Compras en Alegra \(1/.test(await p.locator(`a[href="/ventas/historial?clien
   ok(await p.locator('section[aria-labelledby="docs-t"] tbody tr').count() === Math.min(enMes, 100), "filtra el historial por fechas", `${mes}: ${enMes}`);
   const rangoA = ventas.map((v) => v.fecha_hora.slice(0, 10)).sort();
   await p.goto(`${B}/reportes?desde=${rangoA[0]}&hasta=${rangoA.at(-1)}`);
-  ok(await p.getByText(/En este periodo también vendiste/).count() === 1, "los informes avisan cuánto se vendió en Alegra en el periodo y enlazan al historial");
+  const totA = Math.round(ventas.reduce((a, v) => a + (["pagada", "por_cobrar"].includes(v.estado) ? Number(v.total) : 0), 0));
+  const card = await p.locator('[aria-label="Resumen"]').innerText();
+  ok(await p.getByText(/Incluye \$[\d.]+ vendidos? en Alegra/).count() === 1 && await p.getByRole("link", { name: "Ver documento por documento" }).count() === 1 && card.includes("Alegra"),
+    "los informes suman lo vendido en Alegra en el total del periodo y enlazan al historial", `${card.split("\n").slice(0, 4).join(" | ")} · Alegra ${totA}`);
   const nCli = (await q(`select count(*)::int n from clientes where empresa_id = $1`, [E]))[0].n;
   await p.goto(`${B}/clientes`);
   const tc = await p.locator("main").innerText();

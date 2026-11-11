@@ -337,3 +337,4 @@
 - Un reporte nunca debe mostrar una cifra absurda sin explicarla: lo que no cuadra (costo > 3 × lo cobrado) se saca de la utilidad, se dice cuánto es y se corrige desde el mismo aviso.
 - Un buscador por fechas que se llama «Historial» tiene que encontrar TODAS las ventas (Regenta y Alegra), no solo las migradas.
 - Cantidades en unidades base («18000») no se entienden en productos por caja: mostrar «18.000 und · 36 cajas».
+- (11/11/2026) «Del 1 al 10 salen 3 millones y en Alegra teníamos más de 8»: un reporte que deja fuera parte de las ventas (aunque lo avise en un banner) da un total falso. Regla: los totales del rango son Regenta + Alegra (vendido, ventas, IVA, días, medios, productos); solo la ganancia es de Regenta, y se dice por qué.

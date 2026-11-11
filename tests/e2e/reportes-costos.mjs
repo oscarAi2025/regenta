@@ -79,6 +79,21 @@ const base = { nombre: NOMBRE, iva: 0, unidades_por_caja: 500, precio_caja: 3685
   const otra = await api(p, "/api/inventario/costos", "PATCH", { lote_id: (await q(`select id from lotes where producto_id = $1 and lote = 'C1'`, [pid]))[0].id, costo_unidad: 70, motivo: "x" });
   ok(otra.status === 400, "sin motivo no se corrige un costo", String(otra.status));
 
+  // ── Alegra y Regenta suman en el total real del rango
+  const emp = (await q(`select empresa_id from productos where id = $1`, [pid]))[0].empresa_id;
+  await q(`insert into ventas_externas (empresa_id, origen, externo_id, documento, prefijo, numero, fecha, cliente_nombre, subtotal, iva, total, pagado, saldo, estado, forma_pago, lineas)
+    values ($1, 'alegra', $2, 'pos', 'POSF', 99001, $3::date, 'DISTRIBUIDORA PRUEBA', 1000000, 0, 1000000, 1000000, 0, 'pagada', 'transferencia',
+      $4::jsonb)`, [emp, "t" + sufijo, hoy, JSON.stringify([{ nombre: NOMBRE, cantidad: 3, precio: 333333.33, total: 1000000 }])]);
+  await p.goto(B + `/reportes?desde=${hoy}&hasta=${hoy}`); await p.waitForLoadState("networkidle");
+  const resumen = await p.locator('[aria-label="Resumen"]').innerText();
+  const regenta = (await q(`select coalesce(sum(total), 0)::float t from ventas where empresa_id = $1 and estado = 'cerrada' and (creado at time zone 'America/Bogota')::date = $2::date`, [emp, hoy]))[0].t
+    - (await q(`select coalesce(sum(total), 0)::float t from devoluciones where empresa_id = $1 and (creado at time zone 'America/Bogota')::date = $2::date`, [emp, hoy]))[0].t;
+  const esperado = Math.round(regenta + 1000000);
+  ok(num(resumen.split("\n").find((l) => /^\$/.test(l))) === esperado && /Alegra \$1\.000\.000/.test(resumen), "«Ventas netas» = Regenta + Alegra", `${resumen.split("\n").slice(0, 4).join(" | ")} · esperado ${esperado}`);
+  ok(/Incluye \$1\.000\.000 vendidos en Alegra/.test(await p.locator("main").innerText()), "y lo dice: incluye lo vendido en Alegra");
+  const filaA = await p.locator('[aria-label="Por producto"] tr').filter({ hasText: NOMBRE }).innerText();
+  ok(/3 en Alegra/.test(filaA), "el producto suma lo vendido en Alegra", filaA.replace(/\s+/g, " "));
+
   // ── Historial por fechas: también las ventas de Regenta
   await p.goto(B + `/ventas/historial?desde=${hoy}&hasta=${hoy}`); await p.waitForLoadState("networkidle");
   const rg = p.locator('section[aria-labelledby="regenta-t"]');
