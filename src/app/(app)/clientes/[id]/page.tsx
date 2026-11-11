@@ -26,7 +26,7 @@ export default async function FichaCliente({ params, searchParams }: { params: P
     if (!ec) return null;
     const credito = normalizarCredito((await c.query(`select estado_credito($1) e`, [id])).rows[0].e);
     const empresa = (await c.query(`select coalesce(nombre_comercial, razon_social) n from empresas where id = $1`, [s.empresa])).rows[0].n as string;
-    const alegra = (await c.query(`select count(*)::int n, coalesce(sum(total) filter (where estado <> 'anulada'), 0)::float total, max(fecha)::text ultima from ventas_externas where empresa_id = $1 and cliente_id = $2`, [s.empresa, id])).rows[0] as { n: number; total: number; ultima: string | null };
+    const alegra = (await c.query(`select count(*)::int n, coalesce(sum(total - devuelto) filter (where estado in ('pagada', 'por_cobrar')), 0)::float total, max(fecha)::text ultima from ventas_externas where empresa_id = $1 and cliente_id = $2`, [s.empresa, id])).rows[0] as { n: number; total: number; ultima: string | null };
     return { ec, credito, empresa, alegra };
   });
   if (!d) notFound();

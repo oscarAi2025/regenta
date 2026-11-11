@@ -248,6 +248,23 @@ const txt = await p.locator('[role="status"]').innerText();
 ok(/6 sin cambios/.test(txt) && /\$51\.881\.934 valor a costo/.test(txt) && /8\.670 unidades finales/.test(txt) && /1\.035 ya estaban/.test(txt), "la consola aplica y muestra el inventario y el historial de Alegra", txt.slice(0, 500));
 const f3 = await fotos();
 ok(f3.productos === f2.productos && f3.clientes === f2.clientes && f3.historial === f2.historial && f3.ventas === f2.ventas, "aplicar desde la consola sobre lo ya migrado no duplica nada", `${JSON.stringify(f2)} → ${JSON.stringify(f3)}`);
+// Notas crédito de Alegra (11/11/2026): anulación completa → anulada; devolución parcial → devuelto, fuera de lo vendido.
+{
+  const sumar = async () => (await q(`select coalesce(sum(total - devuelto) filter (where estado in ('pagada', 'por_cobrar')), 0)::float t from ventas_externas where empresa_id = $1`, [E]))[0].t;
+  const antes = await sumar();
+  const [va, vp] = ventas.filter((v) => v.estado === "pagada" && v.total > 50000).slice(0, 2);
+  const anul = { ...va, estado: "anulada", notas: [{ numero: "NC9", fecha: va.fecha_hora.slice(0, 10), tipo: "anulacion", total: va.total }] };
+  const parc = { ...vp, devuelto: 10000, notas: [{ numero: "NA9", fecha: vp.fecha_hora.slice(0, 10), tipo: "devolucion", total: 10000 }] };
+  const rn = await mig({ parte: "ventas", simular: false, filas: [anul, parc] });
+  ok(rn.s === 200 && rn.j.resumen?.historial_actualizadas === 2, "la migración repetida trae las notas crédito", JSON.stringify(rn.j).slice(0, 200));
+  ok(Math.round(antes - (await sumar())) === Math.round(va.total + 10000), "lo vendido en Alegra baja por la anulación y la devolución", `${antes} → ${await sumar()}`);
+  const malo = await mig({ parte: "ventas", simular: true, filas: [{ ...vp, devuelto: vp.total + 100 }] });
+  ok(malo.s === 400, "no acepta notas por más del total de la factura");
+  const [h] = await q(`select id from ventas_externas where empresa_id = $1 and externo_id = $2`, [E, vp.externo_id]);
+  await p.goto(`${B}/ventas/historial/${h.id}`); await p.waitForLoadState("networkidle");
+  const det = await p.locator("main").innerText();
+  ok(/Nota crédito NA9/.test(det) && /Queda vendido/.test(det), "el detalle muestra la nota crédito y lo que queda vendido", det.slice(0, 300).replace(/\n/g, " | "));
+}
 ok(errs.length === 0, "sin errores en las páginas", errs.join(" | "));
 await b.close();
 

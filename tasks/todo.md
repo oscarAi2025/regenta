@@ -557,3 +557,11 @@ Causa raíz: el lote inicial de «kennedy bajalenguas caja x 500» se creó con 
 - [x] Publicado (994661f) y visto en producción: aviso de costos, ganancia $246.947
 - [x] Totales del rango = Regenta + Alegra (vendido, ventas, IVA, días, medios, productos); reportes-costos 26, reportes 19, resultados 88, migración 69, auditoría 322, endpoints 2.497: 0 fallos
 - [ ] Publicar y verificar
+
+## 11/11/2026 · ¿Está TODO Alegra en Regenta? (Oscar va a dar de baja Alegra) — sin nada de Farmahub (Oscar: «datos de Farmahub no deben estar jamás»)
+- [x] Hallazgo: las 33 notas crédito no se migraron → el historial contaba $589.660.131; real $321.680.623 (32 facturas anuladas, entre ellas Alkosto $257,9 M, y 4 devoluciones parciales por $387.991)
+- [x] Migración 047 (devuelto + notas en ventas_externas; Oscar la aplicó: Success) + API de migración con notas y plazo del cliente; historial, detalle, Excel, clientes, ventas y reportes netos de notas
+- [x] POSF1035 (09/11, $2.500) que faltaba; clientes 255 + 1 (todos los de Farmagenéricos), proveedores 7, productos 872: completos
+- [ ] Publicar, aplicar las 34 ventas y el plazo de Maria Alcira Diaz en producción y verificar
+- [ ] Copia completa de Alegra en Excel (ventas, líneas, notas, clientes, proveedores, productos, pagos, egresos, compras, bancos)
+- [ ] Inventario: AZITROMICINA (DELTAZITROM) 545 en Regenta, 544 en Alegra (POSF1035 vendido en Alegra después de la migración)

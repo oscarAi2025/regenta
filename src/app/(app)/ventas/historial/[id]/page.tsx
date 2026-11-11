@@ -6,6 +6,8 @@ import { MEDIO, pesos } from "@/lib/formato";
 
 export const metadata = { title: "Venta de Alegra" };
 
+type Nota = { numero: string; fecha: string; tipo: string; total: number };
+const TIPO_NOTA: Record<string, string> = { anulacion: "Anulación", devolucion: "Devolución", otro: "Ajuste" };
 type Linea = { nombre: string; cantidad: number; precio: number; descuento: number; iva_pct: number; total: number; lote: string | null; vence: string | null };
 const ESTADO: Record<string, string> = { pagada: "Pagada", por_cobrar: "Por cobrar", anulada: "Anulada", borrador: "Borrador" };
 const DIAN: Record<string, string> = { STAMPED_AND_ACCEPTED: "Aceptada por la DIAN", STAMPED_AND_ACCEPTED_WITH_OBSERVATIONS: "Aceptada por la DIAN (con observaciones)", PENDING: "No se envió a la DIAN" };
@@ -55,6 +57,10 @@ export default async function VentaAlegra({ params }: { params: Promise<{ id: st
           {Number(x.descuento) > 0 && <div className="flex justify-between"><dt className="text-muted">Descuento</dt><dd>−{pesos(Number(x.descuento))}</dd></div>}
           <div className="flex justify-between"><dt className="text-muted">IVA</dt><dd>{pesos(Number(x.iva))}</dd></div>
           <div className="flex justify-between text-base font-semibold"><dt>Total</dt><dd>{pesos(Number(x.total))}</dd></div>
+          {(x.notas as Nota[] | null)?.map((n) => (
+            <div key={n.numero} className="flex justify-between text-alerta"><dt>Nota crédito {n.numero} · {new Date(n.fecha + "T12:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" })} · {TIPO_NOTA[n.tipo] ?? "Ajuste"}</dt><dd>−{pesos(n.total)}</dd></div>
+          ))}
+          {Number(x.devuelto) > 0 && <div className="flex justify-between font-semibold"><dt>Queda vendido</dt><dd>{pesos(Number(x.total) - Number(x.devuelto))}</dd></div>}
         </dl>
       </article>
       <section className="grid gap-4">
@@ -63,7 +69,7 @@ export default async function VentaAlegra({ params }: { params: Promise<{ id: st
           <p className="titulo text-lg">{ESTADO[x.estado]}{x.estado === "por_cobrar" && !d.cartera ? ` · debía ${pesos(Number(x.saldo))}` : ""}</p>
           <p className="text-sm text-muted">{DIAN[x.estado_dian ?? ""] ?? x.estado_dian ?? "Sin estado DIAN"}{x.estado === "por_cobrar" ? " · forma de pago: crédito" : x.forma_pago ? ` · pago: ${MEDIO[String(x.forma_pago).toLowerCase()] ?? x.forma_pago}` : ""}</p>
           {x.cufe && <p className="text-xs text-muted break-all">CUFE {x.cufe}</p>}
-          <p className="text-sm">Esta venta se hizo en Alegra: para anularla o hacer una devolución, hazlo en Alegra.</p>
+          <p className="text-sm">Esta venta se hizo en Alegra y es solo de consulta{(x.notas as Nota[] | null)?.length ? ": sus notas crédito están en el detalle" : ""}.</p>
         </div>
         {d.cartera && (
           <div className="tarjeta p-5 grid gap-2">
