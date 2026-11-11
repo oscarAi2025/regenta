@@ -562,6 +562,7 @@ Causa raíz: el lote inicial de «kennedy bajalenguas caja x 500» se creó con 
 - [x] Hallazgo: las 33 notas crédito no se migraron → el historial contaba $589.660.131; real $321.680.623 (32 facturas anuladas, entre ellas Alkosto $257,9 M, y 4 devoluciones parciales por $387.991)
 - [x] Migración 047 (devuelto + notas en ventas_externas; Oscar la aplicó: Success) + API de migración con notas y plazo del cliente; historial, detalle, Excel, clientes, ventas y reportes netos de notas
 - [x] POSF1035 (09/11, $2.500) que faltaba; clientes 255 + 1 (todos los de Farmagenéricos), proveedores 7, productos 872: completos
-- [ ] Publicar, aplicar las 34 ventas y el plazo de Maria Alcira Diaz en producción y verificar
-- [ ] Copia completa de Alegra en Excel (ventas, líneas, notas, clientes, proveedores, productos, pagos, egresos, compras, bancos)
-- [ ] Inventario: AZITROMICINA (DELTAZITROM) 545 en Regenta, 544 en Alegra (POSF1035 vendido en Alegra después de la migración)
+- [x] Publicado y aplicado en producción (consola): 33 ventas actualizadas + POSF1035 nueva; repetido en simulación: 34 «ya estaban» (sin cambios); Maria Alcira Diaz con 30 días (repetido: «iguales»)
+- [x] Copia completa de Alegra en Excel enviada: 1.036 ventas, 8.191 líneas, 33 notas, 258 clientes, 8 proveedores, 872 productos, 1.085 pagos, 163 egresos, 2 compras, 5 cajas; sin nada de Farmahub
+- [x] AZITROMICINA (DELTAZITROM): ajuste N.º 2 en producción (−1, motivo POSF1035): 544 = Alegra
+- [x] Saludo de inicio para Carlos Ñustes (por su correo), publicado 65dc4fd
