@@ -339,3 +339,8 @@
 - Cantidades en unidades base («18000») no se entienden en productos por caja: mostrar «18.000 und · 36 cajas».
 - (11/11/2026) «Del 1 al 10 salen 3 millones y en Alegra teníamos más de 8»: un reporte que deja fuera parte de las ventas (aunque lo avise en un banner) da un total falso. Regla: los totales del rango son Regenta + Alegra (vendido, ventas, IVA, días, medios, productos); solo la ganancia es de Regenta, y se dice por qué.
 - (11/11/2026) Una migración de ventas no está completa sin sus notas crédito: en Alegra una factura anulada con nota crédito sigue «closed», y el historial la contó como vendida ($268 M de más). Regla: al migrar documentos, traer también los que los modifican (notas crédito/débito, anulaciones) y cuadrar el total contra el reporte del sistema de origen.
+
+## 14/11/2026 · Entorno de la batería
+- El servidor de la batería necesita: REGENTA_ADMIN_DOS_PASOS=1 (las suites prueban la consola con dos pasos aunque en producción esté apagada), REGENTA_CRON_KEY=cron-prueba-0123456789abcdef0123456789 (ingresos, operación, endpoints), Wompi/Stripe de prueba (pagos), ANTHROPIC_API_KEY=prueba-local + REGENTA_IA_URL=http://localhost:4601 con IA_MOCK_PUERTO=4601 (ia, compras-factura), REGENTA_DEMO_SIN_LIMITES=1 solo para gestion y precios-lotes (la demo protegida rechaza importar y aplicar precios con 403), y un servidor aparte en :4540 con MATIAS simulado (habilitacion).
+- Base recién reiniciada y servidor recién arrancado en cada suite: con datos acumulados fallan reportes, resultados, lotes, dian-soporte y dispositivos sin que haya error real.
+- Al publicar una migración nueva, subir también MIGRACION_ESPERADA (src/lib/version-db.ts); la unitaria version-db lo detecta.

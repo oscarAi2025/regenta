@@ -566,3 +566,8 @@ Causa raíz: el lote inicial de «kennedy bajalenguas caja x 500» se creó con 
 - [x] Copia completa de Alegra en Excel enviada: 1.036 ventas, 8.191 líneas, 33 notas, 258 clientes, 8 proveedores, 872 productos, 1.085 pagos, 163 egresos, 2 compras, 5 cajas; sin nada de Farmahub
 - [x] AZITROMICINA (DELTAZITROM): ajuste N.º 2 en producción (−1, motivo POSF1035): 544 = Alegra
 - [x] Saludo de inicio para Carlos Ñustes (por su correo), publicado 65dc4fd
+
+## 14/11/2026 · Certificación completa (pedida por Oscar)
+- [x] Batería completa: 39 suites e2e en verde (auditoría 326 pantallas, dispositivos 748 en 10 equipos, endpoints 2.498), unitarias 88 + 54, tsc
+- [x] Único fallo real: MIGRACION_ESPERADA seguía en 046 tras publicar la 047 (Consola › Sistema no avisaría si faltara) → 047
+- [ ] migracion.mjs no se corrió: necesita MIG_DIR con los datos reales convertidos de Alegra (no están en este entorno); la migración ya está aplicada en producción
