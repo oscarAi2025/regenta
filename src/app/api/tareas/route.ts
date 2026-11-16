@@ -5,6 +5,7 @@ import { enviarPendientes, programarRecordatorios } from "@/lib/correo";
 import { sincronizarInvima } from "@/lib/invima";
 import { sinRLS } from "@/lib/db";
 import { cancelarReemplazadas } from "@/lib/pagos-eventos";
+import { sincronizarStripe } from "@/lib/pagos-stripe";
 import { aplicarBajadas, avisarCupoDocumentos, avisarNumeraciones, avisarRechazos, avisarDemorados, cobrarDocumentosExtra, revisarSuscripciones } from "@/lib/operacion";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,7 @@ export async function POST(req: Request) {
   const minuto = new Date().getUTCMinutes();
   if (minuto < 15 || new URL(req.url).searchParams.get("operacion") === "1") { // una vez por hora (la tarea corre cada 15 minutos)
     await paso("suscripciones", revisarSuscripciones);
+    await paso("stripe", sincronizarStripe); // renovaciones, cobros fallidos y cancelaciones (con o sin webhook)
     await paso("stripe_reemplazadas", cancelarReemplazadas);
     await paso("bajadas", aplicarBajadas);
     await paso("documentos_extra", cobrarDocumentosExtra);

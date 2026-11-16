@@ -9,7 +9,7 @@ type PlanVenta = { id: "esencial" | "pro"; nombre: string; precio: number; para:
 export function FormContratar({ plan: inicial, planes, activos }: { plan: "esencial" | "pro"; planes: PlanVenta[]; activos: { qr: boolean; wompi: boolean; stripe: boolean } }) {
   const [plan, setPlan] = useState(inicial);
   const [periodo, setPeriodo] = useState<"mes" | "anio">("mes");
-  const [proveedor, setProveedor] = useState<"qr" | "wompi" | "stripe">(activos.qr ? "qr" : activos.stripe ? "stripe" : "wompi");
+  const [proveedor, setProveedor] = useState<"qr" | "wompi" | "stripe">(activos.stripe ? "stripe" : activos.qr ? "qr" : "wompi") // la tarjeta primero: se renueva sola cada mes;
   const [f, setF] = useState({ nombre: "", empresa: "", nit: "", email: "", telefono: "", acepta: false });
   const [error, setError] = useState("");
   // Campo del error (para llevar a la persona hasta él: en el celular el mensaje quedaba debajo de la barra fija).

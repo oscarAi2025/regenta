@@ -8,7 +8,9 @@ import { firmaIntegridadWompi } from "./pagos-firma";
 //   Wompi (Colombia: tarjeta, PSE, Nequi, Botón y QR Bancolombia, Daviplata): WOMPI_PUBLIC_KEY, WOMPI_INTEGRITY_SECRET,
 //     WOMPI_EVENTS_SECRET; opcionales WOMPI_CHECKOUT_URL y WOMPI_API_URL.
 //   Stripe (tarjeta internacional, suscripción que se renueva sola; requiere la cuenta de la LLC de EE. UU., Stripe no
-//     abre cuentas en Colombia): STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET.
+//     abre cuentas en Colombia): STRIPE_SECRET_KEY (la misma llave secreta de la cuenta, sk_… o restringida rk_…).
+//     STRIPE_WEBHOOK_SECRET es opcional: con él los pagos se confirman al instante; sin él, al volver del pago y con la
+//     tarea de cada hora, que consulta la API de Stripe (lib/pagos-stripe). STRIPE_API_URL solo para pruebas.
 
 /** Versión de los términos y de la política de datos que acepta quien contrata (fecha de /terminos). */
 export const VERSION_TERMINOS = "2026-11-02";
@@ -17,7 +19,17 @@ export type Plan = "esencial" | "pro";
 export type Periodo = "mes" | "anio";
 
 export const wompiActivo = () => !!(process.env.WOMPI_PUBLIC_KEY && process.env.WOMPI_INTEGRITY_SECRET && process.env.WOMPI_EVENTS_SECRET);
-export const stripeActivo = () => !!(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET);
+/** Llave secreta de Stripe tal como se pegó (sin comillas, espacios ni «Bearer» de más). */
+export const llaveStripe = () => (process.env.STRIPE_SECRET_KEY ?? "").trim().replace(/^["']|["']$/g, "").replace(/^Bearer\s+/i, "");
+export const stripeActivo = () => /^(sk|rk)_(live|test)_\w+$/.test(llaveStripe());
+/** Llamada a la API de Stripe con la llave del servidor. null si no respondió (red caída). */
+export async function apiStripe(ruta: string, init: { method?: string; body?: URLSearchParams } = {}) {
+  const r = await fetch(`${process.env.STRIPE_API_URL ?? "https://api.stripe.com/v1"}/${ruta}`, {
+    method: init.method ?? "GET", body: init.body, signal: AbortSignal.timeout(10000),
+    headers: { authorization: `Bearer ${llaveStripe()}`, ...(init.body ? { "content-type": "application/x-www-form-urlencoded" } : {}) },
+  }).catch(() => null);
+  return r;
+}
 /** QR Bre-B de la cuenta empresarial Bancolombia de IA DEV INVESTIMENTS COLOMBIA S.A.S. (el mismo de Justicia Activa):
  *  sin pasarela, confirmación manual. Llave confirmada por Oscar: @iadevinvestiment. El QR no lleva monto fijo.
  *  REGENTA_QR_LLAVE / REGENTA_QR_IMAGEN / REGENTA_QR_TITULAR solo hacen falta para cambiarlos; REGENTA_QR_LLAVE=off lo apaga. */
@@ -70,9 +82,9 @@ export async function sesionStripe(d: { referencia: string; plan: Plan; periodo:
     "line_items[0][price_data][recurring][interval]": d.periodo === "anio" ? "year" : "month",
     "line_items[0][price_data][product_data][name]": `Regenta ${nombre}`,
   });
-  const r = await fetch("https://api.stripe.com/v1/checkout/sessions", { method: "POST", body: f,
-    headers: { authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}`, "content-type": "application/x-www-form-urlencoded" } });
-  const j = await r.json() as { id?: string; url?: string; error?: { message?: string } };
+  const r = await apiStripe("checkout/sessions", { method: "POST", body: f });
+  if (!r) throw new Error("Stripe no respondió: intenta de nuevo en un momento");
+  const j = await r.json().catch(() => ({})) as { id?: string; url?: string; error?: { message?: string } };
   if (!r.ok || !j.url) throw new Error(j.error?.message ?? "Stripe no creó la sesión de pago");
   return { id: j.id!, url: j.url };
 }
@@ -80,42 +92,36 @@ export async function sesionStripe(d: { referencia: string; plan: Plan; periodo:
 /** Cancela una suscripción de Stripe: al final del periodo ya pagado (el cliente se va) o de inmediato (suspensión de la
  *  consola). Devuelve false si Stripe no está configurado o no respondió bien. */
 export async function cancelarSuscripcionStripe(id: string, alFinal: boolean) {
-  if (!process.env.STRIPE_SECRET_KEY || !/^sub_[\w]+$/.test(id)) return false;
-  const r = await fetch(`https://api.stripe.com/v1/subscriptions/${id}`, {
-    method: alFinal ? "POST" : "DELETE", body: alFinal ? new URLSearchParams({ cancel_at_period_end: "true" }) : undefined,
-    headers: { authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}`, ...(alFinal ? { "content-type": "application/x-www-form-urlencoded" } : {}) },
-  }).catch(() => null);
+  if (!stripeActivo() || !/^sub_[\w]+$/.test(id)) return false;
+  const r = await apiStripe(`subscriptions/${id}`, { method: alFinal ? "POST" : "DELETE", body: alFinal ? new URLSearchParams({ cancel_at_period_end: "true" }) : undefined });
   return !!r?.ok;
 }
 
 /** Cierra una sesión de Stripe Checkout que nadie pagó, para que el enlace ya no sirva. «pagada» si el cliente ya pagó
  *  (entonces no se descarta: llegará el aviso), «cerrada» si quedó cerrada (o ya había vencido), null si Stripe no respondió. */
 export async function expirarSesionStripe(id: string): Promise<"pagada" | "cerrada" | null> {
-  if (!process.env.STRIPE_SECRET_KEY || !/^cs_[\w]+$/.test(id)) return null;
-  const h = { authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}` };
-  const r = await fetch(`https://api.stripe.com/v1/checkout/sessions/${id}`, { headers: h }).catch(() => null);
+  if (!stripeActivo() || !/^cs_[\w]+$/.test(id)) return null;
+  const r = await apiStripe(`checkout/sessions/${id}`);
   if (!r?.ok) return null;
   const s = await r.json() as { status?: string; payment_status?: string };
   if (s.status === "complete" || s.payment_status === "paid") return "pagada";
   if (s.status === "expired") return "cerrada";
-  const x = await fetch(`https://api.stripe.com/v1/checkout/sessions/${id}/expire`, { method: "POST", headers: h }).catch(() => null);
+  const x = await apiStripe(`checkout/sessions/${id}/expire`, { method: "POST" });
   return x?.ok ? "cerrada" : null;
 }
 
 /** Devuelve en Stripe el cobro de un pago (sesión de checkout cs_… o factura de renovación in_…). Devuelve el id del
  *  reembolso, o un error legible si no se pudo (entonces se hace a mano en el panel de Stripe). */
 export async function reembolsarStripe(transaccion: string): Promise<{ id: string } | { error: string }> {
-  if (!process.env.STRIPE_SECRET_KEY) return { error: "Stripe no está configurado" };
-  const h = { authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}` };
-  const get = async (u: string) => { const r = await fetch(`https://api.stripe.com/v1/${u}`, { headers: h }).catch(() => null); return r?.ok ? r.json() as Promise<Record<string, any>> : null; };
+  if (!stripeActivo()) return { error: "Stripe no está configurado" };
+  const get = async (u: string) => { const r = await apiStripe(u); return r?.ok ? r.json() as Promise<Record<string, any>> : null; };
   let factura: Record<string, any> | null = null;
   if (/^cs_\w+$/.test(transaccion)) { const s = await get(`checkout/sessions/${transaccion}?expand[]=invoice`); factura = s?.invoice && typeof s.invoice === "object" ? s.invoice : null; }
   else if (/^in_\w+$/.test(transaccion)) factura = await get(`invoices/${transaccion}`);
   const pi = typeof factura?.payment_intent === "string" ? factura.payment_intent : factura?.payment_intent?.id;
   const cargo = typeof factura?.charge === "string" ? factura.charge : null;
   if (!pi && !cargo) return { error: "No encontré el cobro en Stripe: devuélvelo desde el panel de Stripe y luego márcalo aquí como devuelto a mano" };
-  const r = await fetch("https://api.stripe.com/v1/refunds", { method: "POST", headers: { ...h, "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams(pi ? { payment_intent: pi } : { charge: cargo! }) }).catch(() => null);
+  const r = await apiStripe("refunds", { method: "POST", body: new URLSearchParams(pi ? { payment_intent: pi } : { charge: cargo! }) });
   const j = await r?.json().catch(() => null) as { id?: string; error?: { message?: string } } | null;
   return r?.ok && j?.id ? { id: j.id } : { error: j?.error?.message ?? "Stripe no hizo el reembolso" };
 }

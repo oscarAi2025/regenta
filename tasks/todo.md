@@ -571,3 +571,13 @@ Causa raíz: el lote inicial de «kennedy bajalenguas caja x 500» se creó con 
 - [x] Batería completa: 39 suites e2e en verde (auditoría 326 pantallas, dispositivos 748 en 10 equipos, endpoints 2.498), unitarias 88 + 54, tsc
 - [x] Único fallo real: MIGRACION_ESPERADA seguía en 046 tras publicar la 047 (Consola › Sistema no avisaría si faltara) → 047
 - [ ] migracion.mjs no se corrió: necesita MIG_DIR con los datos reales convertidos de Alegra (no están en este entorno); la migración ya está aplicada en producción
+
+## 16/11/2026 · Stripe con la misma llave del portal, sin webhook obligatorio
+- [x] Stripe activo solo con STRIPE_SECRET_KEY (sk_ o rk_); el webhook pasa a opcional.
+- [x] Lógica de eventos en una sola función (lib/pagos-stripe) que usan el webhook y la sincronización: nada duplicado.
+- [x] Al volver del pago: /api/pagos/estado confirma la sesión contra la API de Stripe.
+- [x] Tarea horaria: confirma sesiones pendientes, registra renovaciones pagadas, cobros fallidos y cancelaciones consultando la API.
+- [x] STRIPE_API_URL para simular Stripe en pruebas; e2e de la sincronización sin webhook.
+- [x] Consola › Sistema y README: el webhook es opcional.
+- [x] Con Stripe activo, la tarjeta (renovación automática) sale elegida por defecto en /contratar.
+- Verificado: pagos.mjs 0 fallos (6 pruebas nuevas sin webhook), unitarias 142/142, tsc y build; /contratar muestra la tarjeta solo con STRIPE_SECRET_KEY; webhook sin secreto → 503.

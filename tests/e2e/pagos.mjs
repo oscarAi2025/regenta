@@ -1,6 +1,8 @@
 // Pagos de suscripción de punta a punta con llaves de prueba (el servidor debe arrancar con las variables de abajo):
 //   WOMPI_PUBLIC_KEY=pub_test_prueba WOMPI_INTEGRITY_SECRET=test_integrity_prueba WOMPI_EVENTS_SECRET=test_events_prueba
 //   STRIPE_SECRET_KEY=sk_test_prueba STRIPE_WEBHOOK_SECRET=whsec_prueba WOMPI_API_URL=http://localhost:4602
+//   STRIPE_API_URL=http://localhost:4603 REGENTA_CRON_KEY=cron-prueba-0123456789abcdef0123456789
+// La API de Stripe se simula en :4603 (confirmación al volver del pago y sincronización de cada hora, sin webhook).
 // La API de Wompi se simula aquí mismo en :4602 (el webhook siempre confirma la transacción contra ella).
 // Comprueba el enlace firmado de Wompi, eventos auténticos y falsos, monto alterado, webhook de Stripe y la pantalla.
 import { chromium } from "playwright-core";
@@ -13,6 +15,17 @@ const mock = createServer((req, res) => {
   const t = WOMPI.get(id);
   res.writeHead(t ? 200 : 404, { "content-type": "application/json" }).end(JSON.stringify(t ? { data: t } : { error: { type: "NOT_FOUND_ERROR" } }));
 }).listen(Number(process.env.WOMPI_MOCK_PUERTO ?? 4602)); // el servidor apunta WOMPI_API_URL aquí
+
+const STRIPE = { sesiones: new Map(), facturas: new Map(), subs: new Map() }; // lo que devolvería la API de Stripe
+createServer((req, res) => {
+  const u = new URL(req.url ?? "/", "http://x"); const partes = u.pathname.split("/").filter(Boolean);
+  let o = null;
+  if (partes[0] === "checkout" && partes[1] === "sessions" && partes[2]) o = STRIPE.sesiones.get(partes[2]);
+  else if (partes[0] === "subscriptions" && partes[1]) o = STRIPE.subs.get(partes[1]);
+  else if (partes[0] === "invoices" && partes[1]) o = [...STRIPE.facturas.values()].flat().find((f) => f.id === partes[1]);
+  else if (partes[0] === "invoices") o = { object: "list", data: (STRIPE.facturas.get(u.searchParams.get("subscription")) ?? []).filter((f) => f.status === u.searchParams.get("status")) };
+  res.writeHead(o ? 200 : 404, { "content-type": "application/json" }).end(JSON.stringify(o ?? { error: { message: "No such object" } }));
+}).listen(Number(process.env.STRIPE_MOCK_PUERTO ?? 4603)); // el servidor apunta STRIPE_API_URL aquí
 
 const B = process.env.BASE ?? "http://localhost:4500";
 let fallos = 0;
@@ -108,6 +121,37 @@ const segunda = JSON.stringify({ id: "evt_4", type: "checkout.session.completed"
 await post("/api/pagos/stripe", segunda, { "stripe-signature": firmar(segunda) });
 const marcas = (await pool.query(`select suscripcion, bool_or(detalle ? 'cancelar_stripe') marcada from pagos_suscripcion where empresa_id = $1 and proveedor = 'stripe' group by 1 order by 1`, [vecina])).rows;
 ok(marcas.length === 2 && marcas[0].marcada && !marcas[1].marcada, "Stripe: al pagar otra suscripción, la anterior queda para cancelar (sin doble cobro)", JSON.stringify(marcas));
+// ── Stripe sin webhook (misma llave del portal): al volver del pago se confirma contra la API, y la tarea de cada hora
+// registra las renovaciones, los cobros fallidos y las cancelaciones.
+const CRON = { authorization: `Bearer ${process.env.REGENTA_CRON_KEY ?? "cron-prueba-0123456789abcdef0123456789"}` };
+const tareas = () => fetch(`${B}/api/tareas?operacion=1`, { method: "POST", headers: CRON }).then((x) => x.json());
+const refS3 = `RG-PRO-PRUEBC${Date.now().toString(36).toUpperCase()}-ABCDEF14`;
+await pool.query(`insert into pagos_suscripcion (referencia, plan, periodo, monto, proveedor, nombre, empresa, email, telefono, transaccion) values ($1, 'pro', 'mes', 139900, 'stripe', 'P', 'E', 's@e.co', '300', 'cs_sync_1')`, [refS3]);
+STRIPE.sesiones.set("cs_sync_1", { id: "cs_sync_1", status: "open", mode: "subscription", currency: "cop", amount_total: 13990000, client_reference_id: refS3, payment_status: "unpaid", subscription: null });
+ok(await estado(refS3) === "pendiente", "Stripe sin webhook: sesión aún sin pagar sigue pendiente");
+STRIPE.sesiones.set("cs_sync_1", { id: "cs_sync_1", status: "complete", mode: "subscription", currency: "cop", amount_total: 13990000, client_reference_id: refS3, payment_status: "paid", subscription: "sub_sync" });
+ok(await estado(refS3) === "aprobado", "Stripe sin webhook: al volver del pago se confirma contra la API y se aprueba");
+const refS4 = `RG-PRO-PRUEBD${Date.now().toString(36).toUpperCase()}-ABCDEF15`;
+await pool.query(`insert into pagos_suscripcion (referencia, plan, periodo, monto, proveedor, nombre, empresa, email, telefono, transaccion) values ($1, 'pro', 'mes', 139900, 'stripe', 'P', 'E', 't@e.co', '300', 'cs_sync_2')`, [refS4]);
+STRIPE.sesiones.set("cs_sync_2", { id: "cs_sync_2", status: "complete", mode: "subscription", currency: "cop", amount_total: 99, client_reference_id: refS4, payment_status: "paid", subscription: "sub_ajena" });
+STRIPE.subs.set("sub_sync", { id: "sub_sync", object: "subscription", status: "active", latest_invoice: "in_sync_ren1" });
+STRIPE.facturas.set("sub_sync", [
+  { id: "in_sync_alta", status: "paid", billing_reason: "subscription_create", currency: "cop", amount_paid: 13990000 },
+  { id: "in_sync_ren1", status: "paid", billing_reason: "subscription_cycle", currency: "cop", amount_paid: 13990000 }]);
+const t1 = await tareas();
+ok(await estadoS(refS4) === "pendiente", "Stripe sin webhook: la tarea no aprueba una sesión con otro monto", JSON.stringify(t1.stripe));
+await tareas();
+const renS = (await pool.query(`select estado, vence from pagos_suscripcion where referencia like $1 order by vence`, [refS3 + "%"])).rows;
+ok(renS.length === 2 && renS[1].estado === "aprobado" && renS[1].vence > renS[0].vence, "Stripe sin webhook: la tarea registra la renovación mensual una sola vez", `${renS.length} · ${JSON.stringify(t1.stripe)}`);
+STRIPE.subs.set("sub_sync", { id: "sub_sync", object: "subscription", status: "past_due", latest_invoice: "in_sync_fallo" });
+STRIPE.facturas.set("sub_sync", [...STRIPE.facturas.get("sub_sync"), { id: "in_sync_fallo", status: "open", billing_reason: "subscription_cycle", currency: "cop", amount_due: 13990000 }]);
+await tareas(); await tareas();
+const avisos = (await pool.query(`select count(*)::int n from correos where clave like 'stripe-fallo:in_sync_fallo%'`)).rows[0].n;
+ok(avisos === 1 && await estadoS(refS3) === "aprobado", "Stripe sin webhook: cobro fallido avisa una vez y no quita lo pagado", String(avisos));
+STRIPE.subs.set("sub_sync", { id: "sub_sync", object: "subscription", status: "canceled" });
+await tareas();
+const cancel = (await pool.query(`select bool_and(coalesce((detalle ->> 'cancelada')::boolean, false)) c from pagos_suscripcion where suscripcion = 'sub_sync'`)).rows[0].c;
+ok(cancel === true, "Stripe sin webhook: la cancelación hecha en Stripe queda registrada");
 // Constancia de la contratación: aceptación de términos con versión, fecha e IP.
 const acepta = (await pool.query(`select acepta_terminos is not null fecha, version_terminos, ip is not null ip from pagos_suscripcion where referencia = $1`, [j.referencia])).rows[0];
 ok(acepta?.fecha && acepta.version_terminos === "2026-11-02" && acepta.ip, "la orden guarda la aceptación de términos (fecha, versión e IP)", JSON.stringify(acepta));

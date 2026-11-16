@@ -15,7 +15,7 @@ const VARIABLES: [string, string][] = [
   ["REGENTA_CRON_KEY", "Tareas programadas (cola DIAN, correos, INVIMA)"],
   ["ANTHROPIC_API_KEY", "Regenta IA"],
   ["WOMPI_PUBLIC_KEY", "Pagos en Colombia (Wompi)"], ["WOMPI_INTEGRITY_SECRET", "Firma de pagos Wompi"], ["WOMPI_EVENTS_SECRET", "Eventos de Wompi"],
-  ["STRIPE_SECRET_KEY", "Pagos con tarjeta internacional (Stripe)"], ["STRIPE_WEBHOOK_SECRET", "Eventos de Stripe"],
+  ["STRIPE_SECRET_KEY", "Pagos con tarjeta internacional (Stripe)"], ["STRIPE_WEBHOOK_SECRET", "Eventos de Stripe (opcional: sin él se confirma al volver del pago y cada hora)"],
   ["REGENTA_DIAN", "Proveedor de emisión DIAN: «matias» en producción (la demo siempre simulada)"], ["MATIAS_URL", "API de MATIAS (producción: https://api-v2.matias-api.com)"], ["MATIAS_TOKEN", "Token de acceso de la cuenta de casa de software en MATIAS"],
   ["SMTP_USER", "Buzón de Google Workspace que envía los correos (p. ej. hola@regenta.pro)"], ["SMTP_PASS", "Contraseña de aplicación de ese buzón"], ["RESEND_API_KEY", "Alternativa: envío con Resend"], ["CORREO_REMITENTE", "Remitente, p. ej. Regenta <hola@regenta.pro> (el buzón o un alias suyo)"], ["CORREO_RESPUESTA", "A dónde llegan las respuestas (opcional)"],
 ];

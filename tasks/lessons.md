@@ -344,3 +344,9 @@
 - El servidor de la batería necesita: REGENTA_ADMIN_DOS_PASOS=1 (las suites prueban la consola con dos pasos aunque en producción esté apagada), REGENTA_CRON_KEY=cron-prueba-0123456789abcdef0123456789 (ingresos, operación, endpoints), Wompi/Stripe de prueba (pagos), ANTHROPIC_API_KEY=prueba-local + REGENTA_IA_URL=http://localhost:4601 con IA_MOCK_PUERTO=4601 (ia, compras-factura), REGENTA_DEMO_SIN_LIMITES=1 solo para gestion y precios-lotes (la demo protegida rechaza importar y aplicar precios con 403), y un servidor aparte en :4540 con MATIAS simulado (habilitacion).
 - Base recién reiniciada y servidor recién arrancado en cada suite: con datos acumulados fallan reportes, resultados, lotes, dian-soporte y dispositivos sin que haya error real.
 - Al publicar una migración nueva, subir también MIGRACION_ESPERADA (src/lib/version-db.ts); la unitaria version-db lo detecta.
+
+## 16/11/2026 · «Las llaves de Stripe ya las tenemos del proyecto farmacia»
+- Pedí crear llave y webhook nuevos cuando Oscar ya tenía la llave de Stripe (la de la LLC) puesta en el portal de Farmagenéricos.
+- Regla: antes de pedir credenciales, buscar en chats anteriores y en los otros proyectos qué llaves existen y reutilizarlas
+  (la misma cuenta de Stripe sirve para todos los sitios). No exigir piezas opcionales: Stripe en Regenta funciona solo con
+  STRIPE_SECRET_KEY; el webhook acelera pero no es obligatorio (confirmación al volver + sincronización horaria).

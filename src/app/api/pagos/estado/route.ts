@@ -3,18 +3,19 @@ import { sinRLS } from "@/lib/db";
 import { datosQr, estadoWompi, transaccionWompi, wompiActivo } from "@/lib/pagos";
 import { alCambiarPago, cancelarReemplazadas } from "@/lib/pagos-eventos";
 import { enviarAhora } from "@/lib/correo";
+import { confirmarSesionStripe } from "@/lib/pagos-stripe";
 import { ipCliente, limitador } from "@/lib/api";
 
 const permitido = limitador(60, 60000); // la página de resultado consulta cada pocos segundos; nadie necesita más
 
 /** Estado de una orden por su referencia (solo estado y plan: nada personal). Al volver de Wompi con ?id= se confirma
- *  contra la API de Wompi por si el evento aún no llegó. */
+ *  contra la API de Wompi por si el evento aún no llegó; las de Stripe, contra la API de Stripe. */
 export async function GET(req: Request) {
   if (!permitido(ipCliente(req))) return NextResponse.json({ error: "Demasiadas consultas: espera un minuto" }, { status: 429 });
   const sp = new URL(req.url).searchParams;
   const ref = (sp.get("ref") ?? "").slice(0, 80), id = (sp.get("id") ?? "").slice(0, 80);
   if (!/^RG-[A-Z]+-[0-9A-Z]+-[0-9A-F]{8}$/.test(ref)) return NextResponse.json({ error: "Referencia no válida" }, { status: 400 });
-  let o = (await sinRLS((c) => c.query(`select estado, plan, periodo, monto, proveedor, email, empresa_id from pagos_suscripcion where referencia = $1`, [ref]))).rows[0];
+  let o = (await sinRLS((c) => c.query(`select estado, plan, periodo, monto, proveedor, email, empresa_id, transaccion from pagos_suscripcion where referencia = $1`, [ref]))).rows[0];
   if (!o) return NextResponse.json({ error: "No encontramos ese pago" }, { status: 404 });
   if (o.estado === "pendiente" && o.proveedor === "wompi" && id && wompiActivo()) {
     const t = await transaccionWompi(id).catch(() => null);
@@ -29,6 +30,9 @@ export async function GET(req: Request) {
       o = { ...o, estado, empresa_id: (await sinRLS((c) => c.query(`select empresa_id from pagos_suscripcion where referencia = $1`, [ref]))).rows[0]?.empresa_id };
     }
   }
+  // Stripe: al volver del pago se confirma la sesión contra su API (no hace falta esperar al webhook, ni tenerlo).
+  if (o.estado === "pendiente" && o.proveedor === "stripe" && o.transaccion && await confirmarSesionStripe(o.transaccion).catch(() => false))
+    o = (await sinRLS((c) => c.query(`select estado, plan, periodo, monto, proveedor, email, empresa_id, transaccion from pagos_suscripcion where referencia = $1`, [ref]))).rows[0];
   // Para el QR se devuelven los datos públicos de la cuenta (llave y titular) para mostrarlos junto al monto.
   // Con la cuenta creada se dice a qué correo llegó el acceso, enmascarado (la referencia no debe revelar datos personales).
   const oculto = (m: string) => m.replace(/^(.{2})[^@]*(@.).*(\..+)$/, "$1•••$2•••$3");
