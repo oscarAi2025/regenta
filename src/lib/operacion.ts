@@ -8,7 +8,7 @@ import { datosQr } from "./pagos";
 // DIAN por vencer o agotarse, y documentos rechazados por la DIAN. Cada correo lleva una clave única: aunque la tarea
 // corra muchas veces, cada aviso sale una sola vez.
 
-const GRACIA_DIAS = 3; // días después del vencimiento antes de suspender
+export const GRACIA_DIAS = 3; // días después del vencimiento antes de suspender
 
 const duenos = (c: Parameters<Parameters<typeof sinRLS>[0]>[0], empresa: string) =>
   c.query(`select cu.email, cu.nombre from miembros m join cuentas cu on cu.id = m.user_id where m.empresa_id = $1 and m.activo and m.rol = 'dueno' and cu.activa`, [empresa])

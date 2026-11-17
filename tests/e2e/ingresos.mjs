@@ -132,7 +132,8 @@ e = (await q(`select estado, suspension from empresas where id = $1`, [emp]))[0]
 ok(e.estado === "suspendida" && e.suspension === "impago", "reembolso: sin pago vigente la cuenta queda suspendida por impago", JSON.stringify(e));
 ok((await correo(DUENO, "cuenta_suspendida"))?.datos?.impago == 1, "reembolso: correo de suspensión con «Renovar»");
 r = await llamar("POST", "/api/acceso", { email: DUENO, clave: CLAVE });
-ok(r.s === 403 && r.j.renovar?.startsWith("/contratar"), "el dueño suspendido por impago recibe el camino para renovar", JSON.stringify(r.j));
+ok(r.s === 200 && r.j.destino === "/cuenta-suspendida" && /regenta_sesion=/.test(r.cookie), "el dueño suspendido por impago entra en modo consulta (renovar y descargar)", JSON.stringify(r.j));
+ok(/Renovar ahora/.test(await pagina("/cuenta-suspendida", r.cookie)), "modo consulta: la pantalla ofrece «Renovar ahora»");
 r = await llamar("POST", "/api/acceso", { email: CAJERA, clave: CLAVE });
 ok(r.s === 403 && !r.j.renovar && /avísale al dueño/.test(r.j.error), "la cajera ve «avísale al dueño»");
 ok((await llamar("PATCH", "/api/admin/pagos", { referencia: pagos[0].referencia, reembolsar: "manual" }, adm)).s === 409, "reembolso: no se devuelve dos veces");

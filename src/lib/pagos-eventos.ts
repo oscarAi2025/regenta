@@ -11,7 +11,10 @@ const PLAN: Record<string, string> = { esencial: "Esencial", pro: "Pro" };
  *  ante la DIAN), invita al dueño con su enlace para crear la contraseña y deja el pago ligado y atendido. Si el NIT ya
  *  es cliente (renovación o segundo pago), solo liga el pago. Sin NIT queda para la consola. Devuelve la clave del correo. */
 async function darDeAlta(c: Tx, p: Record<string, any>): Promise<string | null> {
-  if (p.empresa_id) return null;
+  if (p.empresa_id) {   // renovación iniciada desde dentro de la app: ya venía ligada; queda atendida al aprobarse
+    await c.query(`update pagos_suscripcion set atendido = true where referencia = $1 and not atendido`, [p.referencia]);
+    return null;
+  }
   const nit = nitSinDv(p.nit); // sin dígito de verificación (aunque lo escriban pegado o con espacio)
   if (nit.length < 6 || nit.length > 10) return null;
   const existe = (await c.query(`select id from empresas where nit = $1`, [nit])).rows[0];

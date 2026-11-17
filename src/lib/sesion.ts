@@ -6,7 +6,10 @@ import { sinRLS } from "./db";
 
 // Sesión firmada en cookie (httpOnly). En producción el usuario entrará con Supabase Auth y aquí se verificará su JWT;
 // mientras tanto existe el acceso de demostración con los usuarios sembrados (solo si REGENTA_DEMO=1 o en desarrollo).
-export type Sesion = { uid: string; empresa: string; nombre: string; rol: Rol; soporte?: string };
+export type Sesion = { uid: string; empresa: string; nombre: string; rol: Rol; soporte?: string;
+  /** Sesión de consulta: la droguería está suspendida por falta de pago. Solo sirve para /cuenta-suspendida (renovar y
+   *  descargar sus documentos); leerSesion la rechaza, así que ninguna otra pantalla ni API la acepta. */
+  consulta?: true };
 export type Rol = "dueno" | "admin" | "cajero" | "bodeguero" | "vendedor";
 
 const COOKIE = "regenta_sesion";
@@ -25,7 +28,7 @@ export const USUARIOS_DEMO = { dueno: "00000000-0000-4000-8000-000000000001", ca
  *  siendo superadministrador). La versión de la cuenta va en la sesión: si cambia (contraseña nueva), la sesión muere. */
 export async function crearSesion(s: Sesion) {
   const v = (await sinRLS((c) => c.query(`select version_sesion v from cuentas where id = $1`, [s.uid]))).rows[0]?.v ?? 0;
-  const horas = s.soporte ? 1 : 12;
+  const horas = s.soporte ? 1 : s.consulta ? 2 : 12;
   const jwt = await new SignJWT({ ...s, v }).setProtectedHeader({ alg: "HS256" }).setJti(crypto.randomUUID()).setIssuedAt().setExpirationTime(`${horas}h`).sign(clave());
   (await cookies()).set(COOKIE, jwt, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: horas * 3600 });
 }
@@ -39,6 +42,7 @@ export const leerSesion = cache(async (): Promise<Sesion | null> => {
   let payload;
   try { payload = (await jwtVerify(t, clave())).payload; } catch { return null; }
   const uid = String(payload.uid), empresa = String(payload.empresa), soporte = payload.soporte ? String(payload.soporte) : undefined;
+  if (payload.consulta) return null; // la sesión de consulta (cuenta suspendida) no entra a la app
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(empresa)) return null;
   const f = (await sinRLS((c) => c.query(
     `select m.rol, e.estado, cu.activa, coalesce(cu.version_sesion, 0) v,
@@ -48,6 +52,31 @@ export const leerSesion = cache(async (): Promise<Sesion | null> => {
      where m.empresa_id = $1 and m.user_id = $2 and m.activo`, [empresa, uid, soporte ?? null, payload.jti ?? null]))).rows[0];
   if (!f || f.estado !== "activa" || f.activa === false || !f.soporte_ok || f.cerrada || f.v !== Number(payload.v ?? 0)) return null;
   return { uid, empresa, nombre: String(payload.nombre), rol: f.rol as Rol, soporte };
+});
+
+/** Roles que entran en modo consulta cuando la droguería está suspendida por falta de pago. */
+export const ROLES_CONSULTA: Rol[] = ["dueno", "admin"];
+
+/** Sesión de consulta de una droguería suspendida POR FALTA DE PAGO (no la suspendida a mano por la consola): dueño o
+ *  administrador, cuenta activa, misma versión de contraseña y sesión no cerrada. `activa` = la droguería ya se reactivó
+ *  (pagó): la pantalla lo detecta y ofrece volver a entrar normal. */
+export const leerSesionConsulta = cache(async (): Promise<(Sesion & { activa: boolean }) | null> => {
+  const t = (await cookies()).get(COOKIE)?.value;
+  if (!t) return null;
+  let payload;
+  try { payload = (await jwtVerify(t, clave())).payload; } catch { return null; }
+  if (!payload.consulta) return null;
+  const uid = String(payload.uid), empresa = String(payload.empresa);
+  if (!/^[0-9a-f-]{36}$/i.test(uid) || !/^[0-9a-f-]{36}$/i.test(empresa)) return null;
+  const f = (await sinRLS((c) => c.query(
+    `select m.rol, e.estado, e.suspension, cu.activa, coalesce(cu.version_sesion, 0) v,
+            ($3::text is not null and exists (select 1 from sesiones_cerradas x where x.jti = $3::text)) cerrada
+     from miembros m join empresas e on e.id = m.empresa_id left join cuentas cu on cu.id = m.user_id
+     where m.empresa_id = $1 and m.user_id = $2 and m.activo and not e.demo`, [empresa, uid, payload.jti ?? null]))).rows[0];
+  if (!f || f.activa === false || f.cerrada || f.v !== Number(payload.v ?? 0) || !ROLES_CONSULTA.includes(f.rol)) return null;
+  const activa = f.estado === "activa";
+  if (!activa && !(f.estado === "suspendida" && f.suspension === "impago")) return null;
+  return { uid, empresa, nombre: String(payload.nombre), rol: f.rol as Rol, consulta: true, activa };
 });
 
 /** Cerrar sesión la invalida de verdad: el identificador de la sesión queda en sesiones_cerradas hasta que vence, así

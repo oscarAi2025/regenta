@@ -157,7 +157,7 @@ export const PLANTILLAS = {
     parrafos: [`${hola(d.nombre)}, la cuenta de <b>${esc(txt(d.empresa, "tu droguería"))}</b> en Regenta está suspendida porque el plan venció. Tus datos, inventario y ventas siguen guardados.`,
       "Renueva con tarjeta, PSE, Nequi o QR Bancolombia usando <b>este mismo correo y el NIT de la droguería</b>: al aprobarse el pago la cuenta se reactiva sola, sin esperar a nadie."],
     boton: { texto: "Renovar y reactivar", href: url(`/contratar?plan=${encodeURIComponent(String(d.plan_id ?? "esencial"))}`, "suspendida") },
-    despues: ["Si prefieres una copia completa de tus datos (productos, ventas, clientes y documentos DIAN), respóndenos este correo y te la enviamos."] }) })
+    despues: ["Mientras tanto la cuenta queda en <b>modo consulta</b>: entra con tu correo y contraseña de siempre para renovar con tus datos ya puestos o descargar tus facturas en XML y una copia completa de tus datos."] }) })
     : ({ asunto: "Tu cuenta de Regenta está suspendida", ...marco({
     previa: "Escríbenos para reactivarla.", titulo: "Tu cuenta está suspendida",
     parrafos: [`${hola(d.nombre)}, la cuenta de <b>${esc(txt(d.empresa, "tu droguería"))}</b> en Regenta está suspendida. Tus datos siguen guardados.`, "Escríbenos por WhatsApp y la reactivamos. Si prefieres una copia completa de tus datos (productos, ventas, clientes y documentos DIAN), pídela por el mismo medio."],

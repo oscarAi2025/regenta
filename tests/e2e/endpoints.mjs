@@ -260,6 +260,9 @@ const R = [
   { m: "PATCH", p: "/api/admin/pagos", acceso: "admin", basura: true },
   { m: "POST", p: "/api/admin/sistema", acceso: "admin", basura: true },
   { m: "PATCH", p: "/api/admin/solicitudes", acceso: "admin", basura: true },
+  // Modo consulta (cuenta suspendida por impago): solo con la sesión de consulta; una sesión normal también recibe 401.
+  { m: "GET", p: "/api/consulta/xml?desde=2026-01-01&hasta=2026-01-31", acceso: "sesion", espera: 401 },
+  { m: "GET", p: "/api/consulta/copia", acceso: "sesion", espera: 401 },
 ];
 
 // ── ¿Falta probar alguna ruta? (las rutas nuevas tienen que entrar en el mapa)

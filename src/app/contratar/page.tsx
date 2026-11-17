@@ -9,6 +9,8 @@ import { qrActivo, stripeActivo, wompiActivo } from "@/lib/pagos";
 import { wa } from "@/lib/sitio";
 import { FormContratar } from "./FormContratar";
 import { GARANTIA, GARANTIA_DIAS, PILA_VALOR, PRECIO_CONGELADO } from "@/lib/oferta";
+import { leerSesion, leerSesionConsulta } from "@/lib/sesion";
+import { datosRenovacion } from "@/lib/consulta";
 
 // La descripción solo nombra la tarjeta cuando Stripe está activo (no prometer un medio de pago que no está).
 export function generateMetadata(): Metadata {
@@ -18,9 +20,12 @@ export function generateMetadata(): Metadata {
 }
 export const dynamic = "force-dynamic";
 
-export default async function Contratar({ searchParams }: { searchParams: Promise<{ plan?: string; cancelado?: string }> }) {
+export default async function Contratar({ searchParams }: { searchParams: Promise<{ plan?: string; cancelado?: string; renovar?: string }> }) {
   const sp = await searchParams;
-  const plan = sp.plan === "esencial" ? "esencial" : "pro";
+  // Renovación desde la app (o desde la cuenta en pausa): el dueño no vuelve a escribir sus datos y el pago queda ligado a su droguería.
+  const s = sp.renovar ? (await leerSesion()) ?? (await leerSesionConsulta()) : null;
+  const renovacion = s?.rol === "dueno" ? await datosRenovacion(s.uid, s.empresa).catch(() => undefined) : undefined;
+  const plan = sp.plan === "esencial" || (!sp.plan && renovacion?.plan === "esencial") ? "esencial" : "pro";
   const activos = { qr: qrActivo(), wompi: wompiActivo(), stripe: stripeActivo() };
   return (
     <div className="bg-paper text-ink min-h-screen">
@@ -30,8 +35,13 @@ export default async function Contratar({ searchParams }: { searchParams: Promis
           <div className="rejilla absolute inset-0" aria-hidden="true" />
           <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-10 pb-12">
             <nav aria-label="Ruta" className="text-sm text-white/60"><Link href="/" className="hover:underline">Regenta</Link> / <Link href="/precios" className="hover:underline">Tarifas</Link> / Contratar</nav>
+            {renovacion ? <>
+            <h1 className="mt-3 font-cond text-[42px] sm:text-[60px] leading-[0.95]" style={{ fontWeight: 700 }}>Renovar {renovacion.empresa}</h1>
+            <p className="mt-4 text-lg text-white/75 max-w-2xl">Tus datos ya están puestos. Eliges el periodo, pagas y la cuenta sigue (o vuelve) a funcionar sola en cuanto se aprueba el pago.</p>
+            </> : <>
             <h1 className="mt-3 font-cond text-[42px] sm:text-[60px] leading-[0.95]" style={{ fontWeight: 700 }}>Contrata Regenta en dos minutos</h1>
             <p className="mt-4 text-lg text-white/75 max-w-2xl">Eliges el plan, pagas en línea y te escribimos para activar tu cuenta y cargar tus productos. Sin permanencia: cancelas cuando quieras.</p>
+            </>}
             <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-white/85">
               {[`${GARANTIA_DIAS} días de garantía`, "Certificado y habilitación DIAN incluidos", "Capacitación incluida", "Sin permanencia"].map((t) => <li key={t} className="flex gap-2"><span className="text-amber-300 font-bold" aria-hidden="true">✓</span>{t}</li>)}
             </ul>
@@ -39,7 +49,7 @@ export default async function Contratar({ searchParams }: { searchParams: Promis
         </section>
         <section className="max-w-6xl mx-auto px-4 sm:px-6 py-10 grid lg:grid-cols-[1.15fr_.85fr] gap-8 items-start">
           {sp.cancelado && <p role="status" className="lg:col-span-2 rounded-2xl bg-aviso-soft text-aviso px-4 py-3 font-semibold">El pago se canceló y no se cobró nada. Puedes intentarlo de nuevo cuando quieras.</p>}
-          {activos.qr || activos.wompi || activos.stripe ? <FormContratar plan={plan} activos={activos} planes={PLANES.filter((p) => p.precio).map((p) => ({ id: p.id as "esencial" | "pro", nombre: p.nombre, precio: p.precio!, para: p.para }))} /> : (
+          {activos.qr || activos.wompi || activos.stripe ? <FormContratar plan={plan} activos={activos} inicial={renovacion ? { nombre: renovacion.nombre, empresa: renovacion.empresa, nit: renovacion.nit, email: renovacion.email, telefono: renovacion.telefono } : undefined} planes={PLANES.filter((p) => p.precio).map((p) => ({ id: p.id as "esencial" | "pro", nombre: p.nombre, precio: p.precio!, para: p.para }))} /> : (
             <div className="tarjeta p-6 sm:p-8">
               <h2 className="font-cond text-3xl" style={{ fontWeight: 700 }}>Contrata por WhatsApp</h2>
               <p className="mt-3 text-muted text-lg">El pago en línea se está activando. Mientras tanto te enviamos el enlace de pago por WhatsApp y activamos tu cuenta el mismo día.</p>

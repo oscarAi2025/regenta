@@ -3,7 +3,7 @@ import { z } from "zod";
 import { sinRLS } from "@/lib/db";
 import { ipCliente, mismoOrigen } from "@/lib/api";
 import { claveCorrecta } from "@/lib/claves";
-import { crearSesion, type Rol } from "@/lib/sesion";
+import { crearSesion, ROLES_CONSULTA, type Rol } from "@/lib/sesion";
 import { crearSesionAdmin } from "@/lib/admin";
 import { descifrar, dosPasosActivos, verificarTotp } from "@/lib/totp";
 
@@ -62,9 +62,12 @@ export async function POST(req: Request) {
   }
   if (!m) return NextResponse.json({ error: "Tu usuario no tiene una droguería asignada. Escríbenos por WhatsApp." }, { status: 403 });
   if (m.estado !== "activa") {
-    // Suspendida por falta de pago: el dueño renueva en línea y la cuenta se reactiva sola al aprobarse el pago.
-    if (m.suspension === "impago" && m.rol === "dueno") return NextResponse.json({ error: "El plan de tu droguería venció y la cuenta está suspendida. Renueva con este mismo correo y el NIT de la droguería: se reactiva sola al aprobarse el pago.",
-      renovar: `/contratar?plan=${m.plan === "pro" ? "pro" : "esencial"}` }, { status: 403 });
+    // Suspendida por falta de pago: el dueño y el administrador entran en MODO CONSULTA (renovar en un clic y descargar sus
+    // facturas electrónicas y la copia de sus datos; no venden ni facturan). Se reactiva sola al aprobarse el pago.
+    if (m.suspension === "impago" && ROLES_CONSULTA.includes(m.rol as Rol)) {
+      await crearSesion({ uid: c.id, empresa: m.empresa_id, nombre: c.nombre, rol: m.rol as Rol, consulta: true });
+      return NextResponse.json({ destino: "/cuenta-suspendida" });
+    }
     return NextResponse.json({ error: m.suspension === "impago" ? "El plan de la droguería venció y la cuenta está suspendida: avísale al dueño para que lo renueve." : "La cuenta de tu droguería está suspendida. Escríbenos por WhatsApp para reactivarla." }, { status: 403 });
   }
   await crearSesion({ uid: c.id, empresa: m.empresa_id, nombre: c.nombre, rol: m.rol as Rol });

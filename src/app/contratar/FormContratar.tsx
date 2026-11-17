@@ -6,11 +6,13 @@ import { pesos } from "@/lib/formato";
 type PlanVenta = { id: "esencial" | "pro"; nombre: string; precio: number; para: string };
 
 /** Formulario de compra: plan, periodo, medio de pago y datos de contacto. La pasarela recibe el pago; aquí nada de tarjetas. */
-export function FormContratar({ plan: inicial, planes, activos }: { plan: "esencial" | "pro"; planes: PlanVenta[]; activos: { qr: boolean; wompi: boolean; stripe: boolean } }) {
+type Datos = { nombre: string; empresa: string; nit: string; email: string; telefono: string };
+
+export function FormContratar({ plan: inicial, planes, activos, inicial: datos }: { plan: "esencial" | "pro"; planes: PlanVenta[]; activos: { qr: boolean; wompi: boolean; stripe: boolean }; inicial?: Datos }) {
   const [plan, setPlan] = useState(inicial);
   const [periodo, setPeriodo] = useState<"mes" | "anio">("mes");
   const [proveedor, setProveedor] = useState<"qr" | "wompi" | "stripe">(activos.stripe ? "stripe" : activos.qr ? "qr" : "wompi") // la tarjeta primero: se renueva sola cada mes;
-  const [f, setF] = useState({ nombre: "", empresa: "", nit: "", email: "", telefono: "", acepta: false });
+  const [f, setF] = useState({ nombre: datos?.nombre ?? "", empresa: datos?.empresa ?? "", nit: datos?.nit ?? "", email: datos?.email ?? "", telefono: datos?.telefono ?? "", acepta: false });
   const [error, setError] = useState("");
   // Campo del error (para llevar a la persona hasta él: en el celular el mensaje quedaba debajo de la barra fija).
   const [campoMal, setCampoMal] = useState<string | null>(null);

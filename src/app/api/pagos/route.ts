@@ -5,6 +5,8 @@ import { ipCliente, limitador, limiteBD, mismoOrigen } from "@/lib/api";
 import { VERSION_TERMINOS, datosQr, enlaceWompi, nuevaReferencia, precio, qrActivo, sesionStripe, stripeActivo, wompiActivo } from "@/lib/pagos";
 import { avisar, encolar, enviarAhora } from "@/lib/correo";
 import { SITIO } from "@/lib/sitio";
+import { leerSesion, leerSesionConsulta } from "@/lib/sesion";
+import { nitSinDv } from "@/lib/validar";
 
 const Contratar = z.object({
   plan: z.enum(["esencial", "pro"]), periodo: z.enum(["mes", "anio"]), proveedor: z.enum(["qr", "wompi", "stripe"]),
@@ -28,10 +30,15 @@ export async function POST(req: Request) {
   if (!(await limiteBD(`pago:correo:${d.email.toLowerCase()}`, 10, "1 hour"))) return NextResponse.json({ error: "Demasiados intentos. Espera unos minutos o escríbenos por WhatsApp." }, { status: 429 });
   if (!(d.proveedor === "qr" ? qrActivo() : d.proveedor === "wompi" ? wompiActivo() : stripeActivo())) return NextResponse.json({ error: "Ese medio de pago aún no está activo. Escríbenos por WhatsApp y te ayudamos." }, { status: 503 });
   const referencia = nuevaReferencia(d.plan), monto = precio(d.plan, d.periodo);
+  // Renovación desde dentro (sesión normal o de consulta del dueño, con el NIT de su droguería): el pago queda ligado a la
+  // droguería desde el principio. Antes dependía de que el correo escrito fuera exactamente el del dueño; si no, el pago
+  // quedaba «por revisar» y la cuenta seguía suspendida aunque hubiera pagado.
+  const s = (await leerSesion()) ?? (await leerSesionConsulta());
+  const empresaId = s?.rol === "dueno" ? ((await sinRLS((c) => c.query(`select id from empresas where id = $1 and nit = $2 and not demo`, [s.empresa, nitSinDv(d.nit)]))).rows[0]?.id as string | undefined) ?? null : null;
   await sinRLS((c) => c.query(
-    `insert into pagos_suscripcion (referencia, plan, periodo, monto, proveedor, nombre, empresa, nit, email, telefono, acepta_terminos, version_terminos, ip)
-      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now(), $11, $12)`,
-    [referencia, d.plan, d.periodo, monto, d.proveedor, d.nombre, d.empresa, d.nit || null, d.email, d.telefono, VERSION_TERMINOS, ipCliente(req)]));
+    `insert into pagos_suscripcion (referencia, plan, periodo, monto, proveedor, nombre, empresa, nit, email, telefono, acepta_terminos, version_terminos, ip, empresa_id)
+      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now(), $11, $12, $13)`,
+    [referencia, d.plan, d.periodo, monto, d.proveedor, d.nombre, d.empresa, d.nit || null, d.email, d.telefono, VERSION_TERMINOS, ipCliente(req), empresaId]));
   // La gerencia sabe de cada intento de compra al instante (aunque no termine de pagar).
   await sinRLS((c) => avisar(c, `aviso:pago-inicio:${referencia}`, "pago_iniciado", { nombre: d.nombre, empresa: d.empresa, nit: d.nit, email: d.email, telefono: d.telefono, plan: d.plan === "pro" ? "Pro" : "Esencial", periodo: d.periodo, monto, proveedor: d.proveedor, referencia }));
   await enviarAhora(`pago-inicio:${referencia}`);
