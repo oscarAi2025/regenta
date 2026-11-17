@@ -27,6 +27,9 @@ export default async function Sistema() {
     rechazados: (await c.query(`select d.prefijo || d.numero doc, d.ultimo_error, d.actualizado, coalesce(e.nombre_comercial, e.razon_social) cliente from documentos_dian d join empresas e on e.id = d.empresa_id where d.estado = 'rechazado' and not e.demo order by d.actualizado desc limit 20`)).rows,
     invima: (await c.query(`select numero, titulo, fecha::text, creado from alertas_invima order by creado desc limit 5`)).rows,
     migraciones: (await c.query(`select nombre from regenta_migraciones order by nombre desc limit 3`).catch(() => ({ rows: [] }))).rows.map((x) => x.nombre as string),
+    // ¿Está la que necesita el código? Se pregunta por ella: con migraciones más nuevas ya aplicadas, la esperada queda
+    // fuera de las últimas 3 y antes salía un falso «Falta aplicar».
+    alDia: !!(await c.query(`select 1 from regenta_migraciones where nombre = $1`, [MIGRACION_ESPERADA]).catch(() => ({ rowCount: 0 }))).rowCount,
     tablas: (await c.query(`select (select count(*) from empresas)::int empresas, (select count(*) from cuentas)::int cuentas, (select count(*) from ventas)::int ventas, (select count(*) from productos)::int productos`)).rows[0],
   }));
   const n = (e: string) => d.dian.find((x) => x.estado === e)?.n ?? 0;
@@ -34,8 +37,8 @@ export default async function Sistema() {
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
       <Cabecera titulo="Sistema" sub="Cola de la DIAN, alertas del INVIMA y configuración del servidor." />
       {/* Antes de publicar código que usa una migración nueva, comprobar aquí que la base ya la tiene. */}
-      <section aria-label="Base de datos" className={`rounded-xl px-4 py-3 font-semibold ${d.migraciones.includes(MIGRACION_ESPERADA) ? "bg-cruz-soft text-cruz" : "bg-alerta-soft text-alerta"}`}>
-        {d.migraciones.includes(MIGRACION_ESPERADA) ? `Base de datos al día: ${MIGRACION_ESPERADA}` : `Falta aplicar en la base ${MIGRACION_ESPERADA} (la última aplicada es ${d.migraciones[0] ?? "ninguna"})`}
+      <section aria-label="Base de datos" className={`rounded-xl px-4 py-3 font-semibold ${d.alDia ? "bg-cruz-soft text-cruz" : "bg-alerta-soft text-alerta"}`}>
+        {d.alDia ? `Base de datos al día: ${MIGRACION_ESPERADA}` : `Falta aplicar en la base ${MIGRACION_ESPERADA} (la última aplicada es ${d.migraciones[0] ?? "ninguna"})`}
       </section>
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Dato titulo="DIAN pendientes" valor={n("pendiente") + n("enviando")} />
