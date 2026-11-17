@@ -56,9 +56,14 @@ try {
   const jp = await pos.json().catch(() => ({}));
   ok(pos.status() >= 400 && pos.status() < 500 && /solo con factura electrónica/.test(jp.error ?? ""), "el servidor no acepta un tiquete POS (no valdría ante la DIAN)", `${pos.status()} ${jp.error}`);
 
+  // AUD-01 (auditoría 17/11/2026): antes el botón quedaba activo pero el cobro fallaba con «necesita el correo del cliente».
+  const cf = (await (await p.request.get(B + "/api/clientes?q=222222222222")).json()).clientes?.find((x) => x.numero_doc === "222222222222");
+  const fcf = await p.request.post(B + "/api/ventas", { headers: { origin: B }, data: { idem_key: crypto.randomUUID(), tipo_doc: "factura", cliente_id: cf?.id, lineas: [{ producto_id: prod.id, presentacion: "unidad", cantidad: 1 }], pagos: [{ medio: "efectivo", valor: 100000 }] } });
+  const jcf = await fcf.json().catch(() => ({}));
+  ok(fcf.ok() && jcf.venta?.prefijo === "FGX", "la factura a consumidor final SIN correo se cobra de verdad", `${fcf.status()} ${JSON.stringify(jcf).slice(0, 200)}`);
   const cli = (await (await p.request.get(B + "/api/clientes?q=salud")).json()).clientes?.[0];
   const fv = await (await p.request.post(B + "/api/ventas", { headers: { origin: B }, data: { idem_key: crypto.randomUUID(), tipo_doc: "factura", cliente_id: cli?.id, lineas: [{ producto_id: prod.id, presentacion: "unidad", cantidad: 1 }], pagos: [{ medio: "efectivo", valor: 100000 }] } })).json();
-  ok(fv.venta?.prefijo === "FGX" && fv.venta?.numero === 1, "la factura sale con la numeración de producción", JSON.stringify(fv).slice(0, 200));
+  ok(fv.venta?.prefijo === "FGX" && fv.venta?.numero === 2, "la factura sale con la numeración de producción (consecutiva)", JSON.stringify(fv).slice(0, 200));
 
   // La página de inicio ya no pide la habilitación DIAN (factura en producción cuenta como habilitada)
   await p.goto(B + "/inicio");

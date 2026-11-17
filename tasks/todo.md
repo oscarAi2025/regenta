@@ -645,3 +645,16 @@ Misma rama (migración 050, después de la 049). Solo aditivo; lectura tolerante
 - [x] Producto (crear/editar), inventario (ver, editar en la fila, buscar, ordenar), caja y entregas (búsqueda),
       comprobante de entrega, conteo físico en el orden de la estantería, Excel de inventario, importación, bitácora, Regenta IA
 - [x] Pruebas: base (ubicacion-db), unitaria (importar), e2e ubicacion; regresión completa
+
+## Auditoría integral (17/11/2026, prompt maestro de Oscar) — rama audit/regenta-enterprise-quality, informe en AUDITORIA-REGENTA/
+- [x] Descubrimiento: inventario de 102 páginas y 160 endpoints (02), arquitectura (01)
+- [x] Batería base antes de tocar código (unidad/base + 43 suites e2e)
+- [x] DIAN (05), seguridad y multitenant (06), IA (08) revisados con evidencia archivo:línea
+- [x] Concurrencia real: última existencia, cobro duplicado en paralelo, entrada duplicada (concurrencia-db.test)
+- [x] Carga local 5/20/50/100 cajas con integridad 100 % (10)
+- [x] Correcciones con prueba: AUD-01 consumidor final, AUD-02 cierre ciego, AUD-03 pago manual idempotente, AUD-04 vendedor
+      sin inventario, AUD-05 correo de cliente, AUD-06 inactivos de Alegra, AUD-07 rentabilidad en IA, contraste AA
+- [ ] Regresión final completa en verde (12)
+- [ ] Oscar: aplicar bloque4-051.sql; poner REGENTA_ADMIN_DOS_PASOS=1 y REGENTA_CABECERA_IP en Netlify; fusionar la rama
+- [ ] Oscar: autorizar conteo y ajuste del saldo fantasma heredado de Alegra (montelukast 641 y 9 más)
+- [ ] Contador: ¿aplica el tope de 5 UVT al POS electrónico? Luego contingencia DIAN y estado «sin respuesta» (P1 pendientes)

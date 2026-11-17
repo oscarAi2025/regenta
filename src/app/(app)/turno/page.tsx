@@ -20,7 +20,7 @@ export default async function PaginaTurno() {
   const caja = await cajaElegida();
   const { estado, historial, cajas } = await comoUsuario(s, async (c) => ({
     cajas: (await c.query(`select id, nombre from cajas where empresa_id = $1 and activa order by nombre`, [s.empresa])).rows as { id: string; nombre: string }[],
-    estado: await estadoTurno(c, s.empresa, caja),
+    estado: await estadoTurno(c, s.empresa, caja, s.rol === "cajero"),
     historial: (await c.query(
       `select t.id, cj.nombre caja, to_char(t.abierto at time zone 'America/Bogota', 'DD/MM HH24:MI') abierto, to_char(t.cerrado at time zone 'America/Bogota', 'DD/MM HH24:MI') cerrado,
               ma.nombre abre, mc.nombre cierra, (t.resumen ->> 'ventas')::float ventas, t.efectivo_esperado::float esperado, t.efectivo_contado::float contado, t.diferencia::float diferencia

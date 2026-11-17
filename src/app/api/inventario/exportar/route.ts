@@ -7,6 +7,7 @@ import { ubicacionSql } from "@/lib/ubicacion";
 /** Inventario completo en Excel: una hoja por producto (existencias, precios, valor) y otra por lote (vencimiento, estado).
  *  Los costos solo salen para quien los puede ver (dueño y administrador). */
 export const GET = conSesion(async (s) => {
+  if (!puede.verInventario(s.rol)) return new Response(JSON.stringify({ error: "Tu rol no descarga el inventario" }), { status: 403, headers: { "content-type": "application/json" } });
   const costos = puede.verCostos(s.rol);
   const d = await comoUsuario(s, async (c) => {
     const U = await ubicacionSql(c);

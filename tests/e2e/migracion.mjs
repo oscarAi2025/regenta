@@ -39,7 +39,8 @@ const mig = (cuerpo) => llamar("POST", `/api/admin/clientes/${E}/migracion`, cue
 // Estado previo de VECINA: un producto que también está en Alegra (mismo nombre, otro lote) y otro que Alegra no tiene.
 const sede = (await q(`select id from sedes where empresa_id = $1 limit 1`, [E]))[0].id;
 const dueno = (await q(`select user_id from miembros where empresa_id = $1 and rol = 'dueno' limit 1`, [E]))[0].user_id;
-const conStock = productos.filter((p) => p.unidades > 0);
+// Los artículos inactivos con saldo no entran por defecto (saldo fantasma; ver migracion-inactivos.mjs).
+const conStock = productos.filter((p) => p.unidades > 0 && p.activo);
 const comun = conStock[0];
 const [pComun] = await q(`insert into productos (empresa_id, nombre, iva, precio_caja) values ($1, $2, 0, 1000) returning id`, [E, comun.nombre.toLowerCase()]);
 const [pViejo] = await q(`insert into productos (empresa_id, nombre, iva, precio_caja) values ($1, 'PRODUCTO QUE ALEGRA NO TIENE', 0, 1000) returning id`, [E]);

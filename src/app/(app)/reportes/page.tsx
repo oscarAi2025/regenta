@@ -78,7 +78,7 @@ export default async function Reportes({ searchParams }: { searchParams: Promise
         <section className="tarjeta p-5" aria-label="Ventas por día">
           <div className="flex justify-between items-baseline gap-2"><h2 className="titulo text-xl">Por día</h2>{exportar("dias", "Exportar a Excel")}</div>
           {d.dias.length ? (
-            <ul className="mt-3 grid gap-1.5 text-sm num max-h-[380px] overflow-auto pr-1">
+            <ul tabIndex={0} aria-label="Ventas por día (lista desplazable)" className="mt-3 grid gap-1.5 text-sm num max-h-[380px] overflow-auto pr-1">
               {d.dias.map((x) => (
                 <li key={x.dia} className="grid grid-cols-[88px_1fr_110px] items-center gap-2">
                   <span className="text-muted">{new Date(x.dia + "T12:00:00").toLocaleDateString("es-CO", { weekday: "short", day: "numeric", month: "short" })}</span>

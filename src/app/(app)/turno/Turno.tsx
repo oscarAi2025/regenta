@@ -83,20 +83,21 @@ export function Turno({ estado, dueno, ciego = false }: { estado: Estado; dueno:
         <div className="tarjeta p-5">
           <p className="text-sm text-muted">Turno abierto · {estado.caja.nombre} · desde {hora(t.abierto)}{t.abre ? ` · ${String(t.abre).split(" (")[0]}` : ""}</p>
           <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div><p className="text-sm text-muted">Ventas</p><p className="num titulo text-2xl">{pesos(r.ventas)}</p><p className="text-sm text-muted">{r.n_ventas} venta{r.n_ventas === 1 ? "" : "s"}{r.anuladas ? ` · ${r.anuladas} anulada${r.anuladas === 1 ? "" : "s"}` : ""}</p></div>
+            <div><p className="text-sm text-muted">Ventas</p>{ciego ? <p className="num titulo text-2xl">{r.n_ventas}</p> : <p className="num titulo text-2xl">{pesos(r.ventas)}</p>}<p className="text-sm text-muted">{ciego ? "" : `${r.n_ventas} `}venta{r.n_ventas === 1 ? "" : "s"}{r.anuladas ? ` · ${r.anuladas} anulada${r.anuladas === 1 ? "" : "s"}` : ""}</p></div>
             <div><p className="text-sm text-muted">Base</p><p className="num titulo text-2xl">{pesos(r.base)}</p></div>
             <div><p className="text-sm text-muted">Entradas / salidas</p><p className="num titulo text-2xl">{pesos(r.ingresos - r.egresos)}</p><p className="text-sm text-muted num">+{pesos(r.ingresos)} · −{pesos(r.egresos)}</p></div>
             {ciego
               ? <div><p className="text-sm text-muted">Efectivo esperado</p><p className="text-sm">Lo ves al cerrar, después de contar el cajón</p></div>
               : <div><p className="text-sm text-muted">Efectivo esperado</p><p className="num titulo text-2xl text-cruz">{pesos(r.efectivo_esperado)}</p></div>}
           </div>
-          <ul className="mt-4 grid sm:grid-cols-3 gap-2 text-sm num">
+          {ciego && <p className="mt-4 text-sm text-muted">Cierre ciego: los valores por medio de pago y el efectivo esperado los ves al cerrar, después de contar el cajón.</p>}
+          {!ciego && <ul className="mt-4 grid sm:grid-cols-3 gap-2 text-sm num">
             {Object.entries(r.medios).map(([m, v]) => <li key={m} className="rounded-xl bg-paper px-3 py-2 flex justify-between"><span>{MEDIO[m] ?? m}</span><span className="font-semibold">{pesos(v)}</span></li>)}
             {r.credito > 0 && <li className="rounded-xl bg-paper px-3 py-2 flex justify-between"><span>A crédito</span><span className="font-semibold">{pesos(r.credito)}</span></li>}
             {r.abonos_efectivo > 0 && <li className="rounded-xl bg-paper px-3 py-2 flex justify-between"><span>Abonos en efectivo</span><span className="font-semibold">{pesos(r.abonos_efectivo)}</span></li>}
             {Object.entries(r.abonos_medios ?? {}).filter(([m, v]) => m !== "efectivo" && Number(v) > 0).map(([m, v]) => <li key={`ab-${m}`} className="rounded-xl bg-paper px-3 py-2 flex justify-between"><span>Abonos por {MEDIO[m] ?? m}</span><span className="font-semibold">{pesos(Number(v))}</span></li>)}
             {(r.devoluciones ?? 0) > 0 && <li className="rounded-xl bg-paper px-3 py-2 flex justify-between"><span>Devoluciones ({r.n_devoluciones})</span><span className="font-semibold text-alerta">−{pesos(r.devoluciones ?? 0)}</span></li>}
-          </ul>
+          </ul>}
           <button className="mt-4 btn-borde h-10 text-sm" onClick={() => imprimirRuta(`/tiquete/turno/${t.id}`)}>Imprimir corte parcial</button>
         </div>
 

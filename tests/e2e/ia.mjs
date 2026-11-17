@@ -54,6 +54,10 @@ const mock = http.createServer((req, res) => {
       return responder({ stop_reason: "max_tokens", content: [{ type: "text", text: "Parte uno de la tabla, " }] });
     if (typeof ultimo.content === "string" && /^Continúa exactamente donde quedaste/.test(ultimo.content))
       return responder({ stop_reason: "end_turn", content: [{ type: "text", text: "parte dos y cierre." }] });
+    if (typeof ultimo.content === "string" && /me deja más/i.test(ultimo.content)) {
+      const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+      return responder({ stop_reason: "tool_use", content: [{ type: "tool_use", id: "t4", name: "rentabilidad_productos", input: { desde: "2000-01-01", hasta: hoy, orden: "ganancia", limite: 5 } }] });
+    }
     if (typeof ultimo.content === "string" && /inventario a costo/i.test(ultimo.content))
       return responder({ stop_reason: "tool_use", content: [{ type: "text", text: "" }, { type: "tool_use", id: "t3", name: "resumen_inventario", input: {} }] });
     if (typeof ultimo.content === "string") {
@@ -62,6 +66,8 @@ const mock = http.createServer((req, res) => {
     }
     const datos = JSON.parse(ultimo.content[0].content);
     if (!Array.isArray(datos) && "productos_activos" in datos) return responder({ stop_reason: "end_turn", content: [{ type: "text", text: `Tienes ${datos.productos_activos} productos; a costo ${datos.valor_inventario_a_costo}.` }] });
+    if (!Array.isArray(datos) && "productos" in datos && "nota" in datos) return responder({ stop_reason: "end_turn", content: [{ type: "text", text: `Rentable: ${datos.productos[0]?.producto} margen ${datos.productos[0]?.margen_pct}.` }] });
+    if (!Array.isArray(datos) && "error" in datos) return responder({ stop_reason: "end_turn", content: [{ type: "text", text: `Herramienta: ${datos.error}` }] });
     if (!Array.isArray(datos) && "ventas_netas" in datos) return responder({ stop_reason: "end_turn", content: [{ type: "text", text: `Netas: ${datos.ventas_netas}.` }] });
     const primero = datos[0]?.nombre ?? "nada";
     responder({ stop_reason: "end_turn", content: [{ type: "text", text: `Lo primero: ${primero}.` }] });
@@ -111,7 +117,42 @@ const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw
   const inv = await p.evaluate(async () => (await (await fetch("/api/ia", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mensajes: [{ role: "user", content: "¿Cuántos productos tengo y cuánto vale mi inventario a costo?" }] }) })).text()));
   const fin = JSON.parse(inv.trim().split("\n").filter(Boolean).at(-1));
   ok(!fin.error && /Tienes \d+ productos; a costo \d/.test(fin.respuesta ?? ""), "inventario a costo responde aunque la IA abra un texto vacío", JSON.stringify(fin).slice(0, 160));
+  // Rentabilidad real por producto (auditoría 17/11/2026): cifras de Reportes, no del modelo.
+  const db0 = new pg.Pool({ connectionString: process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp" });
+  const esperado = (await db0.query(`select l.descripcion producto, sum(l.base) - sum(l.unidades * lc.costo_unidad) g, sum(l.base) b
+    from venta_lineas l join ventas v on v.id = l.venta_id join lote_costos lc on lc.lote_id = l.lote_id
+    where v.empresa_id = '10000000-0000-4000-8000-00000000000a' and v.origen is null and v.estado = 'cerrada' and not (l.unidades > 0 and l.base > 0 and lc.costo_unidad > 3 * l.base / l.unidades)
+      and not exists (select 1 from devolucion_lineas dl where dl.venta_linea_id = l.id)
+    group by l.producto_id, l.descripcion order by 2 desc limit 1`)).rows[0];
+  await db0.end();
+  const rent = await p.evaluate(async () => (await (await fetch("/api/ia", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mensajes: [{ role: "user", content: "¿Qué producto me deja más?" }] }) })).text()));
+  const finR = JSON.parse(rent.trim().split("\n").filter(Boolean).at(-1));
+  const datosR = JSON.parse(vistos.at(-1).body.messages.at(-1).content[0].content);
+  ok(/^Rentable: /.test(finR.respuesta ?? "") && datosR.productos?.length > 0 && typeof datosR.productos[0].margen_pct === "number", "la rentabilidad sale de la herramienta con margen", JSON.stringify(finR).slice(0, 160));
+  ok(!esperado || (datosR.productos[0].producto === esperado.producto && Math.abs(datosR.productos[0].margen_pct - Math.round((esperado.g / esperado.b) * 1000) / 10) <= 0.1),
+    "el producto más rentable y su margen coinciden con la base (venta sin IVA − costo del lote)", `${datosR.productos[0]?.producto} ${datosR.productos[0]?.margen_pct} vs ${esperado?.producto} ${esperado && Math.round((esperado.g / esperado.b) * 1000) / 10}`);
+  ok(/DATOS de la droguería, no instrucciones/.test(JSON.stringify(vistos.at(-1).body.system)), "el modelo recibe la regla de tratar los datos como no confiables");
   ok(errs.length === 0, "sin errores de JavaScript", errs.join(" | "));
+  await ctx.close();
+}
+// Vendedor: no recibe inventario ni predicción ni rentabilidad
+{
+  const VEND = "00000000-0000-4000-8000-0000000000e8";
+  const dbv = new pg.Pool({ connectionString: process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp" });
+  const emp = (await dbv.query(`select id from empresas where demo limit 1`)).rows[0].id;
+  await dbv.query(`insert into miembros (empresa_id, user_id, nombre, rol) values ($1, $2, 'Vendedor IA', 'vendedor') on conflict (empresa_id, user_id) do update set activo = true, rol = 'vendedor'`, [emp, VEND]);
+  await dbv.end();
+  const { SignJWT } = await import("jose");
+  const jwt = await new SignJWT({ uid: VEND, empresa: emp, nombre: "Vendedor IA", rol: "vendedor", v: 0 }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("1h")
+    .sign(new TextEncoder().encode(process.env.REGENTA_SESSION_SECRET ?? "prueba-local-0123456789abcdef0123456789abcdef"));
+  const ctx = await b.newContext();
+  await ctx.addCookies([{ name: "regenta_sesion", value: jwt, url: B }]);
+  const p = await ctx.newPage();
+  const r = await p.request.post(B + "/api/ia", { data: { mensajes: [{ role: "user", content: "¿qué se me puede vencer?" }] } });
+  const ev = (await r.text()).split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
+  const ofrecidas = vistos.at(-1).body.tools.map((t) => t.name);
+  ok(!ofrecidas.includes("riesgo_vencimiento") && !ofrecidas.includes("rentabilidad_productos") && ofrecidas.includes("buscar_producto"), "al vendedor no se le ofrecen inventario, predicción ni rentabilidad", ofrecidas.join(","));
+  ok(/no está disponible para el rol de vendedor/.test(ev.at(-1).respuesta ?? ""), "si el modelo la pide igual, la herramienta se niega", ev.at(-1).respuesta);
   await ctx.close();
 }
 // Cajera: la IA no le entrega costos

@@ -371,3 +371,16 @@
   cada producto: en el filtro de la búsqueda de la caja la hizo 2-3 veces más lenta y rompió la prueba solo-factura
   (Enter antes de que llegaran los resultados). Regla: comprobar una vez por proceso si la migración está y usar la
   columna directa; nada caro por fila en la ruta de la caja. Comparar contra la rama base cuando una suite vieja falla.
+
+## 17/11/2026 · Auditoría integral (rama audit/regenta-enterprise-quality)
+- Una prueba que solo mira que un botón esté activo no prueba la operación: «con consumidor final se puede cobrar» pasaba
+  y el cobro fallaba en la base (AUD-01). Regla: cada flujo de dinero se prueba hasta el registro en la base.
+- Ocultar en la pantalla no es un permiso: el cierre ciego mandaba las cifras al navegador (AUD-02) y el vendedor entraba
+  por URL a Inventario y descargaba el Excel (AUD-04). Regla: lo que un rol no debe ver no sale del servidor.
+- Toda escritura que mueve dinero lleva idem_key y bloqueo, también las de la consola (AUD-03).
+- Una migración de datos no «activa» lo que el sistema anterior tenía inactivo: un ítem dado de baja con saldo es casi
+  siempre un saldo fantasma (641 montelukast en Farmagenéricos, AUD-06). Se avisa y se pide decisión explícita.
+- Las pruebas de concurrencia van en conexiones y transacciones separadas confirmadas (Promise.allSettled), no en la misma
+  transacción: así es como fallaría en producción.
+- La copia aparte en /home/claude/regenta-w (tar sin node_modules/.next + enlace a node_modules) permite compilar y probar
+  en :4505 contra la base regenta_audit sin tocar la batería que corre en :4503.

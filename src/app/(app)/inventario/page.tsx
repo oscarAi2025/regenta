@@ -23,6 +23,7 @@ const POR_PAGINA = 100;
 export default async function Inventario({ searchParams }: { searchParams: Promise<{ ver?: string; q?: string; pagina?: string; orden?: string }> }) {
   const s = await leerSesion();
   if (!s) redirect("/entrar");
+  if (!puede.verInventario(s.rol)) redirect("/inicio?aviso=permiso");
   const { ver = "vencen", q = "", pagina: pg = "1", orden: ord = "" } = await searchParams;
   const porUbicacion = ord === "ubicacion"; // recorrer la estantería en orden (acomodar, contar, surtir)
   const pagina = Math.min(Math.max(Number.parseInt(pg, 10) || 1, 1), 10000);

@@ -75,4 +75,7 @@ export const puede = {
   /** Vender a crédito: la gerencia (también a clientes sin cupo, o pasándose con un motivo) y la cajera dentro del cupo
    *  del cliente. La base (registrar_venta → credito_cliente) es la que decide cada venta. */
   fiar: (r: Rol) => r === "dueno" || r === "admin" || r === "cajero",
+  /** Ver inventario, productos y alertas: todos menos el vendedor (no los tiene en su menú; antes entraba por URL y
+   *  descargaba el Excel del inventario completo. Auditoría 17/11/2026, AUD-04). Para vender busca en Pedidos. */
+  verInventario: (r: Rol) => r !== "vendedor",
 };

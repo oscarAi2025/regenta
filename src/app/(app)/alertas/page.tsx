@@ -16,6 +16,7 @@ const RESULTADO: Record<string, string> = { separado: "Producto separado", sin_l
 export default async function Alertas() {
   const s = await leerSesion();
   if (!s) redirect("/entrar");
+  if (!puede.verInventario(s.rol)) redirect("/inicio?aviso=permiso");
   const filas: Fila[] = await comoUsuario(s, async (c) => (await c.query(`select alerta_id::int, numero, tipo, titulo, motivo, fecha::text, url, pdf, recomendacion, producto_id, producto, nivel, lote, unidades, revisada,
     to_char(revisada_el at time zone 'America/Bogota', 'DD/MM/YYYY HH24:MI') revisada_el from alertas_empresa($1) order by fecha desc, numero desc`, [s.empresa])).rows);
   const ultima = await comoUsuario(s, async (c) => (await c.query(`select to_char(max(creado) at time zone 'America/Bogota', 'DD/MM/YYYY HH24:MI') t from alertas_invima`)).rows[0].t as string | null);

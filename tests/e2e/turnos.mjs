@@ -3,6 +3,7 @@
 // Uso: servidor en :4500 (REGENTA_DEMO=1) con la base recién sembrada → node tests/e2e/turnos.mjs
 import { chromium } from "playwright-core";
 import pg from "pg";
+import { resumenTurno } from "../ayudas/turno.mjs";
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL ?? "postgres://postgres@localhost:5433/regenta?host=/tmp" });
 
 const B = process.env.BASE ?? "http://localhost:4500";
@@ -67,7 +68,16 @@ const estado = (p) => p.evaluate(async () => (await fetch("/api/turnos")).json()
   ok(num(cambioTexto) === 50000 - (total2 - 10000), "pago mixto: el cambio sale solo sobre el efectivo", cambioTexto);
 
   const e1 = await estado(p);
-  const r = e1.turno.resumen;
+  // AUD-02 · cierre ciego: a la cajera no le llega ninguna cifra de la que salga el efectivo esperado.
+  const rc = e1.turno.resumen;
+  ok(rc.ciego === true && !("efectivo_esperado" in rc) && !("medios" in rc) && !("efectivo_ventas" in rc) && !("ventas" in rc) && rc.n_ventas >= 2,
+    "cierre ciego: la cajera no recibe esperado, medios ni ventas en efectivo", JSON.stringify(rc));
+  const parcial = await ctx.newPage();
+  await parcial.goto(B + `/tiquete/turno/${e1.turno.id}`);
+  const txtP = await parcial.locator("main").innerText();
+  ok(/CORTE PARCIAL/.test(txtP) && !/Ventas en efectivo|Esperado|Total vendido/.test(txtP) && /Cierre ciego/.test(txtP), "el corte parcial de la cajera tampoco trae cifras del efectivo", txtP.slice(0, 300));
+  await parcial.close();
+  const r = await resumenTurno(pool, e1.turno.id);
   ok(Number(r.medios.tarjeta) === 10000, "el turno separa lo pagado con tarjeta", `${r.medios.tarjeta}`);
   ok(Number(r.efectivo_ventas) === total + total2 - 10000, "el efectivo del turno es lo cobrado sin el cambio", `${r.efectivo_ventas} = ${total + total2 - 10000}`);
   ok(Number(r.efectivo_esperado) === 100000 + total + total2 - 10000 - 15000, "esperado = base + ventas en efectivo − salidas", `${r.efectivo_esperado}`);

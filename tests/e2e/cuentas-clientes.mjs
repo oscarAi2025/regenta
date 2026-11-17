@@ -9,6 +9,7 @@ import { esXlsx, filasXlsx, textoXlsx } from "../ayudas/xlsx.mjs";
 import { chromium, devices } from "playwright-core";
 import { mkdirSync } from "node:fs";
 import pg from "pg";
+import { resumenTurno } from "../ayudas/turno.mjs";
 
 const B = process.env.BASE ?? "http://localhost:4500";
 const OUT = process.env.OUT ?? "test-results/cuentas-clientes";
@@ -184,11 +185,12 @@ let rc;
     "el recibo de $170.000 paga primero la factura que vence antes y el resto va a la otra", JSON.stringify(ap.map((a) => [a.factura, a.valor])));
   ok(rc?.turno_id === t2.j.turno && rc?.caja_id === C2, "el recibo queda en la caja 2 y en su turno");
   ok(await p.getByText(`Queda debiendo ${$(deuda - 170000)}.`).count() === 1, "la pantalla confirma lo que queda debiendo");
-  const r2 = (await api(p, "/api/turnos")).j.turno.resumen, r1 = (await api(D.p, "/api/turnos")).j.turno.resumen;
+  const r2 = await resumenTurno(pool, (await api(p, "/api/turnos")).j.turno.id), r1 = (await api(D.p, "/api/turnos")).j.turno.resumen;
   ok(Number(r2.abonos_efectivo) === 170000 && Number(r2.efectivo_esperado) === 170000, "el efectivo del abono entra al turno de la caja 2", JSON.stringify({ a: r2.abonos_efectivo, e: r2.efectivo_esperado }));
   ok(Number(r1.abonos_efectivo) === 0, "y no se duplica en el turno de la caja 1", String(r1.abonos_efectivo));
   await ir(p, "/turno");
-  ok(await p.getByText("Abonos en efectivo").count() === 1, "Turno muestra los abonos en efectivo del turno");
+  // Cierre ciego (AUD-02): con el turno abierto la cajera no ve los abonos en efectivo (sumados darían el esperado).
+  ok(await p.getByText("Abonos en efectivo").count() === 0 && await p.getByText(/Cierre ciego/).count() === 1, "Turno de la cajera: cierre ciego, sin cifras del efectivo");
   // Tirilla del recibo (80 mm)
   const t = await p.context().newPage();
   await t.goto(`${B}/tiquete/recibo/${rc.id}`); await t.waitForLoadState("networkidle");
@@ -211,14 +213,14 @@ let rc;
   ok(await ec.getByText("ESTADO DE CUENTA", { exact: true }).count() === 1 && await ec.title() === "Estado de cuenta · Regenta" && await ec.getByText(`Saldo${$(ficha)}`).count() + await ec.locator(".fila.fuerte", { hasText: $(ficha) }).count() >= 1, "estado de cuenta imprimible con el saldo");
   await ec.screenshot({ path: `${OUT}/estado-cuenta-tirilla.png`, fullPage: true });
   await ec.close();
-  const tAntes = Number((await api(L2.p, "/api/turnos")).j.turno.resumen.efectivo_esperado);
+  const tAntes = Number((await resumenTurno(pool, (await api(L2.p, "/api/turnos")).j.turno.id)).efectivo_esperado);
   await p.getByRole("button", { name: `Anular el recibo RC-${rc.numero}` }).click();
   await p.getByRole("textbox", { name: "Motivo de la anulación" }).fill("Se registró en el cliente equivocado");
   await Promise.all([p.waitForURL(/anulado=/), p.getByRole("button", { name: "Anular recibo" }).click()]);
   await p.waitForLoadState("networkidle");
   ok(await p.getByText(`Recibo RC-${rc.numero} anulado`).count() === 1, "la ficha confirma la anulación");
   ok(await saldoVista() === Number(f1.total) + Number(f2.total), "anular el recibo restituye los saldos");
-  const tDesp = Number((await api(L2.p, "/api/turnos")).j.turno.resumen.efectivo_esperado);
+  const tDesp = Number((await resumenTurno(pool, (await api(L2.p, "/api/turnos")).j.turno.id)).efectivo_esperado);
   ok(tAntes - tDesp === 170000, "y el efectivo esperado del turno baja lo anulado", `${tAntes} → ${tDesp}`);
   ok(Number(await p.locator("tfoot [data-saldo]").getAttribute("data-saldo")) === await saldoVista(), "tras anular, el estado de cuenta sigue cuadrando");
   ok((await api(L.p, `/api/recibos/${rc.id}`, "DELETE", { motivo: "prueba cajera" })).status === 403, "la cajera no anula recibos (403)");
@@ -367,7 +369,7 @@ let rc;
 // Cierre: turnos de la prueba cerrados y la caja 2 desactivada (las demás suites esperan una sola caja).
 for (const ctx of [L2, D]) {
   const t = (await api(ctx.p, "/api/turnos")).j.turno;
-  if (t) await api(ctx.p, "/api/turnos", "POST", { accion: "cerrar", turno: t.id, contado: Number(t.resumen.efectivo_esperado) });
+  if (t) await api(ctx.p, "/api/turnos", "POST", { accion: "cerrar", turno: t.id, contado: Number((await resumenTurno(pool, t.id)).efectivo_esperado) });
 }
 await pool.query(`update cajas set activa = false where id = $1`, [C2]);
 for (const [n, x] of [["dueño", D], ["cajera", L], ["cajera caja 2", L2]]) ok(sinProvocados(x.p, x.errs).length === 0, `sin errores de consola (${n})`, x.errs.join(" | "));

@@ -68,7 +68,7 @@ export function Navegacion({ rol, demo = false, interno = false }: { rol: string
         if (!items.length) return null;
         return (
           <div key={titulo || "inicio"} className="contents lg:block lg:mb-1.5">
-            {titulo && !items.every((i) => "soloCelular" in i || PIE.includes(i.href)) && <p className="hidden lg:block px-3 pt-1 pb-0.5 text-[11.5px] font-semibold text-white/45">{interno && titulo === "Vender" ? "Entregar" : titulo}</p>}
+            {titulo && !items.every((i) => "soloCelular" in i || PIE.includes(i.href)) && <p className="hidden lg:block px-3 pt-1 pb-0.5 text-[11.5px] font-semibold text-white/75">{interno && titulo === "Vender" ? "Entregar" : titulo}</p>}
             {items.map((i) => {
               const on = i.href === activa;
               return (

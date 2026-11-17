@@ -38,6 +38,8 @@ export default async function CierreTurno({ params, searchParams }: { params: Pr
   if (!d) notFound();
   const { t, r, movs } = d;
   const cerrado = t.estado === "cerrado";
+  // Cierre ciego (AUD-02): en el corte parcial la cajera no ve cifras de las que salga el efectivo esperado.
+  const ciego = !cerrado && s.rol === "cajero";
   const n = (x: unknown) => Number(x ?? 0);
   const fila = (a: string, b: string, fuerte = false) => <p className={`fila${fuerte ? " fuerte" : ""}`}><span>{a}</span><span>{b}</span></p>;
   const nombre = (x: string | null) => String(x ?? "").split(" (")[0];
@@ -68,6 +70,7 @@ export default async function CierreTurno({ params, searchParams }: { params: Pr
       {cerrado && fila("Cerró", nombre(t.cierra_nombre))}
       <hr />
       {fila("Ventas", `${r.n_ventas}`)}
+      {ciego ? <><hr /><p>Cierre ciego: los valores de venta y el efectivo esperado salen en el cierre, después de contar el cajón.</p><hr /><p className="b">Efectivo</p></> : <>
       {fila("Total vendido", pesos(n(r.ventas)), true)}
       {fila("IVA incluido", pesos(n(r.iva)))}
       {r.anuladas > 0 && fila("Ventas anuladas", `${r.anuladas}`)}
@@ -82,12 +85,13 @@ export default async function CierreTurno({ params, searchParams }: { params: Pr
       </>}
       <hr />
       <p className="b">Efectivo</p>
+      </>}
       {fila("Base", pesos(n(r.base)))}
-      {fila("+ Ventas en efectivo", pesos(n(r.efectivo_ventas)))}
-      {n(r.abonos_efectivo) > 0 && fila("+ Abonos de cartera", pesos(n(r.abonos_efectivo)))}
+      {!ciego && fila("+ Ventas en efectivo", pesos(n(r.efectivo_ventas)))}
+      {!ciego && n(r.abonos_efectivo) > 0 && fila("+ Abonos de cartera", pesos(n(r.abonos_efectivo)))}
       {fila("+ Entradas", pesos(n(r.ingresos)))}
       {fila("− Salidas", pesos(n(r.egresos)))}
-      {n(r.devoluciones_efectivo) > 0 && fila("− Devoluciones en efectivo", pesos(n(r.devoluciones_efectivo)))}
+      {!ciego && n(r.devoluciones_efectivo) > 0 && fila("− Devoluciones en efectivo", pesos(n(r.devoluciones_efectivo)))}
       {/* Cierre ciego: la cajera no ve el esperado en el corte parcial (lo ve en el cierre). */}
       {(cerrado || s.rol !== "cajero") && fila("= Esperado en caja", pesos(n(r.efectivo_esperado)), true)}
       {cerrado && <>

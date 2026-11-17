@@ -34,7 +34,10 @@ export const POST = conSesion(async (s, req) => {
     `insert into clientes (empresa_id, tipo_doc, numero_doc, dv, nombre, email, telefono, autoriza_datos)
      values ($1, $2, $3, $4, $5, $6, $7, $8)
      on conflict (empresa_id, tipo_doc, numero_doc) do update set nombre = case when $9 then excluded.nombre else clientes.nombre end, -- la cajera no renombra clientes existentes
-       email = coalesce(excluded.email, clientes.email), telefono = coalesce(excluded.telefono, clientes.telefono),
+       -- La cajera completa el correo o el teléfono que falten, pero no reemplaza los que ya hay (AUD-05: así se desviaban
+       -- las facturas electrónicas de un cliente a otro correo sin auditoría); cambiarlos es de la gerencia (clientes/[id]/correo).
+       email = case when $9 then coalesce(excluded.email, clientes.email) else coalesce(clientes.email, excluded.email) end,
+       telefono = case when $9 then coalesce(excluded.telefono, clientes.telefono) else coalesce(clientes.telefono, excluded.telefono) end,
        autoriza_datos = clientes.autoriza_datos or excluded.autoriza_datos
      returning ${CAMPOS}`,
     [s.empresa, d.tipo_doc, d.numero_doc, d.tipo_doc === "NIT" ? dvNit(d.numero_doc) : null, d.nombre, d.email || null, d.telefono || null, d.autoriza_datos, puede.verCostos(s.rol)])).rows[0]);

@@ -20,7 +20,7 @@ export function Cumplimiento({ claro = false }: { claro?: boolean }) {
             </li>
           ))}
         </ul>
-        <p className={`mt-5 text-[11px] ${claro ? "text-muted" : "text-white/40"}`}>Referencia a las normas que Regenta ayuda a cumplir; no implica aval ni certificación de esas entidades.</p>
+        <p className={`mt-5 text-[11px] ${claro ? "text-muted" : "text-white/70"}`}>Referencia a las normas que Regenta ayuda a cumplir; no implica aval ni certificación de esas entidades.</p>
       </div>
     </section>
   );

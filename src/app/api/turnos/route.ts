@@ -15,7 +15,7 @@ const Accion = z.discriminatedUnion("accion", [
   z.object({ accion: z.literal("exigir"), valor: z.boolean() }),
 ]);
 
-export const GET = conSesion(async (s) => { const caja = await cajaElegida(); return json(await comoUsuario(s, (c) => estadoTurno(c, s.empresa, caja))); });
+export const GET = conSesion(async (s) => { const caja = await cajaElegida(); return json(await comoUsuario(s, (c) => estadoTurno(c, s.empresa, caja, s.rol === "cajero"))); });
 
 export const POST = conSesion(async (s, req) => {
   if (!puede.vender(s.rol)) return json({ error: "Solo quien vende maneja el turno de caja" }, 403); // el permiso se mira antes que los datos

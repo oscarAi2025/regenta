@@ -49,7 +49,10 @@ const Venta = z.object({
   .refine((v) => v.devuelto <= v.total + 1, { message: "Hay una venta con notas crédito por más de su total: revisa el archivo" })
   .refine((v) => v.fecha_hora.slice(0, 10) <= new Date(Date.now() + 2 * 864e5).toISOString().slice(0, 10), { message: "Hay una venta con fecha futura: revisa el archivo" });
 const Peticion = z.discriminatedUnion("parte", [
-  z.object({ parte: z.literal("productos"), simular: z.boolean(), reemplazar: z.boolean(), filas: z.array(Producto).min(1).max(5000)
+  // inactivos: qué hacer con los artículos INACTIVOS en el sistema anterior que aún muestran existencias. Por defecto se
+  // omiten (quedan inactivos y en cero): un artículo dado de baja con saldo suele ser un saldo fantasma (auditoría 17/11/2026:
+  // 641 unidades de montelukast inexistentes entraron a la caja así). Solo con «importar» entran como antes.
+  z.object({ parte: z.literal("productos"), simular: z.boolean(), reemplazar: z.boolean(), inactivos: z.enum(["omitir", "importar"]).default("omitir"), filas: z.array(Producto).min(1).max(5000)
     .superRefine((fs, ctx) => { const vistos = new Set<string>(), rep = new Set<string>(); for (const f of fs) (vistos.has(f.externo_id) ? rep : vistos).add(f.externo_id);
       if (rep.size) ctx.addIssue({ code: "custom", message: `El archivo repite el id de Alegra de ${rep.size} producto(s): ${[...rep].slice(0, 5).join(", ")}` }); }) }),
   z.object({ parte: z.literal("clientes"), simular: z.boolean(), filas: z.array(Cliente).min(1).max(5000) }),
@@ -94,6 +97,9 @@ async function productos(emp: string, dueno: string, admin: string, d: Extract<P
     const porEan = new Map(ex.filter((e) => e.ean).map((e) => [e.ean!, e]));
     const porNombre = new Map<string, (typeof ex)[number]>();
     for (const e of ex) { const k = claveNombre(e.nombre, ""), k2 = claveNombre(e.nombre, e.laboratorio ?? ""); for (const x of [k, k2]) if (!porNombre.has(x) || e.activo) porNombre.set(x, e); }
+    // Artículos inactivos con existencias: se informan siempre y, salvo que se pida importarlos, entran inactivos y en cero.
+    const inactivosConExistencias = d.filas.filter((f) => !f.activo && f.unidades > 0).map((f) => ({ nombre: f.nombre, unidades: f.unidades }));
+    if (d.inactivos === "omitir") d = { ...d, filas: d.filas.map((f) => (!f.activo && f.unidades > 0 ? { ...f, unidades: 0 } : f)) };
     const usados = new Set<string>();
     const resumen = { crear: 0, actualizar: 0, por_ean: 0, por_nombre: 0, lotes_nuevos: 0, lotes_ajustados: 0, en_cero: 0, unidades: 0, valor_costo: 0 };
     const detalle: { nombre: string; accion: string; antes: number; despues: number }[] = [];
@@ -156,7 +162,9 @@ async function productos(emp: string, dueno: string, admin: string, d: Extract<P
     const quedo = new Map((await c.query(`select producto_id, sum(unidades)::int u from v_stock_lotes where empresa_id = $1 and sede_id = $2 and producto_id = any($3) group by 1`, [emp, sede, ids])).rows.map((x) => [x.producto_id as string, x.u as number]));
     const mal = [...new Set(ids)].filter((pid) => (quedo.get(pid) ?? 0) !== (objetivo.get(pid)?.unidades ?? 0));
     if (mal.length) throw aviso(`Las existencias no cuadran en ${mal.length} productos tras la migración`);
-    return { resumen: { ...resumen, valor_costo: Math.round(resumen.valor_costo) }, cambios: detalle.sort((x, y) => x.nombre.localeCompare(y.nombre)).slice(0, 1500), simulado: d.simular };
+    return { resumen: { ...resumen, valor_costo: Math.round(resumen.valor_costo), inactivos_con_existencias: inactivosConExistencias.length },
+      cambios: detalle.sort((x, y) => x.nombre.localeCompare(y.nombre)).slice(0, 1500), simulado: d.simular,
+      inactivos: { decision: d.inactivos, lista: inactivosConExistencias.sort((x, y) => y.unidades - x.unidades).slice(0, 1500) } };
   });
 }
 

@@ -2,12 +2,13 @@
 import { useState } from "react";
 
 type Archivo = { productos?: unknown[]; clientes?: unknown[]; proveedores?: unknown[]; ventas?: unknown[] };
-type Paso = { parte: string; resumen: Record<string, number>; cambios?: { nombre: string; accion: string; antes: number; despues: number }[] };
+type Paso = { parte: string; resumen: Record<string, number>; cambios?: { nombre: string; accion: string; antes: number; despues: number }[];
+  inactivos?: { decision: "omitir" | "importar"; lista: { nombre: string; unidades: number }[] } };
 const PARTES = ["clientes", "proveedores", "productos", "ventas"] as const;
 const NOMBRE: Record<string, string> = { clientes: "Clientes", proveedores: "Proveedores", productos: "Productos y existencias", ventas: "Historial de ventas y cartera" };
 const ETIQUETA: Record<string, string> = {
   crear: "nuevos", completar: "completados", iguales: "sin cambios", actualizar: "ya existían", por_ean: "por código de barras", por_nombre: "por nombre",
-  lotes_nuevos: "lotes que entran", lotes_ajustados: "lotes ajustados", en_cero: "productos que quedan en cero", unidades: "unidades finales", valor_costo: "valor a costo",
+  lotes_nuevos: "lotes que entran", lotes_ajustados: "lotes ajustados", en_cero: "productos que quedan en cero", unidades: "unidades finales", valor_costo: "valor a costo", inactivos_con_existencias: "artículos inactivos con existencias en Alegra",
   historial_nuevas: "documentos al historial", historial_ya_estaban: "ya estaban", historial_actualizadas: "puestos al día con Alegra (estado o saldo)",
   plazo_recortado: "con plazo de más de 180 días (queda su vencimiento de Alegra)",
   cartera_pagada_en_alegra: "facturas pagadas en Alegra durante el cambio (abonadas en cartera)", valor_pagado_en_alegra: "pagado en Alegra", cartera_nuevas: "facturas a cartera", cartera_ya_estaban: "en cartera ya", saldo_cartera: "saldo de cartera", sin_cliente: "sin cliente",
@@ -24,6 +25,7 @@ export function Migracion({ empresa }: { empresa: string }) {
   const [ocupado, setOcupado] = useState<"" | "simular" | "aplicar">("");
   const [simulado, setSimulado] = useState(false);
   const [listo, setListo] = useState(false);
+  const [importarInactivos, setImportarInactivos] = useState(false);
 
   async function leer(f: File | undefined) {
     setError(""); setPasos([]); setSimulado(false); setListo(false); setDatos(null);
@@ -48,11 +50,12 @@ export function Migracion({ empresa }: { empresa: string }) {
         const total: Paso = { parte, resumen: {} };
         for (const t of trozos) {
           const r = await fetch(`/api/admin/clientes/${empresa}/migracion`, { method: "POST", headers: { "content-type": "application/json" },
-            body: JSON.stringify({ parte, simular, ...(parte === "productos" ? { reemplazar: true } : {}), filas: t }) });
+            body: JSON.stringify({ parte, simular, ...(parte === "productos" ? { reemplazar: true, inactivos: importarInactivos ? "importar" : "omitir" } : {}), filas: t }) });
           const j = await r.json().catch(() => ({}));
           if (!r.ok) throw new Error(`${NOMBRE[parte]}: ${j.error ?? `error ${r.status}`}`);
           for (const [k, v] of Object.entries(j.resumen as Record<string, number>)) total.resumen[k] = (total.resumen[k] ?? 0) + v;
           if (j.cambios) total.cambios = j.cambios;
+          if (j.inactivos) total.inactivos = j.inactivos;
         }
         hechos.push(total); setPasos([...hechos]);
       }
@@ -73,6 +76,10 @@ export function Migracion({ empresa }: { empresa: string }) {
       </label>
       {datos && <p className="text-sm">{nombre}: {PARTES.filter((p) => cuenta(p)).map((p) => `${cuenta(p).toLocaleString("es-CO")} ${p}`).join(" · ")}</p>}
       {error && <p role="alert" className="text-sm font-semibold text-alerta">{error}</p>}
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" className="mt-1" checked={importarInactivos} onChange={(e) => { setImportarInactivos(e.target.checked); setSimulado(false); setListo(false); setPasos([]); }} />
+        <span>Importar también las existencias de artículos <b>inactivos</b> en Alegra. Por defecto no: un artículo dado de baja con saldo suele ser un saldo que no existe en la bodega (entra inactivo y en cero). Actívalo solo si el cliente confirma que esas unidades están en físico.</span>
+      </label>
       <div className="flex flex-wrap gap-2">
         <button className="btn-borde" disabled={!datos || !!ocupado} onClick={() => void correr(true)}>{ocupado === "simular" ? "Simulando…" : "Simular"}</button>
         <button className="btn-primario" disabled={!datos || !simulado || !!ocupado || listo} onClick={() => void correr(false)}>{ocupado === "aplicar" ? "Aplicando…" : "Aplicar migración"}</button>
@@ -84,6 +91,12 @@ export function Migracion({ empresa }: { empresa: string }) {
             <div key={p.parte} className="rounded-xl border border-line p-3 text-sm">
               <p className="font-semibold">{NOMBRE[p.parte]}</p>
               <p className="num">{Object.entries(p.resumen).filter(([, v]) => v).map(([k, v]) => `${(k === "valor_costo" || k === "saldo_cartera" || k === "valor_pagado_en_alegra" ? "$" : "") + Math.round(v).toLocaleString("es-CO")} ${ETIQUETA[k] ?? k}`).join(" · ") || "sin cambios"}</p>
+              {p.inactivos && p.inactivos.lista.length > 0 && (
+                <details className="mt-1" open={p.inactivos.decision === "importar"}>
+                  <summary className="cursor-pointer font-semibold text-alerta">{p.inactivos.lista.length} artículos inactivos en Alegra tienen existencias: {p.inactivos.decision === "importar" ? "SE IMPORTAN (confirma que están en físico)" : "no se importan (quedan inactivos y en cero)"}</summary>
+                  <ul className="mt-1 max-h-64 overflow-auto num">{p.inactivos.lista.map((x, i) => <li key={i}>{x.nombre}: {x.unidades.toLocaleString("es-CO")} unidades</li>)}</ul>
+                </details>
+              )}
               {p.cambios && p.cambios.length > 0 && (
                 <details className="mt-1"><summary className="cursor-pointer text-muted">{p.cambios.length} productos cambian de existencias</summary>
                   <ul className="mt-1 max-h-64 overflow-auto num">{p.cambios.map((c, i) => <li key={i}>{c.nombre}: {c.antes} → {c.despues} ({c.accion})</li>)}</ul>

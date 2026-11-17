@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { comoUsuario, sinComodines } from "@/lib/db";
 import { leerSesion } from "@/lib/sesion";
 import { puedePrecios } from "@/lib/precios";
+import { puede } from "@/lib/sesion";
 import { Cabecera, existenciasTexto, pesos } from "@/components/ui/Cabecera";
 import { Paginas } from "@/components/ui/Paginas";
 
@@ -11,6 +12,7 @@ export const metadata = { title: "Productos" };
 export default async function Productos({ searchParams }: { searchParams: Promise<{ q?: string; ver?: string; pagina?: string }> }) {
   const s = await leerSesion();
   if (!s) redirect("/entrar");
+  if (!puede.verInventario(s.rol)) redirect("/inicio?aviso=permiso");
   const { q = "", ver = "", pagina: pg = "1" } = await searchParams;
   const POR_PAGINA = 50;
   const pagina = Math.max(1, Math.min(1000, Number.parseInt(pg, 10) || 1));

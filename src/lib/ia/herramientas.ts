@@ -1,6 +1,7 @@
 import "server-only";
 import { comoUsuario, sinComodines } from "../db";
 import { puede, type Sesion } from "../sesion";
+import { COSTO_POR_REVISAR } from "../reportes";
 
 // Herramientas de SOLO LECTURA que Regenta IA puede usar. Todas corren como el usuario (seguridad por fila):
 // la IA ve exactamente lo que ese usuario ve, ni más ni menos. Los costos solo aparecen para dueño/administrador.
@@ -13,7 +14,7 @@ export const HERRAMIENTAS: Herramienta[] = [
     input_schema: { type: "object", properties: { desde: { type: "string", description: "Fecha inicial AAAA-MM-DD" }, hasta: { type: "string", description: "Fecha final AAAA-MM-DD (incluida)" } }, required: ["desde", "hasta"] } },
   { name: "buscar_producto", description: "Busca productos por nombre, laboratorio o código de barras. Devuelve precios, existencias vigentes, lotes con vencimiento, ritmo de venta y días de cobertura.",
     input_schema: { type: "object", properties: { texto: { type: "string", description: "Palabras del nombre o código de barras" } }, required: ["texto"] } },
-  { name: "pedido_sugerido", description: "Productos que se venden y no alcanzan para los próximos 18 días, con las cajas sugeridas a pedir, el precio de venta por caja y (dueño y administrador) el último costo, el margen y el valor estimado del pedido. Úsala para preguntas de pedido, margen o cuánto vale el pedido en vez de buscar producto por producto.",
+  { name: "pedido_sugerido", description: "Productos que se venden y no alcanzan para los próximos 18 días, con las cajas sugeridas a pedir, el precio de venta por caja y (dueño y administrador) el último costo, el margen y el valor estimado del pedido. Úsala para preguntas de qué pedir o cuánto vale el pedido en vez de buscar producto por producto (para el margen de lo YA vendido usa rentabilidad_productos).",
     input_schema: { type: "object", properties: { limite: { type: "number", description: "Máximo de productos (por defecto 20)" } } } },
   { name: "riesgo_vencimiento", description: "Lotes que, al ritmo de venta actual, no se alcanzarán a vender antes de vencer (próximos 6 meses), con unidades y valor en riesgo.",
     input_schema: { type: "object", properties: { limite: { type: "number", description: "Máximo de lotes (por defecto 20)" } } } },
@@ -25,6 +26,9 @@ export const HERRAMIENTAS: Herramienta[] = [
     input_schema: { type: "object", properties: {} } },
   { name: "costos_proveedores", description: "Lo que le cuesta cada producto según las facturas de compra registradas (últimos 12 meses): por proveedor, el último costo por unidad sin IVA, el más bajo y la fecha; quién lo vende más barato y cuánto subió el costo. Úsala para «¿a quién le compro más barato…?», «¿subió el precio de…?» o para comparar proveedores.",
     input_schema: { type: "object", properties: { texto: { type: "string", description: "Producto o principio activo (opcional; sin texto, los productos con más compras)" }, proveedor: { type: "string", description: "Nombre del proveedor (opcional)" } } } },
+  { name: "rentabilidad_productos", description: "Ganancia y margen REALES por producto entre dos fechas (AAAA-MM-DD, zona Bogotá), igual que Reportes: venta sin IVA neta de lo devuelto, costo de lo vendido con el costo del lote que salió en cada venta, ganancia y margen % sobre la venta sin IVA. Solo cuenta las líneas con costo válido; lo vendido sin costo o con costo por revisar se informa aparte y NO entra en el margen. Úsala para «¿qué me deja más?», «margen de…», «productos más rentables» o «los que menos dejan».",
+    input_schema: { type: "object", properties: { desde: { type: "string", description: "Fecha inicial AAAA-MM-DD" }, hasta: { type: "string", description: "Fecha final AAAA-MM-DD (incluida)" },
+      orden: { type: "string", description: "«ganancia» (por defecto), «margen» o «menor_margen»" }, limite: { type: "number", description: "Máximo de productos (por defecto 20)" } }, required: ["desde", "hasta"] } },
   { name: "patron_semanal", description: "Qué días de la semana vende más o menos la droguería (últimas 8 semanas), como porcentaje frente al promedio.",
     input_schema: { type: "object", properties: {} } },
 ];
@@ -34,12 +38,17 @@ const limite = (n: unknown, def = 20) => Math.max(1, Math.min(50, Math.floor(Num
 
 /** Ejecuta una herramienta y devuelve datos en JSON (o un error legible para la IA). */
 /** Cifras del negocio (ventas totales, patrón semanal): solo dueño y administrador. */
-const SOLO_GERENCIA = new Set(["resumen_ventas", "patron_semanal", "costos_proveedores"]);
-export const herramientasPara = (rol: string) => (puede.verCostos(rol as Sesion["rol"]) ? HERRAMIENTAS : HERRAMIENTAS.filter((h) => !SOLO_GERENCIA.has(h.name)));
+const SOLO_GERENCIA = new Set(["resumen_ventas", "patron_semanal", "costos_proveedores", "rentabilidad_productos"]);
+/** Inventario y predicción (qué pedir, qué no rota, qué se vence, alertas, foto del inventario): el vendedor no ve
+ *  inventario en su menú (Navegacion.tsx), así que la IA tampoco se lo da; la cajera sí (sin costos), porque despacha FEFO. */
+const PREDICCION = new Set(["pedido_sugerido", "riesgo_vencimiento", "sin_rotacion", "resumen_inventario", "alertas_invima"]);
+const vePrediccion = (rol: string) => rol !== "vendedor";
+export const herramientasPara = (rol: string) => HERRAMIENTAS.filter((h) => (puede.verCostos(rol as Sesion["rol"]) || !SOLO_GERENCIA.has(h.name)) && (vePrediccion(rol) || !PREDICCION.has(h.name)));
 
 export async function ejecutar(s: Sesion, nombre: string, entrada: Record<string, unknown>): Promise<unknown> {
   const costos = puede.verCostos(s.rol);
   if (!costos && SOLO_GERENCIA.has(nombre)) return { error: "Esta consulta es solo para el dueño o el administrador de la droguería." };
+  if (!vePrediccion(s.rol) && PREDICCION.has(nombre)) return { error: "Esta consulta no está disponible para el rol de vendedor." };
   return comoUsuario(s, async (c) => {
     switch (nombre) {
       case "resumen_ventas": {
@@ -138,6 +147,29 @@ export async function ejecutar(s: Sesion, nombre: string, entrada: Record<string
             order by producto, ultimo_costo limit 60`, [s.empresa, palabras, prov])).rows;
         if (!filas.length) return { nota: "No hay compras con costo registradas para eso en los últimos 12 meses (las compras «por costear» no cuentan)." };
         return { costos_por_unidad_sin_iva: filas, nota: "Costos por unidad pagada, sin IVA, de las facturas registradas en Compras. «primer_costo» frente a «ultimo_costo» muestra si subió." };
+      }
+      case "rentabilidad_productos": {
+        const desde = fechaOk(entrada.desde), hasta = fechaOk(entrada.hasta);
+        if (!desde || !hasta) return { error: "Fechas no válidas: usa AAAA-MM-DD" };
+        // Mismas reglas que Reportes (src/lib/reportes.ts): sin IVA, neto de devoluciones, costo del lote vendido; las líneas sin
+        // costo o con costo por revisar no entran en el margen (se informan aparte). Las ventas anuladas no cuentan.
+        const orden = entrada.orden === "margen" ? "margen_pct desc nulls last" : entrada.orden === "menor_margen" ? "margen_pct asc nulls last" : "ganancia desc";
+        const OK = `lc.lote_id is not null and not ${COSTO_POR_REVISAR}`;
+        const filas = (await c.query(`with x as (
+            select l.producto_id, l.descripcion producto,
+              coalesce(sum(l.unidades - coalesce(dv.unidades, 0)) filter (where ${OK}), 0) unidades,
+              coalesce(sum(l.base - coalesce(dv.base, 0)) filter (where ${OK}), 0) venta,
+              coalesce(sum((l.unidades - coalesce(dv.unidades, 0)) * lc.costo_unidad) filter (where ${OK}), 0) costo,
+              coalesce(sum(l.base - coalesce(dv.base, 0)) filter (where not (${OK}) or lc.lote_id is null), 0) venta_sin_costo_valido
+            from venta_lineas l join ventas v on v.id = l.venta_id left join lote_costos lc on lc.lote_id = l.lote_id
+            left join lateral (select sum(dl.unidades) unidades, sum(dl.base) base from devolucion_lineas dl where dl.venta_linea_id = l.id) dv on true
+            where v.empresa_id = $1 and v.origen is null and v.estado = 'cerrada' and (v.creado at time zone 'America/Bogota')::date between $2::date and $3::date
+            group by l.producto_id, l.descripcion)
+          select producto, unidades::int unidades_netas, round(venta, 2)::float venta_sin_iva, round(costo, 2)::float costo, round(venta - costo, 2)::float ganancia,
+                 case when venta > 0 then round((venta - costo) / venta * 100, 1) end::float margen_pct, round(venta_sin_costo_valido, 2)::float venta_sin_costo_valido
+          from x where venta > 0 or venta_sin_costo_valido > 0 order by ${orden} limit $4`, [s.empresa, desde, hasta, limite(entrada.limite)])).rows;
+        if (!filas.length) return { nota: `No hay ventas cerradas entre ${desde} y ${hasta}.` };
+        return { desde, hasta, productos: filas, nota: "Margen = ganancia / venta sin IVA, solo de lo vendido con costo válido. «venta_sin_costo_valido» es lo vendido sin costo registrado o con costo por revisar: no entra en el margen." };
       }
       case "patron_semanal":
         return (await c.query(`select * from patron_semanal($1)`, [s.empresa])).rows;
