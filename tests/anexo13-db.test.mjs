@@ -70,7 +70,7 @@ test("la cajera no escribe ni lee fichas, configuración ni informes", async () 
   await assert.rejects(como(U.cajera, (c) => c.query(`select guardar_ficha_control($1, $2)`, [prodA, ficha])), /dueño o el administrador/);
   await assert.rejects(como(U.cajera, (c) => c.query(`select configurar_anexo13($1, '{}')`, [E.A])), /dueño o el administrador/);
   const n = await como(U.cajera, async (c) => (await c.query(`select (select count(*) from control_fichas) + (select count(*) from control_config) + (select count(*) from control_informes) n`)).rows[0].n, async (c) => {
-    await c.query(`insert into control_fichas (producto_id, empresa_id, principio_activo) values ($1, $2, 'Codeína')`, [prodA, E.A]);
+    await c.query(`insert into control_fichas (producto_id, empresa_id, principio_activo) values ($1, $2, 'Codeína') on conflict do nothing`, [prodA, E.A]);
   });
   assert.equal(Number(n), 0);
 });
@@ -79,7 +79,7 @@ test("una droguería no ve ni toca lo de otra", async () => {
   await assert.rejects(como(U.duenoB, (c) => c.query(`select guardar_ficha_control($1, $2)`, [prodA, ficha])), /dueño o el administrador/);
   await assert.rejects(como(U.duenoB, (c) => c.query(`select configurar_anexo13($1, '{}')`, [E.A])), /dueño o el administrador/);
   const vistos = await como(U.duenoB, async (c) => (await c.query(`select count(*)::int n from control_fichas where empresa_id = $1`, [E.A])).rows[0].n, async (c) => {
-    await c.query(`insert into control_fichas (producto_id, empresa_id, principio_activo) values ($1, $2, 'Codeína')`, [prodA, E.A]);
+    await c.query(`insert into control_fichas (producto_id, empresa_id, principio_activo) values ($1, $2, 'Codeína') on conflict do nothing`, [prodA, E.A]);
   });
   assert.equal(vistos, 0);
   await assert.rejects(como(U.nadie, (c) => c.query(`select guardar_ficha_control($1, $2)`, [prodA, ficha])), /dueño o el administrador/);

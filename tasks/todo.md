@@ -622,5 +622,6 @@ Plan:
       e2e anexo13 52/52 (dos corridas); regresión: control-especial 60/0, endpoints 2.606/0 (rutas nuevas en el
       contrato), seguridad 0 fallos, auditoría 354 pantallas/0 (pantallas del módulo añadidas por rol), parametros 0,
       caja 0, facturacion 0; tsc y build
-- [ ] 9. Rama anexo13-control-especial publicada; producción: Oscar aplica bloque4-048.sql, se verifica en Consola ›
+- [x] 9a. Rama anexo13-control-especial publicada (verificado tras la última compilación: unitarias 63/63, base 97/97, e2e anexo13 52/52, control-especial 0 fallos; dispositivos 748 pantallas en 10 equipos 0 fallos)
+- [ ] 9b. Producción: Oscar aplica bloque4-048.sql, se verifica en Consola ›
       Sistema y solo entonces se une a main
