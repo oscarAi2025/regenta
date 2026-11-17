@@ -158,6 +158,17 @@ const R = [
   { m: "GET", p: "/api/control-especial?formato=excel&desde=x&hasta=y", acceso: "sesion", rol: ["bodega", 403] },
   { m: "GET", p: "/api/control-especial?producto=x", acceso: "sesion", espera: 400 },
   { m: "PATCH", p: "/api/control-especial", acceso: "sesion", basura: true, rol: ["cajero", 403] },
+  // Control especial · Anexo 13, libro completo, fichas y configuración (048): dueño y administrador
+  { m: "GET", p: "/api/control-especial/anexo13", acceso: "sesion", rol: ["cajero", 403], vendedor: 403 },
+  { m: "GET", p: "/api/control-especial/anexo13?mes=2026-13&formato=excel", acceso: "sesion", rol: ["bodega", 403] },
+  { m: "GET", p: "/api/control-especial/anexo13?sede=x", acceso: "sesion", espera: 400 },
+  { m: "POST", p: "/api/control-especial/anexo13", acceso: "sesion", basura: true, rol: ["cajero", 403] },
+  { m: "GET", p: "/api/control-especial/libro?formato=excel&desde=x", acceso: "sesion", rol: ["cajero", 403], vendedor: 403 },
+  { m: "GET", p: "/api/control-especial/libro?producto=x", acceso: "sesion", espera: 400 },
+  { m: "GET", p: "/api/control-especial/fichas", acceso: "sesion", rol: ["bodega", 403], vendedor: 403 },
+  { m: "PUT", p: "/api/control-especial/fichas", acceso: "sesion", basura: true, rol: ["cajero", 403] },
+  { m: "GET", p: "/api/control-especial/configuracion", acceso: "sesion", rol: ["cajero", 403], vendedor: 403 },
+  { m: "PUT", p: "/api/control-especial/configuracion", acceso: "sesion", basura: true, rol: ["bodega", 403] },
   // Bloque 2-A · compras, proveedores y cuentas por pagar (dueño/admin/bodega; dinero solo dueño/admin)
   { m: "GET", p: "/api/compras", acceso: "sesion", rol: ["cajero", 403], vendedor: 403 },
   { m: "POST", p: "/api/compras", acceso: "sesion", basura: true, rol: ["cajero", 403] },

@@ -6,6 +6,8 @@ import { Cabecera } from "@/components/ui/Cabecera";
 import { rango } from "@/lib/reportes";
 import { datosLibro, TIPO_LIBRO } from "@/lib/libro-control";
 import { Ajustes } from "./Ajustes";
+import { AvisoPlazo, Pestanas } from "./Pestanas";
+import { estadoPlazo } from "@/lib/anexo13-datos";
 
 export const metadata = { title: "Libro de control especial" };
 
@@ -23,9 +25,10 @@ export default async function ControlEspecial({ searchParams }: { searchParams: 
   const sp = await searchParams;
   const r = rango(sp.desde, sp.hasta);
   const producto = sp.producto && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sp.producto) ? sp.producto : null;
-  const { d, cfg } = await comoUsuario(s, async (c) => ({
+  const { d, cfg, plazo } = await comoUsuario(s, async (c) => ({
     d: await datosLibro(c, s.empresa, r, producto),
     cfg: (await c.query(`select formula_vigencia_dias, formula_exige_datos, demo from empresas where id = $1`, [s.empresa])).rows[0],
+    plazo: await estadoPlazo(c, s.empresa, new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" })),
   }));
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
   const menos = (n: number) => new Date(new Date(hoy + "T12:00:00Z").getTime() - n * 86400000).toISOString().slice(0, 10);
@@ -42,6 +45,8 @@ export default async function ControlEspecial({ searchParams }: { searchParams: 
         <a href={`/api/control-especial?${q}&formato=excel`} className="btn-borde" download>Descargar en Excel</a>
         <a href={`/control-especial/informe?${q}`} target="_blank" rel="noopener" className="btn-oscuro">Informe para imprimir</a>
       </Cabecera>
+      <Pestanas actual="/control-especial" />
+      <AvisoPlazo plazo={plazo} />
 
       <form className="tarjeta p-4 grid gap-3 sm:flex sm:flex-wrap sm:items-end" aria-label="Filtros del libro">
         <label className="grid text-sm text-muted">Desde<input type="date" name="desde" defaultValue={r.desde} max={hoy} className="campo sm:w-auto" /></label>

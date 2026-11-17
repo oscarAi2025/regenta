@@ -581,3 +581,46 @@ Causa raíz: el lote inicial de «kennedy bajalenguas caja x 500» se creó con 
 - [x] Consola › Sistema y README: el webhook es opcional.
 - [x] Con Stripe activo, la tarjeta (renovación automática) sale elegida por defecto en /contratar.
 - Verificado: pagos.mjs 0 fallos (6 pruebas nuevas sin webhook), unitarias 142/142, tsc y build; /contratar muestra la tarjeta solo con STRIPE_SECRET_KEY; webhook sin secreto → 503.
+
+## 17/11/2026 · Control especial: Anexo 13 y libro completo (novedad de venta) — SOBRE el módulo existente, sin romper nada
+Punto de partida verificado en el código: migración 030 (marca control especial, venta_formulas inmutable, fórmula exigida
+por la base al cobrar, v_libro_control), /control-especial (saldos, dispensaciones, Excel, informe imprimible), RLS por
+empresa con mis_empresas(). Nada de eso se modifica: todo lo nuevo se suma alrededor.
+
+Decisiones de arquitectura (revisadas antes de implementar):
+- Una sola fuente de verdad para las cantidades: los movimientos de inventario (ya inmutables). El libro completo y el
+  Anexo 13 se CALCULAN de ahí → cuadran con el inventario por construcción. No se crea un segundo libro con cantidades
+  propias (se descuadraría). Entradas, ajustes, bajas y devoluciones se registran donde ya se registran (Compras,
+  Inventario) y aparecen solas en el libro con su soporte (proveedor y factura, motivo).
+- Datos nuevos en TABLAS NUEVAS (no se alteran productos ni empresas): ficha del medicamento, configuración del informe
+  por droguería (departamento, fondo rotatorio, canal, plantilla de columnas JSON) y registro inmutable de informes
+  presentados.
+- Sin flag nuevo que esconda lo existente (las droguerías que ya usan el libro lo perderían). Lo nuevo aparece dentro del
+  módulo actual, que solo ven dueño y administrador y solo tiene contenido si la droguería marca productos.
+- El código nuevo tolera que la migración 048 aún no esté en producción (pantallas dicen «pendiente de activar»; la tarea
+  programada lo salta), para no repetir el incidente del 10/11.
+- Formato del Anexo 13: plantilla configurable (columnas elegidas de un diccionario de campos); la plantilla base es un
+  punto de partida, no el formato oficial de ningún fondo.
+
+Plan:
+- [x] 1. Normativa verificada con fuentes: Res. 1478/2006 art. 94 (primeros 10 días calendario, Anexo 13, también en ceros),
+      art. 91 (0 y N/A, mayúscula, devoluciones y destrucciones en entradas/salidas y anotadas), art. 48 (registro manual o
+      sistematizado, corrección en el asiento siguiente), art. 84 (recetario oficial para TODO medicamento de control
+      especial: por eso se quitó la casilla «recetario oficial» de la ficha), Res. 315/2020 anexo 3 según Res. 116/2026
+      (listados de uso humano, monopolio del Estado y uso veterinario). NO verificado: columnas exactas del Anexo 13 →
+      plantilla configurable; pedir el formato vigente al FRE del Tolima.
+- [x] 2. Migración 048 aditiva y repetible (aplicada dos veces sin error) + bloque4-048.sql (con relleno solo de la demo) +
+      MIGRACION_ESPERADA = 048
+- [x] 3. lib/anexo13.ts puro + 9 pruebas unitarias
+- [x] 4. lib/anexo13-datos.ts (tolera la 048 ausente: moduloListo)
+- [x] 5. API: anexo13 (JSON/Excel con confirmación/POST presentado con totales del servidor), fichas, configuracion, libro
+- [x] 6. Pantallas: pestañas en el libro existente (2 líneas), libro completo, Anexo 13, fichas y configuración con editor
+      de plantilla, informe imprimible A4 horizontal
+- [x] 7. Recordatorio: paso «anexo13» en la tarea horaria (días 1–10, dos correos máx. por mes, clave única) + plantilla
+      de correo + aviso en las pantallas del módulo
+- [x] 8. Pruebas: unitarias 63/63 y base 97/97 (9 nuevas de la 048: RLS, permisos, demo, inmutabilidad, repetible);
+      e2e anexo13 52/52 (dos corridas); regresión: control-especial 60/0, endpoints 2.606/0 (rutas nuevas en el
+      contrato), seguridad 0 fallos, auditoría 354 pantallas/0 (pantallas del módulo añadidas por rol), parametros 0,
+      caja 0, facturacion 0; tsc y build
+- [ ] 9. Rama anexo13-control-especial publicada; producción: Oscar aplica bloque4-048.sql, se verifica en Consola ›
+      Sistema y solo entonces se une a main

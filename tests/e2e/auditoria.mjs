@@ -88,17 +88,21 @@ const PANTALLAS = ["/inicio", "/caja", "/ventas", "/productos", "/productos/nuev
   "/compras", "/compras/nueva", "/proveedores", "/cuentas-por-pagar", "/pedidos", "/pedidos/nuevo", "/pedidos?tipo=cotizacion&estado=todos", "/cartera?ver=clientes",
   // Bloque 3: resultados, IVA, cierre, gastos, bitácora, documentos DIAN (con soporte y notas), precios, etiquetas y cuarentena
   "/reportes/resultados", "/reportes/iva", "/reportes/cierre", "/gastos", "/bitacora", "/documentos", "/documentos?tipo=soporte", "/productos/precios", "/etiquetas",
-  "/inventario/cuarentena"];
+  "/inventario/cuarentena",
+  // Control especial (030 y 048): libro, libro completo, informe mensual (Anexo 13) y fichas — dueño y administrador
+  "/control-especial", "/control-especial/libro-completo", "/control-especial/anexo-13", "/control-especial/fichas"];
+const CONTROL = { "/control-especial": "/inicio", "/control-especial/libro-completo": "/inicio", "/control-especial/anexo-13": "/inicio", "/control-especial/fichas": "/inicio" };
 const COMPRAS = { "/compras": "/caja", "/compras/nueva": "/caja", "/proveedores": "/caja", "/cuentas-por-pagar": "/inicio" };
 // Bloque 3: lo de la gerencia (dueño y administrador). Etiquetas y cuarentena también son de la bodega.
 const GERENCIA3 = { "/reportes/resultados": "/inicio", "/reportes/iva": "/inicio", "/reportes/cierre": "/inicio", "/gastos": "/inicio", "/bitacora": "/inicio",
   "/documentos": "/inicio", "/productos/precios": "/productos" };
 const BODEGA3 = { "/etiquetas": "/inicio", "/inventario/cuarentena": "/inventario" };
-const PROHIBIDAS = { cajero: { "/reportes": "/inicio", "/productos/nuevo": "/productos", "/productos/importar": "/productos", "/inventario/recibir": "/caja", "/prediccion": "/caja", "/cartera": "/inicio", "/cartera?ver=pagadas": "/inicio", ...COMPRAS, ...GERENCIA3, ...BODEGA3 },
-  bodega: { "/reportes": "/inicio", "/turno": "/inicio", "/caja": "/inventario", "/ventas": null, "/cartera": "/inicio", "/cartera?ver=pagadas": "/inicio", "/cuentas-por-pagar": "/compras", "/pedidos": "/inicio", "/pedidos/nuevo": "/inicio", ...GERENCIA3 },
+const PROHIBIDAS = { cajero: { "/reportes": "/inicio", "/productos/nuevo": "/productos", "/productos/importar": "/productos", "/inventario/recibir": "/caja", "/prediccion": "/caja", "/cartera": "/inicio", "/cartera?ver=pagadas": "/inicio", ...COMPRAS, ...GERENCIA3, ...BODEGA3, ...CONTROL },
+  bodega: { "/reportes": "/inicio", "/turno": "/inicio", "/caja": "/inventario", "/ventas": null, "/cartera": "/inicio", "/cartera?ver=pagadas": "/inicio", "/cuentas-por-pagar": "/compras", "/pedidos": "/inicio", "/pedidos/nuevo": "/inicio", ...GERENCIA3, ...CONTROL },
   // El vendedor arma pedidos y cotizaciones: no cobra, no ve la caja, ni el dinero, ni compras.
   vendedor: { "/caja": "/pedidos", "/turno": null, "/ventas": null, "/reportes": null, "/cartera": null, "/compras": null, "/compras/nueva": null, "/proveedores": null, "/cuentas-por-pagar": null,
-    "/inventario/recibir": null, "/productos/nuevo": null, "/productos/importar": null, "/prediccion": null, ...GERENCIA3, ...BODEGA3 },
+    "/inventario/recibir": null, "/productos/nuevo": null, "/productos/importar": null, "/prediccion": null, ...GERENCIA3, ...BODEGA3,
+    ...Object.fromEntries(Object.keys(CONTROL).map((k) => [k, null])) },
   dueno: {} };
 const PANTALLAS_VENDEDOR = ["/inicio", "/pedidos", "/pedidos/nuevo", "/pedidos?tipo=cotizacion&estado=todos", "/cuenta", ...Object.keys(PROHIBIDAS.vendedor)];
 // Sesión del vendedor (la demo no trae uno): miembro de la droguería demo con sesión firmada como la de /api/acceso.

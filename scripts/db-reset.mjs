@@ -268,6 +268,12 @@ if (controlado) {
     ventasDemo.push({ id: r.venta_id, dia, minuto: 610 + dia * 13 });
   }
   console.log("demo: control especial", controlado.nombre, "· con fórmula", conFormula.length);
+  // Ficha del medicamento y configuración del informe mensual (migración 048): la demo muestra el Anexo 13 completo. CUM de
+  // muestra (ceros): no corresponde a ningún registro real.
+  await db.query(`insert into control_fichas (producto_id, empresa_id, principio_activo, concentracion, forma_farmaceutica, cum, categoria)
+    values ($1, $2, 'Acetaminofén + codeína', '325 mg + 30 mg', 'Tableta', '00000000-01', 'Medicamento de control especial de uso humano') on conflict do nothing`, [controlado.id, E.A]);
+  await db.query(`insert into control_config (empresa_id, departamento, fondo, canal, responsable)
+    values ($1, 'Tolima', 'Fondo Rotatorio de Estupefacientes del Tolima', 'correo', 'Regente de la demostración') on conflict do nothing`, [E.A]);
 }
 
 // Reparto en el tiempo: ventas, sus movimientos y documentos; la compra hace 57 días y el inventario inicial hace 60.

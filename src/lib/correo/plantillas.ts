@@ -56,6 +56,7 @@ export const EVENTOS: Record<string, string> = {
   cuenta_suspendida: "Cuenta suspendida", cuenta_por_suspender: "Cuenta por suspender", habilitado: "Habilitado ante la DIAN",
   renovacion_cancelada: "Canceló la renovación automática", plan_cambiado: "Cambio de plan", cupo_documentos: "Cliente al 90 % de su cupo de documentos",
   cargo_documentos: "Cargo por documentos adicionales", resolucion_por_vencer: "Numeración DIAN por vencer o agotarse", documento_rechazado: "La DIAN rechazó un documento",
+  anexo13_pendiente: "Informe mensual de control especial (Anexo 13) pendiente",
   embudo_1: "Embudo: toca el correo 1 (día 1)", embudo_2: "Embudo: toca el correo 2 (día 3)", embudo_3: "Embudo: toca el correo 3 (día 6)",
   embudo_4: "Embudo: toca el correo 4 (día 10)", embudo_5: "Embudo: toca el correo 5 (día 15)",
 };
@@ -204,6 +205,11 @@ export const PLANTILLAS = {
       "Solicita la nueva resolución en el portal MUISCA de la DIAN y envíanosla por WhatsApp: la cargamos el mismo día para que la caja no se detenga."],
     boton: { texto: "Enviar la resolución por WhatsApp", href: wa(`Hola, adjunto la nueva resolución DIAN de ${txt(d.empresa, "mi droguería")}.`) } }) }),
 
+  anexo13_pendiente: (d: Datos): Correo => ({ asunto: `${d.urgente ? "Últimos días: " : ""}informe de control especial de ${d.mes ?? "el mes pasado"} (vence el ${d.vence ?? "día 10"})`, ...marco({
+    previa: "Regenta ya tiene el informe listo para revisar y descargar.", titulo: "Tu informe mensual de control especial",
+    parrafos: [`${hola(d.nombre)}, el informe de <b>${esc(txt(d.mes, "el mes pasado"))}</b> de <b>${esc(txt(d.empresa, "tu droguería"))}</b> al Fondo Rotatorio de Estupefacientes se presenta a más tardar el <b>${esc(txt(d.vence, "día 10"))}</b>, también en ceros si no hubo movimiento (Res. 1478 de 2006, art. 94).`,
+      "Regenta lo arma con los movimientos de tu inventario: revísalo, descárgalo en Excel o en PDF, envíalo y márcalo como presentado para que este recordatorio no vuelva a salir."],
+    boton: { texto: "Abrir el informe", href: url(String(d.ruta ?? "/control-especial/anexo-13"), "anexo13") } }) }),
   documento_rechazado: (d: Datos): Correo => d.demorado ? ({ asunto: `El documento ${d.documento ?? ""} lleva más de 24 horas sin respuesta de la DIAN`, ...marco({
     previa: "Regenta lo sigue enviando solo.", titulo: "Un documento está demorado",
     parrafos: [`${hola(d.nombre)}, el documento <b>${esc(txt(d.documento, ""))}</b> de <b>${esc(txt(d.empresa, "tu droguería"))}</b>: ${esc(txt(d.error, "sin respuesta"))}`],

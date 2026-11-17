@@ -350,3 +350,13 @@
 - Regla: antes de pedir credenciales, buscar en chats anteriores y en los otros proyectos qué llaves existen y reutilizarlas
   (la misma cuenta de Stripe sirve para todos los sitios). No exigir piezas opcionales: Stripe en Regenta funciona solo con
   STRIPE_SECRET_KEY; el webhook acelera pero no es obligatorio (confirmación al volver + sincronización horaria).
+
+## 17/11/2026 · «Crea un módulo nuevo de control especial / Anexo 13» cuando ya existía
+- El prompt pedía un módulo nuevo con su propio libro de cantidades, Supabase/vitest y un flag que ocultara la sección;
+  el código real ya tenía control especial (030), usa pg + node --test, y un flag habría escondido el libro a quien ya lo
+  usa. Regla: antes de construir, leer el repo y contrastar el pedido con lo que existe; ampliar, no duplicar.
+- Una sola fuente de verdad para cantidades reguladas: los movimientos de inventario. El libro y el informe se CALCULAN;
+  un segundo libro con cantidades propias acaba descuadrado.
+- Código que depende de una migración nueva debe tolerar que aún no esté (to_regclass) para no repetir el 10/11.
+- La regla del negocio se verifica con la norma antes de modelarla: el art. 84 exige recetario oficial a todo medicamento
+  de control especial (sobraba la casilla «recetario oficial» por producto).

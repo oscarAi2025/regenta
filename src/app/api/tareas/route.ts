@@ -6,6 +6,7 @@ import { sincronizarInvima } from "@/lib/invima";
 import { sinRLS } from "@/lib/db";
 import { cancelarReemplazadas } from "@/lib/pagos-eventos";
 import { sincronizarStripe } from "@/lib/pagos-stripe";
+import { avisarAnexo13 } from "@/lib/anexo13-avisos";
 import { aplicarBajadas, avisarCupoDocumentos, avisarNumeraciones, avisarRechazos, avisarDemorados, cobrarDocumentosExtra, revisarSuscripciones } from "@/lib/operacion";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +40,7 @@ export async function POST(req: Request) {
     await paso("numeraciones", avisarNumeraciones);
     await paso("rechazos", avisarRechazos);
     await paso("demorados", avisarDemorados);
+    await paso("anexo13", () => avisarAnexo13()); // recordatorio del informe de control especial (días 1 a 10)
     await paso("correos_avisos", () => enviarPendientes(80));
   }
   await paso("limpieza", () => sinRLS(async (c) => ({
