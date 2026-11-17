@@ -625,3 +625,23 @@ Plan:
 - [x] 9a. Rama anexo13-control-especial publicada (verificado tras la última compilación: unitarias 63/63, base 97/97, e2e anexo13 52/52, control-especial 0 fallos; dispositivos 748 pantallas en 10 equipos 0 fallos)
 - [ ] 9b. Producción: Oscar aplica bloque4-048.sql, se verifica en Consola ›
       Sistema y solo entonces se une a main
+
+## Modo «Droguería interna (sin DIAN)» (17/11/2026, pedido de Oscar)
+Rama `modo-interno` (sobre `anexo13-control-especial`: la 049 va después de la 048). Solo aditivo.
+- [x] Migración 049: empresas.modo ('venta' | 'interno'); tablas entregas / entrega_lineas / entrega_formulas (RLS miembros,
+      inmutables salvo la anulación); movimientos.tipo admite 'entrega'; registrar_entrega (FEFO, fórmulas, numeración EI),
+      anular_entrega (gerencia); disparador que impide ventas en modo interno; cambiar_modo solo desde la consola;
+      v_libro_control y prediccion_productos cuentan las entregas
+- [x] Consola: tarjeta «Modo de operación» en la ficha del cliente (PATCH modo) con evento
+- [x] App: menú y /caja según el modo; /entregas (lista + consumo por servicio + Excel), /entregas/nueva, /entregas/[id]
+      (comprobante imprimible, anular); inicio propio del modo interno
+- [x] Control especial / Anexo 13 / kardex: la entrega con fórmula es dispensación; etiquetas «Entrega interna»
+- [x] Pruebas: unitarias, base (049), e2e del recorrido; suites existentes en verde; build y tsc
+- [x] db/produccion/bloque4-049.sql y MIGRACION_ESPERADA
+
+## Ubicación en estantería (17/11/2026, pedido de Oscar a raíz de un prospecto)
+Misma rama (migración 050, después de la 049). Solo aditivo; lectura tolerante (to_jsonb) antes de la migración.
+- [x] 050: productos.ubicacion (≤ 40, sin caracteres de control) + cambiar_ubicacion (dueño, admin, bodega; auditoría)
+- [x] Producto (crear/editar), inventario (ver, editar en la fila, buscar, ordenar), caja y entregas (búsqueda),
+      comprobante de entrega, conteo físico en el orden de la estantería, Excel de inventario, importación, bitácora, Regenta IA
+- [x] Pruebas: base (ubicacion-db), unitaria (importar), e2e ubicacion; regresión completa

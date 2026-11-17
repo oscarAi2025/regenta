@@ -64,6 +64,19 @@ export default async function Cliente({ params }: { params: Promise<{ id: string
           {Object.entries(NOMBRE_PLAN).filter(([k]) => k !== e.plan).map(([k, t]) => <Accion key={k} url={`/api/admin/clientes/${id}`} metodo="PATCH" cuerpo={{ plan: k }} texto={`Cambiar a ${t}`} clase="btn-borde h-10 text-sm" />)}
         </section>
       )}
+      {!e.demo && (
+        <section className="tarjeta p-5 grid gap-2" aria-labelledby="modo-titulo">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 id="modo-titulo" className="titulo text-xl">Modo de operación: {e.modo === "interno" ? "droguería interna (sin DIAN)" : "venta con factura"}</h2>
+            {e.modo === "interno"
+              ? <Accion url={`/api/admin/clientes/${id}`} metodo="PATCH" cuerpo={{ modo: "venta" }} texto="Pasar a venta con factura" confirmar="¿Volver a vender con factura? Sí" />
+              : <Accion url={`/api/admin/clientes/${id}`} metodo="PATCH" cuerpo={{ modo: "interno" }} texto="Pasar a droguería interna" confirmar="¿Quitar caja y facturación? Sí" />}
+          </div>
+          <p className="text-sm text-muted">{e.modo === "interno"
+            ? "No vende ni factura: registra entregas internas (a servicios, pacientes, empleados o sedes) con lote por vencimiento, fórmula cuando aplica y comprobante. La base de datos no deja crear ventas."
+            : "Caja con POS y factura electrónica ante la DIAN. El modo interno es para el servicio farmacéutico de una clínica, el botiquín de una empresa o la bodega que abastece a sus sedes."}</p>
+        </section>
+      )}
       <Usuarios empresa={id} usuarios={d.usuarios.map((u) => ({ ...u, rol_nombre: ROLES[u.rol as keyof typeof ROLES] ?? u.rol, ultimo: fechaHora(u.ultimo_ingreso) }))} />
       <div className="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-2 gap-5">
         <section className="tarjeta p-5">

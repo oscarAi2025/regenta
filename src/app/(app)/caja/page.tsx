@@ -6,6 +6,7 @@ import { cajaElegida } from "@/lib/caja-elegida";
 import { ElegirCaja } from "@/components/app/ElegirCaja";
 import { Caja } from "./Caja";
 import { puedePedidos } from "@/lib/pedidos";
+import { modoDe } from "@/lib/modo";
 
 export const metadata = { title: "Caja" };
 
@@ -13,6 +14,8 @@ export default async function PaginaCaja() {
   const s = await leerSesion();
   if (!s) redirect("/entrar");
   if (!puede.vender(s.rol)) redirect(puedePedidos.armar(s.rol) ? "/pedidos?aviso=permiso" : "/inventario?aviso=permiso"); // el vendedor arma pedidos, no cobra
+  // Droguería interna (sin DIAN): no hay caja, hay entregas.
+  if ((await comoUsuario(s, (c) => modoDe(c, s.empresa))) === "interno") redirect("/entregas");
   const elegida = await cajaElegida();
   const { e, cajas, actual } = await comoUsuario(s, async (c) => ({
     e: (await c.query(`select coalesce(e.nombre_comercial, e.razon_social) n, e.factura_formato, e.formula_vigencia_dias, e.formula_exige_datos, e.responsable_iva, e.descuento_max_cajero::float,

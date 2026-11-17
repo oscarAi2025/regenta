@@ -21,7 +21,9 @@ const Cambio = z.object({ fiscal: Fiscal.optional(), estado: z.enum(["activa", "
   matias: z.object({ cliente: z.string().trim().uuid("El UUID de MATIAS no es válido").or(z.literal("")),
     resoluciones: z.array(z.object({ tipo: z.enum(["pos", "factura", "nota_credito", "soporte", "ajuste_soporte", "nota_debito"]), prefijo: z.string().max(10), numero: z.string().trim().regex(/^\d{6,20}$/, "El número de resolución son solo dígitos").or(z.literal("")), pruebas: z.boolean() })).max(10) }).optional(),
   // Envío real a MATIAS de documento soporte, nota de ajuste y nota débito (apagado por defecto).
-  complementario: z.boolean().optional() });
+  complementario: z.boolean().optional(),
+  // Modo de operación: 'venta' (caja, factura y DIAN) o 'interno' (droguería interna: entregas, sin DIAN). Solo la consola.
+  modo: z.enum(["venta", "interno"]).optional() });
 
 /** Activar o suspender, cambiar el plan o la nota interna de un cliente. */
 export const PATCH = conAdmin(async (a, req, ctx) => {
@@ -98,6 +100,23 @@ export const PATCH = conAdmin(async (a, req, ctx) => {
     if (r === "no") return NextResponse.json({ error: "Cliente no encontrado (la demo no se modifica desde aquí)" }, { status: 404 });
     if (r === "falta") return NextResponse.json({ error: "Para activar el envío real primero carga la numeración de documento soporte de producción y conecta la droguería en MATIAS" }, { status: 400 });
     return NextResponse.json({ ok: true, mensaje: d.complementario ? "Envío real de documento soporte, nota de ajuste y nota débito activado" : "Envío real de documento soporte, nota de ajuste y nota débito apagado" });
+  }
+  if (d.modo) {
+    const modo = d.modo;
+    const r = await sinRLS(async (c) => {
+      const e = (await c.query(`select demo, coalesce(to_jsonb(e) ->> 'modo', 'venta') modo from empresas e where id = $1 for update`, [id])).rows[0];
+      if (!e || e.demo) return "no";
+      if (e.modo === modo) return "igual";
+      await c.query(`update empresas set modo = $2 where id = $1`, [id, modo]);
+      await evento(a, modo === "interno" ? "activar_modo_interno" : "activar_modo_venta", id, { antes: e.modo, despues: modo }, c);
+      return "ok";
+    }).catch((e) => { if ((e as { code?: string }).code === "42703") return "migracion" as const; throw e; });
+    if (r === "no") return NextResponse.json({ error: "Cliente no encontrado (la demo no se modifica desde aquí)" }, { status: 404 });
+    if (r === "migracion") return NextResponse.json({ error: "Falta aplicar la migración 049 en la base de producción (Consola › Sistema)" }, { status: 409 });
+    if (r === "igual") return NextResponse.json({ ok: true, mensaje: "Ya estaba en ese modo" });
+    return NextResponse.json({ ok: true, mensaje: modo === "interno"
+      ? "Modo droguería interna activado: ya no vende ni factura; registra entregas internas"
+      : "Modo venta activado: vuelve la caja con POS y factura electrónica" });
   }
   const claves: string[] = [];
   const n = await sinRLS(async (c) => {

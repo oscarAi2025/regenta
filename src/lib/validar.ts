@@ -14,6 +14,8 @@ export const ProductoEntrada = z.object({
   precio_unidad: z.number().int("El precio va en pesos, sin centavos").positive().max(100_000_000).nullish(),
   stock_minimo: z.number().int().min(0).max(100000).default(0),
   registro_sanitario: z.string().trim().max(60).nullish(),
+  // Dónde está en la estantería o la bodega (sin enviar = no se cambia; vacío = sin ubicación).
+  ubicacion: z.string().trim().max(40, "La ubicación va hasta 40 caracteres, por ejemplo E3-N2").optional(),
   // Marcas de dispensación (sin enviar = no se cambian). Control especial implica fórmula.
   requiere_formula: z.boolean().optional(),
   control_especial: z.boolean().optional(),

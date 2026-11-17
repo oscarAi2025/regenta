@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { comoUsuario, sinComodines } from "@/lib/db";
 import Link from "next/link";
+import { ubicacionSql } from "@/lib/ubicacion";
+import { EditarUbicacion } from "./EditarUbicacion";
 import { leerSesion, puede } from "@/lib/sesion";
 import { puedePrecios } from "@/lib/precios";
 import { Cabecera } from "@/components/ui/Cabecera";
@@ -13,18 +15,20 @@ export const metadata = { title: "Inventario" };
 const fmt = (d: string | null) => (d ? new Date(d + "T00:00:00").toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" }) : "—");
 const dias = (d: string | null) => (d ? Math.round((Date.parse(d + "T00:00:00") - Date.now()) / 864e5) : null);
 
-type Fila = { id: string; nombre: string; laboratorio: string | null; unidades_por_caja: number; precio_caja: number; unidades: number; stock_minimo: number; total: number; vencidas: number; separadas: number;
+type Fila = { id: string; nombre: string; laboratorio: string | null; ubicacion: string | null; unidades_por_caja: number; precio_caja: number; unidades: number; stock_minimo: number; total: number; vencidas: number; separadas: number;
   lotes: { lote: string; vence: string | null; unidades: number; costo: number | null; bloqueado: boolean }[] };
 
 const POR_PAGINA = 100;
 
-export default async function Inventario({ searchParams }: { searchParams: Promise<{ ver?: string; q?: string; pagina?: string }> }) {
+export default async function Inventario({ searchParams }: { searchParams: Promise<{ ver?: string; q?: string; pagina?: string; orden?: string }> }) {
   const s = await leerSesion();
   if (!s) redirect("/entrar");
-  const { ver = "vencen", q = "", pagina: pg = "1" } = await searchParams;
+  const { ver = "vencen", q = "", pagina: pg = "1", orden: ord = "" } = await searchParams;
+  const porUbicacion = ord === "ubicacion"; // recorrer la estantería en orden (acomodar, contar, surtir)
   const pagina = Math.min(Math.max(Number.parseInt(pg, 10) || 1, 1), 10000);
   const costos = puede.verCostos(s.rol);
   const datos = await comoUsuario(s, async (c) => {
+    const U = await ubicacionSql(c);
     const resumen = (await c.query(`
       select count(*) filter (where vence < current_date and unidades > 0)::int vencidos,
              count(*) filter (where vence between current_date and current_date + 30 and unidades > 0)::int v30,
@@ -37,7 +41,7 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
       : "and st.por_vencer <= current_date + 90";
     const palabras = q.trim().toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6).map(sinComodines);
     const filas: Fila[] = (await c.query(`
-      select p.id, p.nombre, p.laboratorio, p.unidades_por_caja, p.precio_caja::float, p.stock_minimo, coalesce(st.unidades, 0)::int unidades, coalesce(st.vencidas, 0)::int vencidas, coalesce(st.separadas, 0)::int separadas, count(*) over ()::int total,
+      select p.id, p.nombre, p.laboratorio, ${U} ubicacion, p.unidades_por_caja, p.precio_caja::float, p.stock_minimo, coalesce(st.unidades, 0)::int unidades, coalesce(st.vencidas, 0)::int vencidas, coalesce(st.separadas, 0)::int separadas, count(*) over ()::int total,
         coalesce((select json_agg(json_build_object('lote', l.lote, 'vence', l.vence, 'unidades', l.unidades, 'bloqueado', l.bloqueado, 'costo', ${costos ? "(select costo_unidad::float from lote_costos where lote_id = l.lote_id)" : "null"}) order by l.vence nulls last)
                   from v_stock_lotes l where l.producto_id = p.id and l.unidades > 0), '[]') lotes
       from productos p
@@ -45,8 +49,8 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
         sum(unidades) filter (where vence < current_date and unidades > 0) vencidas, sum(unidades) filter (where bloqueado and unidades > 0 and (vence is null or vence >= current_date)) separadas
         from v_stock_lotes where producto_id = p.id) st on true
       where p.empresa_id = $1 and p.activo ${filtro}
-        and (cardinality($2::text[]) = 0 or (select bool_and(sin_tildes(p.nombre || ' ' || coalesce(p.laboratorio, '')) like '%' || sin_tildes(w) || '%') from unnest($2::text[]) w))
-      order by st.proximo nulls last, p.nombre limit ${POR_PAGINA} offset $3`, [s.empresa, palabras, (pagina - 1) * POR_PAGINA])).rows;
+        and (cardinality($2::text[]) = 0 or (select bool_and(sin_tildes(p.nombre || ' ' || coalesce(p.laboratorio, '') || ' ' || coalesce(${U}, '')) like '%' || sin_tildes(w) || '%') from unnest($2::text[]) w))
+      order by ${porUbicacion ? `${U} nulls last, p.nombre` : "st.proximo nulls last, p.nombre"} limit ${POR_PAGINA} offset $3`, [s.empresa, palabras, (pagina - 1) * POR_PAGINA])).rows;
     // Lotes con existencias que entraron sin costo (los recibe la bodega): el dueño o el administrador lo completan.
     const sinCosto = costos ? (await c.query(`select l.lote_id, p.nombre, l.lote, l.unidades, p.unidades_por_caja,
         (select m.motivo from movimientos m where m.lote_id = l.lote_id and m.tipo = 'compra' order by m.creado desc limit 1) motivo,
@@ -63,7 +67,7 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
   const tabs = [["vencen", "Vencen en 90 días"], ["vencidos", "Vencidos"], ["agotados", "Agotados"], ["todos", "Todo"]] as const;
   if (pagina > 1 && datos.filas.length === 0) redirect(`/inventario?ver=${ver}${q ? `&q=${encodeURIComponent(q)}` : ""}`); // página que ya no existe
   const total = datos.filas[0]?.total ?? 0, paginas = Math.ceil(total / POR_PAGINA);
-  const enlace = (n: number) => `?ver=${ver}${q ? `&q=${encodeURIComponent(q)}` : ""}${n > 1 ? `&pagina=${n}` : ""}`;
+  const enlace = (n: number) => `?ver=${ver}${q ? `&q=${encodeURIComponent(q)}` : ""}${porUbicacion ? "&orden=ubicacion" : ""}${n > 1 ? `&pagina=${n}` : ""}`;
   const costosTexto = paginas > 1 ? " · busca un producto o descarga todo en Excel" : "";
   return (
     <main className="p-4 sm:p-6">
@@ -94,13 +98,15 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
       <form className="mt-5 flex flex-wrap items-center gap-2" role="search">
         <nav className="flex gap-1 bg-surface border border-line rounded-xl p-1 max-w-full overflow-x-auto [scrollbar-width:none]" aria-label="Filtro">
           {tabs.map(([k, t]) => (
-            <a key={k} href={`?ver=${k}${q ? `&q=${encodeURIComponent(q)}` : ""}`} aria-current={ver === k ? "page" : undefined}
+            <a key={k} href={`?ver=${k}${q ? `&q=${encodeURIComponent(q)}` : ""}${porUbicacion ? "&orden=ubicacion" : ""}`} aria-current={ver === k ? "page" : undefined}
               className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg text-sm font-semibold ${ver === k ? "bg-ink text-white" : "text-muted"}`}>{t}</a>
           ))}
         </nav>
         <input type="hidden" name="ver" value={ver} />
+        {porUbicacion && <input type="hidden" name="orden" value="ubicacion" />}
         <label htmlFor="q" className="sr-only">Buscar en el inventario</label>
         <input id="q" name="q" defaultValue={q} placeholder="Buscar producto" className="h-11 rounded-xl border border-line bg-surface px-4 flex-1 min-w-48" />
+        <a href={`?ver=${ver}${q ? `&q=${encodeURIComponent(q)}` : ""}${porUbicacion ? "" : "&orden=ubicacion"}`} className="btn-borde h-11 inline-flex items-center">{porUbicacion ? "Ordenar por vencimiento" : "Ordenar por ubicación"}</a>
         <a href="/api/inventario/exportar" download className="btn-borde h-11 inline-flex items-center">Descargar en Excel</a>
       </form>
       {total > 0 && <p className="mt-3 text-sm text-muted num">{total <= POR_PAGINA ? `${total.toLocaleString("es-CO")} ${total === 1 ? "producto" : "productos"}` : `Productos ${((pagina - 1) * POR_PAGINA + 1).toLocaleString("es-CO")} a ${Math.min(pagina * POR_PAGINA, total).toLocaleString("es-CO")} de ${total.toLocaleString("es-CO")}`}{costosTexto}</p>}
@@ -112,7 +118,8 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
           <tbody className="divide-y divide-line">
             {datos.filas.map((f) => (
               <tr key={f.id} className="align-top">
-                <td className="px-4 py-3">{kardex ? <Link href={`/productos/${f.id}#kardex`} className="font-semibold hover:underline" title="Ver kardex">{f.nombre}</Link> : <p className="font-semibold">{f.nombre}</p>}<p className="text-muted">{f.laboratorio ?? "Sin laboratorio"}</p></td>
+                <td className="px-4 py-3">{kardex ? <Link href={`/productos/${f.id}#kardex`} className="font-semibold hover:underline" title="Ver kardex">{f.nombre}</Link> : <p className="font-semibold">{f.nombre}</p>}<p className="text-muted">{f.laboratorio ?? "Sin laboratorio"}</p>
+                  {kardex ? <EditarUbicacion id={f.id} inicial={f.ubicacion} /> : f.ubicacion ? <p className="text-muted">Ubicación {f.ubicacion}</p> : null}</td>
                 <td className={`px-4 py-3 num ${f.unidades <= 0 ? "text-alerta font-semibold" : ""}`}>
                   {f.unidades <= 0 && f.vencidas + f.separadas > 0 ? <>0 vendibles<span className="block text-sm">{f.vencidas ? `${f.vencidas.toLocaleString("es-CO")} und vencidas: dar de baja` : ""}{f.vencidas && f.separadas ? " · " : ""}{f.separadas ? `${f.separadas.toLocaleString("es-CO")} und separadas` : ""}</span></>
                     : f.unidades <= 0 ? "Agotado" : f.unidades_por_caja > 1 ? `${Math.floor(f.unidades / f.unidades_por_caja)} cajas${f.unidades % f.unidades_por_caja ? ` + ${f.unidades % f.unidades_por_caja} und` : ""}` : `${f.unidades} und`}

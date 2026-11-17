@@ -3,8 +3,9 @@ import { TIPOS_DOC_PACIENTE, hoyBogota, restarDias, type ConfigFormula, type Dat
 
 /** Fórmula médica de la venta: para control especial (o si la droguería lo exige) pide paciente, médico y fórmula; para
  *  los demás productos con fórmula, la confirmación de que se verificó. La caja no cobra hasta que esté completo. */
-export function PanelFormula({ ex, cfg, datos, onCambio, falta, sinRed }: {
+export function PanelFormula({ ex, cfg, datos, onCambio, falta, sinRed, doc = "venta", verbo = "cobrar" }: {
   ex: Exigencia; cfg: ConfigFormula; datos: DatosFormula; onCambio: (d: DatosFormula) => void; falta: string | null; sinRed: boolean;
+  /** Cómo se llama lo que se registra y la acción final (la entrega interna usa «entrega» y «entregar»). */ doc?: "venta" | "entrega"; verbo?: string;
 }) {
   const control = ex.control.length > 0;
   const set = <K extends keyof DatosFormula>(k: K, v: DatosFormula[K]) => onCambio({ ...datos, [k]: v });
@@ -19,7 +20,7 @@ export function PanelFormula({ ex, cfg, datos, onCambio, falta, sinRed }: {
         <h3 id="formula-titulo" className="font-semibold leading-tight">{ex.datos ? "Datos de la fórmula médica" : "Requiere fórmula médica"}</h3>
       </div>
       <p className="mt-1 text-sm text-muted">{nombres.length === 1 ? nombres[0] : `${nombres.length} productos: ${nombres.join(" · ")}`}</p>
-      {ex.datos && nombres.length > 1 && <p className="mt-1 text-[13px] text-muted">Los datos se registran para todos estos productos: si vienen en fórmulas distintas, haz una venta por fórmula.</p>}
+      {ex.datos && nombres.length > 1 && <p className="mt-1 text-[13px] text-muted">Los datos se registran para todos estos productos: si vienen en fórmulas distintas, haz una {doc} por fórmula.</p>}
 
       {ex.datos ? (
         <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5">
@@ -69,11 +70,11 @@ export function PanelFormula({ ex, cfg, datos, onCambio, falta, sinRed }: {
 
       {sinRed ? (
         <p role="alert" className="mt-3 rounded-lg bg-alerta-soft px-3 py-2 text-sm font-semibold text-alerta">
-          Sin internet no se puede registrar esta fórmula. Quita {nombres.length === 1 ? "este producto" : "estos productos"} de la venta o espera a que vuelva la conexión.
+          Sin internet no se puede registrar esta fórmula. Quita {nombres.length === 1 ? "este producto" : "estos productos"} de la {doc} o espera a que vuelva la conexión.
         </p>
       ) : (
         <p aria-live="polite" className={`mt-3 text-sm ${falta ? "text-muted" : "font-semibold text-cruz"}`}>
-          {falta ? `Para cobrar: ${falta.charAt(0).toLowerCase()}${falta.slice(1)}.` : ex.datos ? "Fórmula completa: queda registrada con la venta." : "Fórmula verificada."}
+          {falta ? `Para ${verbo}: ${falta.charAt(0).toLowerCase()}${falta.slice(1)}.` : ex.datos ? `Fórmula completa: queda registrada con la ${doc}.` : "Fórmula verificada."}
         </p>
       )}
     </section>

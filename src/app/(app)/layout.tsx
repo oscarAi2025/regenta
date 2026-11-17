@@ -14,6 +14,7 @@ import Link from "next/link";
 import { ModoDemo } from "@/components/app/ModoDemo";
 import { GARANTIA, PRECIO_DESDE } from "@/lib/oferta";
 import { MarcaRender } from "@/components/MarcaRender";
+import { SQL_MODO } from "@/lib/modo";
 
 // La aplicación nunca se indexa: solo la portada comercial es pública.
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -22,7 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const s = await leerSesion();
   if (!s) redirect("/entrar");
   // Una sola ida a la base (sin transacción): solo los datos de la cabecera de la empresa de la sesión firmada.
-  const emp = (await pool.query(`select e.nombre_comercial, e.razon_social, e.nit, e.dv, e.demo, e.plan,
+  const emp = (await pool.query(`select e.nombre_comercial, e.razon_social, e.nit, e.dv, e.demo, e.plan, ${SQL_MODO} modo,
       (select max(vence) - current_date from pagos_suscripcion where empresa_id = e.id and estado = 'aprobado') dias,
       (select to_char(max(vence), 'DD/MM/YYYY') from pagos_suscripcion where empresa_id = e.id and estado = 'aprobado') vence,
       exists (select 1 from pagos_suscripcion where empresa_id = e.id and estado = 'aprobado' and proveedor = 'stripe' and suscripcion is not null
@@ -41,7 +42,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <span className="block text-[10.5px] text-white/50 mt-1">by Farmagenéricos Colombia</span>
           </span>
         </Link>
-        <Navegacion rol={s.rol} demo={!!emp.demo} />
+        <Navegacion rol={s.rol} demo={!!emp.demo} interno={emp.modo === "interno"} />
       </aside>
       <div className="min-w-0">
         {emp.demo && <ModoDemo rol={s.rol} precio={PRECIO_DESDE} garantia={GARANTIA} />}
@@ -60,7 +61,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <AvisoPermiso />
         <div className="pb-24">{children}<MarcaRender /></div>
       </div>
-      <Buscador rol={s.rol} />
+      <Buscador rol={s.rol} interno={emp.modo === "interno"} />
       <Asistente activa={iaActiva()} />
     </div>
   );

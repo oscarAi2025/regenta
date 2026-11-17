@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 
 const ITEMS = [
   { href: "/inicio", label: "Inicio", roles: ["dueno", "admin", "cajero", "bodeguero", "vendedor"], d: "M4 11l8-7 8 7v9h-5v-6H9v6H4z" },
+  { href: "/entregas", label: "Entregas", soloInterno: true, roles: ["dueno", "admin", "cajero", "bodeguero"], d: "M4 8l8-4 8 4v8l-8 4-8-4zM4 8l8 4 8-4M12 12v8M15 15.5l2.5-1.2" },
   { href: "/caja", label: "Caja", roles: ["dueno", "admin", "cajero"], d: "M4 7h16v12H4zM8 7V4h8v3M8 12h3M8 15h5" },
   { href: "/pedidos", label: "Pedidos", roles: ["dueno", "admin", "cajero", "vendedor"], d: "M9 4h6v3H9zM6 5.5H5v15h14v-15h-1M8.5 12l2 2 4-4M8.5 17h7" },
   { href: "/turno", label: "Turno", roles: ["dueno", "admin", "cajero"], d: "M12 7v5l3 2M4 12a8 8 0 1 0 16 0 8 8 0 0 0-16 0" },
@@ -33,20 +34,23 @@ const ITEMS = [
 // Grupos del menú lateral en escritorio (en el celular la barra es horizontal y sin títulos).
 const GRUPOS: [string, string[]][] = [
   ["", ["/inicio"]],
-  ["Vender", ["/caja", "/pedidos", "/turno", "/ventas", "/clientes", "/cartera"]],
+  ["Vender", ["/entregas", "/caja", "/pedidos", "/turno", "/ventas", "/clientes", "/cartera"]],
   ["Inventario", ["/productos", "/productos/precios", "/etiquetas", "/inventario", "/inventario/cuarentena", "/prediccion", "/alertas"]],
   ["Compras", ["/compras", "/cuentas-por-pagar"]],
   ["Cumplimiento", ["/documentos", "/temperatura", "/control-especial"]],
   ["Gestión", ["/reportes", "/gastos", "/bitacora", "/equipo", "/ayuda", "/cuenta"]],
 ];
 
+/** Modo droguería interna (sin DIAN): no vende ni factura, entrega. Esto no aplica y sale del menú. */
+const SIN_VENTA = ["/caja", "/pedidos", "/turno", "/ventas", "/clientes", "/cartera", "/documentos", "/productos/precios"];
+
 /** En escritorio van fijas al pie del menú, no en su grupo. */
 const PIE = ["/ayuda", "/equipo"];
 
-export function Navegacion({ rol, demo = false }: { rol: string; demo?: boolean }) {
+export function Navegacion({ rol, demo = false, interno = false }: { rol: string; demo?: boolean; interno?: boolean }) {
   const p = usePathname();
   async function salir() { await fetch("/api/sesion", { method: "DELETE" }); location.href = demo ? "/demo/gracias" : "/entrar"; } // la demo termina en la oferta, no en la pantalla de entrar
-  const visibles = ITEMS.filter((i) => i.roles.includes(rol));
+  const visibles = ITEMS.filter((i) => i.roles.includes(rol) && (interno ? !SIN_VENTA.includes(i.href) : !("soloInterno" in i)));
   // Marca solo la entrada más específica: en /productos/precios, «Precios en bloque» y no también «Productos»; y
   // /cuentas-por-pagar no enciende «Mi cuenta» (antes se comparaba con startsWith sin límite de segmento).
   const activa = visibles.filter((i) => p === i.href || p.startsWith(i.href + "/")).sort((a, b) => b.href.length - a.href.length)[0]?.href;
@@ -64,7 +68,7 @@ export function Navegacion({ rol, demo = false }: { rol: string; demo?: boolean 
         if (!items.length) return null;
         return (
           <div key={titulo || "inicio"} className="contents lg:block lg:mb-1.5">
-            {titulo && !items.every((i) => "soloCelular" in i || PIE.includes(i.href)) && <p className="hidden lg:block px-3 pt-1 pb-0.5 text-[11.5px] font-semibold text-white/45">{titulo}</p>}
+            {titulo && !items.every((i) => "soloCelular" in i || PIE.includes(i.href)) && <p className="hidden lg:block px-3 pt-1 pb-0.5 text-[11.5px] font-semibold text-white/45">{interno && titulo === "Vender" ? "Entregar" : titulo}</p>}
             {items.map((i) => {
               const on = i.href === activa;
               return (

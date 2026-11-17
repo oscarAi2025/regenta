@@ -10,7 +10,7 @@ export type FilaLibro = {
   id: string; tipo: "dispensacion" | "reintegro"; fecha: string; producto_id: string; producto: string; lote: string | null; vence: string | null;
   salida: number; reintegro: number; paciente_tipo_doc: string; paciente_doc: string; paciente_nombre: string;
   medico_nombre: string; medico_registro: string; formula_numero: string; formula_fecha: string;
-  venta_id: string; venta: string; usuario: string; motivo: string | null;
+  venta_id: string | null; entrega_id: string | null; venta: string; usuario: string; motivo: string | null;
 };
 export type SaldoProducto = {
   id: string; nombre: string; unidades_por_caja: number; control_especial: boolean;
@@ -27,7 +27,7 @@ export async function datosLibro(c: Tx, empresa: string, r: Rango, producto: str
 
   const filas = (await c.query(`select l.id, l.tipo, to_char(l.fecha at time zone 'America/Bogota', 'YYYY-MM-DD HH24:MI') fecha, l.producto_id, p.nombre producto,
       lo.lote, lo.vence::text vence, l.salida, l.reintegro, l.paciente_tipo_doc, l.paciente_doc, l.paciente_nombre, l.medico_nombre, l.medico_registro,
-      l.formula_numero, l.formula_fecha::text formula_fecha, l.venta_id, l.prefijo || l.numero venta, split_part(coalesce(m.nombre, ''), ' (', 1) usuario, l.motivo
+      l.formula_numero, l.formula_fecha::text formula_fecha, l.venta_id, l.entrega_id, l.prefijo || l.numero venta, split_part(coalesce(m.nombre, ''), ' (', 1) usuario, l.motivo
     from v_libro_control l
     join productos p on p.id = l.producto_id
     left join lotes lo on lo.id = l.lote_id
@@ -40,7 +40,7 @@ export async function datosLibro(c: Tx, empresa: string, r: Rango, producto: str
       coalesce(sum(m.cantidad) filter (where m.cantidad > 0 and m.d between $2::date and $3::date), 0)::int entradas,
       coalesce(-sum(m.cantidad) filter (where m.cantidad < 0 and m.d between $2::date and $3::date), 0)::int salidas,
       coalesce(sum(m.cantidad) filter (where m.d <= $3::date), 0)::int final,
-      coalesce(-sum(m.cantidad) filter (where m.tipo = 'venta' and m.d between $2::date and $3::date), 0)::int vendidas
+      coalesce(-sum(m.cantidad) filter (where m.tipo in ('venta', 'entrega') and m.d between $2::date and $3::date), 0)::int vendidas
     from productos p
     left join lateral (select x.cantidad, x.tipo, (x.creado at time zone 'America/Bogota')::date d from movimientos x where x.producto_id = p.id and x.empresa_id = $1) m on true
     where p.empresa_id = $1 and p.id = any($4::uuid[])

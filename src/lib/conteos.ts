@@ -1,5 +1,6 @@
 import "server-only";
 import type { Tx } from "./db";
+import { ubicacionSql } from "./ubicacion";
 
 export type LineaConteo = {
   id: number; producto_id: string; nombre: string; laboratorio: string | null; ean: string | null; unidades_por_caja: number;
@@ -12,8 +13,9 @@ export type LineaConteo = {
  *  Conteo a ciegas abierto: a quien no es dueño ni administrador no se le entrega lo del sistema (`oculto`).
  *  El costo sale de lote_costos (la seguridad por fila solo se lo deja ver a la gerencia; `costos` evita pedirlo). */
 export async function lineasConteo(c: Tx, conteo: string, costos: boolean): Promise<LineaConteo[]> {
+  const U = await ubicacionSql(c);
   return (await c.query(
-    `select cl.id::int, cl.producto_id, p.nombre, p.laboratorio, p.ean, p.unidades_por_caja, cl.lote_id, l.lote, l.vence::text,
+    `select cl.id::int, cl.producto_id, p.nombre, p.laboratorio, p.ean, ${U} ubicacion, p.unidades_por_caja, cl.lote_id, l.lote, l.vence::text,
             coalesce(l.vence < (now() at time zone 'America/Bogota')::date, false) vencido, cl.contado, cl.nuevo,
             -- Referencia de la diferencia: cerrado → la guardada al cerrar; abierto → la del momento en que se contó la línea
             -- (lo vendido después no cuenta como faltante), o la de ahora si aún no se cuenta.
@@ -24,5 +26,5 @@ export async function lineasConteo(c: Tx, conteo: string, costos: boolean): Prom
                  else coalesce((select s.unidades from v_stock_lotes s where s.lote_id = cl.lote_id), 0) end::int sistema,
             ${costos ? "(select lc.costo_unidad::float from lote_costos lc where lc.lote_id = cl.lote_id)" : "null::float"} costo
      from conteo_lineas cl join conteos k on k.id = cl.conteo_id join productos p on p.id = cl.producto_id join lotes l on l.id = cl.lote_id
-     where cl.conteo_id = $1 order by p.nombre, l.vence nulls last, l.lote`, [conteo, costos])).rows;
+     where cl.conteo_id = $1 order by ${U} nulls last, p.nombre, l.vence nulls last, l.lote` /* en el orden de la estantería */, [conteo, costos])).rows;
 }

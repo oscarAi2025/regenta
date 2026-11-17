@@ -1,3 +1,4 @@
+import { guardarUbicacion } from "@/lib/ubicacion";
 import { puede } from "@/lib/sesion";
 import { comoUsuario } from "@/lib/db";
 import { conSesion, esUuid, json } from "@/lib/api";
@@ -34,6 +35,7 @@ export const PATCH = conSesion(async (s, req, ctx) => {
        where id = $1 and empresa_id = $2`,
       [id, s.empresa, d.nombre, d.laboratorio || null, d.ean ?? "", d.iva, d.unidades_por_caja, d.precio_caja, d.precio_unidad ?? null, d.stock_minimo, d.registro_sanitario ?? "", d.categoria ?? null,
         d.requiere_formula ?? null, d.control_especial ?? null])).rowCount;
+    if (n && d.ubicacion !== undefined) await guardarUbicacion(c, id, d.ubicacion);
     if (n && ex?.success) await entrarExistencia(c, s.empresa, caja, id, ex.data);
     return n;
   });

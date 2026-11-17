@@ -4,14 +4,14 @@
 // servidor (todo lo demás), y se prueba sin red en tests/importar.test.mjs.
 
 export const CAMPOS = ["nombre", "codigo_barras", "laboratorio", "iva", "unidades_por_caja", "precio_caja", "precio_unidad",
-  "stock_minimo", "lote", "vence", "cantidad_unidades", "costo_unidad", "registro_sanitario", "requiere_formula", "control_especial"] as const;
+  "stock_minimo", "lote", "vence", "cantidad_unidades", "costo_unidad", "registro_sanitario", "requiere_formula", "control_especial", "ubicacion"] as const;
 export type Campo = (typeof CAMPOS)[number];
 
 export const ETIQUETAS: Record<Campo, string> = {
   nombre: "Nombre", codigo_barras: "Código de barras", laboratorio: "Laboratorio", iva: "IVA", unidades_por_caja: "Unidades por caja",
   precio_caja: "Precio de venta (caja)", precio_unidad: "Precio por unidad", stock_minimo: "Stock mínimo", lote: "Lote",
   vence: "Vencimiento", cantidad_unidades: "Existencias (unidades)", costo_unidad: "Costo por unidad", registro_sanitario: "Registro sanitario",
-  requiere_formula: "Venta con fórmula médica", control_especial: "Control especial",
+  requiere_formula: "Venta con fórmula médica", control_especial: "Control especial", ubicacion: "Ubicación",
 };
 
 /** Nombres con que otros programas llaman a cada columna (ya normalizados: minúsculas, sin tildes, «_» entre palabras). */
@@ -33,6 +33,7 @@ const SINONIMOS: Record<Campo, string[]> = {
     "bajo_formula", "venta_bajo_formula", "venta_bajo_formula_medica", "rx", "receta", "requiere_receta", "venta_bajo_receta", "condicion_de_venta", "condicion_venta", "tipo_de_venta", "tipo_venta"],
   control_especial: ["control_especial", "controlado", "medicamento_controlado", "medicamento_de_control_especial", "medicamento_control_especial", "control",
     "es_controlado", "de_control_especial", "control_esp"],
+  ubicacion: ["ubicacion", "ubicacion_estante", "ubicacion_en_estanteria", "ubicacion_bodega", "estante", "estanteria", "anaquel", "localizacion", "posicion", "gondola"],
 };
 
 // Palabras demasiado generales para reconocer una columna por prefijo («valor_total» no es el precio de venta).
@@ -173,7 +174,7 @@ export type Fila = Partial<Record<Campo, unknown>>;
 export type Lote = { lote: string; vence: string | null; unidades: number; costo?: number; filas: number[] };
 export type Producto = {
   clave: string; fila: number; nombre: string; ean: string; laboratorio: string; iva: number; unidades_por_caja: number;
-  precio_caja: number; precio_unidad: number | null; pu_archivo: number | null; stock_minimo: number; registro_sanitario: string; lotes: Lote[];
+  precio_caja: number; precio_unidad: number | null; pu_archivo: number | null; stock_minimo: number; registro_sanitario: string; ubicacion: string; lotes: Lote[];
   /** undefined = el archivo no lo dice (al actualizar no se cambia). */
   requiere_formula?: boolean; control_especial?: boolean;
 };
@@ -237,7 +238,7 @@ export function leerFilas(filas: Fila[], hoy: string, primeraFila = 2): Lectura 
     if (!p) {
       p = { clave, fila: n, nombre, ean, laboratorio, iva: t, unidades_por_caja: upc, precio_caja: precioCaja, precio_unidad: precioUnidad, pu_archivo: puArchivo,
         stock_minimo: minimo !== undefined && !Number.isNaN(minimo) && minimo > 0 ? Math.min(100000, Math.round(minimo)) : 0,
-        registro_sanitario: texto(f.registro_sanitario).toUpperCase().slice(0, 60), lotes: [],
+        registro_sanitario: texto(f.registro_sanitario).toUpperCase().slice(0, 60), ubicacion: texto(f.ubicacion).replace(/[\p{C}]/gu, " ").toUpperCase().replace(/\s+/g, " ").trim().slice(0, 40), lotes: [],
         ...(marcas.requiere_formula !== undefined ? { requiere_formula: marcas.requiere_formula } : {}),
         ...(marcas.control_especial !== undefined ? { control_especial: marcas.control_especial } : {}) };
       porClave.set(clave, p); productos.push(p);

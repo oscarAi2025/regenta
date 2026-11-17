@@ -4,7 +4,7 @@ import type { TipoPedido, EstadoPedido } from "@/lib/pedidos";
 export type Producto = {
   id: string; nombre: string; laboratorio: string | null; ean: string | null; iva: number; unidades_por_caja: number;
   precio_caja: number; precio_unidad: number | null; stock_minimo: number; unidades: number; proximo_vence: string | null; exacto: boolean;
-  requiere_formula?: boolean; control_especial?: boolean;
+  requiere_formula?: boolean; control_especial?: boolean; /** Dónde está en la estantería (E3-N2). */ ubicacion?: string | null;
 };
 /** Línea de la venta. `antes`: precio que se le dijo al cliente en el pedido, si cambió desde entonces. */
 export type Linea = { key: string; p: Producto; presentacion: "caja" | "unidad"; cantidad: number; descuento: number /* % */; antes?: number };

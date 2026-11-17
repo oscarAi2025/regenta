@@ -40,12 +40,13 @@ export function plazo(hoy: string): { periodo: string; vence: string; dia: numbe
 // ───────────── Libro completo: cada movimiento de inventario de un producto de control especial ─────────────
 
 export type TipoAsiento = "inicial" | "entrada" | "anulacion_compra" | "dispensacion" | "salida_sin_formula" | "reintegro"
-  | "devolucion_proveedor" | "ajuste_entrada" | "ajuste_salida";
+  | "devolucion_proveedor" | "ajuste_entrada" | "ajuste_salida" | "entrega_interna";
 
 export const TIPO_ASIENTO: Record<TipoAsiento, string> = {
   inicial: "Inventario inicial", entrada: "Entrada por compra", anulacion_compra: "Anulación de compra",
   dispensacion: "Dispensación con fórmula", salida_sin_formula: "Venta sin fórmula registrada", reintegro: "Reintegro (anulación o devolución)",
   devolucion_proveedor: "Devolución al proveedor", ajuste_entrada: "Ajuste (entrada)", ajuste_salida: "Ajuste o baja (salida)",
+  entrega_interna: "Entrega interna sin fórmula registrada",
 };
 
 /** Qué es, para el libro, un movimiento de inventario (tipo y signo tal como los guarda la base). */
@@ -57,6 +58,8 @@ export function clasificar(tipo: string, cantidad: number, conFormula: boolean):
     case "venta": return entra ? "reintegro" : conFormula ? "dispensacion" : "salida_sin_formula";
     case "anulacion": return entra ? "reintegro" : "ajuste_salida";
     case "devolucion": return entra ? "reintegro" : "devolucion_proveedor";
+    // Droguería interna (sin DIAN): la entrega con fórmula es una dispensación; su anulación, un reintegro.
+    case "entrega": return entra ? "reintegro" : conFormula ? "dispensacion" : "entrega_interna";
     default: return entra ? "ajuste_entrada" : "ajuste_salida";
   }
 }

@@ -4,7 +4,7 @@ import { fechaReal } from "@/lib/validar";
 
 const TIPO: Record<string, [string, string]> = {
   inicial: ["Inicial", "bg-paper text-ink"], compra: ["Compra", "bg-cruz-soft text-cruz"], venta: ["Venta", "bg-paper text-ink"],
-  devolucion: ["Devolución", "bg-cruz-soft text-cruz"], anulacion: ["Anulación", "bg-cruz-soft text-cruz"], ajuste: ["Ajuste", "bg-aviso-soft text-aviso"],
+  devolucion: ["Devolución", "bg-cruz-soft text-cruz"], anulacion: ["Anulación", "bg-cruz-soft text-cruz"], ajuste: ["Ajuste", "bg-aviso-soft text-aviso"], entrega: ["Entrega interna", "bg-cruz-soft text-cruz"],
 };
 const MAX = 400;
 type Mov = { id: string; fecha: string; tipo: string; documento: string; lote: string; usuario: string | null; entrada: number; salida: number; saldo: number };

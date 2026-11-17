@@ -2,7 +2,7 @@
 import { useMemo, useRef, useState } from "react";
 
 export type Linea = {
-  id: number; producto_id: string; nombre: string; laboratorio: string | null; ean: string | null; unidades_por_caja: number;
+  id: number; producto_id: string; nombre: string; laboratorio: string | null; ean: string | null; ubicacion?: string | null; unidades_por_caja: number;
   lote_id: string; lote: string; vence: string | null; vencido: boolean; contado: number | null; sistema: number; costo: number | null; nuevo: boolean;
   oculto?: boolean;
 };
@@ -48,7 +48,7 @@ export function Contar({ conteo, inicial, verCosto, ciego = false }: { conteo: {
   const visibles = useMemo(() => {
     const ws = filtro.trim().toLowerCase().split(/\s+/).filter(Boolean);
     return lineas.filter((l) => (ver === "sin" ? l.contado === null : ver === "dif" ? l.contado !== null && l.contado !== l.sistema : true)
-      && ws.every((w) => `${l.nombre} ${l.laboratorio ?? ""} ${l.lote} ${l.ean ?? ""}`.toLowerCase().includes(w)));
+      && ws.every((w) => `${l.nombre} ${l.laboratorio ?? ""} ${l.lote} ${l.ean ?? ""} ${l.ubicacion ?? ""}`.toLowerCase().includes(w)));
   }, [lineas, ver, filtro]);
 
   function aplicar(r: { linea_id: number; lote_id: string; producto_id: string; lote: string; vence: string | null; contado: number; nuevo: boolean; sistema: number | null }, p?: Prod, costo?: number | null) {
@@ -231,7 +231,7 @@ export function Contar({ conteo, inicial, verCosto, ciego = false }: { conteo: {
               <li key={l.lote_id} className="px-3 sm:px-4 py-3 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 items-center">
                 <div className="min-w-0">
                   <p className="font-semibold leading-snug break-words">{l.nombre}</p>
-                  <p className="text-sm text-muted num">Lote <b className="text-ink">{l.lote}</b> · vence {fecha(l.vence)}{l.vencido ? <span className="text-alerta font-semibold"> · vencido</span> : null}{l.nuevo ? " · agregado al contar" : ""}</p>
+                  <p className="text-sm text-muted num">{l.ubicacion ? <>Ubicación <b className="text-ink">{l.ubicacion}</b> · </> : null}Lote <b className="text-ink">{l.lote}</b> · vence {fecha(l.vence)}{l.vencido ? <span className="text-alerta font-semibold"> · vencido</span> : null}{l.nuevo ? " · agregado al contar" : ""}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <label htmlFor={`contado-${l.id}`} className="sr-only">Contado de {l.nombre} lote {l.lote}</label>

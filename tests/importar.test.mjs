@@ -134,3 +134,13 @@ test("las marcas llegan al producto; sin la columna no se tocan; un valor raro e
   assert.equal(suero.requiere_formula, undefined); assert.equal(suero.control_especial, undefined);
   assert.ok(l.columnas.has("control_especial") && l.columnas.has("requiere_formula"));
 });
+
+test("ubicación en la estantería: columna reconocida y texto limpio en mayúscula", () => {
+  assert.deepEqual(mapearColumnas(["Producto", "Precio", "Ubicación", "Estante"]).slice(0, 3), ["nombre", "precio_caja", "ubicacion"]);
+  assert.deepEqual(mapearColumnas(["Nombre", "PVP", "Estantería"]), ["nombre", "precio_caja", "ubicacion"]);
+  const l = leerFilas([{ nombre: "Acetaminofén 500", precio_caja: "5000", ubicacion: "  e3 -\tn2  " }, { nombre: "Gasas", precio_caja: "3000" }], "2026-11-17");
+  assert.equal(l.errores.length, 0);
+  assert.equal(l.productos[0].ubicacion, "E3 - N2");
+  assert.equal(l.productos[1].ubicacion, "");
+  assert.ok(l.columnas.has("ubicacion"));
+});

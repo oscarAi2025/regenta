@@ -6,6 +6,7 @@ import { entrarExistencia, leerExistencia } from "@/lib/existencia";
 import { leerSesion, puede } from "@/lib/sesion";
 import { normalizarCodigo } from "@/lib/precios";
 import { cajaElegida } from "@/lib/caja-elegida";
+import { guardarUbicacion, ubicacionSql } from "@/lib/ubicacion";
 
 /** Búsqueda para la caja: por código de barras exacto (principal o alterno) o por palabras (todas deben aparecer en nombre o laboratorio). */
 export async function GET(req: Request) {
@@ -16,26 +17,26 @@ export async function GET(req: Request) {
   if (sp.get("vencen") === "1") {
     // Para la caja en reposo: lo que conviene vender primero (lotes con existencias que vencen en 60 días).
     try {
-      const productos = await comoUsuario(s, async (c) => (await c.query(
+      const productos = await comoUsuario(s, async (c) => { const U = await ubicacionSql(c); return (await c.query(
         `select p.id, p.nombre, p.laboratorio, p.ean, p.iva::float, p.unidades_por_caja, p.precio_caja::float, p.precio_unidad::float,
-                p.stock_minimo, st.unidades::int, st.proximo_vence::text, false as exacto, p.requiere_formula, p.control_especial
+                p.stock_minimo, st.unidades::int, st.proximo_vence::text, false as exacto, p.requiere_formula, p.control_especial, ${U} ubicacion
          from productos p
          join lateral (select sum(unidades) unidades, min(vence) filter (where unidades > 0) proximo_vence from v_stock_vigente where producto_id = p.id) st on true
          where p.empresa_id = $1 and p.activo and st.unidades > 0 and st.proximo_vence <= current_date + 60
-         order by st.proximo_vence, p.nombre limit 8`, [s.empresa])).rows);
+         order by st.proximo_vence, p.nombre limit 8`, [s.empresa])).rows; });
       return NextResponse.json({ productos });
     } catch (e) { const { status, error } = mensajeError(e); return NextResponse.json({ error }, { status }); }
   }
   if (sp.get("catalogo") === "1") {
     // Catálogo completo para buscar en la caja sin internet (se guarda en el navegador de la caja).
     try {
-      const productos = await comoUsuario(s, async (c) => (await c.query(
+      const productos = await comoUsuario(s, async (c) => { const U = await ubicacionSql(c); return (await c.query(
         `select p.id, p.nombre, p.laboratorio, p.ean, p.iva::float, p.unidades_por_caja, p.precio_caja::float, p.precio_unidad::float,
-                p.stock_minimo, coalesce(st.unidades, 0)::int unidades, st.proximo_vence::text, false as exacto, p.requiere_formula, p.control_especial,
+                p.stock_minimo, coalesce(st.unidades, 0)::int unidades, st.proximo_vence::text, false as exacto, p.requiere_formula, p.control_especial, ${U} ubicacion,
                 coalesce((select array_agg(pc.codigo order by pc.codigo) from producto_codigos pc where pc.producto_id = p.id), '{}') codigos
          from productos p
          left join lateral (select sum(unidades) unidades, min(vence) filter (where unidades > 0) proximo_vence from v_stock_vigente where producto_id = p.id) st on true
-         where p.empresa_id = $1 and p.activo order by p.nombre limit 20000`, [s.empresa])).rows);
+         where p.empresa_id = $1 and p.activo order by p.nombre limit 20000`, [s.empresa])).rows; });
       return NextResponse.json({ empresa: s.empresa, productos }, { headers: { "cache-control": "no-store" } });
     } catch (e) { const { status, error } = mensajeError(e); return NextResponse.json({ error }, { status }); }
   }
@@ -44,10 +45,10 @@ export async function GET(req: Request) {
   // Código de barras exacto: el principal (ean) o cualquiera de los códigos alternos del producto.
   const codigo = normalizarCodigo(q);
   try {
-    const productos = await comoUsuario(s, async (c) => (await c.query(
+    const productos = await comoUsuario(s, async (c) => { const U = await ubicacionSql(c); return (await c.query(
       `select p.id, p.nombre, p.laboratorio, p.ean, p.iva::float, p.unidades_por_caja, p.precio_caja::float, p.precio_unidad::float,
               p.stock_minimo, coalesce(st.unidades, 0)::int as unidades, st.proximo_vence::text as proximo_vence,
-              (coalesce(p.ean = $2, false) or alt.id is not null) as exacto, p.requiere_formula, p.control_especial
+              (coalesce(p.ean = $2, false) or alt.id is not null) as exacto, p.requiere_formula, p.control_especial, ${U} ubicacion
        from productos p
        left join producto_codigos alt on alt.producto_id = p.id and alt.empresa_id = $1 and alt.codigo = $4
        left join lateral (select sum(unidades) unidades, min(vence) filter (where unidades > 0) proximo_vence
@@ -55,7 +56,7 @@ export async function GET(req: Request) {
        where p.empresa_id = $1 and p.activo
          and (p.ean = $2 or alt.id is not null or (select bool_and(sin_tildes(p.nombre || ' ' || coalesce(p.laboratorio, '')) like '%' || sin_tildes(w) || '%') from unnest($3::text[]) w))
        order by (coalesce(p.ean = $2, false) or alt.id is not null) desc, (coalesce(st.unidades, 0) > 0) desc, p.nombre
-       limit 30`, [s.empresa, q, palabras, codigo])).rows);
+       limit 30`, [s.empresa, q, palabras, codigo])).rows; });
     return NextResponse.json({ productos });
   } catch (e) {
     const { status, error } = mensajeError(e);
@@ -87,6 +88,7 @@ export const POST = conSesion(async (s, req) => {
        values ($1, $2, $3, $4, nullif($5, ''), $6, $7, $8, $9, $10, $11, nullif(upper($12), ''), $13, $14) returning id`,
       [s.empresa, d.maestro_id ?? null, d.nombre, d.laboratorio || null, d.ean ?? "", d.iva, d.categoria || null, d.unidades_por_caja, d.precio_caja, d.precio_unidad ?? null, d.stock_minimo, d.registro_sanitario ?? "",
         !!(d.requiere_formula || d.control_especial), !!d.control_especial]);
+    if (d.ubicacion) await guardarUbicacion(c, rows[0].id, d.ubicacion);
     if (ex?.success) await entrarExistencia(c, s.empresa, caja, rows[0].id, ex.data);
     return { id: rows[0].id };
   });

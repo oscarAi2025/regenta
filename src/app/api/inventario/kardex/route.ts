@@ -4,7 +4,7 @@ import { puede } from "@/lib/sesion";
 import { excel, pideExcel, respuestaExcel } from "@/lib/reportes";
 import { fechaReal } from "@/lib/validar";
 
-const TIPO: Record<string, string> = { inicial: "Inicial", compra: "Compra", venta: "Venta", devolucion: "Devolución", anulacion: "Anulación", ajuste: "Ajuste" };
+const TIPO: Record<string, string> = { inicial: "Inicial", compra: "Compra", venta: "Venta", devolucion: "Devolución", anulacion: "Anulación", ajuste: "Ajuste", entrega: "Entrega interna" };
 const fecha = (v: string | null) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) && fechaReal(v) ? v : null);
 
 /** Kardex de un producto: movimientos con saldo acumulado (JSON, o Excel con ?formato=excel). Dueño, administrador o bodega. */

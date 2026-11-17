@@ -132,6 +132,12 @@ export const POST = conSesion(async (s, req) => {
       from jsonb_to_recordset($2) as x(id uuid, nombre text, laboratorio text, ean text, iva numeric, unidades_por_caja int, precio_caja numeric, precio_unidad numeric, pu_archivo numeric, stock_minimo int, registro_sanitario text, requiere_formula boolean, control_especial boolean)
       where p.id = x.id and p.empresa_id = $1`, [s.empresa, JSON.stringify(viejos)]);
 
+    // Ubicación en la estantería (si el archivo la trae y la migración 050 está aplicada): solo las filas que la traen.
+    const conUbicacion = unicos.filter((x) => x.ubicacion).map((x) => ({ id: destino.get(x)!.id, u: x.ubicacion }));
+    if (tiene("ubicacion") && conUbicacion.length && (await c.query(`select to_regprocedure('cambiar_ubicacion(uuid,text)') is not null listo`)).rows[0].listo)
+      await c.query(`update productos p set ubicacion = x.u from jsonb_to_recordset($2) as x(id uuid, u text) where p.id = x.id and p.empresa_id = $1 and p.ubicacion is distinct from x.u`,
+        [s.empresa, JSON.stringify(conUbicacion)]);
+
     const lineas = unicos.flatMap((x) => x.lotes.map((l) => ({ producto_id: destino.get(x)!.id, lote: l.lote, vence: l.vence, unidades: l.unidades, ...(l.costo !== undefined ? { costo_unidad: l.costo } : {}) })));
     if (lineas.length) await c.query(`select registrar_entrada($1)`, [{ empresa_id: s.empresa, sede_id: sede, tipo: "inicial", lineas, idem_key: p.data.idem_key ?? null }]);
     return { plan: plan.slice(0, 500), resumen, aplicado: true };

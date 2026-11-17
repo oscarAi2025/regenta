@@ -360,3 +360,14 @@
 - Código que depende de una migración nueva debe tolerar que aún no esté (to_regclass) para no repetir el 10/11.
 - La regla del negocio se verifica con la norma antes de modelarla: el art. 84 exige recetario oficial a todo medicamento
   de control especial (sobraba la casilla «recetario oficial» por producto).
+
+## 17/11/2026 · Pruebas en navegador
+- `isVisible()` de Playwright no espera: para algo que aparece tras una búsqueda con retardo, usar `waitFor()`.
+- Reiniciar el servidor de pruebas matando el PUERTO (`fuser -k 4503/tcp`), no por nombre del proceso: `pkill -f "next start"`
+  no lo mató y el servidor viejo siguió sirviendo una compilación nueva a medias.
+- La suite admin necesita REGENTA_CABECERA_IP=x-real-ip en el servidor (límites de intentos por IP); sin eso falla
+  «exige contraseña segura» sin que haya error real.
+- Leer una columna nueva con `to_jsonb(p) ->> 'col'` para tolerar que falte la migración arma el JSON de TODA la fila por
+  cada producto: en el filtro de la búsqueda de la caja la hizo 2-3 veces más lenta y rompió la prueba solo-factura
+  (Enter antes de que llegaran los resultados). Regla: comprobar una vez por proceso si la migración está y usar la
+  columna directa; nada caro por fila en la ruta de la caja. Comparar contra la rama base cuando una suite vieja falla.

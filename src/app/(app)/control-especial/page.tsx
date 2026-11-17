@@ -138,7 +138,7 @@ export default async function ControlEspecial({ searchParams }: { searchParams: 
                         <td className="py-2.5 px-2"><p>{f.paciente_nombre}</p><p className="text-muted num">{f.paciente_tipo_doc} {f.paciente_doc}</p></td>
                         <td className="py-2.5 px-2"><p>{f.medico_nombre}</p><p className="text-muted">Reg. {f.medico_registro}</p></td>
                         <td className="py-2.5 px-2 num whitespace-nowrap"><p>N.º {f.formula_numero}</p><p className="text-muted">{dma(f.formula_fecha)}</p></td>
-                        <td className="py-2.5 px-2 num"><Link href={`/ventas/${f.venta_id}`} className="font-semibold text-cruz hover:underline">{f.venta}</Link>{f.motivo && <p className="text-muted font-sans text-[13px] max-w-48">{f.motivo}</p>}</td>
+                        <td className="py-2.5 px-2 num"><Link href={f.entrega_id ? `/entregas/${f.entrega_id}` : `/ventas/${f.venta_id}`} className="font-semibold text-cruz hover:underline">{f.venta}</Link>{f.motivo && <p className="text-muted font-sans text-[13px] max-w-48">{f.motivo}</p>}</td>
                         <td className="py-2.5 pl-2">{f.usuario || "—"}</td>
                       </tr>
                     ))}</tbody>
@@ -150,7 +150,7 @@ export default async function ControlEspecial({ searchParams }: { searchParams: 
                       <p className="font-semibold leading-snug min-w-0">{f.producto}</p>
                       <p className="num shrink-0 text-right">{f.tipo === "reintegro" ? <span className="font-semibold text-cruz">+{f.reintegro}</span> : <span className="font-semibold">−{f.salida}</span>}<span className="block text-[12px] text-muted">{TIPO_LIBRO[f.tipo]}</span></p>
                     </div>
-                    <p className="text-sm text-muted num">{fechaHora(f.fecha)} · Lote {f.lote ?? "—"} · <Link href={`/ventas/${f.venta_id}`} className="font-semibold text-cruz">{f.venta}</Link></p>
+                    <p className="text-sm text-muted num">{fechaHora(f.fecha)} · Lote {f.lote ?? "—"} · <Link href={f.entrega_id ? `/entregas/${f.entrega_id}` : `/ventas/${f.venta_id}`} className="font-semibold text-cruz">{f.venta}</Link></p>
                     <dl className="mt-2 grid gap-1 text-sm">
                       <div className="flex flex-wrap gap-x-2"><dt className="text-muted">Paciente</dt><dd>{f.paciente_nombre} · {f.paciente_tipo_doc} {f.paciente_doc}</dd></div>
                       <div className="flex flex-wrap gap-x-2"><dt className="text-muted">Médico</dt><dd>{f.medico_nombre} · Reg. {f.medico_registro}</dd></div>

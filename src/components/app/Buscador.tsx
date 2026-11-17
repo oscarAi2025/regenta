@@ -9,10 +9,13 @@ const PAGINAS = [
   { href: "/inventario", t: "Inventario y lotes", roles: "*" }, { href: "/inventario/recibir", t: "Recibir mercancía", roles: "dueno,admin,bodeguero" },
   { href: "/prediccion", t: "Pedido sugerido", roles: "dueno,admin,bodeguero" }, { href: "/prediccion?ver=vencimiento", t: "Lo que se puede vencer", roles: "dueno,admin,bodeguero" },
   { href: "/alertas", t: "Alertas INVIMA", roles: "*" },
+  { href: "/entregas", t: "Entregas internas", roles: "dueno,admin,cajero,bodeguero", interno: true }, { href: "/entregas/nueva", t: "Nueva entrega interna", roles: "dueno,admin,cajero,bodeguero", interno: true },
 ];
+/** En modo droguería interna no se vende: estas pantallas no se ofrecen. */
+const SIN_VENTA = ["/caja", "/ventas", "/cartera"];
 
 /** Buscador rápido (Ctrl+K o ⌘K): ir a cualquier pantalla, buscar un producto o preguntarle a Regenta IA. */
-export function Buscador({ rol }: { rol: string }) {
+export function Buscador({ rol, interno = false }: { rol: string; interno?: boolean }) {
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
   const [q, setQ] = useState("");
@@ -37,11 +40,12 @@ export function Buscador({ rol }: { rol: string }) {
   const items: Item[] = useMemo(() => {
     const n = q.trim().toLowerCase();
     const ir = (h: string) => () => { setAbierto(false); router.push(h); };
-    const pags = PAGINAS.filter((p) => (p.roles === "*" || p.roles.split(",").includes(rol)) && (!n || p.t.toLowerCase().includes(n))).map((p) => ({ id: p.href, titulo: p.t, ir: ir(p.href) }));
+    const pags = PAGINAS.filter((p) => (p.roles === "*" || p.roles.split(",").includes(rol)) && (interno ? !SIN_VENTA.includes(p.href) : !("interno" in p))
+      && (!n || p.t.toLowerCase().includes(n))).map((p) => ({ id: p.href, titulo: p.t, ir: ir(p.href) }));
     const pr = prods.map((p) => ({ id: p.id, titulo: p.nombre, sub: `${p.laboratorio ?? "Sin laboratorio"} · ${p.unidades > 0 ? `${p.unidades} und` : "agotado"}`, ir: ir(rol === "dueno" || rol === "admin" ? `/productos/${p.id}` : `/inventario?ver=todos&q=${encodeURIComponent(p.nombre)}`) }));
     const ia = n.length > 3 ? [{ id: "ia", titulo: `Preguntar a Regenta IA: «${q.trim()}»`, ir: () => { setAbierto(false); window.dispatchEvent(new CustomEvent("regenta-ia", { detail: q.trim() })); } }] : [];
     return [...pr, ...pags, ...ia];
-  }, [q, prods, rol, router]);
+  }, [q, prods, rol, router, interno]);
 
   if (!abierto) return null;
   return (

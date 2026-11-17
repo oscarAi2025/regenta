@@ -9,6 +9,8 @@ import { Isotipo } from "@/components/Marca";
 import { PreguntarIA } from "@/components/app/PreguntarIA";
 import { MEDIO } from "@/lib/formato";
 import { hoyBogota, resultados } from "@/lib/reportes";
+import { modoDe } from "@/lib/modo";
+import { InicioInterno } from "./InicioInterno";
 
 export const metadata = { title: "Inicio" };
 
@@ -18,6 +20,7 @@ const corto = (n: number) => (n >= 1e6 ? `$${(n / 1e6).toLocaleString("es-CO", {
 export default async function Inicio() {
   const s = await leerSesion();
   if (!s) redirect("/entrar");
+  if ((await comoUsuario(s, (c) => modoDe(c, s.empresa))) === "interno") return <InicioInterno s={s} />;
   const costos = puede.verCostos(s.rol);
   const d = await comoUsuario(s, async (c) => {
     const hoy = (await c.query(`

@@ -167,6 +167,14 @@ const R = [
   { m: "GET", p: "/api/control-especial/libro?producto=x", acceso: "sesion", espera: 400 },
   { m: "GET", p: "/api/control-especial/fichas", acceso: "sesion", rol: ["bodega", 403], vendedor: 403 },
   { m: "PUT", p: "/api/control-especial/fichas", acceso: "sesion", basura: true, rol: ["cajero", 403] },
+  // Droguería interna (sin DIAN): entregas. La demo está en modo venta: la lista responde vacía y registrar no aplica.
+  { m: "GET", p: "/api/entregas", acceso: "sesion", vendedor: 403 },
+  { m: "GET", p: "/api/entregas?desde=2026-13-01&hasta=x&formato=excel", acceso: "sesion", vendedor: 403 },
+  { m: "POST", p: "/api/entregas", acceso: "sesion", basura: true, vendedor: 403 },
+  { m: "GET", p: `/api/entregas/${U}`, acceso: "sesion", espera: 404, vendedor: 403 },
+  { m: "GET", p: "/api/entregas/x", acceso: "sesion", espera: 404 },
+  { m: "POST", p: `/api/entregas/${U}/anular`, acceso: "sesion", basura: true, rol: ["cajero", 403] },
+  { m: "PUT", p: `/api/productos/${U}/ubicacion`, acceso: "sesion", basura: true, rol: ["cajero", 403], vendedor: 403 },
   { m: "GET", p: "/api/control-especial/configuracion", acceso: "sesion", rol: ["cajero", 403], vendedor: 403 },
   { m: "PUT", p: "/api/control-especial/configuracion", acceso: "sesion", basura: true, rol: ["bodega", 403] },
   // Bloque 2-A · compras, proveedores y cuentas por pagar (dueño/admin/bodega; dinero solo dueño/admin)

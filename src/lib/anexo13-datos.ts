@@ -49,10 +49,12 @@ export async function sedes(c: Tx, empresa: string): Promise<{ id: string; nombr
   return (await c.query(`select id, nombre, ciudad from sedes where empresa_id = $1 order by creado`, [empresa])).rows;
 }
 
-// Movimientos de los productos del control especial con su día en Bogotá y si la venta tuvo fórmula de control.
+// Movimientos de los productos del control especial con su día en Bogotá y si la venta (o la entrega interna) tuvo
+// fórmula de control.
 const MOVS = `select m.id, m.producto_id, m.lote_id, m.tipo, m.cantidad, m.ref_id, m.motivo, m.usuario_id, m.creado,
     (m.creado at time zone 'America/Bogota')::date d,
-    exists (select 1 from venta_formulas f where f.venta_id = m.ref_id and f.producto_id = m.producto_id and f.control) con_formula
+    (exists (select 1 from venta_formulas f where f.venta_id = m.ref_id and f.producto_id = m.producto_id and f.control)
+      or (m.tipo = 'entrega' and exists (select 1 from entrega_formulas f where f.entrega_id = m.ref_id and f.producto_id = m.producto_id and f.control))) con_formula
   from movimientos m
   where m.empresa_id = $1 and m.producto_id = any($2::uuid[]) and ($3::uuid is null or m.sede_id = $3)`;
 
@@ -66,15 +68,20 @@ export async function datosAnexo(c: Tx, empresa: string, sede: string | null, me
       coalesce(sum(cantidad) filter (where d < $4::date), 0)::int inicial,
       coalesce(sum(cantidad) filter (where d >= $4::date and cantidad > 0), 0)::int entradas,
       coalesce(-sum(cantidad) filter (where d >= $4::date and cantidad < 0), 0)::int salidas,
-      coalesce(-sum(cantidad) filter (where d >= $4::date and tipo = 'venta' and cantidad < 0 and con_formula), 0)::int dispensado,
-      coalesce(-sum(cantidad) filter (where d >= $4::date and tipo = 'venta' and cantidad < 0 and not con_formula), 0)::int sin_formula,
-      coalesce(sum(cantidad) filter (where d >= $4::date and tipo in ('venta', 'anulacion', 'devolucion') and cantidad > 0), 0)::int reintegros,
+      coalesce(-sum(cantidad) filter (where d >= $4::date and tipo in ('venta', 'entrega') and cantidad < 0 and con_formula), 0)::int dispensado,
+      coalesce(-sum(cantidad) filter (where d >= $4::date and tipo in ('venta', 'entrega') and cantidad < 0 and not con_formula), 0)::int sin_formula,
+      coalesce(sum(cantidad) filter (where d >= $4::date and tipo in ('venta', 'anulacion', 'devolucion', 'entrega') and cantidad > 0), 0)::int reintegros,
       coalesce(-sum(cantidad) filter (where d >= $4::date and tipo = 'devolucion' and cantidad < 0), 0)::int devolucion_proveedor,
       coalesce(-sum(cantidad) filter (where d >= $4::date and tipo in ('ajuste', 'inicial', 'anulacion') and cantidad < 0), 0)::int bajas
     from m group by producto_id`, [empresa, ids, sede, desde, hasta])).rows as (Agregado & { producto_id: string })[];
-  const formulas = (await c.query(`select f.producto_id, count(*)::int n from venta_formulas f join ventas v on v.id = f.venta_id
-    where f.empresa_id = $1 and f.control and f.producto_id = any($2::uuid[]) and ($3::uuid is null or v.sede_id = $3)
-      and (v.creado at time zone 'America/Bogota')::date between $4::date and $5::date group by f.producto_id`, [empresa, ids, sede, desde, hasta])).rows;
+  const formulas = (await c.query(`select producto_id, count(*)::int n from (
+      select f.producto_id from venta_formulas f join ventas v on v.id = f.venta_id
+      where f.empresa_id = $1 and f.control and f.producto_id = any($2::uuid[]) and ($3::uuid is null or v.sede_id = $3)
+        and (v.creado at time zone 'America/Bogota')::date between $4::date and $5::date
+      union all
+      select f.producto_id from entrega_formulas f join entregas en on en.id = f.entrega_id
+      where f.empresa_id = $1 and f.control and f.producto_id = any($2::uuid[]) and ($3::uuid is null or en.sede_id = $3)
+        and (en.creado at time zone 'America/Bogota')::date between $4::date and $5::date) x group by producto_id`, [empresa, ids, sede, desde, hasta])).rows;
   const lotes = (await c.query(`with m as (${MOVS} and (m.creado at time zone 'America/Bogota')::date <= $4::date),
       s as (select producto_id, lote_id, sum(cantidad)::int u from m group by 1, 2 having sum(cantidad) <> 0)
     select s.producto_id, string_agg(l.lote || coalesce(' (vence ' || to_char(l.vence, 'MM/YYYY') || ')', '') || ': ' || s.u, ' · ' order by l.vence nulls last, l.lote) txt
@@ -99,10 +106,13 @@ export async function libroCompleto(c: Tx, empresa: string, sede: string | null,
       case
         when m.tipo = 'compra' then 'Compra N.º ' || co.numero || coalesce(' · ' || pv.nombre, '') || ' · factura ' || co.numero_factura
         when v.id is not null then 'Venta ' || v.prefijo || v.numero || coalesce(' · ' || nullif(trim(m.motivo), ''), '')
+        when en.id is not null and m.cantidad > 0 then nullif(trim(m.motivo), '')
+        when en.id is not null then 'Entrega interna EI-' || en.numero || ' · ' || en.destinatario || coalesce(' · ' || en.servicio, '')
         else nullif(trim(m.motivo), '')
       end soporte,
-      f.formula_numero, case when f.id is not null then f.medico_nombre || ' · reg. ' || f.medico_registro end medico,
-      case when f.id is not null then f.paciente_nombre || ' · ' || f.paciente_tipo_doc || ' ' || f.paciente_doc end paciente,
+      coalesce(f.formula_numero, fe.formula_numero) formula_numero,
+      coalesce(f.medico_nombre || ' · reg. ' || f.medico_registro, fe.medico_nombre || ' · reg. ' || fe.medico_registro) medico,
+      coalesce(f.paciente_nombre || ' · ' || f.paciente_tipo_doc || ' ' || f.paciente_doc, fe.paciente_nombre || ' · ' || fe.paciente_tipo_doc || ' ' || fe.paciente_doc) paciente,
       split_part(coalesce(mi.nombre, ''), ' (', 1) usuario
     from m
     left join lotes l on l.id = m.lote_id
@@ -110,6 +120,8 @@ export async function libroCompleto(c: Tx, empresa: string, sede: string | null,
     left join proveedores pv on pv.id = co.proveedor_id
     left join ventas v on m.tipo in ('venta', 'anulacion', 'devolucion') and v.id = m.ref_id
     left join venta_formulas f on f.venta_id = m.ref_id and f.producto_id = m.producto_id and f.control
+    left join entregas en on m.tipo = 'entrega' and en.id = m.ref_id
+    left join entrega_formulas fe on fe.entrega_id = m.ref_id and fe.producto_id = m.producto_id and fe.control
     left join miembros mi on mi.user_id = m.usuario_id and mi.empresa_id = $1
     order by m.creado, m.id limit 20000`, [empresa, ids, sede, desde, hasta])).rows as MovimientoLibro[];
   return { productos, elegido: ids.length === 1 && producto ? producto : null, inicial, asientos: libroConSaldo(movs, inicial) };
@@ -118,13 +130,22 @@ export async function libroCompleto(c: Tx, empresa: string, sede: string | null,
 /** Relación de fórmulas (recetarios oficiales) dispensadas en el mes, para anexar al informe. */
 export async function recetariosMes(c: Tx, empresa: string, sede: string | null, mes: string) {
   const { desde, hasta } = limitesMes(mes);
-  return (await c.query(`select to_char(v.creado at time zone 'America/Bogota', 'YYYY-MM-DD') fecha, v.prefijo || v.numero venta, p.nombre producto,
-      (select coalesce(sum(vl.unidades), 0)::int from venta_lineas vl where vl.venta_id = f.venta_id and vl.producto_id = f.producto_id) unidades,
-      f.formula_numero, f.formula_fecha::text formula_fecha, f.medico_nombre, f.medico_registro, f.paciente_tipo_doc, f.paciente_doc, f.paciente_nombre
-    from venta_formulas f join ventas v on v.id = f.venta_id join productos p on p.id = f.producto_id
-    where f.empresa_id = $1 and f.control and ($2::uuid is null or v.sede_id = $2)
-      and (v.creado at time zone 'America/Bogota')::date between $3::date and $4::date
-    order by v.creado limit 20000`, [empresa, sede, desde, hasta])).rows as {
+  // Ventas con recetario y, en la droguería interna, entregas con recetario (EI-n).
+  return (await c.query(`select fecha, venta, producto, unidades, formula_numero, formula_fecha, medico_nombre, medico_registro, paciente_tipo_doc, paciente_doc, paciente_nombre from (
+      select v.creado, to_char(v.creado at time zone 'America/Bogota', 'YYYY-MM-DD') fecha, v.prefijo || v.numero venta, p.nombre producto,
+        (select coalesce(sum(vl.unidades), 0)::int from venta_lineas vl where vl.venta_id = f.venta_id and vl.producto_id = f.producto_id) unidades,
+        f.formula_numero, f.formula_fecha::text formula_fecha, f.medico_nombre, f.medico_registro, f.paciente_tipo_doc, f.paciente_doc, f.paciente_nombre
+      from venta_formulas f join ventas v on v.id = f.venta_id join productos p on p.id = f.producto_id
+      where f.empresa_id = $1 and f.control and ($2::uuid is null or v.sede_id = $2)
+        and (v.creado at time zone 'America/Bogota')::date between $3::date and $4::date
+      union all
+      select en.creado, to_char(en.creado at time zone 'America/Bogota', 'YYYY-MM-DD'), 'EI-' || en.numero, p.nombre,
+        (select coalesce(sum(el.unidades), 0)::int from entrega_lineas el where el.entrega_id = f.entrega_id and el.producto_id = f.producto_id),
+        f.formula_numero, f.formula_fecha::text, f.medico_nombre, f.medico_registro, f.paciente_tipo_doc, f.paciente_doc, f.paciente_nombre
+      from entrega_formulas f join entregas en on en.id = f.entrega_id join productos p on p.id = f.producto_id
+      where f.empresa_id = $1 and f.control and ($2::uuid is null or en.sede_id = $2)
+        and (en.creado at time zone 'America/Bogota')::date between $3::date and $4::date) x
+    order by creado limit 20000`, [empresa, sede, desde, hasta])).rows as {
       fecha: string; venta: string; producto: string; unidades: number; formula_numero: string; formula_fecha: string;
       medico_nombre: string; medico_registro: string; paciente_tipo_doc: string; paciente_doc: string; paciente_nombre: string;
     }[];

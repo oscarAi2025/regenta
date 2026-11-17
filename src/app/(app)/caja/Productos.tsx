@@ -29,6 +29,12 @@ export function MarcaFormula({ p }: { p: Producto }) {
   return null;
 }
 
+/** Dónde está en la estantería, para ir directo a sacarlo. */
+export function Ubicacion({ u }: { u?: string | null }) {
+  if (!u) return null;
+  return <span className="text-[12px] font-semibold px-1.5 py-0.5 rounded bg-paper text-ink border border-line" title="Ubicación en la droguería">Ubicación {u}</span>;
+}
+
 export function existencias(p: Producto) {
   if (p.unidades <= 0) return "Agotado";
   if (p.unidades_por_caja <= 1) return `${p.unidades} und`;
@@ -51,6 +57,7 @@ export function Fila({ p, activo, onHover, agregar, iva = true }: { p: Producto;
           <span className={agotado ? "text-alerta font-semibold" : p.unidades <= p.stock_minimo * Math.max(1, p.unidades_por_caja) ? "text-aviso font-semibold" : ""}>{existencias(p)}</span>
           <Vence fecha={p.proximo_vence} />
           <MarcaFormula p={p} />
+          <Ubicacion u={p.ubicacion} />
           {iva && p.iva > 0 && <span className="text-[12px]">IVA {p.iva} %</span>}
         </p>
       </div>
