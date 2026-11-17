@@ -6,6 +6,7 @@ Nada de esta rama está en producción. Orden propuesto, cada paso con su verifi
 
 - Copia de seguridad de Supabase (Database → Backups → copia manual, o `pg_dump` del esquema `public`).
 - Revisar la regresión final (12) en verde.
+- El modo consulta (commit 314cc6b) no requiere migración.
 
 ## 1. Base de datos (Oscar, en el SQL Editor de Supabase)
 
