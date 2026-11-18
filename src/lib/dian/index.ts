@@ -60,9 +60,13 @@ function emisor(demo = false): Emisor {
 }
 
 const ESPERA = [30, 120, 600, 1800, 7200]; // segundos entre reintentos
-// Res. DIAN 165/2023, art. 37: lo generado sin poder transmitir se transmite en 48 horas. Sin respuesta en 48 h, el documento
-// pasa a revisión manual (rechazado, con aviso al dueño); antes, a las 24 h, ya se le avisa (operacion.ts, avisarDemorados).
+// Res. DIAN 165/2023, art. 37: lo generado sin poder transmitir se transmite en 48 horas. Pasado ese plazo NO se marca
+// «rechazado»: que el proveedor no conteste no significa que la DIAN no lo tenga (p. ej. MATIAS 5xx DOCUMENT_POSSIBLY_SENT con
+// el CUFE ya validado). Un «rechazado» se puede anular sin nota crédito; uno sin respuesta no. Así que sigue «pendiente», se
+// reintenta cada 6 horas con el mismo uuid (la regla 90 lo recupera si la DIAN ya lo tenía) y se avisa al dueño y a la consola
+// (operacion.ts, avisarDemorados). Solo una respuesta definitiva del proveedor lo pasa a «rechazado».
 const PLAZO_HORAS = 48;
+const ESPERA_VENCIDO = 6 * 3600;
 const PRESUPUESTO_MS = 20000; // la función del servidor tiene ~26 s: se deja de tomar documentos a los 20 s
 
 /** Procesa hasta `max` documentos pendientes (o solo los de una venta). Devuelve el resumen.
@@ -87,7 +91,6 @@ export async function procesarCola(max = 20, venta?: string, documento?: string)
     if (!doc) break;
     const id = doc.id;
     r.enviados++;
-    if (doc.vencido) { await guardar(id, { ok: false, definitivo: true, error: `Sin respuesta tras ${PLAZO_HORAS} horas (${doc.intentos} intentos): revisar y reenviar` }); r.rechazados++; continue; }
     const d = await armar(id);
     if (d.esperar) {
       await sinRLS((c) => c.query(`update documentos_dian set estado = 'pendiente', intentos = greatest(intentos - 1, 0), proximo_intento = now() + interval '1 minute', actualizado = now() where id = $1`, [id]));
@@ -106,7 +109,7 @@ export async function procesarCola(max = 20, venta?: string, documento?: string)
     }
     let res: ResultadoEmision;
     try { res = await e.emitir(d.documento); } catch (err) { res = { ok: false, definitivo: false, error: String((err as Error).message) }; }
-    await guardar(id, res);
+    await guardar(id, res, doc.vencido);
     if (res.ok) r.aceptados++; else if (res.definitivo) r.rechazados++; else r.reintentos++;
   }
   return r;
@@ -171,7 +174,7 @@ async function armar(id: string): Promise<{ documento: DocumentoParaEmitir; reso
   });
 }
 
-async function guardar(id: string, res: ResultadoEmision) {
+async function guardar(id: string, res: ResultadoEmision, vencido = false) {
   await sinRLS(async (c) => {
     if (res.ok) {
       await c.query(`update documentos_dian set estado = 'aceptado', cufe = $2, qr = $3, simulado = $4, respuesta = $5, ultimo_error = null, actualizado = now(),
@@ -179,6 +182,9 @@ async function guardar(id: string, res: ResultadoEmision) {
         [id, res.cufe, res.qr, res.simulado, JSON.stringify(res.respuesta ?? null), res.xml ?? null, res.pdf ?? null]);
     } else if (res.definitivo) {
       await c.query(`update documentos_dian set estado = 'rechazado', ultimo_error = $2, respuesta = $3, actualizado = now() where id = $1`, [id, res.error, JSON.stringify(res.respuesta ?? null)]);
+    } else if (vencido) {
+      await c.query(`update documentos_dian set estado = 'pendiente', ultimo_error = $2, proximo_intento = now() + make_interval(secs => $3), actualizado = now() where id = $1`,
+        [id, `Más de ${PLAZO_HORAS} h sin respuesta de la DIAN: se reintenta cada 6 horas. No lo anules sin nota crédito: la DIAN pudo haberlo validado. Último error: ${res.error}`.slice(0, 900), ESPERA_VENCIDO]);
     } else {
       // Espera creciente según el número de intentos ya hechos.
       await c.query(`update documentos_dian set estado = 'pendiente', ultimo_error = $2,

@@ -384,3 +384,7 @@
   transacción: así es como fallaría en producción.
 - La copia aparte en /home/claude/regenta-w (tar sin node_modules/.next + enlace a node_modules) permite compilar y probar
   en :4505 contra la base regenta_audit sin tocar la batería que corre en :4503.
+
+## 2026-11-18 · «Sin respuesta» no es «rechazado»
+- Un plazo vencido sin respuesta del proveedor no prueba que la DIAN rechazó el documento: marcarlo «rechazado» lo volvía descartable (anular sin nota crédito) aunque la DIAN pudiera tenerlo validado. Regla: solo una respuesta definitiva del proveedor cambia el estado fiscal; el tiempo solo cambia la cadencia de reintentos y los avisos.
+- Probar `procesarCola` de punta a punta: servidor con `REGENTA_DIAN=matias` y la droguería sin conectar en MATIAS da un error «para reintentar» sin necesidad de simulador (tests/e2e/dian-48h.mjs).

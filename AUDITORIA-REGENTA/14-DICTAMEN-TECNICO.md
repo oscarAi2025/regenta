@@ -48,7 +48,7 @@ Detalle en 12-PRUEBAS-FINALES:
 | 3 | Fusionar `audit/regenta-enterprise-quality` en `main` después del paso 1 | Oscar | Despliegue. |
 | 4 | Conteo físico y ajuste de los saldos fantasma (AUD-08) | Oscar | Inventario real de un cliente. |
 | 5 | Tope de 5 UVT en el POS (P1-1) | Contador → desarrollo | Hay ambigüedad normativa y puede cambiar cómo factura cada droguería. |
-| 6 | Contingencia del art. 37 (P1-2) y estado a las 48 h sin respuesta en lugar de «rechazado» (P1-3) | Desarrollo | Es desarrollo mayor y hay que validarlo en el sandbox de MATIAS. |
+| 6 | Contingencia del art. 37 (P1-2) | Desarrollo | Es desarrollo mayor y hay que validarlo en el sandbox de MATIAS. **P1-3 (48 h → «rechazado») corregido** en la rama `mejora/dian-48h-contingencia`: sigue pendiente, reintento cada 6 h, aviso al dueño y a la consola, y anular exige nota crédito (prueba `dian-48h`, 11 comprobaciones; migración 052). |
 | 7 | Plazos y aviso del documento soporte (P1-5) | Desarrollo | Hay que validarlo en el sandbox. |
 | 8 | Caja: resultados de búsqueda sin controles anidados (P3) | Desarrollo | Toca el flujo de venta con teclado. |
 

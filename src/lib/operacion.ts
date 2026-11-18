@@ -92,8 +92,12 @@ export async function avisarDemorados() {
     let avisos = 0;
     for (const f of filas)
       for (const d of await duenos(c, f.empresa_id))
-        if (await encolar(c, { clave: `demorado:${f.id}:${d.email}`, para: d.email, plantilla: "documento_rechazado", empresa: f.empresa_id,
-          datos: { demorado: true, nombre: d.nombre, empresa: f.nombre, documento: f.doc, error: `Lleva ${f.horas} horas sin respuesta de la DIAN. La norma da 48 horas para transmitirlo: Regenta lo sigue intentando solo; si tu internet o tu numeración tienen un problema, escríbenos por WhatsApp.`,
+        // Un aviso a las 24 h y otro al pasar las 48 h (ese ya no se marca «rechazado»: sigue pendiente y no se anula sin NC).
+        if (await encolar(c, { clave: f.horas >= 48 ? `demorado48:${f.id}:${d.email}` : `demorado:${f.id}:${d.email}`, para: d.email, plantilla: "documento_rechazado", empresa: f.empresa_id,
+          datos: { demorado: true, horas: f.horas, nombre: d.nombre, empresa: f.nombre, documento: f.doc,
+            error: f.horas >= 48
+              ? `Lleva ${f.horas} horas sin respuesta de la DIAN. Regenta lo sigue reintentando cada 6 horas. No anules esa venta: si la DIAN ya lo validó, la anulación tiene que salir con nota crédito y Regenta la hace sola en cuanto llegue la respuesta. Escríbenos por WhatsApp para revisarlo contigo.`
+              : `Lleva ${f.horas} horas sin respuesta de la DIAN. La norma da 48 horas para transmitirlo: Regenta lo sigue intentando solo; si tu internet o tu numeración tienen un problema, escríbenos por WhatsApp.`,
             ruta: f.venta_id ? `/ventas/${f.venta_id}` : "/documentos?estado=pendiente" } })) avisos++;
     return { demorados: filas.length, avisos };
   });

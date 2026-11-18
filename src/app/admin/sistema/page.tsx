@@ -25,6 +25,10 @@ export default async function Sistema() {
   const d = await sinRLS(async (c) => ({
     dian: (await c.query(`select d.estado, count(*)::int n from documentos_dian d join empresas e on e.id = d.empresa_id where not e.demo group by 1`)).rows as { estado: string; n: number }[],
     rechazados: (await c.query(`select d.prefijo || d.numero doc, d.ultimo_error, d.actualizado, coalesce(e.nombre_comercial, e.razon_social) cliente from documentos_dian d join empresas e on e.id = d.empresa_id where d.estado = 'rechazado' and not e.demo order by d.actualizado desc limit 20`)).rows,
+    // Sin respuesta pasadas 48 h: siguen pendientes (no se anulan sin nota crédito) y hay que revisarlos con el proveedor.
+    vencidos: (await c.query(`select d.prefijo || d.numero doc, d.ultimo_error, coalesce(d.reenviado, d.creado) desde, coalesce(e.nombre_comercial, e.razon_social) cliente
+      from documentos_dian d join empresas e on e.id = d.empresa_id where d.estado in ('pendiente', 'enviando') and not e.demo and not d.simulado
+        and coalesce(d.reenviado, d.creado) < now() - interval '48 hours' order by d.creado limit 20`)).rows,
     invima: (await c.query(`select numero, titulo, fecha::text, creado from alertas_invima order by creado desc limit 5`)).rows,
     migraciones: (await c.query(`select nombre from regenta_migraciones order by nombre desc limit 3`).catch(() => ({ rows: [] }))).rows.map((x) => x.nombre as string),
     // ¿Está la que necesita el código? Se pregunta por ella: con migraciones más nuevas ya aplicadas, la esperada queda
@@ -48,6 +52,8 @@ export default async function Sistema() {
       </section>
       <section className="tarjeta p-5 grid gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="titulo text-xl">Cola DIAN</h2><Accion url="/api/admin/sistema" cuerpo={{ accion: "dian" }} texto="Procesar cola ahora" clase="btn-oscuro h-10 text-sm" /></div>
+        {d.vencidos.length > 0 && <div className="rounded-xl bg-aviso-soft p-3 text-sm"><p className="font-semibold">{d.vencidos.length} documento{d.vencidos.length === 1 ? "" : "s"} sin respuesta de la DIAN hace más de 48 horas (se reintentan cada 6 h; no se anulan sin nota crédito):</p>
+          <ul className="mt-1 divide-y divide-line">{d.vencidos.map((r) => <li key={r.doc} className="py-1.5"><span className="font-semibold">{r.doc}</span> · {r.cliente} · desde {fechaHora(r.desde)}<p className="text-muted line-clamp-2">{r.ultimo_error}</p></li>)}</ul></div>}
         {d.rechazados.length ? <ul className="divide-y divide-line text-sm">{d.rechazados.map((r) => <li key={r.doc} className="py-2"><span className="font-semibold">{r.doc}</span> · {r.cliente} · {fechaHora(r.actualizado)}<p className="text-alerta">{r.ultimo_error}</p></li>)}</ul> : <p className="text-muted">Sin documentos rechazados.</p>}
       </section>
       <section className="tarjeta p-5 grid gap-3">

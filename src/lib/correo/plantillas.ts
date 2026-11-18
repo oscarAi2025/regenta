@@ -210,7 +210,7 @@ export const PLANTILLAS = {
     parrafos: [`${hola(d.nombre)}, el informe de <b>${esc(txt(d.mes, "el mes pasado"))}</b> de <b>${esc(txt(d.empresa, "tu droguería"))}</b> al Fondo Rotatorio de Estupefacientes se presenta a más tardar el <b>${esc(txt(d.vence, "día 10"))}</b>, también en ceros si no hubo movimiento (Res. 1478 de 2006, art. 94).`,
       "Regenta lo arma con los movimientos de tu inventario: revísalo, descárgalo en Excel o en PDF, envíalo y márcalo como presentado para que este recordatorio no vuelva a salir."],
     boton: { texto: "Abrir el informe", href: url(String(d.ruta ?? "/control-especial/anexo-13"), "anexo13") } }) }),
-  documento_rechazado: (d: Datos): Correo => d.demorado ? ({ asunto: `El documento ${d.documento ?? ""} lleva más de 24 horas sin respuesta de la DIAN`, ...marco({
+  documento_rechazado: (d: Datos): Correo => d.demorado ? ({ asunto: `El documento ${d.documento ?? ""} lleva más de ${Number(d.horas) >= 48 ? 48 : 24} horas sin respuesta de la DIAN`, ...marco({
     previa: "Regenta lo sigue enviando solo.", titulo: "Un documento está demorado",
     parrafos: [`${hola(d.nombre)}, el documento <b>${esc(txt(d.documento, ""))}</b> de <b>${esc(txt(d.empresa, "tu droguería"))}</b>: ${esc(txt(d.error, "sin respuesta"))}`],
     boton: { texto: "Ver el documento", href: url(String(d.ruta ?? "/documentos?estado=pendiente"), "demorado") } }) }) : ({ asunto: `La DIAN rechazó el documento ${d.documento ?? ""}`, ...marco({
