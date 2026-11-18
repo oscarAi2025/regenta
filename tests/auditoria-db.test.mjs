@@ -44,3 +44,35 @@ test("AUD-01 · a un cliente identificado SIN correo se le sigue exigiendo el co
       lineas: [{ producto_id: await producto(c), presentacion: "unidad", cantidad: 1 }], pagos: [{ medio: "efectivo", valor: 1000000 }] }]), /necesita el correo del cliente/);
   });
 });
+
+// P1-1 (DIAN): el tiquete POS solo procede si la venta no supera 5 UVT sin impuestos (art. 616-1 par. 2 ET; Dec. 442/2023).
+// Migración 053: tope_pos() = 5 × UVT del año (2026: 5 × 52.374 = 261.870); por encima, factura electrónica.
+test("P1-1 · tope del POS: 5 UVT de 2026 = $261.870", async () => {
+  const t = Number((await pool.query(`select tope_pos('2026-06-01'::timestamptz) t`)).rows[0].t);
+  assert.equal(t, 261870);
+});
+
+test("P1-1 · POS por encima de 5 UVT se rechaza; hasta el tope se registra; la misma venta con factura sí", async () => {
+  await como(U.cajera, async (c) => {
+    // Producto con existencias de sobra para pasar el tope.
+    const p = (await c.query(`select p.id, p.precio_unidad::numeric pu from productos p where p.empresa_id = $1 and p.activo and not p.requiere_formula and not p.control_especial
+      and p.precio_unidad > 1000 and (select coalesce(sum(unidades), 0) from v_stock_vigente v where v.producto_id = p.id) * p.precio_unidad > 600000
+      order by p.precio_unidad desc limit 1`, [E.A])).rows[0];
+    assert.ok(p, "hay un producto con existencias suficientes");
+    const venta = (tipo, cantidad, cli = null) => c.query("select registrar_venta($1) r", [{ empresa_id: E.A, sede_id: S.A, caja_id: C.A, idem_key: crypto.randomUUID(), tipo_doc: tipo, cliente_id: cli,
+      lineas: [{ producto_id: p.id, presentacion: "unidad", cantidad }], pagos: [{ medio: "efectivo", valor: 100000000 }] }]);
+    await c.query("savepoint a");
+    const uno = (await venta("pos", 1)).rows[0].r;           // base de una unidad (sin IVA)
+    await c.query("rollback to savepoint a");
+    const n = Math.floor(261870 / Number(uno.base)) + 1;       // primera cantidad que pasa el tope
+    await c.query("savepoint b");
+    await assert.rejects(venta("pos", n), /supera 5 UVT \(\$261\.870 sin IVA\).*factura electrónica/);
+    await c.query("rollback to savepoint b");
+    const ok = (await venta("pos", n - 1)).rows[0].r;
+    assert.ok(Number(ok.base) <= 261870 && ok.venta_id, "hasta el tope, POS");
+    const cli = (await c.query(`insert into clientes (empresa_id, tipo_doc, numero_doc, nombre) values ($1, 'CC', '222222222222', 'Consumidor final')
+      on conflict (empresa_id, tipo_doc, numero_doc) do update set nombre = excluded.nombre returning id`, [E.A])).rows[0].id;
+    const f = (await venta("factura", n, cli)).rows[0].r;
+    assert.ok(f.venta_id && Number(f.base) > 261870, "por encima, con factura a consumidor final");
+  });
+});

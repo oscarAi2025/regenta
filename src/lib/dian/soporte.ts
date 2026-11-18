@@ -121,3 +121,16 @@ export async function facturaParaNotaDebito(c: Tx, empresa: string, documentoId:
   const notas = (await c.query(`select ${COLS} from documentos_dian d where d.origen_id = $1 and d.tipo = 'nota_debito' order by d.creado`, [documentoId])).rows as DocSoporte[];
   return { factura: f, lineas, notas, bloqueo: await bloqueoEnvio(c, empresa, "nota_debito") };
 }
+
+/** Compras que necesitan documento soporte y aún no lo tienen (Res. 167/2021 art. 10 par., hoy 1.5.2.3.4 Res. 227/2025):
+ *  registradas, de proveedor no obligado a facturar y fuera de un soporte vigente. Solo cuenta para droguerías con numeración
+ *  de documento soporte activa. Plazo del semanal: el último día hábil de la semana de la compra (se toma el viernes).
+ *  Columnas: id, numero, proveedor, fecha_factura, limite (fecha), vencida. Parámetro $1: empresa. */
+export const PENDIENTES_SOPORTE = `select c.id, c.numero, p.nombre proveedor, c.fecha_factura::text,
+    (date_trunc('week', c.fecha_factura::timestamp)::date + 4)::text limite,
+    (date_trunc('week', c.fecha_factura::timestamp)::date + 4) < (now() at time zone 'America/Bogota')::date vencida
+  from compras c join proveedores p on p.id = c.proveedor_id
+  where c.empresa_id = $1 and c.estado = 'registrada' and not p.obligado_facturar
+    and exists (select 1 from resoluciones_dian r where r.empresa_id = c.empresa_id and r.tipo = 'soporte' and r.activa)
+    and not exists (select 1 from soporte_compras s where s.compra_id = c.id and s.liberada is null)
+  order by c.fecha_factura, c.numero`;

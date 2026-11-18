@@ -1,4 +1,6 @@
 import "server-only";
+import { createHash } from "node:crypto";
+import { PENDIENTES_SOPORTE } from "@/lib/dian/soporte";
 import { sinRLS } from "./db";
 import { encolar } from "./correo";
 import { CUPO_DOCS, DOC_EXTRA, limite } from "./planes";
@@ -198,4 +200,26 @@ export async function avisarHabilitacion(c: Parameters<Parameters<typeof sinRLS>
     if (await encolar(c, { clave: k, para: d.email, plantilla: "habilitado", empresa, datos: { nombre: d.nombre, empresa: q.nombre } })) claves.push(k);
   }
   return claves;
+}
+
+/** Compras sin documento soporte (Res. 167/2021 art. 10 par.): un aviso al dueño por compra nueva y otro el día de su plazo
+ *  (viernes de la semana de la compra). Cada correo lleva clave única: la tarea puede correr cada hora sin repetir. */
+export async function avisarSoporte() {
+  return sinRLS(async (c) => {
+    const empresas = (await c.query(`select e.id, coalesce(e.nombre_comercial, e.razon_social) nombre from empresas e
+      where not e.demo and e.estado = 'activa' and exists (select 1 from resoluciones_dian r where r.empresa_id = e.id and r.tipo = 'soporte' and r.activa)`)).rows;
+    let avisos = 0, compras = 0;
+    for (const e of empresas) {
+      const p = (await c.query(PENDIENTES_SOPORTE, [e.id])).rows as { id: string; numero: number; proveedor: string; fecha_factura: string; limite: string; vencida: boolean }[];
+      if (!p.length) continue;
+      compras += p.length;
+      const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+      const marca = p.map((x) => `${x.id}:${x.limite <= hoy ? "plazo" : "nueva"}`).sort().join(",");
+      const lista = p.slice(0, 8).map((x) => `compra ${x.numero} de ${x.proveedor} (plazo ${x.limite.split("-").reverse().join("/")})`).join("; ") + (p.length > 8 ? ` y ${p.length - 8} más` : "");
+      for (const d of await duenos(c, e.id))
+        if (await encolar(c, { clave: `soporte:${e.id}:${createHash("sha1").update(marca).digest("hex").slice(0, 16)}:${d.email}`, para: d.email, plantilla: "soporte_pendiente", empresa: e.id,
+          datos: { nombre: d.nombre, empresa: e.nombre, n: p.length, vencidas: p.some((x) => x.vencida), lista } })) avisos++;
+    }
+    return { compras, avisos };
+  });
 }

@@ -1,4 +1,5 @@
 import { saludoPersonal } from "@/lib/saludo";
+import { PENDIENTES_SOPORTE } from "@/lib/dian/soporte";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { comoUsuario } from "@/lib/db";
@@ -48,7 +49,8 @@ export default async function Inicio() {
         (select count(*) from productos p where empresa_id = $1 and activo and stock_minimo > 0
            and coalesce((select sum(unidades) from v_stock_vigente where producto_id = p.id), 0) between 1 and p.stock_minimo * p.unidades_por_caja)::int bajos,
         (select count(*) from documentos_dian where empresa_id = $1 and estado in ('pendiente', 'enviando'))::int dian_pend,
-        (select count(*) from documentos_dian where empresa_id = $1 and estado = 'rechazado')::int dian_rech`, [s.empresa])).rows[0];
+        (select count(*) from documentos_dian where empresa_id = $1 and estado = 'rechazado')::int dian_rech,
+        (select count(*) from (${PENDIENTES_SOPORTE}) x)::int soporte`, [s.empresa])).rows[0];
     const ultimas = (await c.query(`
       select v.id, v.prefijo || v.numero numero, v.total::float, v.estado, to_char(v.creado at time zone 'America/Bogota', 'HH24:MI') hora, d.estado dian
       from ventas v left join documentos_dian d on d.venta_id = v.id and d.tipo = v.tipo_doc
@@ -186,6 +188,7 @@ export default async function Inicio() {
               { n: d.alertas.bajos, t: "productos por debajo del mínimo", href: "/productos?ver=bajos", tono: "text-aviso" },
               { n: d.alertas.dian_rech, t: "documentos rechazados por la DIAN", href: "/ventas?dian=rechazado", tono: "text-alerta" },
               { n: d.alertas.dian_pend, t: "documentos esperando a la DIAN", href: "/ventas?dian=pendiente", tono: "text-aviso" },
+              { n: d.alertas.soporte, t: "compras sin documento soporte (plazo: el viernes de su semana)", href: "/compras", tono: "text-alerta" },
             ].map((x) => (
               <li key={x.t}><Link href={x.href} className="flex items-center gap-3 py-2.5 hover:underline"><span className={`num titulo text-2xl w-12 ${x.n ? x.tono : "text-muted"}`}>{x.n}</span><span className={x.n ? "" : "text-muted"}>{x.t}</span></Link></li>
             ))}

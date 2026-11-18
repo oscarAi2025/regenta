@@ -55,7 +55,7 @@ export const EVENTOS: Record<string, string> = {
   pago_abandonado: "Pago abandonado: llámalo", renovacion_proxima: "Renovación próxima", renovacion_vencida: "Plan vencido sin renovar",
   cuenta_suspendida: "Cuenta suspendida", cuenta_por_suspender: "Cuenta por suspender", habilitado: "Habilitado ante la DIAN",
   renovacion_cancelada: "Canceló la renovación automática", plan_cambiado: "Cambio de plan", cupo_documentos: "Cliente al 90 % de su cupo de documentos",
-  cargo_documentos: "Cargo por documentos adicionales", resolucion_por_vencer: "Numeración DIAN por vencer o agotarse", documento_rechazado: "La DIAN rechazó un documento",
+  cargo_documentos: "Cargo por documentos adicionales", resolucion_por_vencer: "Numeración DIAN por vencer o agotarse", documento_rechazado: "La DIAN rechazó un documento", soporte_pendiente: "Compras sin documento soporte",
   anexo13_pendiente: "Informe mensual de control especial (Anexo 13) pendiente",
   embudo_1: "Embudo: toca el correo 1 (día 1)", embudo_2: "Embudo: toca el correo 2 (día 3)", embudo_3: "Embudo: toca el correo 3 (día 6)",
   embudo_4: "Embudo: toca el correo 4 (día 10)", embudo_5: "Embudo: toca el correo 5 (día 15)",
@@ -210,6 +210,11 @@ export const PLANTILLAS = {
     parrafos: [`${hola(d.nombre)}, el informe de <b>${esc(txt(d.mes, "el mes pasado"))}</b> de <b>${esc(txt(d.empresa, "tu droguería"))}</b> al Fondo Rotatorio de Estupefacientes se presenta a más tardar el <b>${esc(txt(d.vence, "día 10"))}</b>, también en ceros si no hubo movimiento (Res. 1478 de 2006, art. 94).`,
       "Regenta lo arma con los movimientos de tu inventario: revísalo, descárgalo en Excel o en PDF, envíalo y márcalo como presentado para que este recordatorio no vuelva a salir."],
     boton: { texto: "Abrir el informe", href: url(String(d.ruta ?? "/control-especial/anexo-13"), "anexo13") } }) }),
+  soporte_pendiente: (d: Datos): Correo => ({ asunto: `${d.vencidas ? "Plazo vencido: " : ""}${d.n} compra${Number(d.n) === 1 ? "" : "s"} sin documento soporte`, ...marco({
+    previa: "Se genera desde la ficha de cada compra.", titulo: "Compras sin documento soporte",
+    parrafos: [`${hola(d.nombre)}, en <b>${esc(txt(d.empresa, "tu droguería"))}</b> hay compras a proveedores no obligados a facturar sin documento soporte: ${esc(txt(d.lista, ""))}.`,
+      "El documento soporte por operación se genera en el momento de la compra; el semanal, a más tardar el último día hábil de la semana (Res. DIAN 167 de 2021). Sin él, el costo y el IVA de esas compras quedan sin soporte."],
+    boton: { texto: "Ver las compras", href: url("/compras", "soporte") } }) }),
   documento_rechazado: (d: Datos): Correo => d.demorado ? ({ asunto: `El documento ${d.documento ?? ""} lleva más de ${Number(d.horas) >= 48 ? 48 : 24} horas sin respuesta de la DIAN`, ...marco({
     previa: "Regenta lo sigue enviando solo.", titulo: "Un documento está demorado",
     parrafos: [`${hola(d.nombre)}, el documento <b>${esc(txt(d.documento, ""))}</b> de <b>${esc(txt(d.empresa, "tu droguería"))}</b>: ${esc(txt(d.error, "sin respuesta"))}`],

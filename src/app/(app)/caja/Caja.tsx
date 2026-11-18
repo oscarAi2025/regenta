@@ -18,7 +18,8 @@ import { precioDe, unidadesDe, type Linea, type Medio, type PedidoVinculado, typ
 const PLAZOS = [15, 30, 45, 60, 90];
 type DetallePedido = Omit<PedidoGuardado, "lineas"> & PedidoVinculado & { cliente_datos: Cliente | null; lineas: (Omit<PedidoGuardado["lineas"][number], "producto"> & { producto: Producto & { activo?: boolean } })[] };
 
-export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, responsableIva, descuentoMax, soloFactura = false, facturaFormato = "carta" }: { fiar: boolean;
+export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, responsableIva, descuentoMax, soloFactura = false, facturaFormato = "carta", topePos = 0 }: { fiar: boolean;
+  /** 5 UVT sin impuestos (art. 616-1 par. 2 ET): por encima, el tiquete POS no procede y la venta va con factura. */ topePos?: number;
   /** Formato de la factura que eligió la droguería (la caja puede tener el suyo). */ facturaFormato?: "carta" | "tirilla";
   /** La droguería factura en producción pero su POS sigue en pruebas: toda venta va con factura electrónica. */ soloFactura?: boolean;
   /** Dueño o administrador: fían también a clientes sin cupo y se pasan del cupo escribiendo el motivo. */ gerencia: boolean;
@@ -279,7 +280,8 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, r
   const faltaCorreo = tipoDoc === "factura" && !!cliente && !cliente.email && !esConsumidorFinal(cliente);
   // Tope de descuento de la cajera: línea y general combinados, igual que en la base (antes solo fallaba al confirmar).
   const descuentoExcedido = descuentoMax !== null && lineas.some((l) => 100 - (100 - l.descuento) * (100 - descGeneral) / 100 > descuentoMax + 0.001);
-  const puedeCobrar = lineas.length > 0 && !lineas.some((l) => excede(lineas, l.p)) && !faltaCliente && !faltaFormula && !formulaSinRed && !faltaMotivo && !faltaCorreo && !descuentoExcedido;
+  const superaPos = tipoDoc === "pos" && topePos > 0 && totales.base > topePos;
+  const puedeCobrar = !superaPos && lineas.length > 0 && !lineas.some((l) => excede(lineas, l.p)) && !faltaCliente && !faltaFormula && !formulaSinRed && !faltaMotivo && !faltaCorreo && !descuentoExcedido;
   const preciosCambiados = lineas.filter((l) => l.antes !== undefined && l.antes !== precioDe(l)).length;
   // F9 o «Cobrar» con la fórmula incompleta llevan al primer dato que falta (lector y teclado no se quedan sin salida).
   const irAFormula = useCallback(() => {
@@ -600,7 +602,7 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, r
                   className="w-full h-16 rounded-xl bg-cruz text-cruz-ink text-xl font-semibold disabled:opacity-40 flex items-center justify-center gap-3">
                   Cobrar <kbd className="!bg-transparent !text-white/80 !border-white/40">F9</kbd>
                 </button>
-                <p className="mt-3 text-center text-[13px] text-muted">{lineas.some((l) => excede(lineas, l.p)) ? "Hay más de lo que queda en existencias: baja la cantidad o vende por unidad" : faltaCliente && lineas.length > 0 ? "Elige o crea el cliente para facturar" : faltaCorreo && lineas.length > 0 ? "Escribe el correo del cliente: la factura electrónica lo necesita" : descuentoExcedido ? `Tu descuento máximo es ${descuentoMax} % (contando el general): bájalo o pide autorización al dueño` : faltaMotivo && lineas.length > 0 ? "Escribe el motivo para fiar por encima del cupo" : formulaSinRed ? "Sin internet no se venden productos que exigen registrar la fórmula" : faltaFormula && lineas.length > 0 ? <>Completa la fórmula médica para cobrar · <kbd>F9</kbd> te lleva al dato que falta</> : `${tipoDoc === "factura" ? "Factura electrónica de venta" : "Tiquete POS electrónico"} · el lote que vence antes sale primero`}</p>
+                <p className="mt-3 text-center text-[13px] text-muted">{superaPos ? <>Supera 5 UVT ({pesos(topePos)} sin IVA): por norma va con factura electrónica. <button type="button" className="underline font-semibold text-ink" onClick={() => { setTipoDoc("factura"); setError(""); }}>Cambiar a factura</button> (sirve «Consumidor final»)</> : lineas.some((l) => excede(lineas, l.p)) ? "Hay más de lo que queda en existencias: baja la cantidad o vende por unidad" : faltaCliente && lineas.length > 0 ? "Elige o crea el cliente para facturar" : faltaCorreo && lineas.length > 0 ? "Escribe el correo del cliente: la factura electrónica lo necesita" : descuentoExcedido ? `Tu descuento máximo es ${descuentoMax} % (contando el general): bájalo o pide autorización al dueño` : faltaMotivo && lineas.length > 0 ? "Escribe el motivo para fiar por encima del cupo" : formulaSinRed ? "Sin internet no se venden productos que exigen registrar la fórmula" : faltaFormula && lineas.length > 0 ? <>Completa la fórmula médica para cobrar · <kbd>F9</kbd> te lleva al dato que falta</> : `${tipoDoc === "factura" ? "Factura electrónica de venta" : "Tiquete POS electrónico"} · el lote que vence antes sale primero`}</p>
               </div>
             )}
             </div>
