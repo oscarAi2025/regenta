@@ -112,9 +112,9 @@ grant execute on function reservar_contingencia(uuid, int) to authenticated;
 -- de tomar el siguiente. Se patcha solo el bloque de numeración sobre la versión vigente (como la 036 y la 051).
 do $$
 declare d text;
-  viejo text := '  v_num := v_res.actual + 1;
-  if v_num > v_res.hasta then raise exception ''Se agotó la numeración autorizada (%-%)'', v_res.prefijo, v_res.hasta using errcode = ''P0001''; end if;
-  update resoluciones_dian set actual = v_num where id = v_res.id;';
+  -- El bloque se busca con espacios y saltos de línea flexibles: una función pegada desde el SQL Editor de Supabase guarda
+  -- saltos de línea \r\n y el texto exacto no coincide.
+  patron text := 'v_num := v_res\.actual \+ 1;\s*if v_num > v_res\.hasta then raise exception [^;]*;\s*end if;\s*update resoluciones_dian set actual = v_num where id = v_res\.id;';
   nuevo text := '  if (p ->> ''numero_contingencia'') is not null then
     -- Tiquete POS expedido en contingencia (054): su número ya está impreso; tiene que ser uno reservado y libre de esta caja.
     if v_tipo <> ''pos'' then raise exception ''Solo el tiquete POS se expide en contingencia'' using errcode = ''P0001''; end if;
@@ -130,7 +130,7 @@ declare d text;
 begin
   select pg_get_functiondef('registrar_venta(jsonb)'::regprocedure) into d;
   if position('numero_contingencia' in d) > 0 then raise notice 'registrar_venta ya admite contingencia';
-  elsif position(viejo in d) > 0 then execute replace(d, viejo, nuevo);
+  elsif d ~ patron then execute regexp_replace(d, patron, ltrim(nuevo));
   else raise exception 'registrar_venta no trae el bloque de numeración esperado: revisar la 054 a mano';
   end if;
 end $$;
