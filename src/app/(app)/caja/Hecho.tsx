@@ -15,8 +15,13 @@ export function Hecho({ hecho, control, impresora, cambiarImpresora, nombreEmpre
     <div className="px-6 pt-6">
       {hecho.provisional ? <>
         <p className="text-sm text-aviso font-semibold">Venta guardada sin internet</p>
-        <p className="font-cond text-2xl num" style={{ fontWeight: 700 }}>Comprobante provisional</p>
-        <p className="mt-2 text-sm text-muted">Se registra y se envía a la DIAN sola en cuanto vuelva internet. No la cobres de nuevo.</p>
+        {hecho.provisional.contingencia ? <>
+          <p className="font-cond text-2xl num" style={{ fontWeight: 700 }}>{hecho.provisional.contingencia.prefijo}{hecho.provisional.contingencia.numero}</p>
+          <p className="mt-2 text-sm text-muted">Tiquete POS en contingencia: sale impreso con su número y se envía a la DIAN con ese mismo número en cuanto vuelva internet (plazo: 48 horas). No la cobres de nuevo.</p>
+        </> : <>
+          <p className="font-cond text-2xl num" style={{ fontWeight: 700 }}>Comprobante provisional</p>
+          <p className="mt-2 text-sm text-muted">Se registra y se envía a la DIAN sola en cuanto vuelva internet. No la cobres de nuevo.</p>
+        </>}
       </> : <>
         <p className="text-sm text-muted">{hecho.documento?.tipo === "factura" ? "Factura electrónica registrada" : "Venta registrada"}</p>
         <p className="font-cond text-2xl num" style={{ fontWeight: 700 }}>{hecho.venta.prefijo}{hecho.venta.numero}</p>

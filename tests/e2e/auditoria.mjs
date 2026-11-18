@@ -87,7 +87,7 @@ const PANTALLAS = ["/inicio", "/caja", "/ventas", "/productos", "/productos/nuev
   // Bloque 2: compras, proveedores, cuentas por pagar, pedidos del mostrador y cartera por cliente
   "/compras", "/compras/nueva", "/proveedores", "/cuentas-por-pagar", "/pedidos", "/pedidos/nuevo", "/pedidos?tipo=cotizacion&estado=todos", "/cartera?ver=clientes",
   // Bloque 3: resultados, IVA, cierre, gastos, bitácora, documentos DIAN (con soporte y notas), precios, etiquetas y cuarentena
-  "/reportes/resultados", "/reportes/iva", "/reportes/cierre", "/gastos", "/bitacora", "/documentos", "/documentos?tipo=soporte", "/productos/precios", "/etiquetas",
+  "/reportes/resultados", "/reportes/iva", "/reportes/cierre", "/gastos", "/bitacora", "/documentos", "/documentos?tipo=soporte", "/documentos/contingencias", "/productos/precios", "/etiquetas",
   "/inventario/cuarentena",
   // Control especial (030 y 048): libro, libro completo, informe mensual (Anexo 13) y fichas — dueño y administrador
   "/control-especial", "/control-especial/libro-completo", "/control-especial/anexo-13", "/control-especial/fichas"];
@@ -95,7 +95,7 @@ const CONTROL = { "/control-especial": "/inicio", "/control-especial/libro-compl
 const COMPRAS = { "/compras": "/caja", "/compras/nueva": "/caja", "/proveedores": "/caja", "/cuentas-por-pagar": "/inicio" };
 // Bloque 3: lo de la gerencia (dueño y administrador). Etiquetas y cuarentena también son de la bodega.
 const GERENCIA3 = { "/reportes/resultados": "/inicio", "/reportes/iva": "/inicio", "/reportes/cierre": "/inicio", "/gastos": "/inicio", "/bitacora": "/inicio",
-  "/documentos": "/inicio", "/productos/precios": "/productos" };
+  "/documentos": "/inicio", "/documentos/contingencias": "/inicio", "/productos/precios": "/productos" };
 const BODEGA3 = { "/etiquetas": "/inicio", "/inventario/cuarentena": "/inventario" };
 const PROHIBIDAS = { cajero: { "/reportes": "/inicio", "/productos/nuevo": "/productos", "/productos/importar": "/productos", "/inventario/recibir": "/caja", "/prediccion": "/caja", "/cartera": "/inicio", "/cartera?ver=pagadas": "/inicio", ...COMPRAS, ...GERENCIA3, ...BODEGA3, ...CONTROL },
   bodega: { "/reportes": "/inicio", "/turno": "/inicio", "/caja": "/inventario", "/ventas": null, "/cartera": "/inicio", "/cartera?ver=pagadas": "/inicio", "/cuentas-por-pagar": "/compras", "/pedidos": "/inicio", "/pedidos/nuevo": "/inicio", ...GERENCIA3, ...CONTROL },

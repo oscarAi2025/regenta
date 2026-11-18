@@ -134,6 +134,7 @@ const R = [
   { m: "POST", p: `/api/inventario/conteos/${U}/cerrar`, acceso: "sesion", basura: true, rol: ["cajero", 403], espera: 404 },
   { m: "DELETE", p: `/api/inventario/conteos/${U}`, acceso: "sesion", basura: true, rol: ["bodega", 403] },
   { m: "GET", p: "/api/turnos", acceso: "sesion" },
+  { m: "POST", p: "/api/contingencia", acceso: "sesion", rol: ["bodega", 403] },   // números de tiquete POS apartados por caja (054)
   { m: "POST", p: "/api/turnos", acceso: "sesion", basura: true, rol: ["bodega", 403] },
   { m: "POST", p: `/api/ventas/${U}/devolucion`, acceso: "sesion", basura: true, rol: ["cajero", 403] },
   { m: "POST", p: `/api/ventas/${U}/reenviar`, acceso: "sesion", rol: ["cajero", 403] },

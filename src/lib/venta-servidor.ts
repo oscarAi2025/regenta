@@ -32,10 +32,12 @@ export const Venta = z.object({
   pagos: z.array(Pago).max(6),
   sin_conexion: z.boolean().optional(), // venta que ya se hizo en el mostrador sin internet: no se le exige turno abierto
   creado: z.string().datetime({ offset: true }).nullish(), // hora real de la venta hecha sin internet
+  numero_contingencia: z.number().int().positive().max(9_999_999_999).nullish(), // tiquete POS impreso sin internet con un número apartado (054)
   formula: Formula.nullish(),
   total_mostrado: z.number().min(0).max(10_000_000_000).nullish(), // el total que la caja le mostró a la persona
 }).refine((v) => v.condicion === "credito" ? v.pagos.length === 0 : v.pagos.length > 0, { message: "Datos de pago incompletos" })
-  .refine((v) => v.tipo_doc === "pos" || v.cliente_id, { message: "La factura electrónica necesita el cliente" });
+  .refine((v) => v.tipo_doc === "pos" || v.cliente_id, { message: "La factura electrónica necesita el cliente" })
+  .refine((v) => !v.numero_contingencia || (v.sin_conexion && v.tipo_doc === "pos"), { message: "El número de contingencia es solo para el tiquete POS hecho sin internet" });
 export type Venta = z.infer<typeof Venta>;
 
 /** El mensaje en español que se devuelve con un 400 cuando la venta no pasa el validador. */
@@ -101,6 +103,9 @@ export async function registrarVenta(c: Tx, s: Sesion, d: Venta, cajaElegida: st
   // Una venta hecha sin internet entra aunque hoy no haya turno abierto (ya se hizo en el mostrador), pero queda en la
   // bitácora del dueño: es dinero que no entra en ningún arqueo.
   if (sinTurno && d.sin_conexion && !venta.repetida) await c.query(`select marcar_venta_sin_turno($1)`, [venta.venta_id]);
+  // Soporte del inconveniente (art. 37): las ventas hechas sin internet en esta caja quedan en la bitácora de contingencias.
+  // Ventas a menos de 30 minutos de una incidencia anterior de la misma caja se suman a ella.
+  if (d.sin_conexion && d.creado && !venta.repetida) await c.query(`select registrar_incidencia_sin_internet($1, $2, $3::timestamptz)`, [s.empresa, puesto.caja_id, d.creado]);
   return { venta };
 }
 

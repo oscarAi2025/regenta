@@ -3,7 +3,7 @@ import { guardarImpresora, imprimirVenta, leerImpresora, type Impresora } from "
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { pesos } from "@/lib/formato";
 import { ClienteFactura, documento, type Cliente, type CreditoCaja, esConsumidorFinal } from "./ClienteFactura";
-import { actualizarCatalogo, buscarLocal, catalogo, cola, descartar, encolar, reintentar, esFallaDeRed, imprimirProvisional, sincronizar, type VentaEnCola } from "@/lib/sin-conexion";
+import { actualizarCatalogo, asegurarReserva, tomarNumero, buscarLocal, catalogo, cola, descartar, encolar, reintentar, esFallaDeRed, imprimirProvisional, sincronizar, type VentaEnCola } from "@/lib/sin-conexion";
 import { FORMULA_VACIA, errorFormula, exigencia, limpiarDoc, pideFormula, type ConfigFormula, type DatosFormula } from "@/lib/control-especial";
 import { MAX_CANTIDAD, etiquetaPedido, netoLinea, prefijoCantidad, type TipoPedido } from "@/lib/pedidos";
 import { PanelFormula } from "./PanelFormula";
@@ -83,8 +83,8 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, r
   }, [empresa, contar]);
   useEffect(() => {
     setEnLinea(navigator.onLine); contar();
-    void actualizarCatalogo(); void enviarCola();
-    const on = () => { setEnLinea(true); void enviarCola(); void actualizarCatalogo(); };
+    void actualizarCatalogo(); void enviarCola(); void asegurarReserva();
+    const on = () => { setEnLinea(true); void enviarCola().then(() => asegurarReserva()); void actualizarCatalogo(); };
     const off = () => setEnLinea(false);
     addEventListener("online", on); addEventListener("offline", off); addEventListener("regenta:cola", contar);
     const t1 = setInterval(() => void enviarCola(), 20000);
@@ -339,8 +339,12 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, r
       // Sin internet: la venta se guarda en esta caja y se envía sola al volver la conexión (misma clave: no se duplica).
       // Lleva la hora real: al registrarse, queda en el día y el turno en que se vendió (no en el de la sincronización).
       const ahora = new Date().toISOString();
+      // Contingencia (art. 37): si la caja tiene números apartados, el tiquete sale con su número definitivo.
+      const ya = cola().find((x) => x.idem_key === idem.current)?.contingencia;
+      const cont = ya ?? tomarNumero();
       const v: VentaEnCola = {
-        idem_key: idem.current, empresa, creado: ahora, cuerpo: { ...cuerpo, sin_conexion: true, creado: ahora }, total: Math.round(totales.total), cambio: medio === "efectivo" ? cambio : 0,
+        idem_key: idem.current, empresa, creado: ahora, cuerpo: { ...cuerpo, sin_conexion: true, creado: ahora, ...(cont ? { numero_contingencia: cont.numero } : {}) }, total: Math.round(totales.total), cambio: medio === "efectivo" ? cambio : 0,
+        ...(cont ? { contingencia: cont } : {}),
         lineas: lineas.map((l) => ({ nombre: l.p.nombre, cantidad: l.cantidad, presentacion: l.presentacion, total: neto(l).neto, producto_id: l.p.id, unidades: unidadesDe(l) })),
       };
       if (!encolar(v)) { setError("Sin internet y este navegador no deja guardar la venta. Anótala y regístrala al volver la conexión."); return; }

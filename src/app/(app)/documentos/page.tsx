@@ -102,6 +102,7 @@ export default async function Documentos({ searchParams }: { searchParams: Promi
       <Cabecera titulo="Documentos electrónicos" sub={`Tiquetes POS, facturas, notas y documentos soporte ante la DIAN · ${f.desde === f.hasta ? fechaLarga(f.desde) : `${fechaLarga(f.desde)} – ${fechaLarga(f.hasta)}`}`}>
         <a href={`/api/documentos?${qs(f)}`} className="btn-borde" download>Descargar en Excel</a>
         <a href={`/api/documentos/xml?${qs(f)}`} className="btn-borde" download>Descargar XML (ZIP)</a>
+        <Link href="/documentos/contingencias" className="btn-borde">Contingencias</Link>
       </Cabecera>
 
       <form className="tarjeta p-4 grid grid-cols-2 md:grid-cols-[auto_auto_minmax(0,1fr)_minmax(0,1fr)_auto] gap-3 items-end" aria-label="Filtros">

@@ -76,3 +76,25 @@ test("P1-1 · POS por encima de 5 UVT se rechaza; hasta el tope se registra; la 
     assert.ok(f.venta_id && Number(f.base) > 261870, "por encima, con factura a consumidor final");
   });
 });
+
+// P1-2 (DIAN): contingencia del tiquete POS (054). La caja aparta números; la venta hecha sin internet se registra con el
+// número que salió impreso; un número no apartado para esa caja, o ya usado, se rechaza.
+test("P1-2 · contingencia: venta con número apartado; no apartado o repetido se rechaza", async () => {
+  await como(U.cajera, async (c) => {
+    const nums = (await c.query(`select prefijo, numero from reservar_contingencia($1, 3)`, [C.A])).rows;
+    assert.ok(nums.length >= 3, "aparta números");
+    const antes = Number((await c.query(`select actual from resoluciones_dian where empresa_id = $1 and tipo = 'pos' and activa`, [E.A])).rows[0].actual);
+    const pid = (await c.query(`select p.id from productos p where p.empresa_id = $1 and p.activo and not p.requiere_formula and not p.control_especial and p.precio_unidad is not null
+      and (select coalesce(sum(unidades), 0) from v_stock_vigente v where v.producto_id = p.id) >= 2 order by p.nombre limit 1`, [E.A])).rows[0].id;
+    const vender = (n) => c.query("select registrar_venta($1) r", [{ empresa_id: E.A, sede_id: S.A, caja_id: C.A, idem_key: crypto.randomUUID(), tipo_doc: "pos", numero_contingencia: n,
+      lineas: [{ producto_id: pid, presentacion: "unidad", cantidad: 1 }], pagos: [{ medio: "efectivo", valor: 1000000 }] }]);
+    const n0 = Number(nums[0].numero);
+    const r = (await vender(n0)).rows[0].r;
+    assert.equal(Number(r.numero), n0, "queda con el número impreso");
+    assert.equal(Number((await c.query(`select actual from resoluciones_dian where empresa_id = $1 and tipo = 'pos' and activa`, [E.A])).rows[0].actual), antes, "no consume otro número");
+    await c.query("savepoint a");
+    await assert.rejects(vender(n0), /no está reservado para esta caja o ya se usó/);
+    await c.query("rollback to savepoint a");
+    await assert.rejects(vender(antes + 1000), /no está reservado/);
+  });
+});

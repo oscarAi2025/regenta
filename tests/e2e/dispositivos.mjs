@@ -25,7 +25,7 @@ const PUBLICAS = ["/", "/precios", "/funciones", "/por-que-regenta", "/software"
 const APP = {
   dueno: ["/inicio", "/caja", "/ventas", "/clientes", "/cartera", "/pedidos", "/pedidos/nuevo", "/turno", "/productos", "/productos/nuevo", "/productos/importar", "/productos/precios",
     "/etiquetas", "/inventario", "/inventario/recibir", "/inventario/ajustes", "/inventario/conteos", "/inventario/cuarentena", "/prediccion", "/alertas", "/compras", "/compras/nueva",
-    "/proveedores", "/cuentas-por-pagar", "/documentos", "/temperatura", "/control-especial", "/reportes", "/reportes/resultados", "/reportes/iva", "/reportes/cierre", "/gastos",
+    "/proveedores", "/cuentas-por-pagar", "/documentos", "/documentos/contingencias", "/temperatura", "/control-especial", "/reportes", "/reportes/resultados", "/reportes/iva", "/reportes/cierre", "/gastos",
     "/bitacora", "/equipo", "/cuenta"],
   cajero: ["/inicio", "/caja", "/ventas", "/clientes", "/pedidos", "/turno", "/productos", "/inventario", "/temperatura", "/cuenta"],
   bodega: ["/inicio", "/inventario", "/inventario/ajustes", "/inventario/conteos", "/etiquetas", "/inventario/cuarentena", "/compras", "/productos", "/cuenta"],

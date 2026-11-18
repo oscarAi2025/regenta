@@ -17,6 +17,10 @@ const errs = []; p.on("pageerror", (e) => errs.push(e.message));
 await p.goto(B + "/entrar"); await p.getByRole("button", { name: /Laura/ }).click(); await p.waitForURL(/\/caja/);
 await p.waitForFunction(() => { try { return (JSON.parse(localStorage.getItem("regenta.catalogo") ?? "null")?.productos?.length ?? 0) > 100; } catch { return false; } }, null, { timeout: 20000 });
 ok(true, "la caja guarda el catálogo para trabajar sin internet");
+// Contingencia (054): con internet la caja aparta números de su resolución POS para imprimir el tiquete con número sin red.
+await p.waitForFunction(() => { try { return (JSON.parse(localStorage.getItem("regenta.contingencia") ?? "null")?.numeros?.length ?? 0) >= 2; } catch { return false; } }, null, { timeout: 15000 }).catch(() => {});
+const reserva = await p.evaluate(() => JSON.parse(localStorage.getItem("regenta.contingencia") ?? "null"));
+ok(reserva?.numeros?.length === 20 && reserva.emisor?.nit, "la caja aparta 20 números de contingencia con los datos del emisor", JSON.stringify(reserva?.numeros?.slice(0, 2) ?? null));
 
 const vender = async (texto) => {
   await p.locator("#buscar").fill(texto); await p.waitForSelector('[aria-label="Resultados"] [data-resultado]'); await p.keyboard.press("Enter");
@@ -33,8 +37,14 @@ ok(await p.locator('[data-resultado]').count() > 0, "sin internet la búsqueda u
 await p.locator("#buscar").fill("");
 await vender("acetaminofen forte mk");
 await p.getByText("Venta guardada sin internet").waitFor({ timeout: 8000 }).catch(() => {});
-ok(await p.getByText("Venta guardada sin internet").isVisible(), "cobra sin internet y muestra el comprobante provisional");
-ok(await p.locator('iframe[title="Comprobante provisional"]').count() === 1, "manda a imprimir el comprobante provisional");
+ok(await p.getByText("Venta guardada sin internet").isVisible(), "cobra sin internet");
+const primero = `${reserva.numeros[0].prefijo}${reserva.numeros[0].numero}`;
+ok(await p.getByText(primero, { exact: true }).isVisible(), "el tiquete en contingencia muestra su número definitivo", primero);
+ok(await p.locator('iframe[title="Tiquete POS en contingencia"]').count() === 1, "manda a imprimir el tiquete POS en contingencia");
+{
+  const html = await p.locator('iframe[title="Tiquete POS en contingencia"]').getAttribute("srcdoc");
+  ok(html.includes(`TIQUETE POS ${primero}`) && html.includes(`NIT ${reserva.emisor.nit}`) && /art\. 37/.test(html) && /48 horas/.test(html), "el impreso lleva número, NIT, la leyenda de contingencia y el plazo de 48 h");
+}
 await p.getByRole("button", { name: /Nueva venta/ }).click();
 await vender("dolex");
 await p.getByText("Venta guardada sin internet").waitFor({ timeout: 8000 });
@@ -63,6 +73,14 @@ ok(despues.length === 2, "al volver internet las dos ventas quedan registradas",
     "cada venta queda con la hora real en que se hizo sin internet");
 }
 ok(despues.every((v) => v.estado), "y cada una con su documento electrónico en camino", despues.map((v) => v.estado).join(","));
+{
+  // Con los mismos números que salieron impresos, ligados a la venta, y el inconveniente en la bitácora.
+  const nums = (await pool.query(`select v.prefijo || v.numero n from ventas v join contingencia_numeros c on c.venta_id = v.id where v.idem_key = any($1) order by v.numero`, [cola.map((v) => v.idem_key)])).rows.map((r) => r.n);
+  const impresos = cola.map((v) => `${v.contingencia.prefijo}${v.contingencia.numero}`).sort();
+  ok(nums.length === 2 && JSON.stringify(nums.sort()) === JSON.stringify(impresos), "las ventas quedan con el número impreso en contingencia", `${nums} / ${impresos}`);
+  const inc = (await pool.query(`select causa, ventas from incidencias_dian where empresa_id = '10000000-0000-4000-8000-00000000000a' and causa = 'sin_internet' order by creado desc limit 1`)).rows[0];
+  ok(inc?.ventas >= 2, "la bitácora de contingencias registra el corte de internet con sus ventas", JSON.stringify(inc));
+}
 ok(despues.reduce((a, v) => a + Number(v.total), 0) === cola.reduce((a, v) => a + v.total, 0), "los totales registrados son los cobrados");
 ok((await p.evaluate(() => JSON.parse(localStorage.getItem("regenta.cola_ventas") ?? "[]").length)) === 0, "la cola queda vacía");
 // Reenvío de la misma venta: no se duplica

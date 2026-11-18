@@ -85,8 +85,8 @@ export async function procesarCola(max = 20, venta?: string, documento?: string)
                         or (estado = 'enviando' and actualizado < now() - interval '5 minutes'))  -- envío que se cayó a medias
                        and ($1::uuid is null or venta_id = $1) and ($3::uuid is null or id = $3)
                      order by creado limit 1 for update skip locked)
-         returning id, intentos, coalesce(reenviado, creado) < now() - make_interval(hours => $2) vencido`, [venta ?? null, PLAZO_HORAS, documento ?? null]);
-      return rows[0] as { id: string; intentos: number; vencido: boolean } | undefined;
+         returning id, empresa_id, intentos, coalesce(reenviado, creado) < now() - make_interval(hours => $2) vencido`, [venta ?? null, PLAZO_HORAS, documento ?? null]);
+      return rows[0] as { id: string; empresa_id: string; intentos: number; vencido: boolean } | undefined;
     });
     if (!doc) break;
     const id = doc.id;
@@ -110,6 +110,7 @@ export async function procesarCola(max = 20, venta?: string, documento?: string)
     let res: ResultadoEmision;
     try { res = await e.emitir(d.documento); } catch (err) { res = { ok: false, definitivo: false, error: String((err as Error).message) }; }
     await guardar(id, res, doc.vencido);
+    if (!d.demo) await bitacora(doc.empresa_id, res);
     if (res.ok) r.aceptados++; else if (res.definitivo) r.rechazados++; else r.reintentos++;
   }
   return r;
@@ -171,6 +172,19 @@ async function armar(id: string): Promise<{ documento: DocumentoParaEmitir; reso
         referencia: ref ? { tipo: ref.tipo, prefijo: ref.prefijo, numero: Number(ref.numero), fecha: new Date(ref.fecha).toISOString(), cufe: ref.cufe } : null,
       },
     };
+  });
+}
+
+/** Soporte de los inconvenientes (Res. 165/2023 art. 37): una falla «para reintentar» del proveedor o de la DIAN abre una
+ *  incidencia de la droguería (una abierta por causa); la primera emisión aceptada la cierra. Consola y Documentos la muestran. */
+async function bitacora(empresa: string, res: ResultadoEmision) {
+  await sinRLS(async (c) => {
+    if (res.ok) {
+      if (!res.simulado) await c.query(`update incidencias_dian set fin = now() where empresa_id = $1 and caja_id is null and fin is null`, [empresa]);
+    } else if (!res.definitivo && !/Falta (conectar|MATIAS_TOKEN)|espera a que/i.test(res.error)) {
+      const causa = /DIAN|\b98\b/.test(res.error) && !/MATIAS \d/.test(res.error) ? "dian" : "proveedor";
+      await c.query(`insert into incidencias_dian (empresa_id, causa, inicio, detalle) values ($1, $2, now(), $3) on conflict do nothing`, [empresa, causa, res.error.slice(0, 500)]);
+    }
   });
 }
 

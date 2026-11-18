@@ -12,6 +12,8 @@ export type ProductoCaja = {
 };
 export type VentaEnCola = {
   idem_key: string; empresa: string; creado: string; cuerpo: Record<string, unknown>; total: number; cambio: number;
+  /** Tiquete POS expedido en contingencia: número definitivo (apartado con internet) y datos del emisor para imprimirlo. */
+  contingencia?: { prefijo: string; numero: number; razon: string; nit: string };
   lineas: { nombre: string; cantidad: number; presentacion: "caja" | "unidad"; total: number; producto_id: string; unidades: number }[];
   error?: string;
   aviso?: string; // error pasajero: se reintenta sola
@@ -61,6 +63,29 @@ export function buscarLocal(q: string): ProductoCaja[] {
     .map((p) => ({ ...p, unidades: Math.max(0, p.unidades - (usadas.get(p.id) ?? 0)), exacto: exacto(p) }))
     .sort((a, b) => Number(b.exacto) - Number(a.exacto) || Number(b.unidades > 0) - Number(a.unidades > 0) || a.nombre.localeCompare(b.nombre))
     .slice(0, 30);
+}
+
+// ── Contingencia (Res. DIAN 165/2023 art. 37): números de tiquete POS apartados por caja, para imprimir sin internet el
+// tiquete con su número definitivo. Al apartar de nuevo, el servidor devuelve los libres; se descuentan los que esta caja ya
+// usó en ventas que aún no se han enviado.
+type Reserva = { caja: string; numeros: { prefijo: string; numero: number }[]; emisor: { razon: string; nit: string } | null };
+const K_RESERVA = "regenta.contingencia";
+export async function asegurarReserva() {
+  try {
+    const r = await fetch("/api/contingencia", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+    if (!r.ok) return;
+    const j = (await r.json()) as Reserva;
+    const usados = new Set(cola().map((v) => v.contingencia && `${v.contingencia.prefijo}${v.contingencia.numero}`).filter(Boolean));
+    escribir(K_RESERVA, { ...j, numeros: j.numeros.filter((n) => !usados.has(`${n.prefijo}${n.numero}`)) });
+  } catch {}
+}
+/** Toma el siguiente número apartado (o null si no hay: la caja cae al comprobante provisional). */
+export function tomarNumero(): VentaEnCola["contingencia"] | null {
+  const r = leer<Reserva | null>(K_RESERVA, null);
+  if (!r?.emisor || !r.numeros.length) return null;
+  const [n, ...resto] = r.numeros;
+  if (!escribir(K_RESERVA, { ...r, numeros: resto })) return null;
+  return { ...n, ...r.emisor };
 }
 
 // ── Cola de ventas
@@ -124,15 +149,19 @@ export function imprimirProvisional(v: VentaEnCola, empresaNombre: string, ancho
   const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
   const fecha = new Date(v.creado).toLocaleString("es-CO", { timeZone: "America/Bogota", dateStyle: "short", timeStyle: "short" });
   const filas = v.lineas.map((l) => `<p>${esc(l.nombre)}</p><p class="f"><span>${l.cantidad} ${l.presentacion === "caja" ? "caja" : "und"}</span><span>${p(l.total)}</span></p>`).join("");
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Comprobante provisional</title><style>
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${v.contingencia ? "Tiquete POS en contingencia" : "Comprobante provisional"}</title><style>
     @page{size:${ancho}mm auto;margin:0}body{margin:0;background:#fff}main{width:${Number(ancho) - 8}mm;margin:0 auto;padding:3mm 4mm 6mm;color:#000;font:${ancho === "58" ? 10.5 : 12}px/1.35 ui-monospace,Menlo,Consolas,monospace}
     p{margin:0}.c{text-align:center}.b{font-weight:700}hr{border:0;border-top:1px dashed #000;margin:6px 0}.f{display:flex;justify-content:space-between;gap:8px}.g{font-size:1.15em;font-weight:700}
-  </style></head><body><main><p class="c b">${esc(empresaNombre)}</p><hr><p class="c b">COMPROBANTE PROVISIONAL</p><p class="c">Venta registrada sin internet</p><p class="c">${fecha}</p><hr>${filas}<hr>
+  </style></head><body><main><p class="c b">${esc(v.contingencia?.razon || empresaNombre)}</p>${v.contingencia ? `<p class="c">NIT ${esc(v.contingencia.nit)}</p>` : ""}<hr>${v.contingencia
+    ? `<p class="c b">TIQUETE POS ${esc(v.contingencia.prefijo)}${v.contingencia.numero}</p><p class="c">Expedido en contingencia</p>`
+    : `<p class="c b">COMPROBANTE PROVISIONAL</p><p class="c">Venta registrada sin internet</p>`}<p class="c">${fecha}</p><hr>${filas}<hr>
     <p class="f g"><span>Total</span><span>${p(v.total)}</span></p>${v.cambio > 0 ? `<p class="f"><span>Cambio</span><span>${p(v.cambio)}</span></p>` : ""}<hr>
-    <p>No es un documento electrónico. El tiquete POS electrónico se emite al volver internet; pídalo en la droguería si lo necesita.</p>
+    ${v.contingencia
+      ? `<p>Documento equivalente POS expedido durante un inconveniente tecnológico (Res. DIAN 165 de 2023, art. 37). Se transmite a la DIAN con este mismo número dentro de las 48 horas siguientes.</p>`
+      : `<p>No es un documento electrónico. El tiquete POS electrónico se emite al volver internet; pídalo en la droguería si lo necesita.</p>`}
     <p class="c" style="margin-top:6px">Ref. ${v.idem_key.slice(0, 8).toUpperCase()}</p></main></body></html>`;
   const f = document.createElement("iframe");
-  f.title = "Comprobante provisional"; f.setAttribute("aria-hidden", "true");
+  f.title = v.contingencia ? "Tiquete POS en contingencia" : "Comprobante provisional"; f.setAttribute("aria-hidden", "true");
   Object.assign(f.style, { position: "fixed", right: "0", bottom: "0", width: "0", height: "0", border: "0" });
   f.onload = () => setTimeout(() => { try { f.contentWindow?.print(); } catch {} }, 200); // imprime desde la página (sin script dentro del comprobante)
   f.srcdoc = html; document.body.appendChild(f);
