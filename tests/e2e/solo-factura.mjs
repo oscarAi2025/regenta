@@ -47,7 +47,7 @@ try {
   // Un producto con existencias de sobra para la presentación que agrega Enter (la demo cambia con la fecha).
   const prod = (await (await p.request.get(B + "/api/productos?q=acetaminofen")).json()).productos.find((x) => x.unidades >= 2 * Math.max(1, x.unidades_por_caja ?? 1));
   await p.locator("#buscar").fill(prod.nombre);
-  await p.locator('[role="option"]').first().waitFor();
+  await p.locator('[data-resultado]').first().waitFor();
   await p.keyboard.press("Enter");
   await p.waitForTimeout(400);
   ok(await p.getByText(/Escribe el correo del cliente/).count() === 0 && await p.getByRole("button", { name: /^Cobrar/ }).isEnabled(), "con consumidor final se puede cobrar", (await p.locator("main").innerText()).replace(/\n+/g, " ").slice(-600));

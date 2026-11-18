@@ -29,9 +29,9 @@ async function entrar(ctx, quien) {
 }
 async function agregar(p, texto) {
   await p.locator("#buscar").fill(texto);
-  await p.waitForSelector('[aria-label="Resultados"] [role="option"]');
+  await p.waitForSelector('[aria-label="Resultados"] [data-resultado]');
   // Un producto con existencias de sobra (las pruebas repetidas van agotando los primeros de la lista).
-  await p.locator('[role="option"]', { hasText: /\b([2-9]|\d{2,}) cajas/ }).first().getByRole("button").first().click();
+  await p.locator('[data-resultado]', { hasText: /\b([2-9]|\d{2,}) cajas/ }).first().getByRole("button").first().click();
 }
 
 // ── Dueño: factura a crédito, cliente nuevo, cartera
@@ -123,7 +123,7 @@ async function agregar(p, texto) {
   const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
   const { p, errs } = await entrar(ctx, "Laura");
   await p.locator("#buscar").fill("metronidazol 500");
-  const fila = p.locator('[role="option"]', { hasText: "Agotado" }).first();
+  const fila = p.locator('[data-resultado]', { hasText: "Agotado" }).first();
   await fila.waitFor();
   await fila.getByRole("button", { name: "Ver alternativas con existencias" }).click();
   await fila.getByText(/Parecidos que sí tienes|No hay productos parecidos/).waitFor();

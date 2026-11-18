@@ -19,7 +19,7 @@ await p.waitForFunction(() => { try { return (JSON.parse(localStorage.getItem("r
 ok(true, "la caja guarda el catálogo para trabajar sin internet");
 
 const vender = async (texto) => {
-  await p.locator("#buscar").fill(texto); await p.waitForSelector('[aria-label="Resultados"] [role="option"]'); await p.keyboard.press("Enter");
+  await p.locator("#buscar").fill(texto); await p.waitForSelector('[aria-label="Resultados"] [data-resultado]'); await p.keyboard.press("Enter");
   await p.keyboard.press("F9"); await p.waitForSelector("#recibido"); await p.fill("#recibido", "100000");
   await p.getByRole("button", { name: /Confirmar/ }).click();
 };
@@ -28,8 +28,8 @@ const vender = async (texto) => {
 await ctx.setOffline(true);
 await p.getByText(/Sin internet: sigues vendiendo/).waitFor({ timeout: 5000 }).catch(() => {});
 await p.locator("#buscar").fill("acetaminofen forte mk");
-await p.waitForSelector('[role="option"]', { timeout: 5000 }).catch(() => {});
-ok(await p.locator('[role="option"]').count() > 0, "sin internet la búsqueda usa el catálogo guardado");
+await p.waitForSelector('[data-resultado]', { timeout: 5000 }).catch(() => {});
+ok(await p.locator('[data-resultado]').count() > 0, "sin internet la búsqueda usa el catálogo guardado");
 await p.locator("#buscar").fill("");
 await vender("acetaminofen forte mk");
 await p.getByText("Venta guardada sin internet").waitFor({ timeout: 8000 }).catch(() => {});
@@ -43,7 +43,7 @@ ok(cola.length === 2, "dos ventas en la cola de esta caja", String(cola.length))
 ok(await p.getByText(/2 ventas guardadas en esta caja/).isVisible(), "la caja avisa cuántas ventas esperan");
 // Factura sin internet: no
 await p.getByRole("button", { name: /Nueva venta/ }).click();
-await p.locator("#buscar").fill("acetaminofen forte mk"); await p.waitForSelector('[aria-label="Resultados"] [role="option"]'); await p.keyboard.press("Enter");
+await p.locator("#buscar").fill("acetaminofen forte mk"); await p.waitForSelector('[aria-label="Resultados"] [data-resultado]'); await p.keyboard.press("Enter");
 await p.getByRole("button", { name: "Factura electrónica" }).click();
 ok(await p.getByRole("button", { name: /Cobrar/ }).first().isDisabled(), "sin cliente no se puede facturar (y sin internet tampoco se busca)");
 await p.getByRole("button", { name: "Tiquete POS" }).click();

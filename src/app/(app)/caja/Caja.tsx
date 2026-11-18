@@ -462,9 +462,12 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, r
         )}
 
         {res.length > 0 ? (
-          <ul className="mt-3 bg-surface rounded-2xl border border-line divide-y divide-line overflow-hidden" role="listbox" aria-label="Resultados">
+          <>
+          <p className="sr-only" aria-live="polite">{res[sel] ? `${res.length} resultado${res.length === 1 ? "" : "s"}. Elegido: ${res[sel].nombre}, ${pesos(res[sel].precio_caja)}. Enter agrega; flechas cambian.` : ""}</p>
+          <ul className="mt-3 bg-surface rounded-2xl border border-line divide-y divide-line overflow-hidden" aria-label="Resultados">
             {res.map((p, i) => <Fila key={p.id} p={p} activo={i === sel} onHover={() => setSel(i)} agregar={agregar} iva={responsableIva} />)}
           </ul>
+          </>
         ) : q.trim() && !buscando ? (
           <p className="mt-6 text-muted">No hay productos con «{q.trim()}». Prueba con otra palabra o escanea el código.</p>
         ) : (
@@ -472,7 +475,7 @@ export function Caja({ fiar, gerencia, empresa, nombreEmpresa, formulas, caja, r
           {vencen.length > 0 && (
             <section className="mt-5" aria-label="Vender primero">
               <h2 className="font-cond text-lg" style={{ fontWeight: 700 }}>Ofrécelos primero <span className="text-muted font-normal text-base" style={{ fontWeight: 400 }}>· tienen lotes que vencen en menos de 60 días</span></h2>
-              <ul role="listbox" aria-label="Vender primero" className="mt-2 bg-surface rounded-2xl border border-line divide-y divide-line overflow-hidden">
+              <ul aria-label="Vender primero" className="mt-2 bg-surface rounded-2xl border border-line divide-y divide-line overflow-hidden">
                 {vencen.map((p) => <Fila key={p.id} p={p} activo={false} onHover={() => {}} agregar={agregar} iva={responsableIva} />)}
               </ul>
             </section>

@@ -82,8 +82,8 @@ const PNG = "data:image/png;base64," + readFileSync(new URL("../../public/qr-pag
   await p.evaluate(() => localStorage.removeItem("regenta.impresora"));
   await p.reload(); await p.waitForLoadState("networkidle");
   await p.getByRole("button", { name: "Factura electrónica", exact: true }).click();
-  await p.locator("#buscar").fill("acetaminofen"); await p.waitForSelector('[aria-label="Resultados"] [role="option"]');
-  await p.locator('[role="option"]', { hasText: /\b([2-9]|\d{2,}) cajas/ }).first().getByRole("button").first().click();
+  await p.locator("#buscar").fill("acetaminofen"); await p.waitForSelector('[aria-label="Resultados"] [data-resultado]');
+  await p.locator('[data-resultado]', { hasText: /\b([2-9]|\d{2,}) cajas/ }).first().getByRole("button").first().click();
   await p.locator("#cf-buscar").fill("salud vital"); await p.getByRole("button", { name: /IPS Salud Vital/ }).click();
   await p.keyboard.press("F9"); await p.waitForSelector("#recibido"); await p.fill("#recibido", "500000");
   await p.getByRole("button", { name: /^Facturar \$/ }).click();

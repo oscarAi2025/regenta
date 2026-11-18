@@ -83,7 +83,7 @@ const cantidad = (nombre) => aside.getByRole("button", { name: new RegExp(`^Cant
 const leerCant = async (nombre) => Number(((await cantidad(nombre).getAttribute("aria-label")) ?? "").match(/: (\d+)\./)?.[1]);
 async function agregar(p, prod, unidad = false) {
   await p.locator("#buscar").fill(prod.nombre.slice(0, 45));
-  const fila = p.locator('[aria-label="Resultados"] [role="option"]', { hasText: prod.nombre }).first();
+  const fila = p.locator('[aria-label="Resultados"] [data-resultado]', { hasText: prod.nombre }).first();
   await fila.waitFor({ timeout: 10000 });
   if (unidad) await fila.getByRole("button", { name: /Unidad/ }).click(); else await fila.getByRole("button").first().click();
   await p.locator('aside[aria-label="Venta actual"] li', { hasText: prod.nombre }).first().waitFor();
@@ -285,7 +285,7 @@ let cot;
   await ir(p, "/pedidos/nuevo");
   ok(await p.getByRole("heading", { name: "Nuevo pedido" }).count() === 1, "el vendedor arma pedidos");
   await p.locator("#ed-buscar").fill(PC.nombre.slice(0, 45));
-  const fila = p.locator('[aria-label="Resultados"] [role="option"]', { hasText: PC.nombre }).first();
+  const fila = p.locator('[aria-label="Resultados"] [data-resultado]', { hasText: PC.nombre }).first();
   await fila.waitFor({ timeout: 10000 });
   await fila.getByRole("button").first().click();
   const ap = p.locator('aside[aria-label="Pedido"]');

@@ -48,7 +48,7 @@ const estado = (p) => p.evaluate(async () => (await fetch("/api/turnos")).json()
 
   // Venta en efectivo con cambio
   await p.goto(B + "/caja"); await p.waitForLoadState("networkidle");
-  await p.keyboard.type("acetaminofen forte mk"); await p.waitForSelector('[aria-label="Resultados"] [role="option"]'); await p.keyboard.press("Enter");
+  await p.keyboard.type("acetaminofen forte mk"); await p.waitForSelector('[aria-label="Resultados"] [data-resultado]'); await p.keyboard.press("Enter");
   const totalTexto = await p.locator('aside[aria-label="Venta actual"]').getByText(/^\$[\d.]+$/).last().textContent();
   const total = num(totalTexto);
   await p.keyboard.press("F9"); await p.waitForSelector("#recibido", { timeout: 8000 }).catch(async (e) => { await p.screenshot({ path: "/tmp/claude-0/capturas/turno-fallo2.png" }); throw e; }); await p.fill("#recibido", "100000");
@@ -56,7 +56,7 @@ const estado = (p) => p.evaluate(async () => (await fetch("/api/turnos")).json()
   await p.getByText(/Nueva venta/).waitFor();
   // Pago mixto: 10.000 con tarjeta y el resto en efectivo (con cambio)
   await p.getByRole("button", { name: /Nueva venta/ }).click();
-  await p.keyboard.type("acetaminofen forte mk"); await p.waitForSelector('[aria-label="Resultados"] [role="option"]'); await p.keyboard.press("Enter");
+  await p.keyboard.type("acetaminofen forte mk"); await p.waitForSelector('[aria-label="Resultados"] [data-resultado]'); await p.keyboard.press("Enter");
   const total2 = num(await p.locator('aside[aria-label="Venta actual"]').getByText(/^\$[\d.]+$/).last().textContent());
   await p.keyboard.press("F9"); await p.waitForSelector("#recibido", { timeout: 8000 }).catch(async (e) => { await p.screenshot({ path: "/tmp/claude-0/capturas/turno-fallo.png" }); throw e; });
   await p.getByRole("button", { name: /Pago mixto/ }).click();
@@ -107,7 +107,7 @@ const estado = (p) => p.evaluate(async () => (await fetch("/api/turnos")).json()
   const caj = await entrar("Laura");
   ok((await api(caj.p, { accion: "exigir", valor: false })).status === 403, "la cajera no puede cambiar esa opción");
   await caj.p.goto(B + "/caja"); await caj.p.waitForLoadState("networkidle");
-  await caj.p.keyboard.type("acetaminofen forte mk"); await caj.p.waitForSelector('[aria-label="Resultados"] [role="option"]'); await caj.p.keyboard.press("Enter");
+  await caj.p.keyboard.type("acetaminofen forte mk"); await caj.p.waitForSelector('[aria-label="Resultados"] [data-resultado]'); await caj.p.keyboard.press("Enter");
   await caj.p.keyboard.press("F9"); await caj.p.waitForSelector("#recibido"); await caj.p.fill("#recibido", "100000");
   await caj.p.getByRole("button", { name: /Confirmar/ }).click();
   ok(await caj.p.getByText(/Abre el turno de caja antes de vender/).count() > 0 || (await caj.p.getByText(/Abre el turno de caja antes de vender/).waitFor({ timeout: 5000 }).then(() => true).catch(() => false)), "sin turno abierto la caja no cobra");

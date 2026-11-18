@@ -33,7 +33,7 @@ async function entrar(quien, opciones = { viewport: { width: 1440, height: 900 }
 }
 async function agregar(p, texto) {
   await p.locator("#buscar").fill(texto);
-  await p.waitForSelector('[aria-label="Resultados"] [role="option"]');
+  await p.waitForSelector('[aria-label="Resultados"] [data-resultado]');
   await p.locator("#buscar").press("Enter");
   await p.locator("#formula").waitFor({ timeout: 5000 }).catch(() => {});
 }

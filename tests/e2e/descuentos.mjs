@@ -31,7 +31,7 @@ const venta = (p, desc, general) => p.evaluate(async ([d, g]) => {
 // ── Cajera: descuento de línea + general desde la caja
 {
   const { ctx, p, errs } = await entrar("Laura");
-  await p.keyboard.type("acetaminofen forte mk"); await p.waitForSelector('[aria-label="Resultados"] [role="option"]'); await p.keyboard.press("Enter");
+  await p.keyboard.type("acetaminofen forte mk"); await p.waitForSelector('[aria-label="Resultados"] [data-resultado]'); await p.keyboard.press("Enter");
   const aside = p.locator('aside[aria-label="Venta actual"]');
   const bruto = num(await aside.getByText(/^\$[\d.]+$/).last().textContent());
   await aside.getByLabel(/Descuento de .* en porcentaje/).fill("5");

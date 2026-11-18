@@ -34,16 +34,16 @@ async function entrar(ctx, quien) {
   await p.waitForLoadState("networkidle"); // lección 02/11: escribir antes de hidratar pierde teclas
   await p.screenshot({ path: `${OUT}/caja-vacia.png` });
   await p.keyboard.type("acetaminofen forte mk"); // uno con cajas de sobra (la prueba vende una caja)
-  await p.waitForSelector('[aria-label="Resultados"] [role="option"]');
-  const n = await p.locator('[role="option"]').count();
+  await p.waitForSelector('[aria-label="Resultados"] [data-resultado]');
+  const n = await p.locator('[data-resultado]').count();
   ok(n > 0, "la búsqueda devuelve productos", `${n}`);
   await p.screenshot({ path: `${OUT}/caja-busqueda.png` });
   await p.keyboard.press("Enter"); // agrega por caja el primero
   ok(await p.locator('aside[aria-label="Venta actual"] li').count() === 1, "Enter agrega el producto a la tirilla");
   // segundo producto: por unidad si se puede
   await p.keyboard.type("x 100");
-  await p.waitForSelector('[aria-label="Resultados"] [role="option"]');
-  const unidad = p.getByRole("option").first().getByRole("button", { name: /Unidad/ });
+  await p.waitForSelector('[aria-label="Resultados"] [data-resultado]');
+  const unidad = p.locator("[data-resultado]").first().getByRole("button", { name: /Unidad/ });
   if (await unidad.count()) { await unidad.click(); ok(true, "agrega por unidad"); } else { await p.keyboard.press("Enter"); }
   const totalTexto = await p.locator('aside[aria-label="Venta actual"]').getByText(/^\$[\d.]+$/).last().textContent();
   const total = Number(totalTexto.replace(/\D/g, ""));
@@ -112,11 +112,11 @@ async function entrar(ctx, quien) {
   const ctx = await b.newContext({ ...devices["iPhone 13"] });
   const { p, errs } = await entrar(ctx, "Laura");
   await p.locator("#buscar").fill("ibuprofeno");
-  await p.waitForSelector('[aria-label="Resultados"] [role="option"]');
+  await p.waitForSelector('[aria-label="Resultados"] [data-resultado]');
   await p.screenshot({ path: `${OUT}/movil-busqueda.png` });
   const ancho = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   ok(ancho <= 0, "sin desborde horizontal en móvil", `${ancho}px`);
-  await p.getByRole("option").first().getByRole("button").first().click();
+  await p.locator("[data-resultado]").first().getByRole("button").first().click();
   const barra = p.locator("div.fixed").filter({ hasText: "ver venta" });
   ok(await barra.isVisible(), "móvil: barra fija con el total al agregar");
   await p.screenshot({ path: `${OUT}/movil-barra.png` });

@@ -46,7 +46,9 @@ export function Fila({ p, activo, onHover, agregar, iva = true }: { p: Producto;
   /** false en una droguería no responsable de IVA: no se le muestra un IVA que no cobra. */ iva?: boolean }) {
   const agotado = p.unidades <= 0;
   return (
-    <li role="option" aria-selected={activo} onMouseEnter={onHover}
+    // Lista simple (no listbox): cada fila tiene botones propios, y un «option» no puede contener controles (WCAG 4.1.2).
+    // El teclado se maneja en el buscador (flechas + Enter) y la fila elegida se anuncia en una región viva de la caja.
+    <li aria-current={activo ? "true" : undefined} data-resultado onMouseEnter={onHover}
       className={`flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 ${agotado ? "opacity-55" : ""}`}
       style={activo ? { background: "color-mix(in srgb, var(--cruz-soft) 70%, white)" } : undefined}>
       <div className="min-w-0 flex-1 basis-64">
@@ -63,13 +65,13 @@ export function Fila({ p, activo, onHover, agregar, iva = true }: { p: Producto;
       </div>
       {agotado && <Alternativas id={p.id} agregar={agregar} />}
       <div className="flex gap-2">
-        <button onClick={() => agregar(p, "caja")} disabled={agotado}
+        <button onClick={() => agregar(p, "caja")} disabled={agotado} aria-label={`${agotado ? "Agotado" : p.unidades_por_caja > 1 ? `Caja x${p.unidades_por_caja}` : "Und"} ${pesos(p.precio_caja)} · ${p.nombre}`}
           className="num rounded-xl border-2 border-ink px-3 py-2 text-left leading-tight hover:bg-ink hover:text-white disabled:pointer-events-none disabled:opacity-40 disabled:border-line">
           <span className="block text-[11px] font-semibold uppercase tracking-wide opacity-70">{agotado ? "Agotado" : p.unidades_por_caja > 1 ? `Caja x${p.unidades_por_caja}` : "Und"}</span>
           <span className="block font-cond text-lg" style={{ fontWeight: 700 }}>{pesos(p.precio_caja)}</span>
         </button>
         {p.precio_unidad !== null && p.unidades_por_caja > 1 && (
-          <button onClick={() => agregar(p, "unidad")} disabled={agotado}
+          <button onClick={() => agregar(p, "unidad")} disabled={agotado} aria-label={`Unidad ${pesos(p.precio_unidad)} · ${p.nombre}`}
             className="num rounded-xl border-2 border-line px-3 py-2 text-left leading-tight hover:border-ink disabled:pointer-events-none">
             <span className="block text-[11px] font-semibold uppercase tracking-wide opacity-70">Unidad</span>
             <span className="block font-cond text-lg" style={{ fontWeight: 700 }}>{pesos(p.precio_unidad)}</span>

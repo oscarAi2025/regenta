@@ -142,8 +142,8 @@ let f1, f2;
   await p.getByText(/No se le puede fiar/).waitFor();
   ok(await p.getByText(/No se le puede fiar: Cupo agotado.*Puedes autorizarlo con un motivo/).count() === 1, "la caja avisa al dueño que el cupo está agotado");
   await p.locator("#buscar").fill(P.nombre.split(" ").slice(0, 2).join(" "));
-  await p.waitForSelector('[aria-label="Resultados"] [role="option"]');
-  await p.locator('[aria-label="Resultados"] [role="option"]', { hasText: P.nombre }).first().getByRole("button").first().click();
+  await p.waitForSelector('[aria-label="Resultados"] [data-resultado]');
+  await p.locator('[aria-label="Resultados"] [data-resultado]', { hasText: P.nombre }).first().getByRole("button").first().click();
   await p.keyboard.press("F9");
   await p.getByRole("button", { name: "Crédito", exact: true }).click();
   await p.locator("#motivo-credito").waitFor();
@@ -284,9 +284,9 @@ let rc;
   };
   const agregarP = async (p) => {
     await p.locator("#buscar").fill(P.nombre.split(" ").slice(0, 2).join(" "));
-    await p.waitForSelector('[aria-label="Resultados"] [role="option"]');
+    await p.waitForSelector('[aria-label="Resultados"] [data-resultado]');
     // Por unidad (el último botón): tras las ventas de arriba puede no quedar una caja completa y la línea no se cobraría.
-    await p.locator('[aria-label="Resultados"] [role="option"]', { hasText: P.nombre }).first().getByRole("button").last().click();
+    await p.locator('[aria-label="Resultados"] [data-resultado]', { hasText: P.nombre }).first().getByRole("button").last().click();
   };
   // Cajera: dentro del cupo ve «Crédito» y factura a crédito.
   const LC = await entrar("Laura", { viewport: { width: 1440, height: 900 } }, C1);

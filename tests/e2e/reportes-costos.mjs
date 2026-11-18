@@ -109,7 +109,7 @@ const base = { nombre: NOMBRE, iva: 0, unidades_por_caja: 500, precio_caja: 3685
   const { ctx, p, errs } = await entrar("Laura");
   if (!p.url().endsWith("/caja")) await p.goto(B + "/caja");
   await p.waitForLoadState("networkidle");
-  await p.keyboard.type("acetaminofen forte mk"); await p.waitForSelector('[aria-label="Resultados"] [role="option"]'); await p.keyboard.press("Enter");
+  await p.keyboard.type("acetaminofen forte mk"); await p.waitForSelector('[aria-label="Resultados"] [data-resultado]'); await p.keyboard.press("Enter");
   const aside = p.locator('aside[aria-label="Venta actual"]');
   const precio = num(await aside.getByRole("button", { name: /Cambiar el precio/ }).innerText());
   const nuevo = Math.round(precio * 0.95 / 10) * 10 + 7; // un precio «raro» (no sale de un % redondo)
