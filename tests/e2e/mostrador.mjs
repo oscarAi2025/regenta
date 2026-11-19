@@ -160,6 +160,12 @@ let espera1;
   await p.getByRole("button", { name: `Recuperar En espera N.º ${espera1.numero}`, exact: true }).click();
   const tir = p.locator('aside[aria-label="Venta actual"]');
   await tir.locator("li", { hasText: PS.nombre }).waitFor({ timeout: 10000 });
+  // 12 cajas + 30 unidades pasan de 5 UVT (migración 053): el tiquete POS no se cobra y la caja ofrece pasar a factura.
+  if (await p.getByRole("button", { name: "Cambiar a factura" }).count()) {
+    ok(await p.getByText(/Supera 5 UVT/).count() === 1, "por encima de 5 UVT el POS no se cobra y la caja ofrece la factura");
+    await p.getByRole("button", { name: "Cambiar a factura" }).click();
+    await p.getByRole("button", { name: "Consumidor final" }).click();
+  }
   await p.keyboard.press("F9"); await p.getByRole("button", { name: "Exacto" }).click();
   await p.getByRole("button", { name: /Confirmar/ }).click();
   await p.getByText("Venta registrada").waitFor({ timeout: 15000 });

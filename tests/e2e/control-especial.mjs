@@ -166,7 +166,10 @@ let ventaControl;
   ok(await tabla.getByText(PACIENTE).count() >= 2, "el libro lista la dispensación y el reintegro del paciente");
   ok(await tabla.getByText(ventaControl.numero).count() >= 2, "con el número de la venta");
   ok(await p.getByText("Saldo por producto").isVisible(), "muestra el saldo por producto para cuadrar");
-  ok(await p.getByText(/Gloria Inés Martínez/).count() === 0, "el periodo por defecto es el mes en curso");
+  // La dispensación de Gloria es de hace 18 días: del día 19 en adelante cae dentro del mes en curso (antes fallaba esos días).
+  const inicioMes = hace(0).slice(0, 8) + "01";
+  ok(await p.locator('input[name="desde"]').inputValue() === inicioMes && (await p.getByText(/Gloria Inés Martínez/).count() > 0) === (hace(18) >= inicioMes),
+    "el periodo por defecto es el mes en curso", `desde ${await p.locator('input[name="desde"]').inputValue()} · inicio ${inicioMes} · hace 18 días ${hace(18)}`);
   await p.goto(B + `/control-especial?desde=${hace(29)}&hasta=${hace(0)}`); await p.waitForLoadState("networkidle");
   ok(await p.getByText(/Gloria Inés Martínez/).count() > 0, "con 30 días aparecen también las dispensaciones de la demo");
   await p.screenshot({ path: `${OUT}/control-libro-1440.png`, fullPage: true });
