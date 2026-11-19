@@ -47,7 +47,9 @@ const SIN_VENTA = ["/caja", "/pedidos", "/turno", "/ventas", "/clientes", "/cart
 /** En escritorio van fijas al pie del menú, no en su grupo. */
 const PIE = ["/ayuda", "/equipo"];
 
-export function Navegacion({ rol, demo = false, interno = false }: { rol: string; demo?: boolean; interno?: boolean }) {
+/** `sinControlEspecial`: el plan no incluye el módulo (Esencial): la entrada sigue en el menú con la marca «Pro» y lleva a
+ *  la invitación a cambiar de plan. */
+export function Navegacion({ rol, demo = false, interno = false, sinControlEspecial = false }: { rol: string; demo?: boolean; interno?: boolean; sinControlEspecial?: boolean }) {
   const p = usePathname();
   async function salir() { await fetch("/api/sesion", { method: "DELETE" }); location.href = demo ? "/demo/gracias" : "/entrar"; } // la demo termina en la oferta, no en la pantalla de entrar
   const visibles = ITEMS.filter((i) => i.roles.includes(rol) && (interno ? !SIN_VENTA.includes(i.href) : !("soloInterno" in i)));
@@ -75,7 +77,7 @@ export function Navegacion({ rol, demo = false, interno = false }: { rol: string
                 <Link key={i.href} href={i.href} aria-current={on ? "page" : undefined}
                   className={`${"soloCelular" in i || PIE.includes(i.href) ? "lg:hidden " : ""}relative flex flex-col lg:flex-row items-center gap-1 lg:gap-3 rounded-xl lg:rounded-lg px-2 lg:px-3 py-2 lg:py-[4.5px] min-w-16 lg:min-w-0 lg:w-full text-[12px] lg:text-[14px] font-medium shrink-0 transition-colors ${on ? "text-white bg-white/12 lg:before:absolute lg:before:left-0 lg:before:top-1.5 lg:before:bottom-1.5 lg:before:w-[3px] lg:before:rounded-full lg:before:bg-teal-300" : "text-white/70 hover:text-white hover:bg-white/6"}`}>
                   {icono(i.d)}
-                  <span className="whitespace-nowrap">{i.label}</span>
+                  <span className="whitespace-nowrap">{i.label}{sinControlEspecial && i.href === "/control-especial" && <span className="ml-1.5 rounded bg-amber-300 px-1.5 py-px text-[10.5px] font-bold text-[#0b1f33] align-middle" aria-label="(plan Pro)">Pro</span>}</span>
                 </Link>
               );
             })}

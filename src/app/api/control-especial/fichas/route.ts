@@ -1,3 +1,4 @@
+import { conControlEspecial } from "@/lib/control-plan";
 import { z } from "zod";
 import { comoUsuario } from "@/lib/db";
 import { conSesion, json } from "@/lib/api";
@@ -10,11 +11,11 @@ import { moduloListo, productosAnexo } from "@/lib/anexo13-datos";
 
 const NO_LISTO = { error: "Las fichas se están activando en tu Regenta: vuelve a intentarlo en unos minutos." };
 
-export const GET = conSesion(async (s) => {
+export const GET = conSesion(conControlEspecial(async (s) => {
   if (!puede.verCostos(s.rol)) return json({ error: "Las fichas de control especial las ven el dueño o el administrador" }, 403);
   const r = await comoUsuario(s, async (c) => ((await moduloListo(c)) ? await productosAnexo(c, s.empresa) : null));
   return r ? json({ productos: r, categorias: CATEGORIAS }) : json(NO_LISTO, 409);
-});
+}));
 
 const texto = (max: number, msg: string) => z.string().trim().max(max, msg).optional().default("");
 const Ficha = z.object({
@@ -27,7 +28,7 @@ const Ficha = z.object({
   categoria: z.string().trim().optional().default("").refine((v) => v === "" || (CATEGORIAS as readonly string[]).includes(v), "Elige el listado de la lista"),
 });
 
-export const PUT = conSesion(async (s, req) => {
+export const PUT = conSesion(conControlEspecial(async (s, req) => {
   if (!puede.verCostos(s.rol)) return json({ error: "Solo el dueño o el administrador cambian las fichas" }, 403);
   const p = Ficha.safeParse(await req.json().catch(() => null));
   if (!p.success) return json({ error: p.error.issues[0]?.message ?? "Revisa los datos" }, 400);
@@ -43,4 +44,4 @@ export const PUT = conSesion(async (s, req) => {
   if (ok === null) return json(NO_LISTO, 409);
   if (!ok) return json({ error: "Ese producto no está marcado como control especial" }, 404);
   return json({ ok: true });
-});
+}));

@@ -1,3 +1,5 @@
+import { InvitacionPro } from "./InvitacionPro";
+import { controlEspecialActivo } from "@/lib/control-plan";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { comoUsuario } from "@/lib/db";
@@ -22,6 +24,7 @@ export default async function ControlEspecial({ searchParams }: { searchParams: 
   const s = await leerSesion();
   if (!s) redirect("/entrar");
   if (!puede.verCostos(s.rol)) redirect("/inicio?aviso=permiso"); // datos de pacientes: dueño y administrador
+  if (!(await controlEspecialActivo(s.empresa))) return <InvitacionPro dueno={s.rol === "dueno"} />; // plan sin el módulo (Esencial)
   const sp = await searchParams;
   const r = rango(sp.desde, sp.hasta);
   const producto = sp.producto && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sp.producto) ? sp.producto : null;

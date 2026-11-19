@@ -1,3 +1,4 @@
+import { conControlEspecial } from "@/lib/control-plan";
 import { comoUsuario } from "@/lib/db";
 import { conSesion, esUuid, json } from "@/lib/api";
 import { puede } from "@/lib/sesion";
@@ -14,7 +15,7 @@ const COLUMNAS: [string, string][] = [
   ["formula_numero", "N.º de recetario"], ["medico", "Prescriptor"], ["paciente", "Paciente"], ["usuario", "Registró"],
 ];
 
-export const GET = conSesion(async (s, req) => {
+export const GET = conSesion(conControlEspecial(async (s, req) => {
   if (!puede.verCostos(s.rol)) return json({ error: "El libro de control especial lo ven el dueño o el administrador" }, 403);
   const u = new URL(req.url).searchParams;
   const r = rango(u.get("desde"), u.get("hasta"));
@@ -26,4 +27,4 @@ export const GET = conSesion(async (s, req) => {
   const nombres = Object.fromEntries(d.productos.map((p) => [p.id, p.nombre]));
   const filas = d.asientos.map((a) => ({ ...a, producto: nombres[a.producto_id] ?? "", movimiento: TIPO_ASIENTO[a.asiento], entrada: a.entrada || null, salida: a.salida || null }));
   return respuestaExcel(excel("Libro de control especial", filas, COLUMNAS), `regenta-libro-control-especial-${r.desde}-a-${r.hasta}.xlsx`);
-});
+}));

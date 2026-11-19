@@ -1,3 +1,4 @@
+import { conControlEspecial } from "@/lib/control-plan";
 import { z } from "zod";
 import { comoUsuario } from "@/lib/db";
 import { conSesion, json } from "@/lib/api";
@@ -10,12 +11,12 @@ import { leerConfig, moduloListo } from "@/lib/anexo13-datos";
 
 const NO_LISTO = { error: "La configuración del informe se está activando en tu Regenta: vuelve a intentarlo en unos minutos." };
 
-export const GET = conSesion(async (s) => {
+export const GET = conSesion(conControlEspecial(async (s) => {
   if (!puede.verCostos(s.rol)) return json({ error: "La configuración la ven el dueño o el administrador" }, 403);
   const r = await comoUsuario(s, async (c) => ((await moduloListo(c)) ? await leerConfig(c, s.empresa) : null));
   if (!r) return json(NO_LISTO, 409);
   return json({ ...r, base: PLANTILLA_BASE, campos: Object.entries(CAMPOS).map(([campo, c]) => ({ campo, titulo: c.titulo })) });
-});
+}));
 
 const opcional = (min: number, max: number, nombre: string) =>
   z.string().trim().max(max, `${nombre}: máximo ${max} caracteres`).refine((v) => v === "" || v.length >= min, `${nombre}: mínimo ${min} caracteres`).optional().default("");
@@ -29,7 +30,7 @@ const Config = z.object({
   plantilla: z.unknown().optional(),
 });
 
-export const PUT = conSesion(async (s, req) => {
+export const PUT = conSesion(conControlEspecial(async (s, req) => {
   if (!puede.verCostos(s.rol)) return json({ error: "Solo el dueño o el administrador cambian esta configuración" }, 403);
   const p = Config.safeParse(await req.json().catch(() => null));
   if (!p.success) return json({ error: p.error.issues[0]?.message ?? "Revisa los datos" }, 400);
@@ -46,4 +47,4 @@ export const PUT = conSesion(async (s, req) => {
     return true;
   });
   return ok ? json({ ok: true }) : json(NO_LISTO, 409);
-});
+}));

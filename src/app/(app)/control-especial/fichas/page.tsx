@@ -1,3 +1,5 @@
+import { InvitacionPro } from "../InvitacionPro";
+import { controlEspecialActivo } from "@/lib/control-plan";
 import { redirect } from "next/navigation";
 import { comoUsuario } from "@/lib/db";
 import { leerSesion, puede } from "@/lib/sesion";
@@ -13,6 +15,7 @@ export default async function FichasConfig() {
   const s = await leerSesion();
   if (!s) redirect("/entrar");
   if (!puede.verCostos(s.rol)) redirect("/inicio?aviso=permiso");
+  if (!(await controlEspecialActivo(s.empresa))) return <InvitacionPro dueno={s.rol === "dueno"} />; // plan sin el módulo (Esencial)
   const d = await comoUsuario(s, async (c) => (await moduloListo(c)) ? {
     productos: await productosAnexo(c, s.empresa), config: await leerConfig(c, s.empresa),
     demo: !!(await c.query(`select demo from empresas where id = $1`, [s.empresa])).rows[0]?.demo,

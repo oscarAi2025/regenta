@@ -6,6 +6,7 @@ import { hoyBogota } from "@/lib/reportes";
 import { mesAnterior, mesValido, nombreMes } from "@/lib/anexo13";
 import { CANALES, informeMes, moduloListo, recetariosMes } from "@/lib/anexo13-datos";
 import { Imprimir } from "./Imprimir";
+import { controlEspecialActivo } from "@/lib/control-plan";
 
 // Informe mensual de control especial (Anexo 13) para imprimir o guardar en PDF (A4 horizontal): encabezado del
 // establecimiento, tabla con las columnas de la plantilla de la droguería (texto en mayúscula, ceros y N/A, art. 91) y la
@@ -19,6 +20,7 @@ export default async function ImprimirAnexo13({ searchParams }: { searchParams: 
   const s = await leerSesion();
   if (!s) redirect("/entrar");
   if (!puede.verCostos(s.rol)) redirect("/inicio?aviso=permiso");
+  if (!(await controlEspecialActivo(s.empresa))) redirect("/control-especial"); // plan sin el módulo: la invitación a Pro
   const sp = await searchParams;
   const hoy = hoyBogota();
   const mes = mesValido(sp.mes) && sp.mes <= hoy.slice(0, 7) ? sp.mes : mesAnterior(hoy);

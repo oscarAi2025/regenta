@@ -658,3 +658,17 @@ Misma rama (migración 050, después de la 049). Solo aditivo; lectura tolerante
 - [ ] Oscar: aplicar bloque4-051.sql; poner REGENTA_ADMIN_DOS_PASOS=1 y REGENTA_CABECERA_IP en Netlify; fusionar la rama
 - [ ] Oscar: autorizar conteo y ajuste del saldo fantasma heredado de Alegra (montelukast 641 y 9 más)
 - [ ] Contador: ¿aplica el tope de 5 UVT al POS electrónico? Luego contingencia DIAN y estado «sin respuesta» (P1 pendientes)
+
+## 19 nov 2026 — Control especial solo en planes superiores (Pro, Cadena y Socio)
+Decisión de Oscar: el módulo (libro, Anexo 13, fichas y configuración, avisos del plazo) no entra en Esencial.
+La venta con fórmula en la caja sigue en todos los planes (es la dispensación; el libro y el informe son el módulo).
+- [x] planes.ts: PLANES_CONTROL_ESPECIAL y controlEspecialIncluido(plan, demo); la demo lo muestra (vitrina de venta)
+- [x] lib/control-plan.ts: lectura del plan en el servidor + envoltorio para las 5 rutas API (403 con mensaje claro)
+- [x] Cada página del módulo devuelve InvitacionPro ANTES de leer datos (un layout no basta: Next arma la página en paralelo y
+      sus datos viajaban en la respuesta RSC; lo detectó la prueba); la página de imprimir redirige a la invitación
+- [x] Menú: «Control especial» con la marca «Pro» en Esencial; los enlaces de Productos y Reportes llevan a la invitación
+- [x] Avisos del Anexo 13 solo a droguerías con el plan que lo incluye
+- [x] Portada/planes y conocimiento de la IA: Pro incluye control especial
+- [x] Pruebas: control-plan.test (3) y e2e control-plan (25); anexo13 ajustada (la droguería real de la prueba pasa a Pro)
+- [ ] Regresión completa en verde → fusionar a main
+- [x] Sin migración: es lógica de la aplicación (no toca la base de producción)

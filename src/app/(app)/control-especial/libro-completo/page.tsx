@@ -1,3 +1,5 @@
+import { InvitacionPro } from "../InvitacionPro";
+import { controlEspecialActivo } from "@/lib/control-plan";
 import { redirect } from "next/navigation";
 import { comoUsuario } from "@/lib/db";
 import { leerSesion, puede } from "@/lib/sesion";
@@ -19,6 +21,7 @@ export default async function LibroCompleto({ searchParams }: { searchParams: Pr
   const s = await leerSesion();
   if (!s) redirect("/entrar");
   if (!puede.verCostos(s.rol)) redirect("/inicio?aviso=permiso"); // datos de pacientes: dueño y administrador
+  if (!(await controlEspecialActivo(s.empresa))) return <InvitacionPro dueno={s.rol === "dueno"} />; // plan sin el módulo (Esencial)
   const sp = await searchParams;
   const r = rango(sp.desde, sp.hasta);
   const producto = sp.producto && UUID.test(sp.producto) ? sp.producto : null;

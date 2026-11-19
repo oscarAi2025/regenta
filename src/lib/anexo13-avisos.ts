@@ -3,6 +3,7 @@ import { sinRLS } from "./db";
 import { encolar } from "./correo";
 import { nombreMes, plazo } from "./anexo13";
 import { hoyBogota } from "./reportes";
+import { PLANES_CONTROL_ESPECIAL } from "./planes";
 
 /** Recordatorio del informe mensual de control especial (Res. 1478/2006, art. 94: primeros 10 días calendario).
  *  Corre con la tarea horaria. Del día 1 al 10, a los dueños de droguerías con productos de control especial que aún no
@@ -15,9 +16,9 @@ export async function avisarAnexo13(hoy = hoyBogota()) {
   return sinRLS(async (c) => {
     if (!(await c.query(`select to_regclass('public.control_informes') is not null listo`)).rows[0]?.listo) return { omitido: "sin migración 048" };
     const filas = (await c.query(`select e.id, coalesce(e.nombre_comercial, e.razon_social) nombre from empresas e
-      where e.estado = 'activa' and not e.demo
+      where e.estado = 'activa' and not e.demo and e.plan = any($2::text[])
         and exists (select 1 from productos p where p.empresa_id = e.id and p.control_especial)
-        and not exists (select 1 from control_informes i where i.empresa_id = e.id and i.periodo = $1::date)`, [`${p.periodo}-01`])).rows;
+        and not exists (select 1 from control_informes i where i.empresa_id = e.id and i.periodo = $1::date)`, [`${p.periodo}-01`, [...PLANES_CONTROL_ESPECIAL]])).rows;
     let avisos = 0;
     for (const f of filas) {
       const duenos = (await c.query(`select cu.email, cu.nombre from miembros m join cuentas cu on cu.id = m.user_id

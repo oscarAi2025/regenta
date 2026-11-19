@@ -1,3 +1,4 @@
+import { conControlEspecial } from "@/lib/control-plan";
 import { z } from "zod";
 import { comoUsuario } from "@/lib/db";
 import { conSesion, esUuid, json } from "@/lib/api";
@@ -24,7 +25,7 @@ function leerFiltro(u: URLSearchParams) {
   return { hoy, mes, sede: sede || null } as const;
 }
 
-export const GET = conSesion(async (s, req) => {
+export const GET = conSesion(conControlEspecial(async (s, req) => {
   if (!puede.verCostos(s.rol)) return json({ error: "El informe de control especial lo ven el dueño o el administrador" }, 403);
   const u = new URL(req.url).searchParams;
   const f = leerFiltro(u);
@@ -45,7 +46,7 @@ export const GET = conSesion(async (s, req) => {
     hojaDeFilas("Recetarios", r.recetarios ?? [], COLUMNAS_RECETARIOS),
   ]);
   return respuestaExcel(libro, `anexo-13-${f.mes}${inf.encabezado.sede ? "-" + inf.encabezado.sede.toLowerCase().replace(/[^a-z0-9]+/g, "-") : ""}.xlsx`);
-});
+}));
 
 const Presentado = z.object({
   mes: z.string().refine((m) => mesValido(m), "Elige el mes del informe"),
@@ -56,7 +57,7 @@ const Presentado = z.object({
   observacion: z.string().trim().max(500, "La observación admite hasta 500 caracteres").optional().default(""),
 });
 
-export const POST = conSesion(async (s, req) => {
+export const POST = conSesion(conControlEspecial(async (s, req) => {
   if (!puede.verCostos(s.rol)) return json({ error: "Solo el dueño o el administrador registran el informe" }, 403);
   const p = Presentado.safeParse(await req.json().catch(() => null));
   if (!p.success) return json({ error: p.error.issues[0]?.message ?? "Revisa los datos" }, 400);
@@ -71,4 +72,4 @@ export const POST = conSesion(async (s, req) => {
   });
   if (id === null) return json(NO_LISTO, 409);
   return json({ ok: true, id: Number(id) });
-});
+}));

@@ -1,3 +1,4 @@
+import { conControlEspecial } from "@/lib/control-plan";
 import { z } from "zod";
 import { comoUsuario } from "@/lib/db";
 import { conSesion, esUuid, json } from "@/lib/api";
@@ -6,7 +7,7 @@ import { excel, pideExcel, rango, respuestaExcel } from "@/lib/reportes";
 import { COLUMNAS_LIBRO, COLUMNAS_SALDOS, datosLibro, filaCsv } from "@/lib/libro-control";
 
 /** Libro de control especial (JSON o Excel). Solo dueño y administrador: lleva datos de pacientes. */
-export const GET = conSesion(async (s, req) => {
+export const GET = conSesion(conControlEspecial(async (s, req) => {
   if (!puede.verCostos(s.rol)) return json({ error: "El libro de control especial lo ven el dueño o el administrador" }, 403);
   const u = new URL(req.url).searchParams;
   const r = rango(u.get("desde"), u.get("hasta"));
@@ -18,7 +19,7 @@ export const GET = conSesion(async (s, req) => {
   if (!pideExcel(u.get("formato"))) return json({ ...r, ...d });
   const libro = tipo === "saldos" ? excel("Saldos", d.saldos, COLUMNAS_SALDOS) : excel("Libro de control especial", d.filas.map(filaCsv), COLUMNAS_LIBRO);
   return respuestaExcel(libro, `regenta-control-especial-${tipo}-${r.desde}-a-${r.hasta}.xlsx`);
-});
+}));
 
 const Config = z.object({ vigencia_dias: z.number().int().min(1, "La vigencia va de 1 a 365 días").max(365, "La vigencia va de 1 a 365 días"), exige_datos: z.boolean() });
 

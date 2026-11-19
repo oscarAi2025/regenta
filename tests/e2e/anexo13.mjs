@@ -124,7 +124,9 @@ try {
   //        plantilla propia, envío registrado (el aviso del plazo desaparece) y corrección que reemplaza
   {
     const { ctx, p, errs } = await entrar("Carlos"); // la entrada rápida solo existe en la demo: primero se entra
-    await pool.query(`update empresas set demo = false where id = $1`, [EMP]);
+    // Droguería real con plan Pro: el control especial no viene en Esencial (decisión del 19/11/2026).
+    const planAntes = (await pool.query(`select plan from empresas where id = $1`, [EMP])).rows[0].plan;
+    await pool.query(`update empresas set demo = false, plan = 'pro' where id = $1`, [EMP]);
     try {
       await p.goto(B + "/control-especial");
       const avisoAntes = await p.getByText(/al Fondo Rotatorio/).first().isVisible().catch(() => false);
@@ -156,7 +158,7 @@ try {
       ok(errs.length === 0, "sin errores de consola (escrituras)", errs.join(" | "));
     } finally {
       await ctx.close();
-      await pool.query(`update empresas set demo = true where id = $1`, [EMP]);
+      await pool.query(`update empresas set demo = true, plan = $2 where id = $1`, [EMP, planAntes]);
       await pool.query(`delete from control_fichas where producto_id = $1`, [quieto.id]);
       await pool.query(`update control_config set plantilla = null where empresa_id = $1`, [EMP]);
       await pool.query(`alter table control_informes disable trigger control_informes_inmutables`);

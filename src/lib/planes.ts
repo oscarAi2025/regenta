@@ -3,7 +3,7 @@ export const PLANES = [
   { id: "esencial", nombre: "Esencial", precio: 89900, para: "Droguería de una caja", destacado: false,
     incluye: ["Certificado digital y habilitación DIAN incluidos", "IA predictiva: qué pedir, qué se vence y tu día fuerte de la semana", "Regenta IA: tu asistente responde con tus datos", "Apoyo en ventas: qué ofrecer primero y alternativas a lo agotado", "Gestión completa: inventario por lote, cartera, roles y auditoría", "Formación: capacitación inicial a tu equipo", "1 caja y hasta 3 usuarios", "2.000 documentos al mes (POS y factura), unas 65 ventas al día"] },
   { id: "pro", nombre: "Pro", precio: 139900, para: "Droguería con más movimiento", destacado: true,
-    incluye: ["Todo lo de Esencial", "Formación a todo tu equipo y acompañamiento el primer mes", "Hasta 3 cajas y usuarios ilimitados", "5.000 documentos al mes (POS y factura)", "Soporte prioritario por WhatsApp", "Te cargamos los productos"] },
+    incluye: ["Todo lo de Esencial", "Control especial: libro, informe mensual (Anexo 13) al Fondo Rotatorio y aviso del plazo", "Formación a todo tu equipo y acompañamiento el primer mes", "Hasta 3 cajas y usuarios ilimitados", "5.000 documentos al mes (POS y factura)", "Soporte prioritario por WhatsApp", "Te cargamos los productos"] },
   { id: "cadena", nombre: "Cadena", precio: null, para: "Distribuidoras y varias sedes", destacado: false,
     incluye: ["Todo lo de Pro", "Certificado digital y habilitación DIAN por cada NIT", "Plan de formación por sede", "Precio por sede y documentos según volumen", "Acompañamiento en la puesta en marcha"] },
 ] as const;
@@ -42,3 +42,10 @@ export const LIMITES: Record<string, { cajas: number | null; usuarios: number | 
 /** Documentos electrónicos incluidos al mes por plan (lo publicado en Tarifas); por encima se cobra DOC_EXTRA cada uno. */
 export const CUPO_DOCS: Record<string, number | null> = { esencial: 2000, pro: 5000, socio: 5000, cadena: null };
 export const limite = (plan: string) => LIMITES[plan] ?? LIMITES.esencial;
+
+/** Control especial (libro, informe mensual Anexo 13, fichas y avisos del plazo): va en los planes superiores, no en
+ *  Esencial. La venta con fórmula en la caja sigue en todos los planes. La demo lo muestra porque es la vitrina. */
+export const PLANES_CONTROL_ESPECIAL = ["pro", "cadena", "socio"] as const;
+export const controlEspecialIncluido = (plan: string | null | undefined, demo = false) =>
+  demo || (PLANES_CONTROL_ESPECIAL as readonly string[]).includes(plan ?? "");
+export const MENSAJE_CONTROL_PLAN = "El control especial (libro, Anexo 13 y avisos del plazo) está en los planes Pro y Cadena: cambia de plan para usarlo.";

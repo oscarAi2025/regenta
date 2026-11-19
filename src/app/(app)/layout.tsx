@@ -15,6 +15,7 @@ import { ModoDemo } from "@/components/app/ModoDemo";
 import { GARANTIA, PRECIO_DESDE } from "@/lib/oferta";
 import { MarcaRender } from "@/components/MarcaRender";
 import { SQL_MODO } from "@/lib/modo";
+import { controlEspecialIncluido } from "@/lib/planes";
 
 // La aplicación nunca se indexa: solo la portada comercial es pública.
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -42,7 +43,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <span className="block text-[10.5px] text-white/50 mt-1">by Farmagenéricos Colombia</span>
           </span>
         </Link>
-        <Navegacion rol={s.rol} demo={!!emp.demo} interno={emp.modo === "interno"} />
+        <Navegacion rol={s.rol} demo={!!emp.demo} interno={emp.modo === "interno"} sinControlEspecial={!controlEspecialIncluido(emp.plan, emp.demo)} />
       </aside>
       <div className="min-w-0">
         {emp.demo && <ModoDemo rol={s.rol} precio={PRECIO_DESDE} garantia={GARANTIA} />}
