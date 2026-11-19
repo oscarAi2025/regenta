@@ -670,5 +670,5 @@ La venta con fórmula en la caja sigue en todos los planes (es la dispensación;
 - [x] Avisos del Anexo 13 solo a droguerías con el plan que lo incluye
 - [x] Portada/planes y conocimiento de la IA: Pro incluye control especial
 - [x] Pruebas: control-plan.test (3) y e2e control-plan (25); anexo13 ajustada (la droguería real de la prueba pasa a Pro)
-- [ ] Regresión completa en verde → fusionar a main
+- [x] Regresión completa en verde (49 suites, 0 fallos; unit 119 + base 71) → fusionado a main
 - [x] Sin migración: es lógica de la aplicación (no toca la base de producción)
