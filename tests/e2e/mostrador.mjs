@@ -58,6 +58,17 @@ const cortados = (p) => p.evaluate(() => [...document.querySelectorAll("main *, 
 }).slice(0, 3).map((el) => `${el.tagName.toLowerCase()}.${String(el.className).slice(0, 40)} (${Math.round(el.getBoundingClientRect().right)}px)`));
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+// Por encima de 5 UVT (migración 053) el tiquete POS no se cobra: la caja ofrece pasar a factura electrónica y
+// «Consumidor final» la deja lista para cobrar. Las ventas grandes de esta prueba pasan por ahí.
+async function aFacturaSiSupera(pg) {
+  if (!(await pg.getByRole("button", { name: "Cambiar a factura" }).count())) return;
+  ok(await pg.getByText(/Supera 5 UVT/).count() === 1, "por encima de 5 UVT el POS no se cobra y la caja ofrece la factura");
+  await pg.getByRole("button", { name: "Cambiar a factura" }).click();
+  await pg.getByRole("button", { name: "Consumidor final" }).click();
+  await pg.getByText("Facturar a").waitFor();
+  await pg.locator("#buscar").focus();
+  ok(await pg.getByRole("button", { name: /^Cobrar/ }).isEnabled(), "con factura a consumidor final se puede cobrar");
+}
 const E = { A: "10000000-0000-4000-8000-00000000000a", B: "10000000-0000-4000-8000-00000000000b" };
 const SEDE = (await q1(`select sede_id from cajas where empresa_id = $1 limit 1`, [E.A])).sede_id;
 // Productos con margen: uno de unidad suelta con código de barras para «12*» y cuatro fraccionables con cientos de unidades.
@@ -160,15 +171,10 @@ let espera1;
   await p.getByRole("button", { name: `Recuperar En espera N.º ${espera1.numero}`, exact: true }).click();
   const tir = p.locator('aside[aria-label="Venta actual"]');
   await tir.locator("li", { hasText: PS.nombre }).waitFor({ timeout: 10000 });
-  // 12 cajas + 30 unidades pasan de 5 UVT (migración 053): el tiquete POS no se cobra y la caja ofrece pasar a factura.
-  if (await p.getByRole("button", { name: "Cambiar a factura" }).count()) {
-    ok(await p.getByText(/Supera 5 UVT/).count() === 1, "por encima de 5 UVT el POS no se cobra y la caja ofrece la factura");
-    await p.getByRole("button", { name: "Cambiar a factura" }).click();
-    await p.getByRole("button", { name: "Consumidor final" }).click();
-  }
+  await aFacturaSiSupera(p); // 12 cajas + 30 unidades pasan de 5 UVT (migración 053)
   await p.keyboard.press("F9"); await p.getByRole("button", { name: "Exacto" }).click();
-  await p.getByRole("button", { name: /Confirmar/ }).click();
-  await p.getByText("Venta registrada").waitFor({ timeout: 15000 });
+  await p.getByRole("button", { name: /^(Confirmar|Facturar) \$/ }).click();
+  await p.getByText(/^(Venta registrada|Factura electrónica registrada)$/).waitFor({ timeout: 15000 });
   ok(await p.getByText(`En espera N.º ${espera1.numero} quedó cobrado`).count() === 1, "la caja 2 cobra la espera de la caja 1");
   const ped = await q1(`select pm.estado, v.caja_id, v.total::float total from pedidos_mostrador pm join ventas v on v.id = pm.venta_id where pm.id = $1`, [espera1.id]);
   ok(ped?.estado === "cobrado" && ped.caja_id === C2, "el pedido queda cobrado y la venta en la caja 2", JSON.stringify(ped));
@@ -339,12 +345,13 @@ let cot;
   await aside.locator("li", { hasText: PC.nombre }).waitFor({ timeout: 10000 });
   const fmt = (n) => "$" + Math.round(n).toLocaleString("es-CO");
   ok(await aside.getByText(`Cambió el precio: antes ${fmt(precioAntes)}, ahora ${fmt(precioNuevo)}`).count() === 1, "la línea muestra «antes X, ahora Y»", `${fmt(precioAntes)} → ${fmt(precioNuevo)}`);
+  await aFacturaSiSupera(c);
   await c.keyboard.press("F9");
   ok(await aside.getByText(/cambió de precio desde el pedido: se cobra el precio de hoy/).count() === 1, "antes de cobrar avisa que se cobra el precio de hoy");
   await c.screenshot({ path: `${OUT}/caja-precio-cambiado-1440.png` });
   await c.getByRole("button", { name: "Exacto" }).click();
-  await c.getByRole("button", { name: /Confirmar/ }).click();
-  await c.getByText("Venta registrada").waitFor({ timeout: 15000 });
+  await c.getByRole("button", { name: /^(Confirmar|Facturar) \$/ }).click();
+  await c.getByText(/^(Venta registrada|Factura electrónica registrada)$/).waitFor({ timeout: 15000 });
   const vc = await q1(`select v.total::float total from pedidos_mostrador pm join ventas v on v.id = pm.venta_id where pm.id = $1 and pm.estado = 'cobrado'`, [cot.id]);
   ok(vc?.total === 3 * precioNuevo, "la cotización convertida se cobra al precio vigente", JSON.stringify(vc));
   await pool.query(`update productos set precio_caja = $2 where id = $1`, [PC.id, precioAntes]);

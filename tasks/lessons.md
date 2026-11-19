@@ -391,3 +391,7 @@
 
 ## 2026-11-18 · Parches de funciones en producción: saltos \r\n
 - Una función creada pegando SQL en el editor de Supabase guarda saltos `\r\n`: un `replace` con texto exacto de varias líneas no la encuentra (054 falló en producción, sin cambios gracias a la transacción). Regla: anclas de una sola línea o `regexp_replace` con `\s*` entre sentencias, y probar el parche sobre una copia de la función con `\r\n`.
+
+## 19/11/2026 · Pruebas que dependen de la fecha o de una regla nueva
+- control-especial daba por hecho que una dispensación de hace 18 días cae en el mes anterior: falla del día 19 en adelante. Regla: una prueba con fechas relativas compara contra el inicio de mes calculado, nunca supone el día del mes.
+- mostrador cobraba en POS una venta de $337.200: desde la 053 (tope de 5 UVT) la caja la bloquea y ofrece factura. Regla: cuando entra una regla de negocio nueva, correr la regresión COMPLETA antes de dar el cambio por terminado; las pruebas que cobran ventas grandes pasan por la factura (aFacturaSiSupera).
