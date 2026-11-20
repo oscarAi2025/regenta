@@ -407,3 +407,7 @@
   build anterior.
 - El «unitCost» de la ficha de Alegra NO es el costo real (Ultra Fer: ficha $30.000, real $25.335 = FE-109 $12.160.800 / 480).
   Un costo solo se pone desde la factura del proveedor o un cálculo ya verificado con Oscar; si no, se pregunta.
+
+## 20/11/2026 — Paralelizar consultas no aceleró Inicio en producción
+- Error: repartir Inicio en tres transacciones a la vez (Promise.all) pasó en local y en las pruebas, pero en producción la mediana subió de ~1,5 s a ~2,5 s: cada transacción paralela pide otra conexión TLS al pooler de Supabase (pool de 3 por instancia) y abrirla cuesta más que lo ganado. Se revirtió.
+- Regla: un cambio de velocidad se mide en producción antes y después con varias repeticiones (mediana); si no mejora, se revierte. Lo lento de Inicio son las consultas pesadas sobre los datos reales (predicción, riesgo de vencimiento, alertas): el siguiente paso es EXPLAIN ANALYZE en producción, no más paralelismo.
