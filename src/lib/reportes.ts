@@ -22,6 +22,11 @@ const RANGO_D = `d.empresa_id = $1 and (d.creado at time zone 'America/Bogota'):
  *  costo de la caja escrito como costo por unidad (11/11/2026: una caja x 500 con costo $31.280 «por unidad» dio una ganancia
  *  de −$562 millones). Esas líneas no entran en la utilidad hasta que se corrija el costo; se avisan con su corrección. */
 export const COSTO_POR_REVISAR = `(l.unidades > 0 and l.base > 0 and lc.costo_unidad > 3 * l.base / l.unidades)`;
+/** Precio de venta por unidad sin IVA del producto `p` (el de la unidad, o el de la caja repartido). */
+export const PRECIO_UND_SIN_IVA = `(coalesce(p.precio_unidad, p.precio_caja / greatest(p.unidades_por_caja, 1)) / (1 + coalesce(p.iva, 0)))`;
+/** Un lote en existencia cuyo costo por unidad no cuadra con su precio (más de 3 veces el precio por unidad sin IVA, casi
+ *  siempre el costo de la caja escrito por unidad): no se suma al inventario a costo hasta corregirlo. Necesita `p` y `lc`. */
+export const LOTE_COSTO_POR_REVISAR = `(${PRECIO_UND_SIN_IVA} > 0 and lc.costo_unidad > 3 * ${PRECIO_UND_SIN_IVA})`;
 const GRUPO = `case when lc.lote_id is null then 'sin_costo' when ${COSTO_POR_REVISAR} then 'por_revisar' when lc.heredado then 'heredado' else 'con_costo' end`;
 /** La venta existe para la DIAN: cerrada, o anulada después de emitirse (tiene su nota crédito de anulación). */
 const VENTA_FISCAL = `(v.estado = 'cerrada' or exists (select 1 from documentos_dian na where na.venta_id = v.id and na.tipo = 'nota_credito' and na.devolucion_id is null))`;

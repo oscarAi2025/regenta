@@ -395,3 +395,13 @@
 ## 19/11/2026 · Pruebas que dependen de la fecha o de una regla nueva
 - control-especial daba por hecho que una dispensación de hace 18 días cae en el mes anterior: falla del día 19 en adelante. Regla: una prueba con fechas relativas compara contra el inicio de mes calculado, nunca supone el día del mes.
 - mostrador cobraba en POS una venta de $337.200: desde la 053 (tope de 5 UVT) la caja la bloquea y ofrece factura. Regla: cuando entra una regla de negocio nueva, correr la regresión COMPLETA antes de dar el cambio por terminado; las pruebas que cobran ventas grandes pasan por la factura (aFacturaSiSupera).
+
+## 20/11/2026 · Un dato mal cargado no puede inflar un total
+- Cualquier total a costo (inventario, ganancia, IA) aplica la misma regla de «costo por revisar» y lo muestra aparte con
+  su corrección; una sola definición compartida (reportes.ts), no una por pantalla.
+- La anulación de una venta devuelve existencias: si el lote se creó solo para facturar (mercancía que nunca llegó), queda
+  stock fantasma. Revisar el kardex del producto antes de concluir.
+- Predicción para un distribuidor: un pedido puntual (una sola fecha de venta) no es ritmo de venta. Y el ritmo se dice
+  en cajas, no en unidades sueltas.
+- Antes de reiniciar el servidor de pruebas, comprobar que el viejo murió (`pkill -f next-server`): si no, se prueba el
+  build anterior.

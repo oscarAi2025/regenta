@@ -162,7 +162,10 @@ test("anular: solo la gerencia, con motivo; devuelve al mismo lote, una sola vez
 
 test("predicción de compras: cuenta el consumo de las entregas y no el de las anuladas", async () => {
   const r = await como(U.duenoB, async (c, d) => {
-    await entregar(c, base(d, { lineas: [{ producto_id: d.gasas, presentacion: "unidad", cantidad: 14 }] }));
+    // 7 ayer y 7 hoy: consumo en dos días distintos (un pedido puntual no es ritmo, 055).
+    const ayer = await entregar(c, base(d, { lineas: [{ producto_id: d.gasas, presentacion: "unidad", cantidad: 7 }] }));
+    await c.query("reset role"); await c.query("set local session_replication_role = replica"); await c.query(`update movimientos set creado = creado - interval '1 day' where tipo = 'entrega' and ref_id = $1`, [ayer.entrega_id]); await c.query("set local session_replication_role = origin"); await c.query("set local role authenticated");
+    await entregar(c, base(d, { lineas: [{ producto_id: d.gasas, presentacion: "unidad", cantidad: 7 }] }));
     const anular = await entregar(c, base(d, { lineas: [{ producto_id: d.gasas, presentacion: "unidad", cantidad: 50 }] }));
     await c.query(`select anular_entrega($1, 'Prueba de anulación')`, [anular.entrega_id]);
     return (await c.query(`select venta_dia::float, ultima_venta::text from prediccion_productos($1) where producto_id = $2`, [E.B, d.gasas])).rows[0];

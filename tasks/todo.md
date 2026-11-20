@@ -672,3 +672,18 @@ La venta con fórmula en la caja sigue en todos los planes (es la dispensación;
 - [x] Pruebas: control-plan.test (3) y e2e control-plan (25); anexo13 ajustada (la droguería real de la prueba pasa a Pro)
 - [x] Regresión completa en verde (49 suites, 0 fallos; unit 119 + base 71) → fusionado a main
 - [x] Sin migración: es lógica de la aplicación (no toca la base de producción)
+
+## 20/11/2026 · Inventario de $602 M, compras sin factura visible y prioridades falsas de Regenta IA (Oscar)
+Causa raíz del inventario: lote 454558 de bajalenguas Kennedy (inicial 10/11, 18.000 und) con el costo de la caja ($31.280)
+como costo por unidad; la FGE4 (CLP) se anuló el 13/11 y devolvió 18.000 und que nunca existieron → $563 M.
+- [x] Producción (con la sesión de Oscar, todo auditado): costo del lote → $62,56; ajuste N.º 14 −18.000 (nunca llegaron);
+      costos completados: Ultra Fer 0960925 $30.000 y Loperamida Laproff A1193 $2.390 (de Alegra). Inventario: $49.760.811
+- [ ] Oscar: costo real de Amoxicladelt 1000 (Alegra dice $3.500 con precio $42.950)
+- [x] Inventario a costo sin lotes de costo por revisar (> 3 × precio por unidad sin IVA) + aviso con corrección en un clic
+      (misma regla en Regenta IA: LOTE_COSTO_POR_REVISAR en reportes.ts)
+- [x] Compras: la factura original del proveedor en la compra (ver PDF/foto, descargar, adjuntar después; API
+      /api/compras/[id]/factura); listado con productos y «Factura adjunta / Sin factura adjunta»; cabeceras para enmarcarla
+- [x] Migración 055: predicción solo con lo que se vende en ≥ 2 días distintos (un pedido puntual no es ritmo)
+- [x] Regenta IA: ritmo en cajas al día; «sin rotación» sin lo recibido en 45 días
+- [x] Pruebas: compra-adjunto 24/24, db + modo-interno 98/98 (casos ajustados a ritmo en 2 días)
+- [ ] Regresión completa → publicar → Oscar pega db/produccion/bloque7-055.sql → verificar en producción

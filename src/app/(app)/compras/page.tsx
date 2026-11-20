@@ -62,8 +62,9 @@ export default async function Compras({ searchParams }: { searchParams: Promise<
             {filas.map((f) => (
               <tr key={f.id} className="align-top">
                 <td className="px-4 py-3"><Link href={`/compras/${f.id}`} className="font-semibold num hover:underline">N.º {f.numero}</Link><p className="text-sm text-muted num">{fecha(f.fecha_factura)}</p></td>
-                <td className="px-4 py-3 font-semibold">{f.proveedor}</td>
-                <td className="px-4 py-3 num">{f.numero_factura}{dinero && f.condicion && <p className="text-sm text-muted">{f.estado === "por_costear" ? "Por costear" : f.condicion === "credito" ? "Crédito" : "Contado"}</p>}</td>
+                <td className="px-4 py-3"><p className="font-semibold">{f.proveedor}</p>
+                  {f.productos && <p className="text-sm text-muted max-w-[34ch] truncate" title={f.productos}>{f.lineas} producto{f.lineas === 1 ? "" : "s"}: {f.productos}{f.lineas > 3 ? "…" : ""}</p>}</td>
+                <td className="px-4 py-3 num">{f.numero_factura}{dinero && (f.archivos > 0 ? <p className="text-sm font-semibold text-cruz">Factura adjunta</p> : f.estado !== "anulada" && <p className="text-sm text-aviso">Sin factura adjunta</p>)}{dinero && f.condicion && <p className="text-sm text-muted">{f.estado === "por_costear" ? "Por costear" : f.condicion === "credito" ? "Crédito" : "Contado"}</p>}</td>
                 <td className="px-4 py-3"><span className={`rounded-md px-2 py-0.5 text-sm font-semibold ${tono[f.estado]}`}>{ESTADOS[f.estado]}</span></td>
                 {dinero && <>
                   <td className="px-4 py-3 num text-right">{f.estado === "por_costear" ? "—" : pesosExactos(f.total ?? 0)}</td>

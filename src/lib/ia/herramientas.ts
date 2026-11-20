@@ -1,7 +1,7 @@
 import "server-only";
 import { comoUsuario, sinComodines } from "../db";
 import { puede, type Sesion } from "../sesion";
-import { COSTO_POR_REVISAR } from "../reportes";
+import { COSTO_POR_REVISAR, LOTE_COSTO_POR_REVISAR } from "../reportes";
 
 // Herramientas de SOLO LECTURA que Regenta IA puede usar. Todas corren como el usuario (seguridad por fila):
 // la IA ve exactamente lo que ese usuario ve, ni más ni menos. Los costos solo aparecen para dueño/administrador.
@@ -14,11 +14,11 @@ export const HERRAMIENTAS: Herramienta[] = [
     input_schema: { type: "object", properties: { desde: { type: "string", description: "Fecha inicial AAAA-MM-DD" }, hasta: { type: "string", description: "Fecha final AAAA-MM-DD (incluida)" } }, required: ["desde", "hasta"] } },
   { name: "buscar_producto", description: "Busca productos por nombre, laboratorio o código de barras. Devuelve precios, existencias vigentes, lotes con vencimiento, ritmo de venta y días de cobertura.",
     input_schema: { type: "object", properties: { texto: { type: "string", description: "Palabras del nombre o código de barras" } }, required: ["texto"] } },
-  { name: "pedido_sugerido", description: "Productos que se venden y no alcanzan para los próximos 18 días, con las cajas sugeridas a pedir, el precio de venta por caja y (dueño y administrador) el último costo, el margen y el valor estimado del pedido. Úsala para preguntas de qué pedir o cuánto vale el pedido en vez de buscar producto por producto (para el margen de lo YA vendido usa rentabilidad_productos).",
+  { name: "pedido_sugerido", description: "Productos que se venden de forma recurrente (en al menos 2 días distintos de las últimas 8 semanas; un pedido puntual no cuenta) y no alcanzan para los próximos 18 días. El ritmo viene en cajas_vendidas_por_dia (úsalo al hablar) y en unidades_sueltas_por_dia (tabletas o unidades sueltas, no cajas). Trae las cajas sugeridas a pedir, el precio de venta por caja y (dueño y administrador) el último costo, el margen y el valor estimado del pedido. Úsala para preguntas de qué pedir o cuánto vale el pedido en vez de buscar producto por producto (para el margen de lo YA vendido usa rentabilidad_productos).",
     input_schema: { type: "object", properties: { limite: { type: "number", description: "Máximo de productos (por defecto 20)" } } } },
   { name: "riesgo_vencimiento", description: "Lotes que, al ritmo de venta actual, no se alcanzarán a vender antes de vencer (próximos 6 meses), con unidades y valor en riesgo.",
     input_schema: { type: "object", properties: { limite: { type: "number", description: "Máximo de lotes (por defecto 20)" } } } },
-  { name: "sin_rotacion", description: "Productos con existencias que no se venden hace más de 45 días.",
+  { name: "sin_rotacion", description: "Productos con existencias que no se venden hace más de 45 días y que tampoco se recibieron en esos 45 días (ultima_entrada = fecha del último lote recibido). Las existencias vienen en unidades sueltas y en cajas.",
     input_schema: { type: "object", properties: { limite: { type: "number", description: "Máximo de productos (por defecto 20)" } } } },
   { name: "alertas_invima", description: "Alertas sanitarias de medicamentos del INVIMA del último año y su cruce con el inventario (por lote, registro sanitario o nombre) y si ya se revisaron.",
     input_schema: { type: "object", properties: {} } },
@@ -91,7 +91,8 @@ export async function ejecutar(s: Sesion, nombre: string, entrada: Record<string
       case "pedido_sugerido": {
         // Con precio de venta (y, para dueño y administrador, último costo y margen) y el valor del pedido: así una sola
         // consulta responde «qué pido, cuánto vale y qué me deja más», sin buscar producto por producto.
-        const filas = (await c.query(`select pr.nombre, pr.laboratorio, pr.unidades_por_caja, pr.existencias, pr.venta_dia::float venta_por_dia,
+        const filas = (await c.query(`select pr.nombre, pr.laboratorio, pr.unidades_por_caja, pr.existencias existencias_unidades,
+            round(pr.venta_dia / greatest(pr.unidades_por_caja, 1), 2)::float cajas_vendidas_por_dia, pr.venta_dia::float unidades_sueltas_por_dia,
             pr.dias_cobertura::float, pr.sugerido_cajas, p.precio_caja::float precio_venta_caja,
             (case when e.responsable_iva then p.iva else 0 end)::float iva_venta
             ${costos ? `, (select lc.costo_unidad * greatest(pr.unidades_por_caja, 1) from lote_costos lc join lotes l on l.id = lc.lote_id
@@ -107,8 +108,14 @@ export async function ejecutar(s: Sesion, nombre: string, entrada: Record<string
         return (await c.query(`select nombre, lote, vence::text, dias, unidades, venta_dia::float venta_por_dia, unidades_en_riesgo ${costos ? ", valor_en_riesgo::float" : ""}
           from riesgo_vencimiento($1) order by coalesce(valor_en_riesgo, unidades_en_riesgo) desc limit $2`, [s.empresa, limite(entrada.limite)])).rows;
       case "sin_rotacion":
-        return (await c.query(`select nombre, laboratorio, existencias, ultima_venta::text from prediccion_productos($1)
-          where existencias > 0 and (ultima_venta is null or ultima_venta < current_date - 45) order by existencias desc limit $2`, [s.empresa, limite(entrada.limite)])).rows;
+        // Quieto = con existencias, sin venta en 45 días y sin mercancía recibida en esos 45 días (lo que acaba de llegar
+        // todavía no ha tenido tiempo de venderse: no es capital parado).
+        return (await c.query(`select pr.nombre, pr.laboratorio, pr.existencias existencias_unidades, round(pr.existencias::numeric / greatest(pr.unidades_por_caja, 1), 1)::float cajas,
+            pr.ultima_venta::text, (select max(l.creado at time zone 'America/Bogota')::date from lotes l where l.producto_id = pr.producto_id)::text ultima_entrada
+          from prediccion_productos($1) pr
+          where pr.existencias > 0 and (pr.ultima_venta is null or pr.ultima_venta < current_date - 45)
+            and not exists (select 1 from lotes l where l.producto_id = pr.producto_id and l.creado >= now() - interval '45 days')
+          order by pr.existencias desc limit $2`, [s.empresa, limite(entrada.limite)])).rows;
       case "alertas_invima":
         return (await c.query(`select numero, tipo, titulo, motivo, fecha::text, url, producto tu_producto, nivel coincidencia, lote, unidades, revisada from alertas_empresa($1) order by fecha desc limit 40`, [s.empresa])).rows;
       case "resumen_inventario": {
@@ -124,10 +131,11 @@ export async function ejecutar(s: Sesion, nombre: string, entrada: Record<string
             (select count(*) from productos p where p.empresa_id = $1 and p.activo
                and not exists (select 1 from v_stock_vigente s where s.producto_id = p.id and s.unidades > 0))::int productos_agotados`, [s.empresa])).rows[0];
         if (!costos) return r;
-        const v = (await c.query(`select coalesce(sum(s.unidades * lc.costo_unidad), 0)::float valor,
-            count(*) filter (where lc.lote_id is null)::int lotes_sin_costo
-          from v_stock_vigente s left join lote_costos lc on lc.lote_id = s.lote_id where s.empresa_id = $1 and s.unidades > 0`, [s.empresa])).rows[0];
-        return { ...r, valor_inventario_a_costo: v.valor, lotes_sin_costo: v.lotes_sin_costo, nota: "El valor a costo no incluye los lotes sin costo." };
+        const v = (await c.query(`select coalesce(sum(s.unidades * lc.costo_unidad) filter (where not ${LOTE_COSTO_POR_REVISAR}), 0)::float valor,
+            count(*) filter (where lc.lote_id is null)::int lotes_sin_costo, count(*) filter (where ${LOTE_COSTO_POR_REVISAR})::int lotes_costo_por_revisar
+          from v_stock_vigente s join productos p on p.id = s.producto_id left join lote_costos lc on lc.lote_id = s.lote_id where s.empresa_id = $1 and s.unidades > 0`, [s.empresa])).rows[0];
+        return { ...r, valor_inventario_a_costo: v.valor, lotes_sin_costo: v.lotes_sin_costo, lotes_costo_por_revisar: v.lotes_costo_por_revisar,
+          nota: "El valor a costo no incluye los lotes sin costo ni los de costo por revisar (costo por unidad mayor que 3 veces el precio: se corrigen en Inventario)." };
       }
       case "costos_proveedores": {
         const palabras = String(entrada.texto ?? "").toLowerCase().split(/\s+/).filter(Boolean).slice(0, 5).map(sinComodines);

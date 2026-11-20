@@ -184,12 +184,24 @@ test("predicción: ritmo, riesgo de vencimiento FEFO y pedido sugerido con un ca
     await c.query(`select registrar_entrada(jsonb_build_object('empresa_id', $1::uuid, 'sede_id', $2::uuid, 'tipo', 'compra', 'lineas', jsonb_build_array(
       jsonb_build_object('producto_id', $3::uuid, 'lote', 'X', 'vence', ${dias(10)}, 'unidades', 50, 'costo_unidad', 400),
       jsonb_build_object('producto_id', $3::uuid, 'lote', 'Y', 'vence', ${dias(100)}, 'unidades', 20, 'costo_unidad', 400))))`, [E.A, S.A, id]);
-    await c.query(`select registrar_venta($1)`, [venta([{ producto_id: id, presentacion: "caja", cantidad: 28 }], { pagos: [{ medio: "efectivo", valor: 28000 }] })]);
+    // 28 unidades en dos días distintos (ayer 14 y hoy 14): un ritmo, no un pedido puntual (055).
+    const v1 = (await c.query(`select registrar_venta($1) r`, [venta([{ producto_id: id, presentacion: "caja", cantidad: 14 }], { pagos: [{ medio: "efectivo", valor: 14000 }] })])).rows[0].r;
+    await c.query("reset role"); await c.query("set local session_replication_role = replica"); await c.query(`update movimientos set creado = creado - interval '1 day' where tipo = 'venta' and ref_id = $1`, [v1.venta_id]); await c.query("set local session_replication_role = origin"); await c.query("set local role authenticated");
+    await c.query(`select registrar_venta($1)`, [venta([{ producto_id: id, presentacion: "caja", cantidad: 14 }], { pagos: [{ medio: "efectivo", valor: 14000 }] })]);
     const p = (await c.query(`select existencias, venta_dia::float, sugerido_unidades from prediccion_productos($1) where producto_id = $2`, [E.A, id])).rows[0];
+    // Pedido puntual: 28 unidades en una sola venta (lo que se compra para un cliente y se le vende ese día) no es ritmo.
+    const unico = (await c.query(`insert into productos (empresa_id, nombre, iva, unidades_por_caja, precio_caja) values ($1, 'Prueba pedido puntual', 0, 1, 1000) returning id`, [E.A])).rows[0].id;
+    await c.query(`select registrar_entrada(jsonb_build_object('empresa_id', $1::uuid, 'sede_id', $2::uuid, 'tipo', 'compra', 'lineas', jsonb_build_array(
+      jsonb_build_object('producto_id', $3::uuid, 'lote', 'U', 'vence', ${dias(300)}, 'unidades', 28, 'costo_unidad', 400))))`, [E.A, S.A, unico]);
+    await c.query(`select registrar_venta($1)`, [venta([{ producto_id: unico, presentacion: "caja", cantidad: 28 }], { pagos: [{ medio: "efectivo", valor: 28000 }] })]);
+    const pu = (await c.query(`select venta_dia::float, sugerido_unidades, ultima_venta::text from prediccion_productos($1) where producto_id = $2`, [E.A, unico])).rows[0];
     const riesgo = (await c.query(`select lote, unidades_en_riesgo, valor_en_riesgo::float from riesgo_vencimiento($1) where producto_id = $2`, [E.A, id])).rows;
     const p2 = (await c.query(`select sugerido_unidades, sugerido_cajas from prediccion_productos($1, 3, 60) where producto_id = $2`, [E.A, id])).rows[0];
-    return { p, riesgo, p2 };
+    return { p, riesgo, p2, pu };
   });
+  assert.equal(r.pu.venta_dia, 0, "una sola venta en 8 semanas no es ritmo de venta");
+  assert.equal(r.pu.sugerido_unidades, 0, "ni entra al pedido sugerido");
+  assert.ok(r.pu.ultima_venta, "aunque la última venta sí se informa");
   // 28 unidades en los últimos 14 días → 0,6 × 28/14 = 1,2 und/día
   assert.equal(r.p.venta_dia, 1.2);
   assert.equal(r.p.existencias, 42);
@@ -293,7 +305,10 @@ test("las ventas anuladas no cuentan en el ritmo de venta", async () => {
   const r = await como(U.carlos, async (c) => {
     const id = (await c.query(`insert into productos (empresa_id, nombre, iva, unidades_por_caja, precio_caja) values ($1, 'Prueba anulada', 0, 1, 1000) returning id`, [E.A])).rows[0].id;
     await c.query(`select registrar_entrada(jsonb_build_object('empresa_id', $1::uuid, 'sede_id', $2::uuid, 'tipo', 'compra', 'lineas', jsonb_build_array(jsonb_build_object('producto_id', $3::uuid, 'lote', 'A', 'vence', '2030-01-01', 'unidades', 50))))`, [E.A, S.A, id]);
-    const v = (await c.query(`select registrar_venta($1) r`, [venta([{ producto_id: id, presentacion: "caja", cantidad: 14 }], { pagos: [{ medio: "efectivo", valor: 14000 }] })])).rows[0].r.venta_id;
+    // 7 ayer y 7 hoy (dos días distintos: ritmo de venta, 055); luego se anula la de hoy.
+    const v0 = (await c.query(`select registrar_venta($1) r`, [venta([{ producto_id: id, presentacion: "caja", cantidad: 7 }], { pagos: [{ medio: "efectivo", valor: 7000 }] })])).rows[0].r.venta_id;
+    await c.query("reset role"); await c.query("set local session_replication_role = replica"); await c.query(`update movimientos set creado = creado - interval '1 day' where tipo = 'venta' and ref_id = $1`, [v0]); await c.query("set local session_replication_role = origin"); await c.query("set local role authenticated");
+    const v = (await c.query(`select registrar_venta($1) r`, [venta([{ producto_id: id, presentacion: "caja", cantidad: 7 }], { pagos: [{ medio: "efectivo", valor: 7000 }] })])).rows[0].r.venta_id;
     const antes = (await c.query(`select venta_dia::float from prediccion_productos($1) where producto_id = $2`, [E.A, id])).rows[0].venta_dia;
     await c.query(`select anular_venta($1, 'prueba')`, [v]);
     const despues = (await c.query(`select venta_dia::float from prediccion_productos($1) where producto_id = $2`, [E.A, id])).rows[0].venta_dia;

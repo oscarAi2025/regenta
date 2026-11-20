@@ -4,6 +4,7 @@ import { sinComodines } from "./db";
 import { z } from "zod";
 import "./zod-es";
 import { nitSinDv } from "./validar";
+import type { ArchivoCompra } from "./compra-archivo";
 
 /** Alta rápida de proveedor (nombre y NIT opcional). */
 export const ProveedorNuevo = z.object({
@@ -60,7 +61,12 @@ export async function detalleCompra(c: Tx, empresa: string, id: string, dinero: 
             (select json_agg(json_build_object('nombre', p.nombre, 'lote', lo.lote, 'unidades', dl.unidades, 'valor', dl.valor) order by dl.id)
              from devolucion_proveedor_lineas dl join productos p on p.id = dl.producto_id join lotes lo on lo.id = dl.lote_id where dl.devolucion_id = d.id) lineas
      from devoluciones_proveedor d where d.compra_id = $1 order by d.creado`, [id])).rows : [];
-  return { compra: k, lineas, pagos, devoluciones };
+  // La factura original del proveedor (el archivo que se subió): la ven el dueño y el administrador.
+  const archivos: ArchivoCompra[] = dinero ? (await c.query(
+    `select a.id, a.nombre, a.tipo, a.tamano, to_char(a.creado at time zone 'America/Bogota', 'DD/MM/YYYY HH24:MI') creado, mi.nombre usuario
+     from compra_archivos a left join miembros mi on mi.empresa_id = a.empresa_id and mi.user_id = a.usuario_id
+     where a.compra_id = $1 and a.empresa_id = $2 order by a.creado`, [id, empresa])).rows : [];
+  return { compra: k, lineas, pagos, devoluciones, archivos };
 }
 export type DetalleCompra = NonNullable<Awaited<ReturnType<typeof detalleCompra>>>;
 
@@ -73,15 +79,20 @@ export async function listaCompras(c: Tx, empresa: string, f: Filtros, dinero: b
     and ($6::text is null or lower(c.numero_factura) like $6 or lower(pr.nombre) like $6 or c.numero::text = trim(both '%' from $6))`;
   return (await c.query(dinero
     ? `select c.id, c.numero, c.estado, c.numero_factura, c.fecha_factura::text, c.condicion, c.vence_pago::text, pr.nombre proveedor, c.total::float,
-         v.saldo::float saldo, v.dias, (select count(*) from compra_lineas l where l.compra_id = c.id)::int lineas
+         v.saldo::float saldo, v.dias, (select count(*) from compra_lineas l where l.compra_id = c.id)::int lineas,
+         (select string_agg(x.nombre, ' · ') from (select p.nombre from compra_lineas l join productos p on p.id = l.producto_id where l.compra_id = c.id
+            group by p.nombre order by min(l.id) limit 3) x) productos,
+         (select count(*) from compra_archivos a where a.compra_id = c.id)::int archivos
        from compras c join proveedores pr on pr.id = c.proveedor_id left join v_cuentas_por_pagar v on v.compra_id = c.id
        where ${filtro} order by c.creado desc limit 300`
     : `select c.id, c.numero, c.estado, c.numero_factura, c.fecha_factura::text, null::text condicion, null::text vence_pago, pr.nombre proveedor, null::float total,
-         null::float saldo, null::int dias, c.lineas
+         null::float saldo, null::int dias, c.lineas,
+         (select string_agg(x.nombre, ' · ') from (select p.nombre from v_recepcion_lineas l join productos p on p.id = l.producto_id where l.compra_id = c.id
+            group by p.nombre order by min(l.id) limit 3) x) productos, 0 archivos
        from v_recepciones c join proveedores pr on pr.id = c.proveedor_id
        where ${filtro} order by c.creado desc limit 300`, p)).rows as {
     id: string; numero: number; estado: string; numero_factura: string; fecha_factura: string; condicion: string | null; vence_pago: string | null;
-    proveedor: string; total: number | null; saldo: number | null; dias: number | null; lineas: number }[];
+    proveedor: string; total: number | null; saldo: number | null; dias: number | null; lineas: number; productos: string | null; archivos: number }[];
 }
 
 export type FilaCxP = { compra_id: string; numero: number; proveedor_id: string; proveedor: string; nit: string | null; dv: string | null; numero_factura: string;

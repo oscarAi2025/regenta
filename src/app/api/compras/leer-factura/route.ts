@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { comoUsuario } from "@/lib/db";
 import { conSesion, ipCliente, json, limiteBD } from "@/lib/api";
 import { puedeCompras } from "@/lib/compras";
+import { MAX_ARCHIVO as MAX, tipoArchivo } from "@/lib/compra-archivo";
 import { aplicarLotes, leerArchivoXml, pdfDelZip, type DocumentoLeido } from "@/lib/factura-proveedor";
 import { emparejar, proveedorDeFactura } from "@/lib/factura-proveedor-servidor";
 import { iaActiva, mensajeError as mensajeIA } from "@/lib/ia/claude";
@@ -10,17 +11,6 @@ import { leerFacturaConIA, leerLotesDelPdf, NoEsFactura } from "@/lib/ia/factura
 // Nueva compra → «Cargar desde la factura»: ZIP/XML de la DIAN (lectura exacta), o PDF/foto (Regenta IA).
 // Devuelve la compra armada para revisar en pantalla; nada entra al inventario hasta que la persona guarda.
 export const maxDuration = 120;
-const MAX = 12 * 1024 * 1024;
-
-function tipoArchivo(b: Uint8Array): string | null {
-  if (b[0] === 0x50 && b[1] === 0x4b) return "application/zip";
-  if (b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46) return "application/pdf";
-  if (b[0] === 0xff && b[1] === 0xd8) return "image/jpeg";
-  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return "image/png";
-  if (b[0] === 0x52 && b[1] === 0x49 && b[8] === 0x57 && b[9] === 0x45) return "image/webp";
-  const ini = Buffer.from(b.subarray(0, 200)).toString("utf8").replace(/^﻿/, "").trimStart();
-  return ini.startsWith("<") ? "application/xml" : null;
-}
 
 export const POST = conSesion(async (s, req) => {
   if (!puedeCompras.ver(s.rol)) return json({ error: "Las facturas de compra las cargan el dueño, el administrador o la bodega" }, 403);

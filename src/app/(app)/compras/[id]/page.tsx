@@ -6,6 +6,7 @@ import { detalleCompra } from "@/lib/compras-datos";
 import { estadoSoporte } from "@/lib/dian/soporte";
 import { Compra } from "./Compra";
 import { Soporte } from "./Soporte";
+import { FacturaProveedor } from "./FacturaProveedor";
 
 export const metadata = { title: "Compra" };
 
@@ -24,6 +25,7 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
       <Compra inicial={JSON.parse(JSON.stringify(d))} dinero={dinero} />
+      <FacturaProveedor compraId={id} inicial={d.archivos} verArchivos={dinero} anulada={d.compra.estado === "anulada"} />
       {d.compra.estado !== "anulada" && <a href={`/etiquetas?compra=${d.compra.numero}`} className="btn-borde w-fit">Imprimir etiquetas de lo recibido</a>}
       {soporte && <Soporte compraId={id} inicial={soporte} />}
     </main>

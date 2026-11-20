@@ -10,7 +10,7 @@ const redondo = (n: number) => Math.round(n * 10000) / 10000;
 /** Aviso de los lotes vendidos con un costo por unidad que no cuadra con lo cobrado (casi siempre el costo de la caja
  *  escrito como costo por unidad). No entran en la ganancia hasta corregirlos; se corrigen aquí mismo, con un clic si el
  *  costo era el de la caja. */
-export function CostosPorRevisar({ lotes, netas }: { lotes: CostoPorRevisar[]; netas: number }) {
+export function CostosPorRevisar({ lotes, netas, enInventario = false }: { lotes: CostoPorRevisar[]; netas: number; enInventario?: boolean }) {
   const refrescar = useRefrescar();
   const [valor, setValor] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<Record<string, { ok: boolean; t: string }>>({});
@@ -31,8 +31,11 @@ export function CostosPorRevisar({ lotes, netas }: { lotes: CostoPorRevisar[]; n
     <section className="tarjeta p-5 border-2 border-aviso" aria-labelledby="revisar-t">
       <h2 id="revisar-t" className="titulo text-xl">Costos que no cuadran</h2>
       <p className="mt-1 text-sm text-muted">
-        {pesosExactos(netas)} vendidos (sin IVA) tienen un costo por unidad mayor que tres veces lo que se cobró por unidad. No entran en la
-        ganancia hasta que lo corrijas: casi siempre es el costo de la caja escrito como costo por unidad.
+        {enInventario
+          ? <>Estos lotes tienen un costo por unidad mayor que tres veces su precio de venta por unidad (sin IVA): valdrían {pesosExactos(netas)} y no se
+            suman al inventario a costo hasta que lo corrijas. Casi siempre es el costo de la caja escrito como costo por unidad.</>
+          : <>{pesosExactos(netas)} vendidos (sin IVA) tienen un costo por unidad mayor que tres veces lo que se cobró por unidad. No entran en la
+            ganancia hasta que lo corrijas: casi siempre es el costo de la caja escrito como costo por unidad.</>}
       </p>
       <ul className="mt-3 divide-y divide-line">
         {lotes.map((l) => {
@@ -42,7 +45,7 @@ export function CostosPorRevisar({ lotes, netas }: { lotes: CostoPorRevisar[]; n
             <li key={l.lote_id} className="py-3 grid gap-2">
               <div>
                 <p className="font-semibold">{l.producto}</p>
-                <p className="text-sm text-muted num">Lote {l.lote} · costo registrado <b className="text-alerta">{pesosExactos(l.costo_unidad)} por unidad</b> · se cobró {pesosExactos(l.cobrado_unidad)} por unidad sin IVA · {l.unidades.toLocaleString("es-CO")} und vendidas</p>
+                <p className="text-sm text-muted num">Lote {l.lote} · costo registrado <b className="text-alerta">{pesosExactos(l.costo_unidad)} por unidad</b> · {enInventario ? "precio de venta" : "se cobró"} {pesosExactos(l.cobrado_unidad)} por unidad sin IVA · {l.unidades.toLocaleString("es-CO")} und {enInventario ? "en existencia" : "vendidas"}</p>
               </div>
               {l.desde_compra ? (
                 <p className="text-sm">Este lote entró con una compra: corrige el costo en <a href="/compras" className="underline font-semibold">Compras</a>.</p>

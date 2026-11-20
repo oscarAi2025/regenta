@@ -8,6 +8,8 @@ import { puedePrecios } from "@/lib/precios";
 import { Cabecera } from "@/components/ui/Cabecera";
 import { pesos } from "@/lib/formato";
 import { CostosPendientes } from "./CostosPendientes";
+import { CostosPorRevisar } from "../reportes/CostosPorRevisar";
+import { LOTE_COSTO_POR_REVISAR, PRECIO_UND_SIN_IVA, type CostoPorRevisar } from "@/lib/reportes";
 import { Paginas } from "@/components/ui/Paginas";
 
 export const metadata = { title: "Inventario" };
@@ -37,7 +39,15 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
       from v_stock_lotes where empresa_id = $1`, [s.empresa])).rows[0];
     const agotados = (await c.query(`select count(*)::int n from productos p where empresa_id = $1 and activo
       and coalesce((select sum(unidades) from v_stock_vigente where producto_id = p.id), 0) <= 0`, [s.empresa])).rows[0].n;
-    const valor = costos ? (await c.query(`select coalesce(sum(s.unidades * lc.costo_unidad), 0)::float v from v_stock_vigente s join lote_costos lc on lc.lote_id = s.lote_id where s.empresa_id = $1 and s.unidades > 0`, [s.empresa])).rows[0].v : null;
+    // Inventario a costo, sin los lotes cuyo costo por unidad no cuadra con el precio (más de 3 veces el precio por unidad
+    // sin IVA: casi siempre el costo de la caja escrito por unidad). Esos van aparte, para corregirlos desde el aviso.
+    const valor = costos ? (await c.query(`select coalesce(sum(s.unidades * lc.costo_unidad), 0)::float v from v_stock_vigente s join lote_costos lc on lc.lote_id = s.lote_id
+      join productos p on p.id = s.producto_id where s.empresa_id = $1 and s.unidades > 0 and not ${LOTE_COSTO_POR_REVISAR}`, [s.empresa])).rows[0].v : null;
+    const revisar: CostoPorRevisar[] = costos ? (await c.query(`select lo.id lote_id, lo.lote, p.id producto_id, p.nombre producto, p.unidades_por_caja::int, lc.costo_unidad::float,
+        round(${PRECIO_UND_SIN_IVA}, 2)::float cobrado_unidad, s.unidades::int, exists (select 1 from compra_lineas cl where cl.lote_id = lo.id) desde_compra
+      from v_stock_vigente s join lote_costos lc on lc.lote_id = s.lote_id join lotes lo on lo.id = s.lote_id join productos p on p.id = s.producto_id
+      where s.empresa_id = $1 and s.unidades > 0 and ${LOTE_COSTO_POR_REVISAR}
+      order by s.unidades * lc.costo_unidad desc limit 50`, [s.empresa])).rows : [];
     const filtro = ver === "agotados" ? "and coalesce(st.unidades, 0) <= 0" : ver === "todos" ? "" : ver === "vencidos" ? "and st.vencidas > 0"
       : "and st.por_vencer <= current_date + 90";
     const palabras = q.trim().toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6).map(sinComodines);
@@ -62,7 +72,7 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
     const porCostear = costos ? (await c.query(`select c.id, c.numero, c.numero_factura, p.nombre proveedor from compras c join proveedores p on p.id = c.proveedor_id
       where c.empresa_id = $1 and c.estado = 'por_costear' order by c.creado limit 30`, [s.empresa])).rows as { id: string; numero: number; numero_factura: string; proveedor: string }[] : [];
     const conteo = puede.moverInventario(s.rol) ? ((await c.query(`select numero from conteos where empresa_id = $1 and estado = 'abierto' order by creado limit 1`, [s.empresa])).rows[0]?.numero as number | undefined) ?? null : null;
-    return { resumen, agotados, valor, filas, sinCosto, conteo, porCostear };
+    return { resumen, agotados, valor, revisar, filas, sinCosto, conteo, porCostear };
   });
   const kardex = puede.moverInventario(s.rol);
   const tabs = [["vencen", "Vencen en 90 días"], ["vencidos", "Vencidos"], ["agotados", "Agotados"], ["todos", "Todo"]] as const;
@@ -83,6 +93,7 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
           <Link href="/temperatura" className="btn-borde">Temperatura y humedad</Link>
         </>}
       </Cabecera>
+      {datos.revisar.length > 0 && <div className="mt-4"><CostosPorRevisar enInventario lotes={datos.revisar} netas={datos.revisar.reduce((t, l) => t + l.unidades * l.costo_unidad, 0)} /></div>}
       {(datos.sinCosto.length > 0 || datos.porCostear.length > 0) && <CostosPendientes lotes={datos.sinCosto.filter((l) => !l.compra_id)} compras={datos.porCostear} />}
       <div className="mt-4 grid grid-cols-2 lg:grid-cols-5 gap-3">
         {[["Lotes vencidos", datos.resumen.vencidos, "text-alerta"], ["Vencen en 30 días", datos.resumen.v30, "text-alerta"], ["Vencen en 31–90 días", datos.resumen.v90, "text-aviso"], ["Productos agotados", datos.agotados, "text-ink"]].map(([t, n, c]) => (
