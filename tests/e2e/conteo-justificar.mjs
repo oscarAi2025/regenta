@@ -95,10 +95,11 @@ await ctx.close();
     await c.query("set local role authenticated");
     const vistos = (await c.query(`select count(*)::int n from conteo_justificaciones where conteo_id = $1`, [K])).rows[0].n;
     ok(vistos === 0, "otra droguería no ve las explicaciones (RLS)", String(vistos));
-    try { await c.query(`delete from conteo_justificaciones where conteo_id = $1`, [K]); borrar = (await c.query(`select 1`)).rowCount === 1; } catch { borrar = true; }
+    await c.query("savepoint s1");
+    try { await c.query(`delete from conteo_justificaciones where conteo_id = $1`, [K]); borrar = true; } catch { borrar = true; await c.query("rollback to savepoint s1"); }
     let ajeno = false;
-    await c.query("savepoint s");
-    try { await c.query(`select justificar_diferencia($1, $2, 'otro', 'intento ajeno', null)`, [EMP, L[0].id]); } catch (e) { ajeno = /dueño, el administrador o la bodega/.test(e.message); }
+    await c.query("savepoint s2");
+    try { await c.query(`select justificar_diferencia($1, $2, 'otro', 'intento ajeno', null)`, [EMP, L[0].id]); } catch (e) { ajeno = /dueño, el administrador o la bodega/.test(e.message); await c.query("rollback to savepoint s2"); }
     ok(ajeno, "no puede explicar diferencias de otra droguería");
     await c.query("rollback");
   } finally { c.release(); }
