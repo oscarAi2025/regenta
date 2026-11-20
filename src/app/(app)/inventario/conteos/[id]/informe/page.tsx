@@ -1,7 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { comoUsuario } from "@/lib/db";
 import { leerSesion, puede } from "@/lib/sesion";
-import { lineasConteo } from "@/lib/conteos";
+import { CAUSAS, justificaciones, lineasConteo } from "@/lib/conteos";
+import { Justificar } from "./Justificar";
 import { pesosConSigno } from "@/lib/ajustes";
 import { Imprimible } from "@/components/app/Imprimible";
 
@@ -25,10 +26,10 @@ export default async function Informe({ params, searchParams }: { params: Promis
       from conteos k join empresas e on e.id = k.empresa_id join sedes sd on sd.id = k.sede_id left join ajustes aj on aj.id = k.ajuste_id
       left join miembros mi on mi.empresa_id = k.empresa_id and mi.user_id = k.usuario_id left join miembros mc on mc.empresa_id = k.empresa_id and mc.user_id = k.cierra_usuario
       where k.id = $1 and k.empresa_id = $2`, [id, s.empresa])).rows[0];
-    return k ? { k, lineas: await lineasConteo(c, id, costos) } : null;
+    return k ? { k, lineas: await lineasConteo(c, id, costos), just: await justificaciones(c, id) } : null;
   });
   if (!d) notFound();
-  const { k, lineas } = d;
+  const { k, lineas, just } = d;
   // Conteo a ciegas abierto: las diferencias solo las ve la gerencia (quien cuenta vuelve a la pantalla de contar).
   if (k.a_ciegas && k.estado === "abierto" && !costos) redirect(`/inventario/conteos/${id}`);
   const contadas = lineas.filter((l) => l.contado !== null);
@@ -37,6 +38,13 @@ export default async function Informe({ params, searchParams }: { params: Promis
   const suma = (f: (l: (typeof lineas)[number]) => number) => dif.reduce((a, l) => a + f(l), 0);
   const faltan = suma((l) => Math.max(0, l.sistema - l.contado!)), sobran = suma((l) => Math.max(0, l.contado! - l.sistema));
   const valor = costos ? suma((l) => (l.contado! - l.sistema) * (l.costo ?? 0)) : null;
+  // Explicación de las diferencias: cuántas tienen causa, cuánto falta por explicar y el resumen por causa.
+  const explicadas = dif.filter((l) => just.has(l.id)), pendientes = dif.filter((l) => !just.has(l.id));
+  const porCausa = [...explicadas.reduce((m, l) => { const c = just.get(l.id)!.causa; const x = m.get(c) ?? { lotes: 0, und: 0, valor: 0 };
+    x.lotes++; x.und += l.contado! - l.sistema; x.valor += (l.contado! - l.sistema) * (l.costo ?? 0); m.set(c, x); return m; }, new Map<string, { lotes: number; und: number; valor: number }>())]
+    .sort((a, b) => Math.abs(b[1].valor) - Math.abs(a[1].valor) || b[1].lotes - a[1].lotes);
+  const valorPendiente = costos ? pendientes.reduce((a, l) => a + (l.contado! - l.sistema) * (l.costo ?? 0), 0) : null;
+  const puedeExplicar = k.estado !== "anulado";
   const alcance = k.alcance === "todo" ? "Todo el inventario" : `${k.alcance === "laboratorio" ? "Laboratorio" : "Categoría"}: ${k.filtro}`;
   const nombre = (x: string | null) => String(x ?? "").split(" (")[0] || "—";
   return (
@@ -71,15 +79,34 @@ export default async function Informe({ params, searchParams }: { params: Promis
           {k.sin_contar_en_cero ? " Los lotes que no se contaron quedaron en cero." : lineas.length > contadas.length && k.estado === "cerrado" ? ` ${lineas.length - contadas.length} lotes no se contaron y quedaron como estaban.` : ""}
         </p>
         {k.observaciones && <p className="text-[15px] pb-3"><b>Observaciones:</b> {k.observaciones}</p>}
+        {dif.length > 0 && (
+          <section aria-labelledby="explicacion" className="pb-4">
+            <h2 id="explicacion" className="titulo text-lg">Explicación de las diferencias</h2>
+            <p className={`text-[15px] ${pendientes.length ? "text-aviso font-semibold" : "text-cruz font-semibold"}`}>
+              {pendientes.length === 0 ? `Las ${dif.length} diferencias están explicadas.`
+                : `${explicadas.length} de ${dif.length} explicadas · faltan ${pendientes.length}${valorPendiente !== null ? ` (${pesosConSigno(valorPendiente)} a costo)` : ""}.`}
+            </p>
+            {porCausa.length > 0 && (
+              <table className="mt-2 w-full max-w-[640px] text-sm border-collapse" aria-label="Diferencias por causa">
+                <thead><tr className="text-left border-b border-ink"><th className="py-1 pr-2 font-semibold">Causa</th><th className="py-1 pr-2 font-semibold text-right">Lotes</th>
+                  <th className="py-1 pr-2 font-semibold text-right">Unidades</th>{costos && <th className="py-1 font-semibold text-right">A costo</th>}</tr></thead>
+                <tbody>{porCausa.map(([c, x]) => (
+                  <tr key={c} className="border-b border-line"><td className="py-1 pr-2">{CAUSAS[c] ?? c}</td><td className="py-1 pr-2 num text-right">{x.lotes}</td>
+                    <td className="py-1 pr-2 num text-right">{x.und > 0 ? "+" : x.und < 0 ? "−" : ""}{Math.abs(x.und).toLocaleString("es-CO")}</td>{costos && <td className="py-1 num text-right">{pesosConSigno(x.valor)}</td>}</tr>))}</tbody>
+              </table>
+            )}
+          </section>
+        )}
         <div className="flex flex-wrap items-baseline justify-between gap-2 no-imprimir pb-2">
           <a href={todo ? "?" : "?todo=1"} className="text-sm font-semibold text-cruz underline">{todo ? "Ver solo los lotes con diferencia" : "Incluir todos los lotes del conteo"}</a>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[600px] border-collapse">
+          <table className="w-full text-sm min-w-[820px] border-collapse">
             <thead><tr className="text-left border-y-2 border-ink">
               <th className="py-2 pr-2 font-semibold">Producto</th><th className="py-2 pr-2 font-semibold">Lote</th><th className="py-2 pr-2 font-semibold">Vence</th>
               <th className="py-2 pr-2 font-semibold text-right">Sistema</th><th className="py-2 pr-2 font-semibold text-right">Contado</th><th className="py-2 pr-2 font-semibold text-right">Diferencia</th>
-              {costos && <th className="py-2 font-semibold text-right">A costo</th>}
+              {costos && <th className="py-2 pr-2 font-semibold text-right">A costo</th>}
+              <th className="py-2 font-semibold">Explicación</th>
             </tr></thead>
             <tbody>
               {filas.map((l) => { const x = l.contado === null ? null : l.contado - l.sistema; return (
@@ -88,9 +115,14 @@ export default async function Informe({ params, searchParams }: { params: Promis
                   <td className="py-1.5 pr-2 num">{l.lote}</td><td className="py-1.5 pr-2 num">{fecha(l.vence)}</td>
                   <td className="py-1.5 pr-2 num text-right">{l.sistema}</td><td className="py-1.5 pr-2 num text-right">{l.contado ?? "—"}</td>
                   <td className="py-1.5 pr-2 num text-right font-semibold">{x === null ? "Sin contar" : x === 0 ? "0" : `${x > 0 ? "+" : "−"}${Math.abs(x)}`}</td>
-                  {costos && <td className="py-1.5 num text-right">{x && l.costo !== null ? pesosConSigno(x * l.costo) : "—"}</td>}
+                  {costos && <td className="py-1.5 pr-2 num text-right">{x && l.costo !== null ? pesosConSigno(x * l.costo) : "—"}</td>}
+                  <td className="py-1.5 min-w-[200px]">{x ? (() => { const j = just.get(l.id); return <>
+                    {j ? <span className="block"><b>{CAUSAS[j.causa] ?? j.causa}.</b> {j.detalle}{j.documento ? ` Soporte: ${j.documento}.` : ""}
+                      <span className="block text-xs text-muted">{String(j.usuario ?? "").split(" (")[0]} · {j.fecha}{j.anteriores ? ` · ${j.anteriores} explicación${j.anteriores === 1 ? "" : "es"} anterior${j.anteriores === 1 ? "" : "es"}` : ""}</span></span>
+                      : <span className="font-semibold text-aviso">Sin explicar</span>}
+                    {puedeExplicar && <Justificar conteoId={id} lineaId={l.id} causas={CAUSAS} hay={!!j} />}</>; })() : null}</td>
                 </tr>); })}
-              {filas.length === 0 && <tr><td colSpan={costos ? 7 : 6} className="py-6 text-center text-muted">{contadas.length ? "Ningún lote contado tiene diferencia." : "Todavía no hay lotes contados."}</td></tr>}
+              {filas.length === 0 && <tr><td colSpan={costos ? 8 : 7} className="py-6 text-center text-muted">{contadas.length ? "Ningún lote contado tiene diferencia." : "Todavía no hay lotes contados."}</td></tr>}
             </tbody>
           </table>
         </div>

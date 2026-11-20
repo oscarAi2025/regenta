@@ -28,3 +28,25 @@ export async function lineasConteo(c: Tx, conteo: string, costos: boolean): Prom
      from conteo_lineas cl join conteos k on k.id = cl.conteo_id join productos p on p.id = cl.producto_id join lotes l on l.id = cl.lote_id
      where cl.conteo_id = $1 order by ${U} nulls last, p.nombre, l.vence nulls last, l.lote` /* en el orden de la estantería */, [conteo, costos])).rows;
 }
+
+/** Causas de una diferencia de conteo (lo que la droguería explica de cada error). */
+export const CAUSAS: Record<string, string> = {
+  error_conteo: "Error de conteo", error_ingreso: "Error al ingresar al sistema", venta_sin_descargar: "Venta o pedido que no se descargó",
+  no_llego: "Compra registrada que no llegó", pedido_no_entregado: "Pedido que el cliente no recibió", devolucion_sin_registrar: "Devolución sin registrar",
+  muestra: "Muestra u obsequio sin registrar", averia: "Avería o rotura", vencido: "Vencido sin dar de baja", trueque: "Cruce con otro producto o lote",
+  perdida: "Pérdida o robo", otro: "Otra causa",
+};
+export const CAUSA_IDS = Object.keys(CAUSAS) as [string, ...string[]];
+
+export type Justificacion = { linea_id: number; causa: string; detalle: string; documento: string | null; usuario: string | null; fecha: string; anteriores: number };
+
+/** La explicación vigente de cada línea (la última) y cuántas hubo antes. Tolera que la migración 056 aún no esté. */
+export async function justificaciones(c: Tx, conteo: string): Promise<Map<number, Justificacion>> {
+  const hay = (await c.query(`select to_regclass('public.conteo_justificaciones') is not null t`)).rows[0].t;
+  if (!hay) return new Map();
+  const filas = (await c.query(`select distinct on (j.linea_id) j.linea_id::int, j.causa, j.detalle, j.documento, mi.nombre usuario,
+      to_char(j.creado at time zone 'America/Bogota', 'DD/MM/YYYY HH24:MI') fecha, (count(*) over (partition by j.linea_id) - 1)::int anteriores
+    from conteo_justificaciones j left join miembros mi on mi.empresa_id = j.empresa_id and mi.user_id = j.usuario_id
+    where j.conteo_id = $1 order by j.linea_id, j.creado desc, j.id desc`, [conteo])).rows as Justificacion[];
+  return new Map(filas.map((f) => [f.linea_id, f]));
+}

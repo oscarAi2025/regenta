@@ -8,7 +8,7 @@ import { IniciarConteo } from "./IniciarConteo";
 
 export const metadata = { title: "Conteo físico" };
 
-type Conteo = { id: string; numero: number; estado: string; alcance: string; filtro: string | null; resumen: { con_diferencia?: number } | null; ajuste: number | null;
+type Conteo = { id: string; numero: number; estado: string; alcance: string; filtro: string | null; resumen: { con_diferencia?: number } | null; ajuste: number | null; sin_explicar: number | null;
   inicio: string; fin: string | null; lotes: number; contados: number; responsable: string | null; esta_sede: boolean };
 const ALCANCE: Record<string, string> = { todo: "Todo el inventario", laboratorio: "Laboratorio", categoria: "Categoría" };
 
@@ -18,7 +18,10 @@ export default async function Conteos() {
   if (!puede.moverInventario(s.rol)) redirect("/inventario?aviso=permiso");
   const d = await comoUsuario(s, async (c) => {
     const { sede_id } = await puestoDeTrabajo(c, s.empresa, await cajaElegida());
+    const conJust = (await c.query(`select to_regclass('public.conteo_justificaciones') is not null t`)).rows[0].t as boolean; // 056
     const conteos: Conteo[] = (await c.query(`select k.id, k.numero, k.estado, k.alcance, k.filtro, k.resumen, aj.numero ajuste,
+        ${conJust ? `(select count(*) from conteo_lineas cl where cl.conteo_id = k.id and k.estado = 'cerrado' and cl.contado is not null and cl.contado <> coalesce(cl.sistema, 0)
+           and not exists (select 1 from conteo_justificaciones j where j.linea_id = cl.id))::int` : "null::int"} sin_explicar,
         to_char(k.creado at time zone 'America/Bogota', 'DD/MM/YYYY HH24:MI') inicio, to_char(k.cerrado at time zone 'America/Bogota', 'DD/MM/YYYY HH24:MI') fin,
         (select count(*) from conteo_lineas cl where cl.conteo_id = k.id)::int lotes, (select count(*) from conteo_lineas cl where cl.conteo_id = k.id and cl.contado is not null)::int contados,
         mi.nombre responsable, k.sede_id = $2 esta_sede
@@ -58,7 +61,9 @@ export default async function Conteos() {
                   <p className="text-sm text-muted num">{k.alcance === "todo" ? ALCANCE.todo : `${ALCANCE[k.alcance]}: ${k.filtro}`} · {k.inicio}{k.fin ? ` → ${k.fin}` : ""} · {String(k.responsable ?? "").split(" (")[0]}</p>
                 </div>
                 <p className="text-sm num">{k.estado === "cerrado"
-                  ? <>{Number(k.resumen?.con_diferencia ?? 0).toLocaleString("es-CO")} con diferencia{k.ajuste ? ` · ajuste N.º ${k.ajuste}` : " · sin ajuste"}</>
+                  ? <>{Number(k.resumen?.con_diferencia ?? 0).toLocaleString("es-CO")} con diferencia{k.ajuste ? ` · ajuste N.º ${k.ajuste}` : " · sin ajuste"}
+                    {k.sin_explicar ? <a href={`/inventario/conteos/${k.id}/informe`} className="block font-semibold text-aviso underline">{k.sin_explicar} sin explicar</a>
+                      : k.sin_explicar === 0 && Number(k.resumen?.con_diferencia ?? 0) > 0 ? <span className="block font-semibold text-cruz">Todas explicadas</span> : null}</>
                   : <>{k.contados.toLocaleString("es-CO")} de {k.lotes.toLocaleString("es-CO")} contados</>}</p>
                 <Link href={`/inventario/conteos/${k.id}`} className="btn-borde h-9 px-3 text-sm" aria-label={`Ver conteo N.º ${k.numero}`}>Ver</Link>
               </li>
