@@ -23,7 +23,7 @@ const RANGO_D = `d.empresa_id = $1 and (d.creado at time zone 'America/Bogota'):
  *  de −$562 millones). Esas líneas no entran en la utilidad hasta que se corrija el costo; se avisan con su corrección. */
 export const COSTO_POR_REVISAR = `(l.unidades > 0 and l.base > 0 and lc.costo_unidad > 3 * l.base / l.unidades)`;
 /** Precio de venta por unidad sin IVA del producto `p` (el de la unidad, o el de la caja repartido). */
-export const PRECIO_UND_SIN_IVA = `(coalesce(p.precio_unidad, p.precio_caja / greatest(p.unidades_por_caja, 1)) / (1 + coalesce(p.iva, 0)))`;
+export const PRECIO_UND_SIN_IVA = `(coalesce(p.precio_unidad, p.precio_caja / greatest(p.unidades_por_caja, 1)) / (1 + coalesce(p.iva, 0) / 100))`; // iva en porcentaje (19)
 /** Un lote en existencia cuyo costo por unidad no cuadra con su precio (más de 3 veces el precio por unidad sin IVA, casi
  *  siempre el costo de la caja escrito por unidad): no se suma al inventario a costo hasta corregirlo. Necesita `p` y `lc`. */
 export const LOTE_COSTO_POR_REVISAR = `(${PRECIO_UND_SIN_IVA} > 0 and lc.costo_unidad > 3 * ${PRECIO_UND_SIN_IVA})`;

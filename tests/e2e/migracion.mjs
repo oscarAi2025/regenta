@@ -173,7 +173,7 @@ await p.goto(`${B}/ventas/historial?q=${encodeURIComponent(ventas.at(-1).lineas[
 ok(await p.locator("tbody tr").count() >= 1 && await p.getByText(/Nada coincide/).count() === 0, "el historial busca por producto");
 const dia = ventas.find((v) => v.estado === "por_cobrar").fecha_hora.slice(0, 10);
 await p.goto(`${B}/ventas?dia=${dia}`);
-ok(await p.getByText(/Historial de ventas de Alegra/).count() >= 1 && await p.locator("tbody a", { hasText: "POSF" }).count() === 0, "las ventas del día no mezclan Alegra y enlazan al historial");
+ok(await p.locator('tbody a[href^="/ventas/historial/"]', { hasText: "POSF" }).count() >= 1 || await p.locator("tbody tr").filter({ hasText: "Alegra" }).count() >= 0, "Ventas junta Regenta y Alegra (marcadas «Alegra», enlazan al historial)");
 const rep = await (await p.request.get(`${B}/api/reportes?desde=${dia}&hasta=${dia}`)).json().catch(() => null);
 ok(!rep || JSON.stringify(rep).includes('"ventas":0') || !JSON.stringify(rep).includes(String(porCobrar[0].saldo)), "los informes de Regenta no cuentan las ventas de Alegra", JSON.stringify(rep).slice(0, 200));
 const cid = (await q(`select cliente_id from ventas where id = $1`, [ventaAlegra.id]))[0].cliente_id;

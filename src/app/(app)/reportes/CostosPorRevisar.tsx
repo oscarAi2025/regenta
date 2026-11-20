@@ -33,7 +33,7 @@ export function CostosPorRevisar({ lotes, netas, enInventario = false }: { lotes
       <p className="mt-1 text-sm text-muted">
         {enInventario
           ? <>Estos lotes tienen un costo por unidad mayor que tres veces su precio de venta por unidad (sin IVA): valdrían {pesosExactos(netas)} y no se
-            suman al inventario a costo hasta que lo corrijas. Casi siempre es el costo de la caja escrito como costo por unidad.</>
+            suman al valor del inventario hasta que lo corrijas. Casi siempre es el costo de la caja escrito como costo por unidad.</>
           : <>{pesosExactos(netas)} vendidos (sin IVA) tienen un costo por unidad mayor que tres veces lo que se cobró por unidad. No entran en la
             ganancia hasta que lo corrijas: casi siempre es el costo de la caja escrito como costo por unidad.</>}
       </p>

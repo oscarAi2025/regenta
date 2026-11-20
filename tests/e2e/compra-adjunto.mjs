@@ -135,7 +135,12 @@ await ctx.close();
   const o = await sesion(DUENO_B, EB.id, "dueno", "Dueño Vecina");
   const valor = async () => { await o.p.goto(B + "/inventario"); await o.p.waitForLoadState("networkidle");
     const t = await o.p.locator("main").innerText(); return Number((t.match(/Inventario a costo\s*\$([\d.]+)/) ?? [])[1]?.replace(/\./g, "") ?? NaN); };
+  const antes0 = await valor();
+  // Un producto con IVA (19 %) y costo normal sí suma: $8.000 de costo con precio $11.900 IVA incluido ($10.000 sin IVA).
+  const conIva = await o.p.evaluate(async (n) => (await fetch("/api/productos", { method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ nombre: n, iva: 19, unidades_por_caja: 1, precio_caja: 11900, stock_minimo: 0, existencia: { lote: "IV1", vence: "2029-06-30", unidades: 10, costo_unidad: 8000 } }) })).status, `Crema con IVA ${R}`);
   const antes = await valor();
+  ok(conIva === 201 && Math.abs(antes - antes0 - 80000) <= 1, "un producto con IVA y costo normal suma al inventario (el IVA va en porcentaje)", `${conIva} ${antes0} → ${antes}`);
   const r = await o.p.evaluate(async (n) => (await fetch("/api/productos", { method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ nombre: n, iva: 0, unidades_por_caja: 500, precio_caja: 36850, precio_unidad: 100, stock_minimo: 0, existencia: { lote: "BJ1", vence: "2029-06-30", unidades: 18000, costo_unidad: 62.56 } }) })).json(), `Bajalenguas adjunto ${R} caja x 500`);
   const pid = r.id;
