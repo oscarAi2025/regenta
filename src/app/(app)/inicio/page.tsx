@@ -21,82 +21,68 @@ const corto = (n: number) => (n >= 1e6 ? `$${(n / 1e6).toLocaleString("es-CO", {
 export default async function Inicio() {
   const s = await leerSesion();
   if (!s) redirect("/entrar");
+  if ((await comoUsuario(s, (c) => modoDe(c, s.empresa))) === "interno") return <InicioInterno s={s} />;
   const costos = puede.verCostos(s.rol);
-  // Velocidad (20/11/2026): la base está lejos del servidor y cada consulta es una ida. Los tres bloques independientes
-  // (ventas del día, predicción e inventario/alertas) corren a la vez en tres transacciones, en vez de uno detrás de
-  // otro; el saludo personal, en paralelo. El modo se lee en el primer bloque: en modo interno se muestra su inicio.
-  const [a, b, c3, personal] = await Promise.all([
-    comoUsuario(s, async (c) => {
-      const modo = await modoDe(c, s.empresa);
-      if (modo === "interno") return { modo } as const;
-      const hoy = (await c.query(`
-        select count(*)::int ventas, coalesce(sum(total), 0)::float
-                 - coalesce((select sum(d.total) from devoluciones d where d.empresa_id = $1 and d.creado >= date_trunc('day', now() at time zone 'America/Bogota') at time zone 'America/Bogota'), 0)::float total,
-               coalesce(sum(total - devuelto) / nullif(count(*), 0), 0)::float promedio  -- igual que Ventas: neto de lo devuelto
-        from ventas where empresa_id = $1 and origen is null and estado = 'cerrada' and creado >= date_trunc('day', now() at time zone 'America/Bogota') at time zone 'America/Bogota'`, [s.empresa])).rows[0];
-      const medios = (await c.query(`
-        select p.medio, sum(p.valor - case when p.medio = 'efectivo' and p.primero_efectivo then v.cambio else 0 end)::float valor
-        from (select *, row_number() over (partition by venta_id, medio order by id) = 1 primero_efectivo from pagos) p join ventas v on v.id = p.venta_id
-        where v.empresa_id = $1 and v.estado = 'cerrada' and v.creado >= date_trunc('day', now() at time zone 'America/Bogota') at time zone 'America/Bogota'
-        group by p.medio order by 2 desc`, [s.empresa])).rows;
-      const semana = (await c.query(`
-        select to_char(d, 'YYYY-MM-DD') dia, coalesce(sum(v.total), 0)::float total
-        from generate_series((now() at time zone 'America/Bogota')::date - 6, (now() at time zone 'America/Bogota')::date, '1 day') d
-        left join ventas v on v.empresa_id = $1 and v.origen is null and v.estado = 'cerrada' and (v.creado at time zone 'America/Bogota')::date = d
-        group by d order by d`, [s.empresa])).rows as { dia: string; total: number }[];
-      // Utilidad de hoy con las mismas reglas del estado de resultados: neta de devoluciones y sin los lotes sin costo.
-      const margen = costos ? await resultados(c, s.empresa, { desde: hoyBogota(), hasta: hoyBogota() }) : null;
-      const ultimas = (await c.query(`
-        select v.id, v.prefijo || v.numero numero, v.total::float, v.estado, to_char(v.creado at time zone 'America/Bogota', 'HH24:MI') hora, d.estado dian
-        from ventas v left join documentos_dian d on d.venta_id = v.id and d.tipo = v.tipo_doc
-        where v.empresa_id = $1 and v.origen is null order by v.creado desc limit 6`, [s.empresa])).rows;
-      // Primeros pasos del dueño (desaparecen al completarse).
-      const pasos = s.rol === "dueno" ? (await c.query(`select e.demo,
-          exists (select 1 from productos where empresa_id = $1 and activo) productos,
-          exists (select 1 from v_stock_vigente v join productos p on p.id = v.producto_id where p.empresa_id = $1 and v.unidades > 0) inventario,
-          (select count(*) from miembros where empresa_id = $1 and activo) > 1 equipo,
-          exists (select 1 from resoluciones_dian where empresa_id = $1 and activa and tipo in ('pos', 'factura') and not pruebas) dian,
-          exists (select 1 from ventas where empresa_id = $1 and origen is null) venta
-        from empresas e where e.id = $1`, [s.empresa])).rows[0] : null;
-      return { modo, hoy, medios, semana, margen, ultimas, pasos };
-    }),
-    comoUsuario(s, async (c) => {
-      // Una sola pasada por la predicción (cada función recorre 8 semanas de movimientos).
-      const pred = puede.moverInventario(s.rol) ? (await c.query(`
-        with p as materialized (select * from prediccion_productos($1)), r as materialized (select * from riesgo_vencimiento($1))
-        select (select count(*) from p where sugerido_unidades > 0 and venta_dia > 0)::int pedir,
-               (select count(*) from p where venta_dia > 0 and dias_cobertura < 7)::int agotan,
-               (select coalesce(json_agg(x), '[]') from (select nombre, floor(dias_cobertura)::int dias from p where venta_dia > 0 and dias_cobertura < 7 order by dias_cobertura, venta_dia desc limit 3) x) agotan_top,
-               (select count(*) from r)::int lotes,
-               (select coalesce(sum(valor_en_riesgo), 0) from r)::float riesgo,
-               (select json_build_object('nombre', nombre, 'lote', lote, 'unidades', unidades_en_riesgo, 'valor', valor_en_riesgo, 'dias', dias) from r order by coalesce(valor_en_riesgo, unidades_en_riesgo) desc limit 1) top_riesgo`, [s.empresa])).rows[0] as
-        { pedir: number; agotan: number; agotan_top: { nombre: string; dias: number }[]; lotes: number; riesgo: number; top_riesgo: { nombre: string; lote: string; unidades: number; valor: number | null; dias: number } | null } : null;
-      const hoyPatron = (await c.query(`select nombre, frente_al_promedio from patron_semanal($1) where dia = extract(isodow from (now() at time zone 'America/Bogota'))::int`, [s.empresa])).rows[0] as { nombre: string; frente_al_promedio: number | null } | undefined;
-      return { pred, hoyPatron };
-    }),
-    comoUsuario(s, async (c) => {
-      const alertas = (await c.query(`
-        select
-          (select count(distinct producto_id) from v_stock_lotes where empresa_id = $1 and unidades > 0 and vence between current_date and current_date + 30)::int vencen,
-          (select count(*) from v_stock_lotes where empresa_id = $1 and unidades > 0 and vence < current_date)::int vencidos,
-          (select count(*) from productos p where empresa_id = $1 and activo and coalesce((select sum(unidades) from v_stock_vigente where producto_id = p.id), 0) <= 0)::int agotados,
-          (select count(*) from productos p where empresa_id = $1 and activo and stock_minimo > 0
-             and coalesce((select sum(unidades) from v_stock_vigente where producto_id = p.id), 0) between 1 and p.stock_minimo * p.unidades_por_caja)::int bajos,
-          (select count(*) from documentos_dian where empresa_id = $1 and estado in ('pendiente', 'enviando'))::int dian_pend,
-          (select count(*) from documentos_dian where empresa_id = $1 and estado = 'rechazado')::int dian_rech,
-          (select count(*) from (${PENDIENTES_SOPORTE}) x)::int soporte`, [s.empresa])).rows[0];
-      const invima = (await c.query(`select count(*) filter (where nivel is not null and revisada is null)::int pendientes,
-        count(*) filter (where nivel = 'lote' and revisada is null)::int lote from alertas_empresa($1)`, [s.empresa])).rows[0];
-      return { alertas, invima };
-    }),
-    saludoPersonal(s.uid),
-  ]);
-  if (a.modo === "interno") return <InicioInterno s={s} />;
-  const d = { ...a, ...b, ...c3 };
+  const d = await comoUsuario(s, async (c) => {
+    const hoy = (await c.query(`
+      select count(*)::int ventas, coalesce(sum(total), 0)::float
+               - coalesce((select sum(d.total) from devoluciones d where d.empresa_id = $1 and d.creado >= date_trunc('day', now() at time zone 'America/Bogota') at time zone 'America/Bogota'), 0)::float total,
+             coalesce(sum(total - devuelto) / nullif(count(*), 0), 0)::float promedio  -- igual que Ventas: neto de lo devuelto
+      from ventas where empresa_id = $1 and origen is null and estado = 'cerrada' and creado >= date_trunc('day', now() at time zone 'America/Bogota') at time zone 'America/Bogota'`, [s.empresa])).rows[0];
+    const medios = (await c.query(`
+      select p.medio, sum(p.valor - case when p.medio = 'efectivo' and p.primero_efectivo then v.cambio else 0 end)::float valor
+      from (select *, row_number() over (partition by venta_id, medio order by id) = 1 primero_efectivo from pagos) p join ventas v on v.id = p.venta_id
+      where v.empresa_id = $1 and v.estado = 'cerrada' and v.creado >= date_trunc('day', now() at time zone 'America/Bogota') at time zone 'America/Bogota'
+      group by p.medio order by 2 desc`, [s.empresa])).rows;
+    const semana = (await c.query(`
+      select to_char(d, 'YYYY-MM-DD') dia, coalesce(sum(v.total), 0)::float total
+      from generate_series((now() at time zone 'America/Bogota')::date - 6, (now() at time zone 'America/Bogota')::date, '1 day') d
+      left join ventas v on v.empresa_id = $1 and v.origen is null and v.estado = 'cerrada' and (v.creado at time zone 'America/Bogota')::date = d
+      group by d order by d`, [s.empresa])).rows as { dia: string; total: number }[];
+    // Utilidad de hoy con las mismas reglas del estado de resultados: neta de devoluciones y sin los lotes sin costo.
+    const margen = costos ? await resultados(c, s.empresa, { desde: hoyBogota(), hasta: hoyBogota() }) : null;
+    const alertas = (await c.query(`
+      select
+        (select count(distinct producto_id) from v_stock_lotes where empresa_id = $1 and unidades > 0 and vence between current_date and current_date + 30)::int vencen,
+        (select count(*) from v_stock_lotes where empresa_id = $1 and unidades > 0 and vence < current_date)::int vencidos,
+        (select count(*) from productos p where empresa_id = $1 and activo and coalesce((select sum(unidades) from v_stock_vigente where producto_id = p.id), 0) <= 0)::int agotados,
+        (select count(*) from productos p where empresa_id = $1 and activo and stock_minimo > 0
+           and coalesce((select sum(unidades) from v_stock_vigente where producto_id = p.id), 0) between 1 and p.stock_minimo * p.unidades_por_caja)::int bajos,
+        (select count(*) from documentos_dian where empresa_id = $1 and estado in ('pendiente', 'enviando'))::int dian_pend,
+        (select count(*) from documentos_dian where empresa_id = $1 and estado = 'rechazado')::int dian_rech,
+        (select count(*) from (${PENDIENTES_SOPORTE}) x)::int soporte`, [s.empresa])).rows[0];
+    const ultimas = (await c.query(`
+      select v.id, v.prefijo || v.numero numero, v.total::float, v.estado, to_char(v.creado at time zone 'America/Bogota', 'HH24:MI') hora, d.estado dian
+      from ventas v left join documentos_dian d on d.venta_id = v.id and d.tipo = v.tipo_doc
+      where v.empresa_id = $1 and v.origen is null order by v.creado desc limit 6`, [s.empresa])).rows;
+    // Una sola pasada por la predicción (cada función recorre 8 semanas de movimientos).
+    const pred = puede.moverInventario(s.rol) ? (await c.query(`
+      with p as materialized (select * from prediccion_productos($1)), r as materialized (select * from riesgo_vencimiento($1))
+      select (select count(*) from p where sugerido_unidades > 0 and venta_dia > 0)::int pedir,
+             (select count(*) from p where venta_dia > 0 and dias_cobertura < 7)::int agotan,
+             (select coalesce(json_agg(x), '[]') from (select nombre, floor(dias_cobertura)::int dias from p where venta_dia > 0 and dias_cobertura < 7 order by dias_cobertura, venta_dia desc limit 3) x) agotan_top,
+             (select count(*) from r)::int lotes,
+             (select coalesce(sum(valor_en_riesgo), 0) from r)::float riesgo,
+             (select json_build_object('nombre', nombre, 'lote', lote, 'unidades', unidades_en_riesgo, 'valor', valor_en_riesgo, 'dias', dias) from r order by coalesce(valor_en_riesgo, unidades_en_riesgo) desc limit 1) top_riesgo`, [s.empresa])).rows[0] as
+      { pedir: number; agotan: number; agotan_top: { nombre: string; dias: number }[]; lotes: number; riesgo: number; top_riesgo: { nombre: string; lote: string; unidades: number; valor: number | null; dias: number } | null } : null;
+    const hoyPatron = (await c.query(`select nombre, frente_al_promedio from patron_semanal($1) where dia = extract(isodow from (now() at time zone 'America/Bogota'))::int`, [s.empresa])).rows[0] as { nombre: string; frente_al_promedio: number | null } | undefined;
+    const invima = (await c.query(`select count(*) filter (where nivel is not null and revisada is null)::int pendientes,
+      count(*) filter (where nivel = 'lote' and revisada is null)::int lote from alertas_empresa($1)`, [s.empresa])).rows[0];
+    // Primeros pasos del dueño (desaparecen al completarse).
+    const pasos = s.rol === "dueno" ? (await c.query(`select e.demo,
+        exists (select 1 from productos where empresa_id = $1 and activo) productos,
+        exists (select 1 from v_stock_vigente v join productos p on p.id = v.producto_id where p.empresa_id = $1 and v.unidades > 0) inventario,
+        (select count(*) from miembros where empresa_id = $1 and activo) > 1 equipo,
+        exists (select 1 from resoluciones_dian where empresa_id = $1 and activa and tipo in ('pos', 'factura') and not pruebas) dian,
+        exists (select 1 from ventas where empresa_id = $1 and origen is null) venta
+      from empresas e where e.id = $1`, [s.empresa])).rows[0] : null;
+    return { hoy, medios, semana, margen, alertas, ultimas, pred, invima, hoyPatron, pasos };
+  });
   const max = Math.max(1, ...d.semana.map((x) => x.total));
   const hora = Number(new Date().toLocaleString("en-US", { timeZone: "America/Bogota", hour: "numeric", hour12: false }));
   const saludo = hora < 5 ? "Buenas noches" : hora < 12 ? "Buenos días" : hora < 19 ? "Buenas tardes" : "Buenas noches";
   const ganancia = d.margen ? d.margen.utilidad_bruta : null;
+  const personal = await saludoPersonal(s.uid);
 
   return (
     <main className="p-4 sm:p-6 grid grid-cols-[minmax(0,1fr)] gap-5">
