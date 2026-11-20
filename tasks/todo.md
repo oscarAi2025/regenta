@@ -677,7 +677,7 @@ La venta con fórmula en la caja sigue en todos los planes (es la dispensación;
 Causa raíz del inventario: lote 454558 de bajalenguas Kennedy (inicial 10/11, 18.000 und) con el costo de la caja ($31.280)
 como costo por unidad; la FGE4 (CLP) se anuló el 13/11 y devolvió 18.000 und que nunca existieron → $563 M.
 - [x] Producción (con la sesión de Oscar, todo auditado): costo del lote → $62,56; ajuste N.º 14 −18.000 (nunca llegaron);
-      costos completados: Ultra Fer 0960925 $30.000 y Loperamida Laproff A1193 $2.390 (de Alegra). Inventario: $49.760.811
+      costos: Ultra Fer 0960925 $25.335 (FE-109; la ficha de Alegra decía $30.000 y no es real) y Loperamida Laproff A1193 $2.390 (ficha de Alegra, POR CONFIRMAR). Inventario: $49.760.811
 - [ ] Oscar: costo real de Amoxicladelt 1000 (Alegra dice $3.500 con precio $42.950)
 - [x] Inventario a costo sin lotes de costo por revisar (> 3 × precio por unidad sin IVA) + aviso con corrección en un clic
       (misma regla en Regenta IA: LOTE_COSTO_POR_REVISAR en reportes.ts)

@@ -405,3 +405,5 @@
   en cajas, no en unidades sueltas.
 - Antes de reiniciar el servidor de pruebas, comprobar que el viejo murió (`pkill -f next-server`): si no, se prueba el
   build anterior.
+- El «unitCost» de la ficha de Alegra NO es el costo real (Ultra Fer: ficha $30.000, real $25.335 = FE-109 $12.160.800 / 480).
+  Un costo solo se pone desde la factura del proveedor o un cálculo ya verificado con Oscar; si no, se pregunta.
