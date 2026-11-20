@@ -133,6 +133,7 @@ const R = [
   { m: "PATCH", p: `/api/inventario/conteos/${U}`, acceso: "sesion", basura: true, rol: ["cajero", 403] },
   { m: "POST", p: `/api/inventario/conteos/${U}/cerrar`, acceso: "sesion", basura: true, rol: ["cajero", 403], espera: 404 },
   { m: "DELETE", p: `/api/inventario/conteos/${U}`, acceso: "sesion", basura: true, rol: ["bodega", 403] },
+  { m: "POST", p: `/api/inventario/conteos/${U}/justificar`, acceso: "sesion", basura: true, rol: ["cajero", 403] },
   { m: "GET", p: "/api/turnos", acceso: "sesion" },
   { m: "POST", p: "/api/contingencia", acceso: "sesion", rol: ["bodega", 403] },   // números de tiquete POS apartados por caja (054)
   { m: "POST", p: "/api/turnos", acceso: "sesion", basura: true, rol: ["bodega", 403] },
@@ -186,6 +187,8 @@ const R = [
   { m: "GET", p: "/api/compras/no-es-uuid", acceso: "sesion", espera: 400 },
   { m: "PATCH", p: `/api/compras/${U}`, acceso: "sesion", basura: true, rol: ["bodega", 403] },
   { m: "DELETE", p: `/api/compras/${U}`, acceso: "sesion", basura: true, rol: ["bodega", 403] },
+  { m: "GET", p: `/api/compras/${U}/factura?archivo=${U}`, acceso: "sesion", rol: ["bodega", 403], espera: 404 },
+  { m: "POST", p: `/api/compras/${U}/factura`, acceso: "sesion", basura: true, rol: ["cajero", 403] },
   { m: "POST", p: "/api/compras/pagos", acceso: "sesion", basura: true, rol: ["bodega", 403] },
   { m: "DELETE", p: "/api/compras/pagos", acceso: "sesion", basura: true, rol: ["bodega", 403] },
   { m: "POST", p: "/api/compras/devoluciones", acceso: "sesion", basura: true, rol: ["bodega", 403] },
