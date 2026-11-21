@@ -207,6 +207,7 @@ const R = [
   { m: "GET", p: "/api/pedidos/no-es-uuid", acceso: "sesion", espera: 404 },
   { m: "PATCH", p: `/api/pedidos/${U}`, acceso: "sesion", basura: true, rol: ["bodega", 403] },
   { m: "POST", p: `/api/pedidos/${U}/cobrar`, acceso: "sesion", basura: true, rol: ["bodega", 403], vendedor: 403 },
+  { m: "POST", p: "/api/pedidos-farmagenericos", acceso: "sesion", basura: true, rol: ["cajero", 403] },
   // Bloque 2-C · cuentas de clientes: crédito, recibos de caja y cartera por cliente
   { m: "GET", p: `/api/clientes/${U}/credito?valor=1000`, acceso: "sesion", rol: ["bodega", 403], espera: 404, vendedor: 403 },
   { m: "GET", p: `/api/clientes/${U}/credito?valor=abc`, acceso: "sesion", espera: 400 },
