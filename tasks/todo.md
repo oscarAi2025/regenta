@@ -687,3 +687,12 @@ como costo por unidad; la FGE4 (CLP) se anuló el 13/11 y devolvió 18.000 und q
 - [x] Regenta IA: ritmo en cajas al día; «sin rotación» sin lo recibido en 45 días
 - [x] Pruebas: compra-adjunto 24/24, db + modo-interno 98/98 (casos ajustados a ritmo en 2 días)
 - [ ] Regresión completa → publicar → Oscar pega db/produccion/bloque7-055.sql → verificar en producción
+
+## 21/11/2026 · Auditoría de certificación (pedido de Oscar: «todo en verde, apto para clientes»)
+- [ ] Compilación de producción (next build) y tipos (tsc) sin errores
+- [ ] Pruebas unitarias y de base de datos (npm test)
+- [ ] Batería e2e COMPLETA: las 52 suites de tests/e2e, cada una con base recién sembrada
+- [ ] Recorrido de todas las pantallas (auditoria) y de todos los equipos (dispositivos) sin fallos
+- [ ] Todos los endpoints con su control de acceso (endpoints)
+- [ ] Producción regenta.pro: páginas públicas, sitemap y respuesta en vivo
+- [ ] Informe de certificación con resultados reales y hallazgos corregidos

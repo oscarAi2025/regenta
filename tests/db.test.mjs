@@ -102,7 +102,11 @@ test("una línea que no cabe en un lote se reparte en el siguiente", async () =>
   const r = await como(U.cajera, async (c) => {
     const lotes = (await c.query("select unidades from v_stock_lotes where producto_id = $1 and unidades > 0 order by vence", [prod.id])).rows;
     const pedir = lotes[0].unidades + 1;
-    const v = (await c.query("select registrar_venta($1) r", [venta([{ producto_id: prod.id, presentacion: "unidad", cantidad: pedir }], { pagos: [{ medio: "tarjeta", valor: pedir * prod.precio_unidad }] })])).rows[0].r;
+    // Desde la 053 una venta de más de 5 UVT va con factura electrónica: se factura a consumidor final para que el reparto
+    // por lotes se pruebe con cualquier tamaño de lote sembrado.
+    const cf = (await c.query(`insert into clientes (empresa_id, tipo_doc, numero_doc, nombre) values ($1, 'CC', '222222222222', 'Consumidor final')
+      on conflict (empresa_id, tipo_doc, numero_doc) do update set nombre = excluded.nombre returning id`, [E.A])).rows[0].id;
+    const v = (await c.query("select registrar_venta($1) r", [venta([{ producto_id: prod.id, presentacion: "unidad", cantidad: pedir }], { tipo_doc: "factura", cliente_id: cf, pagos: [{ medio: "tarjeta", valor: pedir * prod.precio_unidad }] })])).rows[0].r;
     return (await c.query("select unidades from venta_lineas where venta_id = $1 order by id", [v.venta_id])).rows.map((x) => x.unidades);
   });
   assert.equal(r.length, 2);
