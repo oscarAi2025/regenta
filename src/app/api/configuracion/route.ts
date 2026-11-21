@@ -9,6 +9,7 @@ const Datos = z.object({
   email: z.union([z.literal(""), z.string().trim().toLowerCase().email("Correo no válido").max(160)]).transform((x) => x || null).nullish(),
   descuento_max_cajero: z.number().min(0).max(99),
   egreso_max_cajero: z.number().int().min(0).max(100_000_000),
+  pedir_farmagenericos: z.boolean().optional(),
 });
 
 /** Datos de la droguería que el dueño mantiene (los fiscales —NIT, razón social, responsable de IVA— los cambia soporte,
@@ -20,8 +21,9 @@ export const PATCH = conSesion(async (s, req) => {
   const d = p.data;
   const ok = await sinRLS(async (c) => {
     if ((await c.query(`select demo from empresas where id = $1`, [s.empresa])).rows[0]?.demo) return false;
-    await c.query(`update empresas set nombre_comercial = $2, direccion = $3, ciudad = $4, telefono = $5, email = $6, descuento_max_cajero = $7, egreso_max_cajero = $8 where id = $1`,
-      [s.empresa, d.nombre_comercial, d.direccion ?? null, d.ciudad ?? null, d.telefono ?? null, d.email ?? null, d.descuento_max_cajero, d.egreso_max_cajero]);
+    await c.query(`update empresas set nombre_comercial = $2, direccion = $3, ciudad = $4, telefono = $5, email = $6, descuento_max_cajero = $7, egreso_max_cajero = $8,
+      pedir_farmagenericos = coalesce($9, pedir_farmagenericos) where id = $1`,
+      [s.empresa, d.nombre_comercial, d.direccion ?? null, d.ciudad ?? null, d.telefono ?? null, d.email ?? null, d.descuento_max_cajero, d.egreso_max_cajero, d.pedir_farmagenericos ?? null]);
     await c.query(`insert into auditoria (empresa_id, usuario_id, accion, entidad, entidad_id, datos) values ($1, $2, 'configurar_empresa', 'empresas', $4, $3)`, [s.empresa, s.uid, JSON.stringify(d), s.empresa]);
     return true;
   });

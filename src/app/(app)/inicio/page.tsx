@@ -63,8 +63,9 @@ export default async function Inicio() {
              (select coalesce(json_agg(x), '[]') from (select nombre, floor(dias_cobertura)::int dias from p where venta_dia > 0 and dias_cobertura < 7 order by dias_cobertura, venta_dia desc limit 3) x) agotan_top,
              (select count(*) from r)::int lotes,
              (select coalesce(sum(valor_en_riesgo), 0) from r)::float riesgo,
-             (select json_build_object('nombre', nombre, 'lote', lote, 'unidades', unidades_en_riesgo, 'valor', valor_en_riesgo, 'dias', dias) from r order by coalesce(valor_en_riesgo, unidades_en_riesgo) desc limit 1) top_riesgo`, [s.empresa])).rows[0] as
-      { pedir: number; agotan: number; agotan_top: { nombre: string; dias: number }[]; lotes: number; riesgo: number; top_riesgo: { nombre: string; lote: string; unidades: number; valor: number | null; dias: number } | null } : null;
+             (select json_build_object('nombre', nombre, 'lote', lote, 'unidades', unidades_en_riesgo, 'valor', valor_en_riesgo, 'dias', dias) from r order by coalesce(valor_en_riesgo, unidades_en_riesgo) desc limit 1) top_riesgo,
+             (select pedir_farmagenericos from empresas where id = $1) fg`, [s.empresa])).rows[0] as
+      { fg: boolean; pedir: number; agotan: number; agotan_top: { nombre: string; dias: number }[]; lotes: number; riesgo: number; top_riesgo: { nombre: string; lote: string; unidades: number; valor: number | null; dias: number } | null } : null;
     const hoyPatron = (await c.query(`select nombre, frente_al_promedio from patron_semanal($1) where dia = extract(isodow from (now() at time zone 'America/Bogota'))::int`, [s.empresa])).rows[0] as { nombre: string; frente_al_promedio: number | null } | undefined;
     const invima = (await c.query(`select count(*) filter (where nivel is not null and revisada is null)::int pendientes,
       count(*) filter (where nivel = 'lote' and revisada is null)::int lote from alertas_empresa($1)`, [s.empresa])).rows[0];
@@ -135,6 +136,7 @@ export default async function Inicio() {
             <ol className="mt-4 grid gap-3 text-white/85">
               {d.invima.lote > 0 && <li><Link href="/alertas" className="block hover:underline"><b className="text-[#ffb4ab]">Separa el lote con alerta del INVIMA</b> que tienes en existencias.</Link></li>}
               {d.pred.agotan > 0 && <li><Link href="/prediccion" className="block hover:underline"><b className="text-white">{d.pred.agotan} productos se agotan esta semana</b>{d.pred.agotan_top.length ? `: ${d.pred.agotan_top.map((x) => x.nombre.split(" ").slice(0, 3).join(" ")).join(", ")}` : ""}. Tu pedido sugerido tiene {d.pred.pedir} productos.</Link></li>}
+              {d.pred.fg && d.pred.pedir > 0 && <li><Link href="/prediccion?ver=pedido" className="block hover:underline"><b className="text-white">Te estás quedando sin {d.pred.pedir} {d.pred.pedir === 1 ? "producto" : "productos"}: pídelos a Farmagenéricos.</b> Tu pedido sugerido ya trae las cajas; lo envías en un clic.</Link></li>}
               {d.pred.top_riesgo && <li><Link href="/prediccion?ver=vencimiento" className="block hover:underline"><b className="text-white">Mueve el lote {d.pred.top_riesgo.lote}</b> de {d.pred.top_riesgo.nombre.split(" ").slice(0, 4).join(" ")}: vence en {d.pred.top_riesgo.dias} días y {d.pred.top_riesgo.unidades} unidades no alcanzarían a venderse{d.pred.top_riesgo.valor ? ` (${pesos(d.pred.top_riesgo.valor)})` : ""}.</Link></li>}
               {d.hoyPatron?.frente_al_promedio != null && Math.abs(d.hoyPatron.frente_al_promedio) >= 10 && d.hoyPatron.frente_al_promedio > -100 && <li>Los {d.hoyPatron.nombre}{d.hoyPatron.nombre.endsWith("s") ? "" : "s"} sueles vender <b className="text-white">{Math.abs(d.hoyPatron.frente_al_promedio)} % {d.hoyPatron.frente_al_promedio > 0 ? "más" : "menos"}</b> que tu promedio.</li>}
             </ol>

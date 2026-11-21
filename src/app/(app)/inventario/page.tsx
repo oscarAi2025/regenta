@@ -72,7 +72,13 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
     const porCostear = costos ? (await c.query(`select c.id, c.numero, c.numero_factura, p.nombre proveedor from compras c join proveedores p on p.id = c.proveedor_id
       where c.empresa_id = $1 and c.estado = 'por_costear' order by c.creado limit 30`, [s.empresa])).rows as { id: string; numero: number; numero_factura: string; proveedor: string }[] : [];
     const conteo = puede.moverInventario(s.rol) ? ((await c.query(`select numero from conteos where empresa_id = $1 and estado = 'abierto' order by creado limit 1`, [s.empresa])).rows[0]?.numero as number | undefined) ?? null : null;
-    return { resumen, agotados, valor, revisar, filas, sinCosto, conteo, porCostear };
+    // «Pídelo a Farmagenéricos»: lo que se vende y se acabó (venta en los últimos 60 días) o quedó bajo su stock mínimo.
+    const faltan = puede.moverInventario(s.rol) ? (await c.query(`select e.pedir_farmagenericos fg, (select count(*)::int from productos p
+        left join lateral (select coalesce(sum(unidades), 0) u from v_stock_vigente where producto_id = p.id) st on true
+        where p.empresa_id = $1 and p.activo and ((p.stock_minimo > 0 and st.u < p.stock_minimo * p.unidades_por_caja)
+          or (st.u <= 0 and exists (select 1 from venta_lineas vl join ventas v on v.id = vl.venta_id where vl.producto_id = p.id and v.empresa_id = $1 and v.creado > now() - interval '60 days')))) n
+      from empresas e where e.id = $1`, [s.empresa])).rows[0] as { fg: boolean; n: number } : null;
+    return { resumen, agotados, valor, revisar, filas, sinCosto, conteo, porCostear, faltan };
   });
   const kardex = puede.moverInventario(s.rol);
   const tabs = [["vencen", "Vencen en 90 días"], ["vencidos", "Vencidos"], ["agotados", "Agotados"], ["todos", "Todo"]] as const;
@@ -93,6 +99,12 @@ export default async function Inventario({ searchParams }: { searchParams: Promi
           <Link href="/temperatura" className="btn-borde">Temperatura y humedad</Link>
         </>}
       </Cabecera>
+      {datos.faltan?.fg && datos.faltan.n > 0 && (
+        <Link href="/prediccion?ver=pedido" className="mt-4 tarjeta p-4 flex flex-wrap items-center gap-3 border-l-4 border-l-cruz hover:bg-cruz/5" aria-label="Pedir a Farmagenéricos">
+          <p className="flex-1 min-w-56"><b>Se te están acabando productos que vendes: pídelos a Farmagenéricos.</b>
+            <span className="block text-sm text-muted">Agotados con venta reciente o por debajo de su stock mínimo. Tu pedido sugerido ya trae las cajas según lo que vendes.</span></p>
+          <span className="btn-primario h-10">Armar el pedido</span>
+        </Link>)}
       {datos.revisar.length > 0 && <div className="mt-4"><CostosPorRevisar enInventario lotes={datos.revisar} netas={datos.revisar.reduce((t, l) => t + l.unidades * l.costo_unidad, 0)} /></div>}
       {(datos.sinCosto.length > 0 || datos.porCostear.length > 0) && <CostosPendientes lotes={datos.sinCosto.filter((l) => !l.compra_id)} compras={datos.porCostear} />}
       <div className="mt-4 grid grid-cols-2 lg:grid-cols-5 gap-3">

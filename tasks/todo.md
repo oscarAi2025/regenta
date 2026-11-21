@@ -696,3 +696,12 @@ como costo por unidad; la FGE4 (CLP) se anuló el 13/11 y devolvió 18.000 und q
 - [x] Producción regenta.pro: las 47 URL del sitemap + /entrar, /precios y /robots.txt responden 200 (/entrar en frío 5 s, en caliente ~0,55 s)
 - [x] Informe de verificación en PDF
 - migracion.mjs sigue fuera: necesita MIG_DIR con los datos reales de Alegra (migración ya aplicada en producción)
+
+## 21/11/2026 · «Te falta X → pídelo a Farmagenéricos» (punto 4 del prompt; Oscar: control especial sigue incluido en Pro)
+- [ ] 058 aditiva: empresas.pedir_farmagenericos (boolean, por defecto sí) + tabla pedidos_farmagenericos con RLS (dueño, admin, bodega)
+- [ ] API POST /api/pedidos-farmagenericos: valida que los productos son de la droguería, guarda el pedido y devuelve el WhatsApp de Farmagenéricos con el pedido escrito; 403 a la cajera y con el aviso apagado
+- [ ] Predicción › Pedido sugerido: botón principal «Pedir a Farmagenéricos»; «Enviar por WhatsApp» queda para otro proveedor
+- [ ] Inicio (prioridades) e Inventario: aviso «Te estás quedando sin N productos — pídelos a Farmagenéricos» que lleva al pedido sugerido
+- [ ] Equipo › Datos de la droguería: interruptor para apagar el aviso
+- [ ] Pruebas: texto del pedido (unitaria) y e2e (aviso, botón, registro en la base, permisos, apagado); batería existente en verde y build
+- [ ] SQL para producción (bloque9-058) que Oscar pega antes de publicar el código

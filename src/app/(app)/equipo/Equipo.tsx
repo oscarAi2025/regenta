@@ -11,7 +11,7 @@ async function enviar(url: string, metodo: string, cuerpo: unknown) {
   return r.ok ? j : { error: j.error ?? "No se pudo guardar" };
 }
 
-export function Configuracion({ inicial, demo }: { inicial: Record<string, string | number>; demo: boolean }) {
+export function Configuracion({ inicial, demo }: { inicial: Record<string, string | number | boolean>; demo: boolean }) {
   const [d, setD] = useState(inicial);
   const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null), [enviando, setEnviando] = useState(false);
   const campo = (k: string, t: string, tipo = "text", ayuda?: string) => (
@@ -40,6 +40,12 @@ export function Configuracion({ inicial, demo }: { inicial: Record<string, strin
         {campo("descuento_max_cajero", "Descuento máximo de la cajera (%)", "number", "Por encima de este porcentaje solo autoriza el dueño o el administrador.")}
         {campo("egreso_max_cajero", "Salidas de caja de la cajera por turno ($)", "number", "Suma de gastos o retiros que la cajera puede registrar en un turno; lo que pase de ahí lo registra el dueño o el administrador.")}
       </div>
+      <label className="mt-4 flex items-start gap-3 cursor-pointer">
+        <input id="cf-pedir_farmagenericos" type="checkbox" className="mt-1 size-4" checked={d.pedir_farmagenericos !== false} disabled={demo}
+          onChange={(e) => setD({ ...d, pedir_farmagenericos: e.target.checked })} />
+        <span><span className="font-semibold">Pedir a Farmagenéricos</span>
+          <span className="block text-xs text-muted">Avisa cuando te estás quedando sin productos y arma el pedido a Farmagenéricos Colombia desde el pedido sugerido.</span></span>
+      </label>
       {msg && <p role={msg.ok ? "status" : "alert"} className={`mt-3 text-sm font-semibold ${msg.ok ? "text-cruz" : "text-alerta"}`}>{msg.t}</p>}
       {!demo && <button disabled={enviando} className="btn-primario mt-4">{enviando ? "Guardando…" : "Guardar datos"}</button>}
     </form>

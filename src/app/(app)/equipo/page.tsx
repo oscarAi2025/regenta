@@ -22,7 +22,7 @@ export default async function PaginaEquipo() {
   // Lee cuentas (correo y si ya creó contraseña): sin RLS, siempre filtrado por la empresa de la sesión del dueño.
   const d = await sinRLS(async (c) => {
     const e = (await c.query(`select nit, dv, razon_social, nombre_comercial, direccion, ciudad, telefono, email, plan, estado, demo,
-        descuento_max_cajero::float, egreso_max_cajero::float, responsable_iva, plan_siguiente, logo, factura_formato from empresas where id = $1`, [s.empresa])).rows[0];
+        descuento_max_cajero::float, egreso_max_cajero::float, responsable_iva, plan_siguiente, logo, factura_formato, pedir_farmagenericos from empresas where id = $1`, [s.empresa])).rows[0];
     const miembros = (await c.query(`select m.user_id, m.nombre, m.rol, m.activo, cu.email, cu.clave_hash is not null activo_cuenta
       from miembros m left join cuentas cu on cu.id = m.user_id where m.empresa_id = $1 order by m.rol = 'dueno' desc, m.activo desc, m.nombre`, [s.empresa])).rows;
     const plan = (await c.query(`select to_char(max(vence), 'DD/MM/YYYY') vence, max(vence) < current_date vencido from pagos_suscripcion where empresa_id = $1 and estado = 'aprobado'`, [s.empresa])).rows[0];
@@ -79,7 +79,7 @@ export default async function PaginaEquipo() {
         </div>
       </section>
       <Configuracion inicial={{ nombre_comercial: d.e.nombre_comercial ?? d.e.razon_social, direccion: d.e.direccion ?? "", ciudad: d.e.ciudad ?? "", telefono: d.e.telefono ?? "",
-        email: d.e.email ?? "", descuento_max_cajero: d.e.descuento_max_cajero, egreso_max_cajero: d.e.egreso_max_cajero }} demo={d.e.demo} />
+        email: d.e.email ?? "", descuento_max_cajero: d.e.descuento_max_cajero, egreso_max_cajero: d.e.egreso_max_cajero, pedir_farmagenericos: d.e.pedir_farmagenericos }} demo={d.e.demo} />
       <Equipo miembros={d.miembros} demo={d.e.demo} tope={limite(d.e.plan).usuarios} plan={d.e.plan} />
       <Cajas cajas={d.cajas} tope={limite(d.e.plan).cajas} plan={d.e.plan} demo={d.e.demo} />
       {d.cargos.length > 0 && (

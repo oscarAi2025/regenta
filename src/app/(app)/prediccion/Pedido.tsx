@@ -7,9 +7,10 @@ export type LineaPedido = { id: string; nombre: string; laboratorio: string | nu
 const semana = (v: number) => (v * 7 >= 10 ? `${Math.round(v * 7)}` : (v * 7).toLocaleString("es-CO", { maximumFractionDigits: 1 }));
 
 /** Pedido sugerido editable: se ajustan las cajas y se copia, se envía por WhatsApp o se descarga. */
-export function Pedido({ lineas }: { lineas: LineaPedido[] }) {
+export function Pedido({ lineas, farmagenericos = false }: { lineas: LineaPedido[]; farmagenericos?: boolean }) {
   const [cajas, setCajas] = useState<Record<string, number>>(() => Object.fromEntries(lineas.map((l) => [l.id, l.sugerido_cajas])));
   const [copiado, setCopiado] = useState(false);
+  const [fg, setFg] = useState<{ enviando: boolean; ok?: string; error?: string; enlace?: string }>({ enviando: false });
   const elegidas = useMemo(() => lineas.filter((l) => (cajas[l.id] ?? 0) > 0), [lineas, cajas]);
   const texto = () => ["Pedido", ...elegidas.map((l) => `${cajas[l.id]} × ${l.nombre}${l.laboratorio ? ` (${l.laboratorio})` : ""}`)].join("\n");
 
@@ -20,6 +21,18 @@ export function Pedido({ lineas }: { lineas: LineaPedido[] }) {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([libro as BlobPart], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
     a.download = `pedido-${new Date().toISOString().slice(0, 10)}.xlsx`; a.click();
+  }
+
+  /** Guarda el pedido y abre el WhatsApp de Farmagenéricos con el pedido escrito. La pestaña se abre antes de esperar al
+   *  servidor: abierta después, el navegador la bloquea como ventana emergente. */
+  async function pedirFarmagenericos() {
+    const w = window.open("about:blank", "_blank");
+    setFg({ enviando: true });
+    const r = await fetch("/api/pedidos-farmagenericos", { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ lineas: elegidas.map((l) => ({ producto_id: l.id, cajas: cajas[l.id] })) }) }).then(async (x) => ({ ok: x.ok, j: await x.json().catch(() => ({})) })).catch(() => ({ ok: false, j: {} as Record<string, string> }));
+    if (!r.ok) { w?.close(); setFg({ enviando: false, error: r.j.error ?? "No se pudo enviar el pedido. Revisa tu conexión." }); return; }
+    if (w) w.location.href = r.j.whatsapp;
+    setFg({ enviando: false, ok: `Pedido guardado: ${r.j.productos} productos, ${r.j.cajas} cajas. Envíalo en el WhatsApp de Farmagenéricos.`, enlace: r.j.whatsapp });
   }
 
   if (!lineas.length) return <p className="tarjeta p-8 text-center text-muted">Con lo que tienes alcanzas para más de 18 días en todo lo que se vende. No hay que pedir nada todavía.</p>;
@@ -47,7 +60,10 @@ export function Pedido({ lineas }: { lineas: LineaPedido[] }) {
         <p className="flex-1 font-semibold">{elegidas.length} productos · {elegidas.reduce((a, l) => a + cajas[l.id], 0)} cajas</p>
         <button onClick={copiar} className="btn-borde h-10">{copiado ? "Copiado" : "Copiar pedido"}</button>
         <button onClick={excel} className="btn-borde h-10">Descargar en Excel</button>
-        <a href={`https://wa.me/?text=${encodeURIComponent(texto())}`} target="_blank" rel="noopener" className="btn-primario h-10">Enviar por WhatsApp</a>
+        <a href={`https://wa.me/?text=${encodeURIComponent(texto())}`} target="_blank" rel="noopener" className={`${farmagenericos ? "btn-borde" : "btn-primario"} h-10`}>{farmagenericos ? "Enviar a otro proveedor" : "Enviar por WhatsApp"}</a>
+        {farmagenericos && <button onClick={pedirFarmagenericos} disabled={fg.enviando || !elegidas.length} className="btn-primario h-10">{fg.enviando ? "Enviando…" : "Pedir a Farmagenéricos"}</button>}
+        {fg.ok && <p role="status" className="basis-full text-sm font-semibold text-cruz">{fg.ok} {fg.enlace && <a href={fg.enlace} target="_blank" rel="noopener" className="underline">Abrir WhatsApp</a>}</p>}
+        {fg.error && <p role="alert" className="basis-full text-sm font-semibold text-alerta">{fg.error}</p>}
       </div>
     </section>
   );

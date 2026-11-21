@@ -36,7 +36,8 @@ export default async function Prediccion({ searchParams }: { searchParams: Promi
     const quietos: Quieto[] = sinRot.map((p) => ({ id: p.id, nombre: p.nombre, laboratorio: p.laboratorio, unidades_por_caja: p.upc, existencias: p.existencias, ultima_venta: p.ultima_venta, valor: valores?.get(p.id) ?? null }))
       .sort((a, b) => (b.valor ?? 0) - (a.valor ?? 0) || b.existencias - a.existencias).slice(0, 150);
     const patron = (await c.query(`select nombre, frente_al_promedio from patron_semanal($1)`, [s.empresa])).rows as { nombre: string; frente_al_promedio: number | null }[];
-    return { historia, pedido, agotan7, riesgo, quietos, patron };
+    const fg = !!(await c.query(`select pedir_farmagenericos from empresas where id = $1`, [s.empresa])).rows[0]?.pedir_farmagenericos;
+    return { historia, pedido, agotan7, riesgo, quietos, patron, fg };
   });
   const enRiesgo = d.riesgo.reduce((a, r) => a + (r.valor_en_riesgo ?? 0), 0);
   const quieto = d.quietos.reduce((a, q) => a + (q.valor ?? 0), 0);
@@ -73,7 +74,7 @@ export default async function Prediccion({ searchParams }: { searchParams: Promi
         {tabs.map(([k, t]) => <Link key={k} href={`?ver=${k}`} aria-current={ver === k ? "page" : undefined} className={`px-3.5 py-2 rounded-xl text-sm font-semibold ${ver === k ? "bg-ink text-white" : "text-muted"}`}>{t}</Link>)}
       </nav>
 
-      {ver === "pedido" && <Pedido lineas={d.pedido} />}
+      {ver === "pedido" && <Pedido lineas={d.pedido} farmagenericos={d.fg} />}
 
       {ver === "vencimiento" && (
         <section className="grid gap-3">
