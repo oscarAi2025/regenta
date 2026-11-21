@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { metaPublica } from "@/lib/seo";
 import Link from "next/link";
 import { Cambiate } from "@/components/landing/Cambiate";
+import { Testimonios } from "@/components/landing/Testimonios";
 import { CabeceraPublica } from "@/components/landing/Cabecera";
 import { Pie } from "@/components/landing/Pie";
 import { BarraMovil } from "@/components/landing/BarraMovil";
@@ -103,6 +104,8 @@ export default function Precios() {
         </section>
 
         <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-14"><Oferta origen="precios" /></section>
+
+        <Testimonios claro />
 
         <section id="socio" className="fondo-hero text-white scroll-mt-20">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14">

@@ -15,6 +15,7 @@ import { IncluyeTodo } from "@/components/landing/IncluyeTodo";
 import { Cumplimiento } from "@/components/landing/Cumplimiento";
 import { Oferta } from "@/components/landing/Oferta";
 import { Cambiate } from "@/components/landing/Cambiate";
+import { Testimonios } from "@/components/landing/Testimonios";
 import { BarraOferta } from "@/components/landing/BarraOferta";
 import { GARANTIA_DIAS } from "@/lib/oferta";
 import { GUIAS } from "@/content/guias";
@@ -270,6 +271,7 @@ export default function Portada() {
         </section>
 
         {/* Quien ya tiene programa: cómo se cambia sin detener la caja (la objeción más común). */}
+        <Testimonios />
         <Cambiate />
 
         {/* Oferta: todo lo que recibes, precio frente a valor y garantía. */}

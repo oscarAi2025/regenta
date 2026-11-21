@@ -717,3 +717,6 @@ Datos de producción (30 días): ~15 visitas reales a la demo (6 desde Farmagen�
 - [ ] Oscar aplica bloque10-059.sql → fusionar a main → medir en producción primera visita (antes: medianas 60–213 ms, picos 0,9–6,8 s)
 - [ ] Pagos: 4 de 5 sin aprobar — revisar con la consulta de pagos_suscripcion que pegue Oscar
 - [ ] Prueba social real (clientes, testimonios): pedir a Oscar; no inventar
+
+## Testimonios reales (21/11/2026)
+- [x] Tres testimonios aportados por Oscar (Ibagué, Medellín, Cali) en portada (antes de «Cámbiate») y en /precios (tras la oferta). Sin estrellas ni calificaciones inventadas.
