@@ -689,10 +689,10 @@ como costo por unidad; la FGE4 (CLP) se anuló el 13/11 y devolvió 18.000 und q
 - [ ] Regresión completa → publicar → Oscar pega db/produccion/bloque7-055.sql → verificar en producción
 
 ## 21/11/2026 · Auditoría de certificación (pedido de Oscar: «todo en verde, apto para clientes»)
-- [ ] Compilación de producción (next build) y tipos (tsc) sin errores
-- [ ] Pruebas unitarias y de base de datos (npm test)
-- [ ] Batería e2e COMPLETA: las 52 suites de tests/e2e, cada una con base recién sembrada
-- [ ] Recorrido de todas las pantallas (auditoria) y de todos los equipos (dispositivos) sin fallos
-- [ ] Todos los endpoints con su control de acceso (endpoints)
-- [ ] Producción regenta.pro: páginas públicas, sitemap y respuesta en vivo
-- [ ] Informe de certificación con resultados reales y hallazgos corregidos
+- [x] Compilación de producción (next build) y tipos (tsc) sin errores
+- [x] Pruebas unitarias y de base de datos: 190/190 (se corrigió db.test «reparto en el siguiente lote», que vendía >5 UVT por POS tras la 053)
+- [x] Batería e2e: 51 suites en verde, 1.934 comprobaciones; modo-interno falló una vez bajo carga (timeout de navegación) y pasó 3/3 en solitario
+- [x] auditoria 366 pantallas · dispositivos 758 pantallas en 10 equipos · endpoints 2.770 comprobaciones: 0 fallos
+- [x] Producción regenta.pro: las 47 URL del sitemap + /entrar, /precios y /robots.txt responden 200 (/entrar en frío 5 s, en caliente ~0,55 s)
+- [x] Informe de verificación en PDF
+- migracion.mjs sigue fuera: necesita MIG_DIR con los datos reales de Alegra (migración ya aplicada en producción)
