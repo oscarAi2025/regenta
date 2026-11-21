@@ -6,6 +6,7 @@ import { NavAdmin } from "@/components/admin/Nav";
 import { leerAdmin } from "@/lib/admin";
 import { dosPasosActivos } from "@/lib/totp";
 import { MarcaRender } from "@/components/MarcaRender";
+import { MarcarInterno } from "@/components/admin/MarcarInterno";
 
 export const metadata: Metadata = { title: { default: "Consola", template: "%s · Consola Regenta" }, robots: { index: false, follow: false } };
 
@@ -31,7 +32,7 @@ export default async function LayoutAdmin({ children }: { children: React.ReactN
         <div className="flex items-center gap-2.5"><Isotipo size={36} claro /><div className="leading-tight"><p className="font-cond text-xl" style={{ fontWeight: 700 }}>Consola</p><p className="text-xs text-white/60">{a.nombre}</p></div></div>
         <NavAdmin />
       </aside>
-      <div className="min-w-0">{children}<MarcaRender /></div>
+      <div className="min-w-0">{children}<MarcaRender /><MarcarInterno /></div>
     </div>
   );
 }

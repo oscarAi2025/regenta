@@ -6,7 +6,7 @@ import { alCambiarPago, cancelarReemplazadas } from "@/lib/pagos-eventos";
 import { enviarAhora } from "@/lib/correo";
 import { cancelarSuscripcionStripe, expirarSesionStripe, reembolsarStripe } from "@/lib/pagos";
 
-const Cambio = z.object({ referencia: z.string().max(80), atendido: z.boolean().optional(), empresa_id: z.string().uuid().nullish(), confirmar: z.enum(["aprobado", "rechazado"]).optional(), descartar: z.literal(true).optional(), reembolsar: z.enum(["stripe", "manual"]).optional(),
+const Cambio = z.object({ referencia: z.string().max(80), atendido: z.boolean().optional(), empresa_id: z.string().uuid().nullish(), confirmar: z.enum(["aprobado", "rechazado"]).optional(), descartar: z.literal(true).optional(), reembolsar: z.enum(["stripe", "manual"]).optional(), prueba: z.literal(true).optional(),
   factura: z.string().trim().max(40).regex(/^[A-Za-z0-9 -]*$/, "Número de factura no válido").optional() });
 
 /** Marcar un pago como atendido o vincularlo a un cliente. */
@@ -14,6 +14,16 @@ export const PATCH = conAdmin(async (a, req) => {
   const p = Cambio.safeParse(await req.json().catch(() => null));
   if (!p.success) return NextResponse.json({ error: "Datos no válidos" }, { status: 400 });
   const d = p.data;
+  if (d.prueba) {
+    // Prueba del equipo: sale del embudo, de los recordatorios y de «QR por confirmar». Una orden abierta se cierra.
+    const n = await sinRLS(async (c) => {
+      const r = await c.query(`update pagos_suscripcion set atendido = true, estado = case when estado in ('pendiente', 'error') then 'rechazado' else estado end,
+          detalle = coalesce(detalle, '{}'::jsonb) || $2::jsonb, actualizado = now() where referencia = $1`, [d.referencia, JSON.stringify({ prueba: true, por: a.nombre })]);
+      if (r.rowCount) await evento(a, "marcar_prueba", null, { referencia: d.referencia }, c);
+      return r.rowCount;
+    });
+    return n ? NextResponse.json({ ok: true, mensaje: "Marcado como prueba: ya no cuenta en el embudo" }) : NextResponse.json({ error: "Pago no encontrado" }, { status: 404 });
+  }
   if (d.descartar) {
     // Orden que nadie pagó (Stripe o Wompi): se cierra el enlace de pago y queda «rechazado» sin avisar al cliente. Si aun
     // así llega un pago (Wompi no permite cerrar su enlace), el aviso de la pasarela lo aprueba y el cliente recibe su acceso.

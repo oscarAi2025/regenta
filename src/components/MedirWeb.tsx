@@ -12,7 +12,14 @@ function visitante() {
     return v;
   } catch { return null; }
 }
+/** Navegadores del equipo (los marca la consola o abrir la web con ?interno=1; ?interno=0 lo quita): no se miden. */
+export function marcarInterno(si: boolean) {
+  try { document.cookie = `regenta_interno=${si ? "1" : ""}; path=/; max-age=${si ? 63072000 : 0}; samesite=lax${location.protocol === "https:" ? "; secure" : ""}`; } catch {}
+}
+const esInterno = () => { try { return /(?:^|;\s*)regenta_interno=1/.test(document.cookie); } catch { return false; } };
+
 function enviar(tipo: string, detalle?: string) {
+  if (esInterno()) return;
   try {
     const cuerpo = JSON.stringify({ v: visitante(), tipo, ruta: location.pathname, detalle: detalle?.replace(/\s+/g, " ").trim().slice(0, 120) || null });
     if (!navigator.sendBeacon?.("/api/web/evento", new Blob([cuerpo], { type: "application/json" })))
@@ -27,7 +34,11 @@ function enviar(tipo: string, detalle?: string) {
  */
 export function MedirWeb() {
   const ruta = usePathname();
-  useEffect(() => { if (esPublica(ruta)) enviar("vista"); }, [ruta]);
+  useEffect(() => {
+    const i = new URLSearchParams(location.search).get("interno");
+    if (i === "1" || i === "0") marcarInterno(i === "1");
+    if (esPublica(ruta)) enviar("vista");
+  }, [ruta]);
   useEffect(() => {
     const clic = (e: MouseEvent) => {
       if (!esPublica(location.pathname)) return;

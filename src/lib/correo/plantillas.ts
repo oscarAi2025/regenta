@@ -2,6 +2,7 @@
 // y versión de texto. Transaccionales: siempre se envían. Comerciales: solo con autorización y con enlace de baja.
 import { SITIO, WHATSAPP, CORREO, TELEFONO } from "../sitio";
 import { pesos } from "../formato";
+import { GARANTIA_DIAS } from "../oferta";
 
 export type Correo = { asunto: string; html: string; texto: string; previa: string };
 type Datos = Record<string, string | number | null | undefined>;
@@ -52,7 +53,9 @@ export const EVENTOS: Record<string, string> = {
   solicitud_recibida: "Nueva solicitud de demo", pago_iniciado: "Alguien empezó a contratar", invitacion: "Nueva cuenta o usuario invitado",
   bienvenida: "Cuenta activada: ya creó su contraseña", restablecer: "Pidió restablecer su contraseña", pago_aprobado: "Pago aprobado",
   pago_qr: "Orden por QR: confirma el pago en la consola", pago_rechazado: "Pago rechazado", renovacion_fallida: "Falló el cobro de una renovación",
-  pago_abandonado: "Pago abandonado: llámalo", renovacion_proxima: "Renovación próxima", renovacion_vencida: "Plan vencido sin renovar",
+  pago_abandonado: "Pago abandonado: llámalo",
+  pago_qr_recordatorio_1: "QR sin confirmar hace 2 h: revisa la cuenta y llámalo", pago_qr_recordatorio_2: "QR sin confirmar hace 1 día: llámalo hoy",
+  pago_qr_recordatorio_3: "QR sin confirmar hace 3 días: último correo al cliente", pago_abandonado_2: "Pago abandonado hace 1 día: segundo correo, llámalo", renovacion_proxima: "Renovación próxima", renovacion_vencida: "Plan vencido sin renovar",
   cuenta_suspendida: "Cuenta suspendida", cuenta_por_suspender: "Cuenta por suspender", habilitado: "Habilitado ante la DIAN",
   renovacion_cancelada: "Canceló la renovación automática", plan_cambiado: "Cambio de plan", cupo_documentos: "Cliente al 90 % de su cupo de documentos",
   cargo_documentos: "Cargo por documentos adicionales", resolucion_por_vencer: "Numeración DIAN por vencer o agotarse", documento_rechazado: "La DIAN rechazó un documento", soporte_pendiente: "Compras sin documento soporte",
@@ -64,7 +67,7 @@ const ETIQUETAS: Record<string, string> = {
   nombre: "Nombre", drogueria: "Droguería", empresa: "Empresa", ciudad: "Ciudad", telefono: "Celular", email: "Correo", cajas: "Cajas", mensaje: "Mensaje",
   origen: "Origen", acepta_correos: "Acepta correos", plan: "Plan", periodo: "Periodo", monto: "Monto", proveedor: "Medio de pago", nit: "NIT",
   referencia: "Referencia", vence: "Vence", documento: "Documento", prefijo: "Prefijo", motivo: "Motivo", mes: "Mes", documentos: "Documentos",
-  cupo: "Cupo", para: "Correo del cliente", empresa_id: "Id de empresa",
+  cupo: "Cupo", para: "Correo del cliente", horas: "Horas esperando", empresa_id: "Id de empresa",
 };
 function avisoInterno(d: Datos): Correo {
   const titulo = EVENTOS[txt(d.evento)] ?? txt(d.evento, "Evento");
@@ -141,6 +144,37 @@ export const PLANTILLAS = {
     previa: "Tu plan te está esperando.", titulo: hola(d.nombre),
     parrafos: [`Empezaste a contratar Regenta${d.plan ? ` ${esc(d.plan)}` : ""} pero el pago no se completó. Si tuviste algún problema, respóndenos y lo resolvemos.`],
     boton: { texto: "Terminar la contratación", href: url(`/contratar?plan=${encodeURIComponent(String(d.plan_id ?? "pro"))}`, "pago_abandonado") } }) }),
+
+  // ── Recuperación de pagos (recuperar-pagos.ts): una orden abierta es un cliente que ya decidió comprar.
+  pago_qr_recordatorio_1: (d: Datos): Correo => ({ asunto: "¿Pudiste pagar tu plan de Regenta?", ...marco({
+    previa: "Si ya pagaste, envíanos el comprobante y activamos tu cuenta hoy.", titulo: `${hola(d.nombre)}, tu orden sigue abierta`,
+    parrafos: [`Pediste pagar Regenta${d.plan ? ` <b>${esc(d.plan)}</b>` : ""}${d.monto ? ` por <b>${pesos(Number(d.monto))}</b>` : ""} con QR y todavía no vemos el pago${d.referencia ? ` de la referencia <b>${esc(d.referencia)}</b>` : ""}.`,
+      "<b>¿Ya pagaste?</b> Envíanos el comprobante por WhatsApp y activamos tu cuenta en minutos.",
+      "<b>¿Aún no?</b> El QR y el monto siguen en tu página de pago. Si prefieres tarjeta, PSE o Nequi, tu cuenta se activa sola al instante."],
+    boton: { texto: "Ya pagué: enviar comprobante", href: wa(`Hola, ya pagué Regenta${d.plan ? ` plan ${txt(d.plan)}` : ""} por QR${d.referencia ? `. Referencia ${txt(d.referencia)}` : ""}. Te envío el comprobante.`) },
+    despues: [`<a href="${esc(enlace(d.enlace))}" style="color:#0f766e;font-weight:bold">Ver el QR y el monto</a> · <a href="${esc(url(`/contratar?plan=${encodeURIComponent(String(d.plan_id ?? "esencial"))}`, "qr_recordatorio"))}" style="color:#0f766e;font-weight:bold">Pagar con tarjeta, PSE o Nequi</a>`] }) }),
+
+  pago_qr_recordatorio_2: (d: Datos): Correo => ({ asunto: "Tu cuenta de Regenta está lista para activarse", ...marco({
+    previa: "Solo falta tu pago para empezar a facturar.", titulo: `${hola(d.nombre)}, solo falta tu pago`,
+    parrafos: [`Tu cuenta de Regenta${d.empresa ? ` para <b>${esc(d.empresa)}</b>` : ""} está lista: en cuanto vemos el pago${d.monto ? ` de <b>${pesos(Number(d.monto))}</b>` : ""}, la activamos y empiezas a cargar tus productos.`,
+      `Te llevas la caja POS con factura electrónica, el certificado digital y la habilitación ante la DIAN incluidos, el control por lote y vencimiento y las alertas del INVIMA. Con <b>garantía de ${GARANTIA_DIAS} días</b>: si no le sirve a tu droguería, te devolvemos lo que pagaste.`,
+      "Si ya pagaste por QR, envíanos el comprobante. Si tuviste algún problema con el pago, cuéntanos y lo resolvemos hoy."],
+    boton: { texto: "Hablar por WhatsApp", href: wa(`Hola, quiero terminar de activar Regenta${d.referencia ? `. Referencia ${txt(d.referencia)}` : ""}.`) },
+    despues: [`<a href="${esc(enlace(d.enlace))}" style="color:#0f766e;font-weight:bold">Ver el QR y el monto</a> · <a href="${esc(url(`/contratar?plan=${encodeURIComponent(String(d.plan_id ?? "esencial"))}`, "qr_recordatorio_2"))}" style="color:#0f766e;font-weight:bold">Pagar con tarjeta, PSE o Nequi</a>`] }) }),
+
+  pago_qr_recordatorio_3: (d: Datos): Correo => ({ asunto: "¿Seguimos con la activación de Regenta?", ...marco({
+    previa: "Te ayudamos a terminar en 5 minutos por WhatsApp.", titulo: `${hola(d.nombre)}, ¿lo dejamos para después?`,
+    parrafos: [`Tu orden de Regenta${d.plan ? ` <b>${esc(d.plan)}</b>` : ""} sigue abierta y no queremos que pierdas el precio de lanzamiento: lo conservas mientras mantengas tu plan.`,
+      "Si algo te frenó (el medio de pago, una duda sobre la DIAN o sobre cómo pasar tus productos), escríbenos: te lo resolvemos en 5 minutos y te dejamos la cuenta funcionando."],
+    boton: { texto: "Resolverlo por WhatsApp", href: wa(`Hola, tengo una duda para terminar de contratar Regenta${d.referencia ? `. Referencia ${txt(d.referencia)}` : ""}.`) },
+    despues: [`<a href="${esc(enlace(d.enlace))}" style="color:#0f766e;font-weight:bold">Pagar con el QR</a> · <a href="${esc(url(`/contratar?plan=${encodeURIComponent(String(d.plan_id ?? "esencial"))}`, "qr_recordatorio_3"))}" style="color:#0f766e;font-weight:bold">Pagar con tarjeta, PSE o Nequi</a>`] }) }),
+
+  pago_abandonado_2: (d: Datos): Correo => ({ asunto: "Tu plan de Regenta te sigue esperando", ...marco({
+    previa: "Paga con QR, Nequi o tarjeta, o te ayudamos por WhatsApp.", titulo: `${hola(d.nombre)}, ¿te ayudamos?`,
+    parrafos: [`Ayer empezaste a contratar Regenta${d.plan ? ` <b>${esc(d.plan)}</b>` : ""} y el pago no se completó. Muchas veces es la tarjeta o el banco: puedes pagar también con <b>QR Bancolombia, Nequi, Daviplata o PSE</b>.`,
+      `Recuerda que tienes <b>garantía de ${GARANTIA_DIAS} días</b> y que el certificado digital y la habilitación ante la DIAN van incluidos.`],
+    boton: { texto: "Terminar la contratación", href: url(`/contratar?plan=${encodeURIComponent(String(d.plan_id ?? "pro"))}`, "pago_abandonado_2") },
+    despues: [`¿Prefieres que te ayudemos? <a href="${esc(wa("Hola, quiero ayuda para terminar de contratar Regenta."))}" style="color:#0f766e;font-weight:bold">Escríbenos por WhatsApp</a> y lo hacemos contigo.`] }) }),
 
   renovacion_proxima: (d: Datos): Correo => ({ asunto: d.vence ? `Tu plan de Regenta vence el ${d.vence}` : "Tu plan de Regenta vence pronto", ...marco({
     previa: "Renueva en un clic para no interrumpir tu caja.", titulo: "Tu plan vence pronto",

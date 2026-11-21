@@ -6,6 +6,7 @@ import { sincronizarInvima } from "@/lib/invima";
 import { sinRLS } from "@/lib/db";
 import { cancelarReemplazadas } from "@/lib/pagos-eventos";
 import { sincronizarStripe } from "@/lib/pagos-stripe";
+import { recuperarPagos } from "@/lib/recuperar-pagos";
 import { avisarAnexo13 } from "@/lib/anexo13-avisos";
 import { aplicarBajadas, avisarCupoDocumentos, avisarNumeraciones, avisarRechazos, avisarDemorados, avisarSoporte, cobrarDocumentosExtra, revisarSuscripciones } from "@/lib/operacion";
 
@@ -27,6 +28,7 @@ export async function POST(req: Request) {
   const r: Record<string, unknown> = {};
   const paso = async (k: string, f: () => Promise<unknown>) => { try { r[k] = await f(); } catch (e) { r[k] = { error: (e as Error).message }; } };
   await paso("recordatorios", programarRecordatorios);
+  await paso("recuperar_pagos", recuperarPagos); // QR sin confirmar y pagos abandonados: correo al cliente y copia a la gerencia
   await paso("correos", () => enviarPendientes(80));
   await paso("dian", () => procesarCola(50));
   const minuto = new Date().getUTCMinutes();

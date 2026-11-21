@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { sinRLS } from "./db";
 import { esUuid, ipCliente } from "./api";
 import { dispositivo, geoDesde, leerOrigen } from "./visitas-demo-core";
+import { COOKIE_INTERNO } from "./interno";
 
 /**
  * Visitas a la droguería de demostración (consola /admin/demo, 08/11/2026): de dónde vienen, desde qué ciudad y
@@ -36,6 +37,7 @@ export async function crearVisita(req: Request, rol: string) {
     const o = leerOrigen(jar.get(COOKIE_ORIGEN)?.value);
     // Sin cookie de origen (entrada directa a /demo): el referente de esta petición, si viene de otro sitio.
     if (!o.origen) { try { const r = new URL(req.headers.get("referer") ?? ""); if (r.host && r.host !== req.headers.get("host")) o.origen = corto(r.host.replace(/^www\./, ""), 60); } catch {} }
+    if (jar.get(COOKIE_INTERNO)?.value === "1") o.origen = "interno"; // visita del equipo: se guarda, pero no cuenta
     const g = geo(req), d = dispositivo(req.headers.get("user-agent") ?? "");
     const id = await sinRLS(async (c) => (await c.query(
       `insert into demo_visitas (rol, ciudad, region, pais, dispositivo, navegador, sistema, origen, campana, landing, referente, visitante)

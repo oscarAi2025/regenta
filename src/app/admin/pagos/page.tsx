@@ -6,6 +6,7 @@ import { FacturaPago } from "@/components/admin/FacturaPago";
 import { exigirAdmin, fechaHora, NOMBRE_PLAN } from "@/lib/admin-pagina";
 import { nitSinDv } from "@/lib/validar";
 import { DOC_EXTRA } from "@/lib/planes";
+import { pagoDePrueba } from "@/lib/interno";
 
 export const metadata = { title: "Pagos" };
 export const dynamic = "force-dynamic";
@@ -18,11 +19,20 @@ const REVISAR: Record<string, string> = {
   renovacion_monto_distinto: "Renovación de Stripe con otro monto: revisa y acredita a mano",
 };
 
+/** Mensaje de WhatsApp para llamar a quien dejó un pago a medias: lo que pidió, su referencia y cómo terminar hoy. */
+function mensajePendiente(p: { nombre: string; plan: string; monto: number; referencia: string; proveedor: string }) {
+  const nombre = String(p.nombre ?? "").trim().split(/\s+/)[0];
+  const plan = NOMBRE_PLAN[p.plan] ?? p.plan;
+  return p.proveedor === "qr"
+    ? `Hola ${nombre}, te escribo de Regenta. Vi tu orden del plan ${plan} por ${pesos(p.monto)} (referencia ${p.referencia}). ¿Pudiste hacer el pago? Si ya pagaste, envíame el comprobante y te activo la cuenta ya mismo. Si tuviste algún problema, te ayudo ahora.`
+    : `Hola ${nombre}, te escribo de Regenta. Vi que empezaste a contratar el plan ${plan} y el pago no se completó. ¿Tuviste algún problema? Puedes pagar también con QR, Nequi o PSE, o te ayudo yo ahora mismo.`;
+}
+
 export default async function Pagos({ searchParams }: { searchParams: Promise<{ ver?: string }> }) {
   await exigirAdmin();
   const { ver = "todos" } = await searchParams;
-  const filas = await sinRLS(async (c) => (await c.query(`select p.*, coalesce(e.nombre_comercial, e.razon_social) cliente from pagos_suscripcion p left join empresas e on e.id = p.empresa_id
-    where ($1 = 'todos' or ($1 = 'atender' and (p.estado = 'aprobado' or p.detalle ? 'revisar') and not p.atendido) or ($1 = 'qr' and p.proveedor = 'qr' and p.estado = 'pendiente')) order by p.creado desc limit 300`, [["atender", "qr"].includes(ver) ? ver : "todos"])).rows);
+  const filas = await sinRLS(async (c) => (await c.query(`select p.*, coalesce(e.nombre_comercial, e.razon_social) cliente, ${pagoDePrueba("p")} es_prueba, floor(extract(epoch from (now() - p.creado)) / 3600)::int horas from pagos_suscripcion p left join empresas e on e.id = p.empresa_id
+    where ($1 = 'todos' or ($1 = 'atender' and (p.estado = 'aprobado' or p.detalle ? 'revisar') and not p.atendido) or ($1 = 'qr' and p.proveedor = 'qr' and p.estado = 'pendiente' and not ${pagoDePrueba("p")})) order by p.creado desc limit 300`, [["atender", "qr"].includes(ver) ? ver : "todos"])).rows);
   // Pagos aprobados sin droguería cuyo NIT ya es cliente: se ofrece ligarlos (renovación pagada con otro correo).
   const nits = [...new Set(filas.filter((p) => p.estado === "aprobado" && !p.empresa_id && p.nit).map((p) => nitSinDv(p.nit)))];
   const clientes = new Map<string, { id: string; nombre: string }>((nits.length ? (await sinRLS((c) => c.query(`select id, nit, coalesce(nombre_comercial, razon_social) nombre from empresas where nit = any($1) and not demo`, [nits]))).rows : []).map((e) => [e.nit, { id: e.id, nombre: e.nombre }]));
@@ -45,7 +55,8 @@ export default async function Pagos({ searchParams }: { searchParams: Promise<{ 
                 <td className="px-4 py-3"><p className="font-semibold">{p.empresa}</p><p className="text-sm text-muted">{p.nombre} · {p.telefono} · {p.email}{p.nit ? ` · NIT ${p.nit}` : ""}</p>{p.cliente && <Link href={`/admin/clientes/${p.empresa_id}`} className="text-sm text-cruz underline">Cliente: {p.cliente}</Link>}</td>
                 <td className="px-4 py-3">{NOMBRE_PLAN[p.plan]} {p.periodo === "anio" ? "anual" : "mensual"}<p className="text-sm text-muted">{({ qr: "QR Bancolombia", wompi: "Wompi", stripe: "Stripe", manual: "Pago manual" } as Record<string, string>)[p.proveedor] ?? p.proveedor}{p.metodo ? ` · ${p.metodo}` : ""}</p></td>
                 <td className="px-4 py-3 num text-right font-semibold">{pesos(p.monto)}</td>
-                <td className="px-4 py-3"><span className={`font-semibold ${ESTADO[p.estado] ?? ""}`}>{p.estado}</span>{p.detalle?.descartado ? <p className="text-sm text-muted">descartada sin pagar</p> : p.atendido && <p className="text-sm text-muted">atendido</p>}
+                <td className="px-4 py-3"><span className={`font-semibold ${ESTADO[p.estado] ?? ""}`}>{p.estado}</span>{p.es_prueba && <span className="ml-2 pastilla h-6 text-xs bg-line text-muted">prueba</span>}
+                  {p.estado === "pendiente" && !p.es_prueba && <p className={`text-sm font-semibold ${p.horas >= 2 ? "text-alerta" : "text-aviso"}`}>{p.horas < 1 ? "hace menos de 1 h" : p.horas < 48 ? `hace ${p.horas} h` : `hace ${Math.floor(p.horas / 24)} días`}{p.horas >= 2 ? (p.proveedor === "qr" ? ": revisa la cuenta y llámalo" : ": llámalo") : ""}</p>}{p.detalle?.descartado ? <p className="text-sm text-muted">descartada sin pagar</p> : p.atendido && <p className="text-sm text-muted">atendido</p>}
                   {p.detalle?.revisar && <p className="text-sm text-alerta font-semibold">{REVISAR[p.detalle.revisar] ?? p.detalle.revisar}</p>}</td>
                 <td className="px-4 py-3"><div className="flex flex-wrap gap-2">
                   {p.proveedor === "qr" && p.estado === "pendiente" && <>
@@ -64,7 +75,8 @@ export default async function Pagos({ searchParams }: { searchParams: Promise<{ 
                   })()}
                   {p.estado === "aprobado" && p.empresa_id && <FacturaPago referencia={p.referencia} inicial={p.factura ?? ""} />}
                   {!p.atendido && <Accion url="/api/admin/pagos" metodo="PATCH" cuerpo={{ referencia: p.referencia, atendido: true }} texto="Marcar atendido" clase="btn-borde h-9 text-sm" />}
-                  <a href={`https://wa.me/57${String(p.telefono).replace(/\D/g, "").slice(-10)}`} target="_blank" rel="noopener" className="btn-borde h-9 text-sm">WhatsApp</a>
+                  <a href={`https://wa.me/57${String(p.telefono).replace(/\D/g, "").slice(-10)}${p.estado === "pendiente" ? `?text=${encodeURIComponent(mensajePendiente(p))}` : ""}`} target="_blank" rel="noopener" className={`${p.estado === "pendiente" && !p.es_prueba ? "btn-primario" : "btn-borde"} h-9 text-sm`}>WhatsApp</a>
+                  {!p.es_prueba && <Accion url="/api/admin/pagos" metodo="PATCH" cuerpo={{ referencia: p.referencia, prueba: true }} texto="Es una prueba" confirmar="¿Es una prueba del equipo? Sale del embudo y de los recordatorios. Sí" clase="btn-borde h-9 text-sm text-muted" />}
                 </div></td>
               </tr>
             ))}

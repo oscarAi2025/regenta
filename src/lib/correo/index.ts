@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import nodemailer, { type Transporter } from "nodemailer";
 import { sinRLS, type Tx } from "../db";
 import { SITIO, CORREO } from "../sitio";
+import { pagoDePrueba } from "../interno";
 import { COMERCIALES, EMBUDO, PLANTILLAS, type Plantilla } from "./plantillas";
 
 // Cola de correos. Todo correo se encola con una clave única (nunca sale dos veces) y lo envía la tarea programada
@@ -196,7 +197,7 @@ export async function programarRecordatorios() {
           datos: { nombre, empresa: f.empresa, plan: f.plan === "pro" ? "Pro" : "Esencial", plan_id: f.plan, vence: venceTxt } })) n++;
     }
     // Pagos que se quedaron a medias (pendientes de más de 1 hora y menos de 2 días): un solo correo de ayuda.
-    const abandonados = (await c.query(`select referencia, email, nombre, plan from pagos_suscripcion p where estado = 'pendiente' and proveedor <> 'qr' and creado between now() - interval '2 days' and now() - interval '1 hour'
+    const abandonados = (await c.query(`select referencia, email, nombre, plan from pagos_suscripcion p where estado = 'pendiente' and proveedor <> 'qr' and creado between now() - interval '2 days' and now() - interval '1 hour' and not ${pagoDePrueba("p")}
       and not exists (select 1 from pagos_suscripcion q where lower(q.email) = lower(p.email) and q.estado = 'aprobado' and q.creado > p.creado)`)).rows;
     for (const a of abandonados) if (await encolar(c, { clave: `abandonado:${a.email.toLowerCase()}:${a.plan}`, para: a.email, plantilla: "pago_abandonado", datos: { nombre: a.nombre, plan: a.plan === "pro" ? "Pro" : "Esencial", plan_id: a.plan } })) n++;
     return { encolados: n };

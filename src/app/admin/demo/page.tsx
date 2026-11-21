@@ -2,6 +2,7 @@ import Link from "next/link";
 import { sinRLS } from "@/lib/db";
 import { Cabecera, Dato } from "@/components/ui/Cabecera";
 import { exigirAdmin, fechaHora } from "@/lib/admin-pagina";
+import { origenReal, pagoDePrueba } from "@/lib/interno";
 
 export const metadata = { title: "Visitas a la demo" };
 export const dynamic = "force-dynamic";
@@ -34,15 +35,15 @@ export default async function VisitasDemo({ searchParams }: { searchParams: Prom
         count(*) filter (where e.tipo = 'whatsapp')::int whatsapp,
         (select count(*)::int from demo_visitas o where o.visitante = v.visitante and v.visitante is not null) veces
       from demo_visitas v left join demo_eventos e on e.visita_id = v.id left join solicitudes_demo s on s.id = v.solicitud_id
-      where v.creada > ${desde} group by v.id, s.id order by v.creada desc limit 500`)).rows;
-    const grupo = async (col: string) => (await c.query(`select coalesce(${col}, 'Sin dato') k, count(*)::int n from demo_visitas where creada > ${desde} group by 1 order by 2 desc limit 8`)).rows as { k: string; n: number }[];
+      where v.creada > ${desde} and ${origenReal("v.origen")} group by v.id, s.id order by v.creada desc limit 500`)).rows;
+    const grupo = async (col: string) => (await c.query(`select coalesce(${col}, 'Sin dato') k, count(*)::int n from demo_visitas where creada > ${desde} and ${origenReal("origen")} group by 1 order by 2 desc limit 8`)).rows as { k: string; n: number }[];
     // Embudo de la web pública (059): personas distintas por paso, para ver dónde se cae la gente antes de la demo.
     const conWeb = (await c.query(`select to_regclass('public.web_eventos') is not null ok`)).rows[0].ok as boolean;
     const web = conWeb ? (await c.query(`select tipo, count(distinct coalesce(visitante, id::text))::int personas, count(*)::int veces
-        from web_eventos where creado > ${desde} and coalesce(origen, '') <> 'verificacion-claude' group by tipo`)).rows as { tipo: string; personas: number; veces: number }[] : null;
-    const paginas = conWeb ? (await c.query(`select ruta k, count(distinct coalesce(visitante, id::text))::int n from web_eventos where creado > ${desde} and tipo = 'vista' group by 1 order by 2 desc limit 8`)).rows as { k: string; n: number }[] : [];
-    const botones = conWeb ? (await c.query(`select tipo || ' · ' || coalesce(detalle, '') k, count(*)::int n from web_eventos where creado > ${desde} and tipo <> 'vista' group by 1 order by 2 desc limit 8`)).rows as { k: string; n: number }[] : [];
-    const pagos = (await c.query(`select count(*)::int iniciados, count(*) filter (where estado = 'aprobado')::int aprobados from pagos_suscripcion where creado > ${desde}`)).rows[0] as { iniciados: number; aprobados: number };
+        from web_eventos where creado > ${desde} and ${origenReal("origen")} group by tipo`)).rows as { tipo: string; personas: number; veces: number }[] : null;
+    const paginas = conWeb ? (await c.query(`select ruta k, count(distinct coalesce(visitante, id::text))::int n from web_eventos where creado > ${desde} and ${origenReal("origen")} and tipo = 'vista' group by 1 order by 2 desc limit 8`)).rows as { k: string; n: number }[] : [];
+    const botones = conWeb ? (await c.query(`select tipo || ' · ' || coalesce(detalle, '') k, count(*)::int n from web_eventos where creado > ${desde} and ${origenReal("origen")} and tipo <> 'vista' group by 1 order by 2 desc limit 8`)).rows as { k: string; n: number }[] : [];
+    const pagos = (await c.query(`select count(*)::int iniciados, count(*) filter (where estado = 'aprobado')::int aprobados from pagos_suscripcion p where creado > ${desde} and not ${pagoDePrueba("p")}`)).rows[0] as { iniciados: number; aprobados: number };
     return { visitas, ciudades: await grupo("ciudad"), origenes: await grupo("origen"), dispositivos: await grupo("dispositivo"), web, paginas, botones, pagos };
   });
   if (!d) return (
@@ -66,6 +67,7 @@ export default async function VisitasDemo({ searchParams }: { searchParams: Prom
         return (
           <section className="grid gap-3" aria-label="Embudo de la web">
             <h2 className="titulo text-xl">Embudo de la web (personas)</h2>
+            <p className="text-sm text-muted -mt-2">Sin el equipo ni las pruebas: no cuentan los navegadores que entraron a esta consola (o abrieron la web con ?interno=1) ni los pagos marcados como prueba.</p>
             <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
               {paso("Llegan a la web", base, "páginas de venta")}{paso("Tocan «Probar»", p("demo"))}{paso("Tocan «Contratar»", p("contratar"))}
               {paso("Tocan WhatsApp", p("whatsapp"))}{paso("Pagos iniciados", d.pagos.iniciados, "todas las vías")}{paso("Pagos aprobados", d.pagos.aprobados, d.pagos.iniciados ? `${Math.round((d.pagos.aprobados / d.pagos.iniciados) * 100)} % de los iniciados` : "—")}

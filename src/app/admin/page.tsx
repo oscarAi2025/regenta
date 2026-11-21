@@ -3,6 +3,7 @@ import { sinRLS } from "@/lib/db";
 import { Cabecera, Dato, pesos } from "@/components/ui/Cabecera";
 import { Accion } from "@/components/admin/Accion";
 import { exigirAdmin, fechaHora, NOMBRE_PLAN, PRECIO_PLAN } from "@/lib/admin-pagina";
+import { pagoDePrueba } from "@/lib/interno";
 
 export const metadata = { title: "Resumen" };
 export const dynamic = "force-dynamic";
@@ -12,7 +13,8 @@ export default async function Resumen() {
   const d = await sinRLS(async (c) => {
     const empresas = (await c.query(`select plan, estado, count(*)::int n from empresas where not demo group by 1, 2`)).rows as { plan: string; estado: string; n: number }[];
     const pagos = (await c.query(`select coalesce(sum(monto) filter (where estado = 'aprobado' and creado >= date_trunc('month', now())), 0)::float mes,
-      count(*) filter (where (estado = 'aprobado' or detalle ? 'revisar') and not atendido)::int sin_atender, count(*) filter (where estado = 'pendiente' and creado > now() - interval '2 days')::int pendientes from pagos_suscripcion`)).rows[0];
+      count(*) filter (where (estado = 'aprobado' or detalle ? 'revisar') and not atendido)::int sin_atender, count(*) filter (where estado = 'pendiente' and creado > now() - interval '7 days' and not ${pagoDePrueba("p")})::int pendientes,
+      count(*) filter (where estado = 'pendiente' and proveedor = 'qr' and creado < now() - interval '2 hours' and not ${pagoDePrueba("p")})::int qr_esperando from pagos_suscripcion p`)).rows[0];
     const solicitudes = (await c.query(`select count(*) filter (where estado = 'nueva')::int nuevas, count(*) filter (where creado > now() - interval '7 days')::int semana from solicitudes_demo`)).rows[0];
     const dian = (await c.query(`select count(*) filter (where d.estado in ('pendiente', 'enviando'))::int cola, count(*) filter (where d.estado = 'rechazado')::int rechazados from documentos_dian d join empresas e on e.id = d.empresa_id where not e.demo`)).rows[0];
     const ventas = (await c.query(`select count(*)::int n, coalesce(sum(total), 0)::float t from ventas v join empresas e on e.id = v.empresa_id where not e.demo and v.origen is null and v.estado = 'cerrada' and (v.creado at time zone 'America/Bogota')::date = (now() at time zone 'America/Bogota')::date`)).rows[0];
@@ -43,7 +45,7 @@ export default async function Resumen() {
         <Dato titulo="Vendido hoy por tus clientes" valor={pesos(d.ventas.t)} nota={`${d.ventas.n} ventas`} />
         <Dato titulo="Cola DIAN" valor={d.dian.cola} tono={d.dian.rechazados ? "alerta" : undefined} nota={`${d.dian.rechazados} rechazados para revisar`} />
         <Dato titulo="Alertas INVIMA" valor={d.invima.n} nota={`última cargada: ${fechaHora(d.invima.u)}`} />
-        <Dato titulo="Pagos en proceso" valor={d.pagos.pendientes} nota="últimos 2 días" />
+        <Link href={d.pagos.qr_esperando ? "/admin/pagos?ver=qr" : "/admin/pagos"} className="contents"><Dato titulo="Pagos a medias: llámalos" valor={d.pagos.pendientes} tono={d.pagos.qr_esperando ? "alerta" : d.pagos.pendientes ? "aviso" : undefined} nota={d.pagos.qr_esperando ? `${d.pagos.qr_esperando} por QR sin confirmar hace más de 2 h` : "últimos 7 días, sin pruebas"} /></Link>
         <Dato titulo="Pagaron y sin habilitar DIAN" valor={d.sinHabilitar.length} tono={d.sinHabilitar.length ? "alerta" : undefined} nota={d.sinHabilitar.length ? d.sinHabilitar.slice(0, 3).map((x: any) => `${x.nombre} (${x.dias} d)`).join(", ") : "todos facturan en producción"} />
         <Dato titulo="Documentos extra por cobrar" valor={pesos(d.cargos.t)} tono={d.cargos.n ? "aviso" : undefined} nota={`${d.cargos.n} cargo${d.cargos.n === 1 ? "" : "s"} pendiente${d.cargos.n === 1 ? "" : "s"} · en Pagos`} />
       </section>

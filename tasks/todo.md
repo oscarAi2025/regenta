@@ -720,3 +720,10 @@ Datos de producción (30 días): ~15 visitas reales a la demo (6 desde Farmagen�
 
 ## Testimonios reales (21/11/2026)
 - [x] Tres testimonios aportados por Oscar (Ibagué, Medellín, Cali) en portada (antes de «Cámbiate») y en /precios (tras la oferta). Sin estrellas ni calificaciones inventadas.
+
+## Recuperación de pagos y embudo sin pruebas (21/11/2026)
+- [x] QR sin confirmar: correos al cliente a las 2 h, 24 h y 72 h (solo el que toca por edad) con copia a la gerencia y su WhatsApp; pasarela abandonada: segundo correo a las 24 h. Nunca a pruebas ni a quien ya pagó (correo o NIT).
+- [x] Consola: «Pagos a medias: llámalos» en el resumen; en Pagos la antigüedad, WhatsApp con el mensaje escrito y «Es una prueba».
+- [x] Embudo: sin pagos de prueba (marcados, «prueba» en el nombre o correo de superadmin) ni visitas del equipo (cookie regenta_interno: consola o ?interno=1).
+- [x] e2e recuperar-pagos 26/26; admin 134, pagos 39, demo-visitas 21, web-embudo 12, endpoints 2.814 en verde. Sin SQL nuevo.
+- [ ] Oscar: revisar si entró el pago de «franco» (04/11, 89.900) y llamarlo; marcar como prueba sus pagos «oscarin».
