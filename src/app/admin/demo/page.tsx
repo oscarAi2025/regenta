@@ -36,7 +36,14 @@ export default async function VisitasDemo({ searchParams }: { searchParams: Prom
       from demo_visitas v left join demo_eventos e on e.visita_id = v.id left join solicitudes_demo s on s.id = v.solicitud_id
       where v.creada > ${desde} group by v.id, s.id order by v.creada desc limit 500`)).rows;
     const grupo = async (col: string) => (await c.query(`select coalesce(${col}, 'Sin dato') k, count(*)::int n from demo_visitas where creada > ${desde} group by 1 order by 2 desc limit 8`)).rows as { k: string; n: number }[];
-    return { visitas, ciudades: await grupo("ciudad"), origenes: await grupo("origen"), dispositivos: await grupo("dispositivo") };
+    // Embudo de la web pública (059): personas distintas por paso, para ver dónde se cae la gente antes de la demo.
+    const conWeb = (await c.query(`select to_regclass('public.web_eventos') is not null ok`)).rows[0].ok as boolean;
+    const web = conWeb ? (await c.query(`select tipo, count(distinct coalesce(visitante, id::text))::int personas, count(*)::int veces
+        from web_eventos where creado > ${desde} and coalesce(origen, '') <> 'verificacion-claude' group by tipo`)).rows as { tipo: string; personas: number; veces: number }[] : null;
+    const paginas = conWeb ? (await c.query(`select ruta k, count(distinct coalesce(visitante, id::text))::int n from web_eventos where creado > ${desde} and tipo = 'vista' group by 1 order by 2 desc limit 8`)).rows as { k: string; n: number }[] : [];
+    const botones = conWeb ? (await c.query(`select tipo || ' · ' || coalesce(detalle, '') k, count(*)::int n from web_eventos where creado > ${desde} and tipo <> 'vista' group by 1 order by 2 desc limit 8`)).rows as { k: string; n: number }[] : [];
+    const pagos = (await c.query(`select count(*)::int iniciados, count(*) filter (where estado = 'aprobado')::int aprobados from pagos_suscripcion where creado > ${desde}`)).rows[0] as { iniciados: number; aprobados: number };
+    return { visitas, ciudades: await grupo("ciudad"), origenes: await grupo("origen"), dispositivos: await grupo("dispositivo"), web, paginas, botones, pagos };
   });
   if (!d) return (
     <main className="p-4 sm:p-6"><Cabecera titulo="Visitas a la demo" sub="Falta aplicar la migración 039 en la base de datos (db/produccion/bloque4-039.sql)." /></main>
@@ -54,6 +61,19 @@ export default async function VisitasDemo({ searchParams }: { searchParams: Prom
       <nav className="flex flex-wrap gap-1 tarjeta p-1 w-fit" aria-label="Periodo">
         {PERIODOS.map(([k, t]) => <Link key={k} href={`?dias=${k}${solo ? "&solo=interes" : ""}`} aria-current={dias === Number(k) ? "page" : undefined} className={`px-3.5 py-2 rounded-xl text-sm font-semibold ${dias === Number(k) ? "bg-ink text-white" : "text-muted"}`}>{t}</Link>)}
       </nav>
+      {d.web ? (() => { const p = (t: string) => d.web!.find((x) => x.tipo === t)?.personas ?? 0; const base = p("vista");
+        const paso = (t: string, v: number, nota?: string) => <Dato titulo={t} valor={v} nota={nota ?? (base ? `${Math.round((v / base) * 100)} % de los que llegan` : "—")} />;
+        return (
+          <section className="grid gap-3" aria-label="Embudo de la web">
+            <h2 className="titulo text-xl">Embudo de la web (personas)</h2>
+            <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+              {paso("Llegan a la web", base, "páginas de venta")}{paso("Tocan «Probar»", p("demo"))}{paso("Tocan «Contratar»", p("contratar"))}
+              {paso("Tocan WhatsApp", p("whatsapp"))}{paso("Pagos iniciados", d.pagos.iniciados, "todas las vías")}{paso("Pagos aprobados", d.pagos.aprobados, d.pagos.iniciados ? `${Math.round((d.pagos.aprobados / d.pagos.iniciados) * 100)} % de los iniciados` : "—")}
+            </div>
+            <div className="grid md:grid-cols-2 gap-3"><Grupo t="Páginas por donde llegan" filas={d.paginas} /><Grupo t="Botones que tocan" filas={d.botones} /></div>
+          </section>); })()
+        : <p className="tarjeta p-4 text-sm text-muted">Embudo de la web: falta aplicar la migración 059 (db/produccion/bloque10-059.sql).</p>}
+      <h2 className="titulo text-xl">Dentro de la demo</h2>
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3" aria-label="Cifras">
         <Dato titulo="Visitas" valor={n} nota={`${new Set(v.map((x) => x.visitante).filter(Boolean)).size} personas distintas (aprox.)`} />
         <Dato titulo="Hicieron una venta" valor={v.filter((x) => x.ventas > 0).length} nota={pct(v.filter((x) => x.ventas > 0).length)} />

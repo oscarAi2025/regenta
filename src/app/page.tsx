@@ -41,7 +41,7 @@ const PREGUNTAS: [string, string][] = [
   ["¿Cómo funcionan las alertas del INVIMA?", "Regenta lee las alertas sanitarias de medicamentos del INVIMA y las cruza con tu inventario por lote, registro sanitario y nombre. Solo te avisa cuando algo te toca y guarda la constancia de la revisión."],
   ["¿Por qué Regenta y no otro programa?", "Porque lo hace un distribuidor farmacéutico que surte droguerías: conocemos los agotados, los vencidos y las visitas de la secretaría de salud desde adentro. Y porque, de 15 programas para droguerías que revisamos, ninguno ofrece cruzar las alertas del INVIMA con tu inventario."],
   ["¿Regenta es un software de facturación?", "Sí. Es facturación y gestión en un solo programa: desde la caja emites tiquete POS electrónico o factura electrónica de venta a clientes con NIT o cédula, de contado o a crédito, y además manejas inventario por lote, cartera, pedidos y alertas del INVIMA."],
-  ["¿Ya se envía a la DIAN?", "Cada documento queda numerado con tu resolución y en cola para la DIAN. La emisión ante la DIAN se está integrando y se activa en tu cuenta al terminar; en la demostración la emisión es simulada y así lo dice en pantalla."],
+  ["¿Ya se envía a la DIAN?", "Sí. Regenta ya emite ante la DIAN: la primera factura electrónica real fue aceptada el 9 de noviembre de 2026. Al contratar habilitamos tu NIT ante la DIAN, con el certificado digital incluido, y desde ahí cada documento sale con tu resolución y su CUFE. En la demostración la emisión es simulada y así lo dice en pantalla."],
   ["¿Sirve para distribuidoras farmacéuticas?", "Sí, para facturar a droguerías y empresas con NIT, vender por caja, dar crédito con plazo y llevar la cartera, con la bodega por lote y vencimiento. Hoy no maneja listas de precio por cliente, cupos de crédito ni preventa en ruta: si los necesitas, te lo decimos antes de que pagues."],
   ["¿Puedo vender pastillas sueltas?", "Sí: precio por caja y por unidad; el inventario descuenta unidades exactas del lote que vence antes, y la caja nunca vende un lote vencido."],
   ["¿Cuánto cuesta?", `Esencial ${pesos(PLANES[0].precio!)} al mes y Pro ${pesos(PLANES[1].precio!)}. Con el ${SOCIO.nombre}, si le compras a Farmagenéricos Colombia, puede salirte gratis.`],
@@ -88,7 +88,7 @@ export default function Portada() {
                 <Link href="/contratar?plan=esencial&origen=hero" className="btn-vidrio h-14 px-6 text-lg">Contratar desde {pesos(PLANES[0].precio!)}</Link>
               </div>
               <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-[15px] text-white/80">
-                {["Demo en 1 clic, sin registro", "Certificado y habilitación DIAN incluidos", `${GARANTIA_DIAS} días de garantía`].map((t) => <li key={t} className="flex gap-2"><span className="text-amber-300 font-bold" aria-hidden="true">✓</span>{t}</li>)}
+                {["Ya emite ante la DIAN", "Demo en 1 clic, sin registro", "Certificado y habilitación DIAN incluidos", `${GARANTIA_DIAS} días de garantía`].map((t) => <li key={t} className="flex gap-2"><span className="text-amber-300 font-bold" aria-hidden="true">✓</span>{t}</li>)}
               </ul>
               <div className="mt-8"><Sello oscuro /></div>
             </div>

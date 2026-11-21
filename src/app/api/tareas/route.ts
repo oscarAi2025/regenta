@@ -51,6 +51,7 @@ export async function POST(req: Request) {
     idem: (await c.query(`delete from operaciones_idem where creado < now() - interval '7 days'`)).rowCount,
   })));
   await paso("visitas_demo", () => sinRLS(async (c) => (await c.query(`select purgar_visitas_demo() n`)).rows[0]?.n ?? 0)); // 12 meses
+  await paso("web_eventos", () => sinRLS(async (c) => (await c.query(`select purgar_web_eventos() n`)).rows[0]?.n ?? 0)); // 12 meses
   if (new URL(req.url).searchParams.get("invima") === "1" || (new Date().getUTCHours() % 6 === 0 && minuto < 15)) await paso("invima", sincronizarInvima);
   return NextResponse.json(r);
 }

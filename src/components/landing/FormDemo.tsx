@@ -29,7 +29,7 @@ export function FormDemo() {
   );
 
   return (
-    <form onSubmit={enviar} className="grid sm:grid-cols-2 gap-3 text-ink">
+    <form onSubmit={enviar} data-medir="formulario" className="grid sm:grid-cols-2 gap-3 text-ink">
       <div><label htmlFor="d-nombre" className="etiqueta text-white">Tu nombre</label><input id="d-nombre" name="nombre" required autoComplete="name" className="campo" /></div>
       <div><label htmlFor="d-drogueria" className="etiqueta text-white">Droguería o empresa</label><input id="d-drogueria" name="drogueria" required autoComplete="organization" className="campo" /></div>
       <div><label htmlFor="d-tel" className="etiqueta text-white">Celular / WhatsApp</label><input id="d-tel" name="telefono" required type="tel" inputMode="tel" autoComplete="tel" className="campo" /></div>

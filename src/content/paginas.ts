@@ -1,5 +1,5 @@
 // Páginas comerciales por función y por perfil (silo SEO de producto). Solo describen lo que Regenta hace hoy;
-// lo que está en integración se dice así.
+// lo que está en integración (varias sedes) se dice así.
 
 export type Pagina = {
   ruta: string; grupo: "funciones" | "para" | "software"; corto: string;
@@ -26,7 +26,7 @@ export const PAGINAS: Pagina[] = [
     ],
     pasos: ["En la caja, toca «Factura electrónica».", "Busca o crea el cliente con su NIT o cédula.", "Agrega los productos, toca Cobrar y elige contado o crédito."],
     preguntas: [
-      ["¿Ya se envía a la DIAN?", "Cada documento queda numerado con tu resolución y en cola de envío. La emisión ante la DIAN se está integrando y se activa en tu cuenta al terminar; en la demostración la emisión es simulada y así lo dice en pantalla."],
+      ["¿Ya se envía a la DIAN?", "Sí. Regenta ya emite ante la DIAN: la primera factura electrónica real fue aceptada el 9 de noviembre de 2026. Al contratar habilitamos tu NIT ante la DIAN, con el certificado digital incluido, y desde ahí cada documento sale con tu resolución y su CUFE. En la demostración la emisión es simulada y así lo dice en pantalla."],
       ["¿Necesito resolución de facturación?", "Sí. La numeración la autoriza la DIAN a tu NIT, para el POS electrónico y para la factura electrónica de venta. Regenta usa la que tengas vigente y te avisa si se vence o se agota."],
       ["¿Hace notas crédito?", "Sí: al anular una venta cuyo documento ya fue aceptado, Regenta genera la nota crédito con su propia numeración."],
     ],
@@ -115,7 +115,7 @@ export const PAGINAS: Pagina[] = [
       ["Sin ventas duplicadas", "Si se cae la red a mitad del cobro, el reintento no cobra dos veces."],
       ["Nada se borra", "Las ventas se anulan con motivo y quedan registradas."],
     ],
-    preguntas: [["¿Emite el POS electrónico DIAN?", "Cada venta se numera con tu resolución y queda en cola; la emisión ante la DIAN se está integrando y se activa en tu cuenta al terminar."]],
+    preguntas: [["¿Emite el POS electrónico DIAN?", "Sí. Cada venta se numera con tu resolución y se emite ante la DIAN. Al contratar habilitamos tu NIT, con el certificado digital incluido."]],
     guias: ["pos-electronico-drogueria-dian"],
   },
   {
@@ -198,7 +198,7 @@ export const PAGINAS: Pagina[] = [
     ],
     preguntas: [
       ["¿El certificado digital tiene costo aparte?", "No. El certificado digital y la habilitación de tu NIT ante la DIAN están incluidos en todos los planes."],
-      ["¿Ya se envía a la DIAN?", "Cada documento queda numerado con tu resolución y en cola de envío. La emisión ante la DIAN se está integrando y se activa en tu cuenta al terminar."],
+      ["¿Ya se envía a la DIAN?", "Sí. Regenta ya emite ante la DIAN: la primera factura electrónica real fue aceptada el 9 de noviembre de 2026. Al contratar habilitamos tu NIT ante la DIAN, con el certificado digital incluido, y desde ahí cada documento sale con tu resolución y su CUFE."],
       ["¿Sirve para farmacias-droguerías?", "Sí. La facturación, el inventario por lote y los vencimientos funcionan igual."],
     ],
     guias: ["pos-electronico-drogueria-dian", "cuanto-cuesta-software-drogueria", "facturacion-electronica-sector-salud-rips"],
@@ -225,7 +225,7 @@ export const PAGINAS: Pagina[] = [
     ],
     preguntas: [
       ["¿Regenta sirve para una IPS?", "Para la facturación de servicios de salud con RIPS, no: eso lo hace el software de la IPS. Sí sirve para la droguería o el punto de venta de medicamentos que la IPS tenga aparte, y para las droguerías y distribuidoras que le venden a IPS."],
-      ["¿Ya se envía a la DIAN?", "Cada documento queda numerado con tu resolución y en cola de envío. La emisión ante la DIAN se está integrando y se activa en tu cuenta al terminar."],
+      ["¿Ya se envía a la DIAN?", "Sí. Regenta ya emite ante la DIAN: la primera factura electrónica real fue aceptada el 9 de noviembre de 2026. Al contratar habilitamos tu NIT ante la DIAN, con el certificado digital incluido, y desde ahí cada documento sale con tu resolución y su CUFE."],
     ],
     guias: ["facturacion-electronica-sector-salud-rips", "pos-electronico-drogueria-dian", "inventario-por-lotes-drogueria"],
   },

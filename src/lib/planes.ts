@@ -8,7 +8,7 @@ export const PLANES = [
     incluye: ["Todo lo de Pro", "Certificado digital y habilitación DIAN por cada NIT", "Plan de formación por sede", "Precio por sede y documentos según volumen", "Acompañamiento en la puesta en marcha"] },
 ] as const;
 export const DOC_EXTRA = 50; // COP por documento adicional (cuesta ≈ $21 en MATIAS con el paquete de 30.000)
-export const NOTA_PRECIOS = "Precios de lanzamiento, mensuales. Pagando el año completo, 2 meses gratis. Certificado digital y habilitación ante la DIAN incluidos en todos los planes. La emisión electrónica ante la DIAN se activa en tu cuenta al terminar su integración.";
+export const NOTA_PRECIOS = "Precios de lanzamiento, mensuales. Pagando el año completo, 2 meses gratis. Certificado digital y habilitación ante la DIAN incluidos en todos los planes. Regenta ya emite ante la DIAN: habilitamos tu NIT al contratar.";
 /** Lo que se paga al mes si se paga el año completo (10 meses repartidos en 12). */
 export const mesAnual = (precio: number) => Math.round((precio * 10) / 12);
 

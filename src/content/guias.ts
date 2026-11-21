@@ -177,7 +177,7 @@ export const GUIAS: Guia[] = [
       ["Resolución DIAN 000238 de 2025, UVT 2026 (normograma DIAN)", "https://normograma.dian.gov.co/dian/compilacion/docs/resolucion_dian_0238_2025.htm"],
     ],
     relacionadas: ["inventario-por-lotes-drogueria", "control-fechas-vencimiento-drogueria"],
-    cta: { titulo: "Una caja hecha para droguería", texto: "Regenta numera cada venta con tu resolución, nunca duplica un cobro y no deja borrar: se anula con motivo. El envío a la DIAN se está integrando y se activa en tu cuenta al terminar." },
+    cta: { titulo: "Una caja hecha para droguería", texto: "Regenta numera cada venta con tu resolución, nunca duplica un cobro y no deja borrar: se anula con motivo. Y la emite ante la DIAN: al contratar habilitamos tu NIT, con el certificado incluido." },
   },
   {
     slug: "control-fechas-vencimiento-drogueria",
