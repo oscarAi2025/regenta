@@ -28,8 +28,8 @@ try {
   // Va a precios y toca WhatsApp y Contratar (sin seguir los enlaces)
   await p.goto(B + "/precios"); await p.waitForLoadState("networkidle");
   await p.evaluate(() => document.addEventListener("click", (e) => e.preventDefault(), { once: false }));
-  await p.locator('a[href*="wa.me"]').first().click();
-  await p.locator('a[href*="/contratar"]').first().click();
+  await p.locator('a[href*="wa.me"]:visible').first().click();
+  await p.locator('a[href*="/contratar"]:visible').first().click();
   ev = await eventos(v, 4);
   ok(ev.some((x) => x.tipo === "vista" && x.ruta === "/precios"), "vista de /precios");
   ok(ev.some((x) => x.tipo === "whatsapp" && x.ruta === "/precios"), "clic a WhatsApp desde /precios");

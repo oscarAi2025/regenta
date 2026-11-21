@@ -708,3 +708,12 @@ como costo por unidad; la FGE4 (CLP) se anuló el 13/11 y devolvió 18.000 und q
 - Resultado 21/11: unitarias 192/192, pedido-farmagenericos 17/17, las 50 suites de siempre en verde, endpoints 2.793 comprobaciones
   (añadida la ruta nueva al contrato), auditoria 366 pantallas, dispositivos 758 pantallas: 0 fallos. Rama feat/pedir-farmagenericos;
   se fusiona a main cuando la 058 esté aplicada en Supabase.
+
+## 21/11/2026 · Conversión de la web (Oscar: «la web no convierte»)
+Datos de producción (30 días): ~15 visitas reales a la demo (6 desde Farmagenéricos), 4 tocaron Contratar, 5 pagos iniciados y 1 aprobado.
+- [x] La web decía que la emisión DIAN estaba «en integración»: corregido en portada, FAQ, precios, funciones, guías y Regenta IA (primera factura real aceptada el 09/11/2026); «Ya emite ante la DIAN» en el hero
+- [x] Middleware fuera de las páginas públicas estáticas (primera visita de 3–5 s); admin, seguridad, embudo, demo-visitas, modo-consulta y auditoria (366 pantallas) en verde
+- [x] 059 web_eventos + /api/web/evento + <MedirWeb/> + embudo en Consola › Visitas a la demo; web-embudo 12/12, endpoints 2.814 comprobaciones
+- [ ] Oscar aplica bloque10-059.sql → fusionar a main → medir en producción primera visita (antes: medianas 60–213 ms, picos 0,9–6,8 s)
+- [ ] Pagos: 4 de 5 sin aprobar — revisar con la consulta de pagos_suscripcion que pegue Oscar
+- [ ] Prueba social real (clientes, testimonios): pedir a Oscar; no inventar
