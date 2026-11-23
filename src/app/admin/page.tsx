@@ -12,7 +12,7 @@ export default async function Resumen() {
   await exigirAdmin();
   const d = await sinRLS(async (c) => {
     const empresas = (await c.query(`select plan, estado, count(*)::int n from empresas where not demo group by 1, 2`)).rows as { plan: string; estado: string; n: number }[];
-    const pagos = (await c.query(`select coalesce(sum(monto) filter (where estado = 'aprobado' and creado >= date_trunc('month', now())), 0)::float mes,
+    const pagos = (await c.query(`select coalesce(sum(monto) filter (where estado = 'aprobado' and creado >= date_trunc('month', now()) and not ${pagoDePrueba("p")}), 0)::float mes,
       count(*) filter (where (estado = 'aprobado' or detalle ? 'revisar') and not atendido)::int sin_atender, count(*) filter (where estado = 'pendiente' and creado > now() - interval '7 days' and not ${pagoDePrueba("p")})::int pendientes,
       count(*) filter (where estado = 'pendiente' and proveedor = 'qr' and creado < now() - interval '2 hours' and not ${pagoDePrueba("p")})::int qr_esperando from pagos_suscripcion p`)).rows[0];
     const solicitudes = (await c.query(`select count(*) filter (where estado = 'nueva')::int nuevas, count(*) filter (where creado > now() - interval '7 days')::int semana from solicitudes_demo`)).rows[0];

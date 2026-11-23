@@ -103,6 +103,14 @@ try {
   ok(/Sin el equipo ni las pruebas/.test(await c.locator("main").innerText()), "el embudo aclara que no cuenta al equipo ni las pruebas");
   const n = (await q(`select count(*)::int n from pagos_suscripcion p where creado > now() - interval '7 days' and not (coalesce(p.detalle ? 'prueba', false) or p.empresa ~* '(^|[^a-z])prueba' or exists (select 1 from superadmins sa join cuentas sc on sc.id = sa.user_id where lower(sc.email) = lower(p.email)))`))[0].n;
   ok(n > 0, "quedan pagos reales para el embudo", String(n));
+  // Resumen: «Cobrado este mes» no suma los pagos marcados como prueba
+  await q(`insert into pagos_suscripcion (referencia, plan, periodo, monto, proveedor, nombre, empresa, nit, email, telefono, estado, detalle)
+    values ('RG-PRUEBA-COBRADO-' || floor(random()*1e9)::text, 'esencial', 'mes', 777777, 'stripe', 'oscarin', 'Mi prueba', '901845370', 'prueba-cobrado@ejemplo.co', '3001112233', 'aprobado', '{"prueba":true}')`);
+  const esperado = (await q(`select coalesce(sum(monto), 0)::bigint t from pagos_suscripcion p where estado = 'aprobado' and creado >= date_trunc('month', now()) and not (coalesce(p.detalle ? 'prueba', false) or p.empresa ~* '(^|[^a-z])prueba' or exists (select 1 from superadmins sa join cuentas sc on sc.id = sa.user_id where lower(sc.email) = lower(p.email)))`))[0].t;
+  await c.goto(B + "/admin"); await c.waitForLoadState("networkidle");
+  const txt = await c.locator("main").innerText();
+  const cobrado = Number((txt.split("Cobrado este mes")[1] ?? "").split("\n").map((x) => x.trim()).find((x) => /\d/.test(x))?.replace(/\D/g, "") ?? -1);
+  ok(cobrado === Number(esperado), "«Cobrado este mes» no suma los pagos de prueba", `${cobrado} vs ${esperado}`);
 } finally {
   await b.close(); await pool.end();
 }
