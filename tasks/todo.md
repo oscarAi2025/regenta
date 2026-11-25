@@ -727,3 +727,13 @@ Datos de producción (30 días): ~15 visitas reales a la demo (6 desde Farmagen�
 - [x] Embudo: sin pagos de prueba (marcados, «prueba» en el nombre o correo de superadmin) ni visitas del equipo (cookie regenta_interno: consola o ?interno=1).
 - [x] e2e recuperar-pagos 26/26; admin 134, pagos 39, demo-visitas 21, web-embudo 12, endpoints 2.814 en verde. Sin SQL nuevo.
 - [ ] Oscar: revisar si entró el pago de «franco» (04/11, 89.900) y llamarlo; marcar como prueba sus pagos «oscarin».
+
+## 25/11/2026 · Auditoría senior (Oscar: «revisemos Regenta que todo vaya correcto»)
+- [x] tsc y next build sin errores; unitarias y de base 192/192
+- [x] Batería e2e completa: 54 suites, 1.990 comprobaciones + endpoints 2.814 + auditoría 366 pantallas + dispositivos 758 pantallas en 10 equipos: 0 fallos
+- [x] Producción: 47 URL del sitemap en 200 (mediana ~0,5 s; /contratar en frío 1,8 s), cabeceras de seguridad completas
+- [x] Supabase: migraciones hasta la 059, RLS en todas las tablas, DIAN 30 días 14 facturas + 5 notas crédito aceptadas, nada atascado; correos sin errores; INVIMA al día (394-2026)
+- [x] Revisión de código: rutas con sinRLS filtran por la droguería de la sesión y exigen rol; firma de Stripe con comparación en tiempo constante
+- [x] «Cobrado este mes» sin pagos de prueba (e60e458) publicado tras la batería
+- [ ] Dependencias: npm audit → next 15.5.28 (3 avisos moderados, parche en 15.x), postcss (alto, solo en compilación), zod 3 (alto: DoS con colecciones enormes; arreglo = zod 4, cambio mayor) → rama propia + batería completa
+- [ ] POS electrónico de Farmagenéricos: la numeración PRPOS sigue en pruebas (0 usados) → habilitarlo en MATIAS/DIAN cuando Oscar lo decida
