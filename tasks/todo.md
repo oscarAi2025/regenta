@@ -752,3 +752,4 @@ ninguna búsqueda comercial en top 30; 24 páginas indexadas y 27 descubiertas s
 - [x] Verificación: typecheck, build, render de las 6 páginas /software y 19 guías (enlaces, JSON-LD válido), capturas móvil/escritorio
 - [ ] Fichas Capterra/GetApp listas para dar de alta (Oscar crea la cuenta)
 - Resultado 26/11: typecheck y build sin errores; 29 páginas públicas y sus 47 enlaces internos en 200; JSON-LD válido en las 6 /software y 19 guías; sin desbordes en móvil ni escritorio (tabla apilada en móvil). Páginas /software ~850 → ~1.350 palabras.
+- Producción 26/11: los 3 bloques visibles en regenta.pro; indexación pedida de las 6 /software (inventario-farmacia y distribuidoras-medicamentos eran «desconocidas para Google»; sector-salud «descubierta sin indexar»).
