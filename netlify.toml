@@ -6,3 +6,9 @@
 
 [build.environment]
   NODE_VERSION = "22"
+
+# Capturas públicas del producto: se pueden cargar desde otros sitios (fichas de directorios como G2/Capterra).
+[[headers]]
+  for = "/capturas/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
