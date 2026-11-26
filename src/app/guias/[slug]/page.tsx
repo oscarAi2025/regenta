@@ -19,6 +19,29 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return { ...m, openGraph: { ...(m.openGraph as object), type: "article", modifiedTime: g.actualizada } };
 }
 
+/** Página comercial a la que empuja cada guía, con la búsqueda que debe posicionar como texto del enlace. */
+const DESTINO: Record<string, [string, string]> = {
+  "como-elegir-software-drogueria": ["/", "software para droguerías"],
+  "cambiar-software-drogueria": ["/", "software para droguerías"],
+  "cuanto-cuesta-software-drogueria": ["/", "software para droguerías"],
+  "requisitos-abrir-drogueria-colombia": ["/", "software para droguerías"],
+  "como-hacer-pedido-drogueria": ["/", "software para droguerías"],
+  "pos-electronico-drogueria-dian": ["/software/pos-drogueria", "POS para droguería"],
+  "venta-por-unidad-medicamentos-drogueria": ["/software/pos-drogueria", "POS para droguería"],
+  "precio-maximo-medicamentos-drogueria": ["/software/pos-drogueria", "POS para droguería"],
+  "facturacion-electronica-sector-salud-rips": ["/software/facturacion-electronica-sector-salud", "software de facturación electrónica para el sector salud"],
+  "kardex-drogueria": ["/software/inventario-farmacia", "software de inventario para farmacia"],
+  "inventario-por-lotes-drogueria": ["/software/inventario-farmacia", "software de inventario para farmacia"],
+  "control-fechas-vencimiento-drogueria": ["/software/inventario-farmacia", "software de inventario para farmacia"],
+  "semaforizacion-medicamentos-drogueria": ["/software/inventario-farmacia", "software de inventario para farmacia"],
+  "como-reducir-vencidos-drogueria": ["/software/inventario-farmacia", "software de inventario para farmacia"],
+  "medicamentos-vencidos-que-hacer-drogueria": ["/software/inventario-farmacia", "software de inventario para farmacia"],
+  "alertas-sanitarias-invima-drogueria": ["/software/farmacias", "software para farmacias"],
+  "consultar-registro-sanitario-invima": ["/software/farmacias", "software para farmacias"],
+  "medicamentos-control-especial-drogueria": ["/software/farmacias", "software para farmacias"],
+  "temperatura-humedad-drogueria": ["/software/farmacias", "software para farmacias"],
+};
+
 const fecha = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" });
 
 export default async function PaginaGuia({ params }: { params: Promise<{ slug: string }> }) {
@@ -54,6 +77,7 @@ export default async function PaginaGuia({ params }: { params: Promise<{ slug: s
                 <aside className="mt-8 rounded-2xl fondo-hero text-white p-6">
                   <p className="font-cond text-2xl" style={{ fontWeight: 700 }}>{g.cta.titulo}</p>
                   <p className="mt-2 text-white/80">{g.cta.texto}</p>
+                  {DESTINO[g.slug] && <p className="mt-2 text-white/80">Conoce Regenta, el <Link href={DESTINO[g.slug][0]} className="text-white underline underline-offset-4 font-semibold">{DESTINO[g.slug][1]}</Link> hecho por una distribuidora farmacéutica.</p>}
                   <div className="mt-4 flex flex-wrap gap-2"><BotonDemo className="btn-cta" /><a href={wa(`Hola, leí la guía «${g.h1}» y quiero conocer Regenta.`)} className="btn border-2 border-white/30 text-white">Escribir por WhatsApp</a></div>
                 </aside>
               )}
@@ -76,7 +100,7 @@ export default async function PaginaGuia({ params }: { params: Promise<{ slug: s
           </ul>
           <h2 className="mt-10 font-cond text-2xl" style={{ fontWeight: 700 }}>Software para tu droguería</h2>
           <ul className="mt-3 flex flex-wrap gap-2">
-            {[["/", "Software para droguerías"], ["/software/pos-drogueria", "POS para droguería"], ["/software/facturacion-electronica-droguerias", "Facturación electrónica para droguerías"], ["/software/inventario-farmacia", "Inventario de farmacia por lote"], ["/precios", "Precio del software"]].map(([h, t]) => (
+            {[["/", "Software para droguerías"], ["/software/pos-drogueria", "POS para droguería"], ["/software/facturacion-electronica-droguerias", "Facturación electrónica para droguerías"], ["/software/inventario-farmacia", "Inventario de farmacia por lote"], ["/software/farmacias", "Software para farmacias"], ["/software/distribuidoras-medicamentos", "Software para distribuidoras de medicamentos"], ["/precios", "Precio del software"]].map(([h, t]) => (
               <li key={h}><Link href={h} className="pastilla bg-surface border border-line hover:border-teal-600">{t}</Link></li>
             ))}
           </ul>

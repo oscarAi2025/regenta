@@ -737,3 +737,18 @@ Datos de producción (30 días): ~15 visitas reales a la demo (6 desde Farmagen�
 - [x] «Cobrado este mes» sin pagos de prueba (e60e458) publicado tras la batería
 - [ ] Dependencias: npm audit → next 15.5.28 (3 avisos moderados, parche en 15.x), postcss (alto, solo en compilación), zod 3 (alto: DoS con colecciones enormes; arreglo = zod 4, cambio mayor) → rama propia + batería completa
 - [ ] POS electrónico de Farmagenéricos: la numeración PRPOS sigue en pruebas (0 usados) → habilitarlo en MATIAS/DIAN cuando Oscar lo decida
+
+## 26/11/2026 · SEO comercial: que las páginas que venden reciban la fuerza y conviertan (pedido de Oscar)
+Diagnóstico (Search Console 2–24/11): 11 clics, 449 impresiones, casi todo «consulta registro sanitario INVIMA» (no compra);
+ninguna búsqueda comercial en top 30; 24 páginas indexadas y 27 descubiertas sin indexar; enlaces externos de 2 dominios
+(farmagenericoscolombia.com 38, LinkedIn 3). Lo que falla es autoridad, no el texto. En código:
+- [x] Guías: el bloque CTA de mitad de guía enlaza a SU página comercial con la búsqueda como texto del enlace
+- [x] Guías: «Software para tu droguería» incluye también farmacias y distribuidoras
+- [x] Páginas /software/*: bloque «Lo que tu sistema debe hacer» (tabla requisito → cómo lo hace Regenta, solo funciones reales)
+- [x] Páginas /software/*: «Cuánto cuesta» con los precios de PLANES (un solo origen) y el Plan Socio
+- [x] Páginas /software/*: «Lo usamos nosotros» (Farmagenéricos factura con Regenta; 1.ª FE aceptada 09/11/2026)
+- [x] Páginas /software/*: «Más de Regenta» enlaza las otras páginas de software además de funciones
+- [x] /software/inventario-farmacia: texto largo (secciones) como las demás pilares
+- [x] Verificación: typecheck, build, render de las 6 páginas /software y 19 guías (enlaces, JSON-LD válido), capturas móvil/escritorio
+- [ ] Fichas Capterra/GetApp listas para dar de alta (Oscar crea la cuenta)
+- Resultado 26/11: typecheck y build sin errores; 29 páginas públicas y sus 47 enlaces internos en 200; JSON-LD válido en las 6 /software y 19 guías; sin desbordes en móvil ni escritorio (tabla apilada en móvil). Páginas /software ~850 → ~1.350 palabras.

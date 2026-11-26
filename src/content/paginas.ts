@@ -302,7 +302,25 @@ export const PAGINAS: Pagina[] = [
       ["Riesgo en pesos", "Qué lotes no alcanzarás a vender antes de su fecha, con su valor."],
       ["Ajustes con motivo", "Nada se borra: cada ajuste queda con quién, cuándo y por qué."],
     ],
-    preguntas: [["¿Puedo cargar mi inventario desde Excel?", "Sí: productos desde Excel y, en el plan Pro, te los cargamos nosotros."]],
+    preguntas: [
+      ["¿Puedo cargar mi inventario desde Excel?", "Sí: productos desde Excel y, en el plan Pro, te los cargamos nosotros."],
+      ["¿Puedo descargar mi inventario?", "Sí. El inventario se descarga a Excel cuando quieras, con sus lotes y vencimientos."],
+      ["¿Cómo hago el conteo físico?", "Desde Inventario abres un conteo, registras lo que hay en la estantería y Regenta te muestra las diferencias. Cada conteo queda guardado con su fecha, lo contado y las diferencias encontradas."],
+    ],
+    secciones: [
+      { h2: "Por qué una farmacia necesita inventario por lote", p: [
+        "Dos cajas del mismo medicamento pueden tener lotes y fechas distintas. Si el sistema solo guarda una cantidad, no sabe cuál vender primero, no puede bloquear el lote que se venció y no te dice cuál está afectado cuando el INVIMA publica una alerta.",
+        "Con el inventario por lote cada entrada trae su lote, su vencimiento y su costo, y cada venta descuenta del lote correcto. Así la estantería y el sistema dicen lo mismo, y la visita de la secretaría de salud no te encuentra con vencidos a la venta.",
+      ] },
+      { h2: "Qué debe hacer un software de inventario para farmacia", p: [
+        "Recibir la mercancía por lote, vender primero lo que vence antes (FEFO), avisar con tiempo lo que se va a vencer y no dejar vender lo vencido. También debe cruzar las alertas sanitarias con tus lotes y dejar constancia de cada ajuste: quién lo hizo, cuándo y por qué.",
+        "Y debe ayudarte a vender lo que tienes: decirte cuánta plata está en riesgo de vencerse, qué pedir según lo que vendes y qué ofrecer cuando un producto se agota.",
+      ] },
+      { h2: "Cómo lo hace Regenta", p: [
+        "Cada compra entra por lote con su fecha de vencimiento y su costo. La caja saca primero el lote que vence antes, el semáforo te muestra qué se vence en los próximos meses con su valor en pesos y Regenta cruza tus lotes con las alertas del INVIMA.",
+        "Los conteos físicos quedan guardados con sus diferencias, los ajustes llevan motivo y el inventario se descarga a Excel cuando lo necesites. El mismo inventario alimenta el pedido sugerido y a Regenta IA, que te dice qué pedir y qué se te va a vencer.",
+      ] },
+    ],
     guias: ["inventario-por-lotes-drogueria", "como-reducir-vencidos-drogueria", "semaforizacion-medicamentos-drogueria"],
   },
   {

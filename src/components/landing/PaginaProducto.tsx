@@ -9,6 +9,7 @@ import { guia } from "@/content/guias";
 import { SITIO, wa } from "@/lib/sitio";
 import { Sello } from "./Sello";
 import { Cumplimiento } from "./Cumplimiento";
+import { BloquesSoftware } from "./BloquesSoftware";
 
 /** Plantilla de las páginas por función y por perfil: promesa, captura, beneficios, cómo funciona, preguntas, guías y CTA. */
 export function PaginaProducto({ p }: { p: Pagina }) {
@@ -22,6 +23,8 @@ export function PaginaProducto({ p }: { p: Pagina }) {
     { "@context": "https://schema.org", "@type": "FAQPage", mainEntity: p.preguntas.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) },
   ];
   const otras = PAGINAS.filter((x) => x.grupo === "funciones" && x.ruta !== p.ruta);
+  // En las páginas de software el silo enlaza primero las demás páginas de software (las que venden).
+  const hermanas = p.grupo === "software" ? PAGINAS.filter((x) => x.grupo === "software" && x.ruta !== p.ruta) : [];
   return (
     <div className="bg-paper text-ink min-h-screen pb-20 sm:pb-0">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />
@@ -52,6 +55,7 @@ export function PaginaProducto({ p }: { p: Pagina }) {
             {p.secciones.map((x) => <div key={x.h2}><h2 className="font-cond text-[32px] leading-tight" style={{ fontWeight: 700 }}>{x.h2}</h2>{x.p.map((t) => <p key={t} className="mt-3 text-[17px] leading-relaxed text-ink/85">{t}</p>)}</div>)}
           </section>
         )}
+        {p.grupo === "software" && <BloquesSoftware p={p} />}
         {p.pasos && (
           <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-14">
             <h2 className="font-cond text-[34px] leading-none" style={{ fontWeight: 700 }}>Cómo funciona</h2>
@@ -73,7 +77,7 @@ export function PaginaProducto({ p }: { p: Pagina }) {
         <section className="bg-surface border-y border-line">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
             <h2 className="font-cond text-[30px] leading-none" style={{ fontWeight: 700 }}>Más de Regenta</h2>
-            <ul className="mt-5 flex flex-wrap gap-2">{otras.map((x) => <li key={x.ruta}><Link href={`/funciones/${x.ruta}`} className="btn-borde h-10 px-4">{x.corto}</Link></li>)}<li><Link href="/precios" className="btn-borde h-10 px-4">Precios</Link></li></ul>
+            <ul className="mt-5 flex flex-wrap gap-2">{hermanas.map((x) => <li key={x.ruta}><Link href={`/software/${x.ruta}`} className="btn-borde h-10 px-4 font-semibold">{x.titulo.replace(/ \| Regenta$/, "").split(":")[0]}</Link></li>)}{otras.map((x) => <li key={x.ruta}><Link href={`/funciones/${x.ruta}`} className="btn-borde h-10 px-4">{x.corto}</Link></li>)}<li><Link href="/precios" className="btn-borde h-10 px-4">Precios</Link></li></ul>
           </div>
         </section>
         <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-14"><Sello /></section>
