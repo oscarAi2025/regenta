@@ -22,7 +22,7 @@ import { GUIAS } from "@/content/guias";
 import { PAGINAS } from "@/content/paginas";
 import { mesAnual, PLANES, SOCIO } from "@/lib/planes";
 import { pesos } from "@/lib/formato";
-import { CORREO, SITIO, TELEFONO, wa } from "@/lib/sitio";
+import { CORREO, LINKEDIN, PERFILES, SITIO, TELEFONO, wa } from "@/lib/sitio";
 
 const TITULO = "Software para droguerías: POS, factura DIAN e inventario";
 const DESCRIPCION = "Facturación electrónica DIAN, POS, inventario por lote, cartera, alertas INVIMA e IA para droguerías, farmacias y distribuidoras, hecho por el sector.";
@@ -60,7 +60,7 @@ export default function Portada() {
       offers: { "@type": "AggregateOffer", priceCurrency: "COP", lowPrice: Math.min(...PLANES.filter((p) => p.precio).map((p) => p.precio!)), highPrice: Math.max(...PLANES.filter((p) => p.precio).map((p) => p.precio!)), offerCount: PLANES.filter((p) => p.precio).length, url: `${SITIO}/precios` },
       publisher: { "@type": "Organization", name: "Farmagenéricos Colombia", email: CORREO, telephone: TELEFONO },
       featureList: ["Facturación electrónica: tiquete POS y factura de venta con cliente", "Venta a crédito con plazo y cartera con abonos", "Regenta IA: asistente con los datos de la droguería", "Pedido sugerido con las ventas", "Riesgo de vencimiento por lote", "Alertas sanitarias del INVIMA cruzadas con el inventario", "Caja POS con venta por unidad", "Inventario por lote y vencimiento (FEFO)", "Carga de productos desde Excel", "Usuarios con roles"] },
-    { "@context": "https://schema.org", "@type": "Organization", name: "Farmagenéricos Colombia", url: SITIO, email: CORREO, telephone: TELEFONO, logo: `${SITIO}/icon.svg` },
+    { "@context": "https://schema.org", "@type": "Organization", name: "Farmagenéricos Colombia", url: SITIO, email: CORREO, telephone: TELEFONO, logo: `${SITIO}/icon.svg`, sameAs: [LINKEDIN, ...PERFILES.map(([, u]) => u)] },
     { "@context": "https://schema.org", "@type": "FAQPage", mainEntity: PREGUNTAS.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) },
   ];
 

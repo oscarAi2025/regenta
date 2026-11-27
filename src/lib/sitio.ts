@@ -8,5 +8,9 @@ export const CORREO = "gerencia@farmagenericoscolombia.com";
 /** Texto exacto de la autorización de correos comerciales: se guarda con cada solicitud como prueba (Ley 1581, art. 17.b). */
 export const TEXTO_CORREOS = "Quiero recibir por correo consejos y novedades de Regenta para droguerías. Puedo darme de baja con un clic en cualquier correo.";
 export const LINKEDIN = "https://www.linkedin.com/company/regenta-ia-%C2%B7-facturaci%C3%B3n-para-farmacias/";
+/** Perfiles de Regenta en directorios de software y redes: enlace en el pie y «sameAs» en los datos estructurados. */
+export const PERFILES: [string, string][] = [
+  ["G2", "https://www.g2.com/products/farmagenericos-colombia-regenta/reviews"],
+];
 export const TELEFONO = "+57 321 214 1970";
 export const wa = (texto: string) => `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(texto)}`;
