@@ -753,3 +753,9 @@ ninguna búsqueda comercial en top 30; 24 páginas indexadas y 27 descubiertas s
 - [ ] Fichas Capterra/GetApp listas para dar de alta (Oscar crea la cuenta)
 - Resultado 26/11: typecheck y build sin errores; 29 páginas públicas y sus 47 enlaces internos en 200; JSON-LD válido en las 6 /software y 19 guías; sin desbordes en móvil ni escritorio (tabla apilada en móvil). Páginas /software ~850 → ~1.350 palabras.
 - Producción 26/11: los 3 bloques visibles en regenta.pro; indexación pedida de las 6 /software (inventario-farmacia y distribuidoras-medicamentos eran «desconocidas para Google»; sector-salud «descubierta sin indexar»).
+
+## Perfiles externos (27/11/2026)
+- [x] G2: publicado; 6 capturas; descripción vendedor. Caso soporte abierto: nombre vendedor Regenta, dominio regenta.pro, LinkedIn, slug /products/regenta (2-3 días hábiles)
+- [ ] G2: cuando cambie el slug, actualizar PERFILES en src/lib/sitio.ts
+- [x] ComparaSoftware: cuenta creada (Regenta, categoría Farmacias, Colombia). Pendiente: confirmar email y completar ficha (logo, descripción ≥300 caracteres, 3 funcionalidades, tamaño empresa, precios) para enviarla a revisión
+- [x] Appvizer: solicitud de alta enviada; contactan por email
