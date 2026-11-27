@@ -13,6 +13,7 @@ export const PERFILES: [string, string][] = [
   ["G2", "https://www.g2.com/products/farmagenericos-colombia-regenta/reviews"],
   ["Capterra", "https://www.capterra.com/p/10297276/Regenta/"],
   ["GetApp", "https://www.getapp.com/all-software/a/regenta-1/"],
+  ["SourceForge", "https://sourceforge.net/software/product/Regenta/"],
 ];
 export const TELEFONO = "+57 321 214 1970";
 export const wa = (texto: string) => `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(texto)}`;
