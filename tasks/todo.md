@@ -759,3 +759,11 @@ ninguna búsqueda comercial en top 30; 24 páginas indexadas y 27 descubiertas s
 - [ ] G2: cuando cambie el slug, actualizar PERFILES en src/lib/sitio.ts
 - [x] ComparaSoftware: ficha 100% (logo, descripción, categorías Farmacias★/Facturación/POS/Inventarios, funcionalidades, público, 3 planes COP, 6 capturas, 4 FAQs) y enviada a revisión 27/11
 - [x] Appvizer: solicitud de alta enviada; contactan por email
+- [x] G2 → Capterra/GetApp/Software Advice: tipo de software, idioma, descripciones únicas en inglés y 5 capturas en cada uno. Falta solo un VÍDEO (YouTube/Vimeo/Wistia/Vidyard) para poder publicar los tres
+- [x] SourceForge: solicitud de ficha enviada (27/11), revisión por email
+- [ ] AlternativeTo: cuenta oscar-dominguez creada; falta confirmar email y añadir la app Regenta
+- [ ] SaaSHub: registro en curso (usuario oscar-dominguez)
+- [ ] SoftwareSuggest: formulario relleno, falta aceptar condiciones y seguir
+- [ ] Al publicarse cada perfil, añadirlo a PERFILES (pie + sameAs). No enlazar fichas aún no públicas (404)
+- [ ] Las cuentas quedan abiertas y genéricas (Oscar) para dar de alta también staggio.app
+- Descartados: TrustRadius (exige 100 clientes), Crozdesk (ahora revleads)
