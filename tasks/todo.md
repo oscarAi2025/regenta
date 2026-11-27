@@ -759,7 +759,7 @@ ninguna búsqueda comercial en top 30; 24 páginas indexadas y 27 descubiertas s
 - [ ] G2: cuando cambie el slug, actualizar PERFILES en src/lib/sitio.ts
 - [x] ComparaSoftware: ficha 100% (logo, descripción, categorías Farmacias★/Facturación/POS/Inventarios, funcionalidades, público, 3 planes COP, 6 capturas, 4 FAQs) y enviada a revisión 27/11
 - [x] Appvizer: solicitud de alta enviada; contactan por email
-- [x] G2 → Capterra/GetApp/Software Advice: tipo de software, idioma, descripciones únicas en inglés y 5 capturas en cada uno. Falta solo un VÍDEO (YouTube/Vimeo/Wistia/Vidyard) para poder publicar los tres
+- [x] Capterra y GetApp PUBLICADOS 27/11 (vídeo YouTube YOI8hY9pNRA) y enlazados en el pie. Software Advice enviado (Pending, 2/3)
 - [x] SourceForge: solicitud de ficha enviada (27/11), revisión por email
 - [x] AlternativeTo: cuenta oscar-dominguez confirmada. Regenta NO se envía: exigen que la app esté en inglés (regenta.pro solo en español). Cuenta lista para Staggio
 - [x] SaaSHub: cuenta oscar-dominguez; Regenta enviada gratis (cola 1-12 semanas), categorías Pharmacy Tools/POS/Invoicing/Inventory. Verificar email de SaaSHub. Ojo: piden producto en inglés, puede rechazarse
