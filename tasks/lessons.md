@@ -411,3 +411,7 @@
 ## 20/11/2026 — Paralelizar consultas no aceleró Inicio en producción
 - Error: repartir Inicio en tres transacciones a la vez (Promise.all) pasó en local y en las pruebas, pero en producción la mediana subió de ~1,5 s a ~2,5 s: cada transacción paralela pide otra conexión TLS al pooler de Supabase (pool de 3 por instancia) y abrirla cuesta más que lo ganado. Se revirtió.
 - Regla: un cambio de velocidad se mide en producción antes y después con varias repeticiones (mediana); si no mejora, se revierte. Lo lento de Inicio son las consultas pesadas sobre los datos reales (predicción, riesgo de vencimiento, alertas): el siguiente paso es EXPLAIN ANALYZE en producción, no más paralelismo.
+
+## 27/11/2026 · Ficha de G2: la marca es Regenta, no Farmagenéricos
+- Error: en el alta de G2 dejé los campos «Vendor Domain/Vendor Name» que el formulario traía rellenos (farmagenericoscolombia.com / Farmagenéricos Colombia). Resultado: «By Farmagenéricos Colombia», vendedor Farmagenéricos y URL /products/farmagenericos-colombia-regenta. También puse la URL de LinkedIn cortada.
+- Regla: en cualquier directorio o perfil externo de Regenta, la marca, el vendedor, la web y el dominio son Regenta / regenta.pro; nunca aceptar valores precargados sin revisarlos, y copiar las URL de perfiles desde src/lib/sitio.ts (LINKEDIN), no de memoria. Revisar la ficha publicada (nombre, vendedor, web, slug) antes de darla por buena.
