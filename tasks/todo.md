@@ -761,9 +761,9 @@ ninguna búsqueda comercial en top 30; 24 páginas indexadas y 27 descubiertas s
 - [x] Appvizer: solicitud de alta enviada; contactan por email
 - [x] G2 → Capterra/GetApp/Software Advice: tipo de software, idioma, descripciones únicas en inglés y 5 capturas en cada uno. Falta solo un VÍDEO (YouTube/Vimeo/Wistia/Vidyard) para poder publicar los tres
 - [x] SourceForge: solicitud de ficha enviada (27/11), revisión por email
-- [ ] AlternativeTo: cuenta oscar-dominguez creada; falta confirmar email y añadir la app Regenta
-- [ ] SaaSHub: registro en curso (usuario oscar-dominguez)
-- [ ] SoftwareSuggest: formulario relleno, falta aceptar condiciones y seguir
+- [x] AlternativeTo: cuenta oscar-dominguez confirmada. Regenta NO se envía: exigen que la app esté en inglés (regenta.pro solo en español). Cuenta lista para Staggio
+- [x] SaaSHub: cuenta oscar-dominguez; Regenta enviada gratis (cola 1-12 semanas), categorías Pharmacy Tools/POS/Invoicing/Inventory. Verificar email de SaaSHub. Ojo: piden producto en inglés, puede rechazarse
+- [x] SoftwareSuggest: alta enviada (Pharmacy, 1-25 clientes); falta abrir el email para completar la cuenta
 - [ ] Al publicarse cada perfil, añadirlo a PERFILES (pie + sameAs). No enlazar fichas aún no públicas (404)
 - [ ] Las cuentas quedan abiertas y genéricas (Oscar) para dar de alta también staggio.app
 - Descartados: TrustRadius (exige 100 clientes), Crozdesk (ahora revleads)
