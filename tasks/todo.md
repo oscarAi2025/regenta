@@ -757,5 +757,5 @@ ninguna búsqueda comercial en top 30; 24 páginas indexadas y 27 descubiertas s
 ## Perfiles externos (27/11/2026)
 - [x] G2: publicado; 6 capturas; descripción vendedor. Caso soporte abierto: nombre vendedor Regenta, dominio regenta.pro, LinkedIn, slug /products/regenta (2-3 días hábiles)
 - [ ] G2: cuando cambie el slug, actualizar PERFILES en src/lib/sitio.ts
-- [x] ComparaSoftware: cuenta creada (Regenta, categoría Farmacias, Colombia). Pendiente: confirmar email y completar ficha (logo, descripción ≥300 caracteres, 3 funcionalidades, tamaño empresa, precios) para enviarla a revisión
+- [x] ComparaSoftware: ficha 100% (logo, descripción, categorías Farmacias★/Facturación/POS/Inventarios, funcionalidades, público, 3 planes COP, 6 capturas, 4 FAQs) y enviada a revisión 27/11
 - [x] Appvizer: solicitud de alta enviada; contactan por email
