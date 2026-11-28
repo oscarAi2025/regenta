@@ -148,3 +148,7 @@ kbd { font-family: "Barlow Semi Condensed", sans-serif; font-weight: 600; font-s
   .tabla-tarjetas td[data-etiqueta]::before { content: attr(data-etiqueta); display: block; font-size: 12.5px; font-weight: 600; color: var(--muted); margin-bottom: 1px; }
   .tabla-tarjetas td:empty { display: none; }
 }
+
+/* App de Android (Google Play): sin compras dentro de la app; se contrata y renueva en regenta.pro (src/lib/app-movil.ts). */
+html[data-app] [data-compra] { display: none !important; }
+html:not([data-app]) [data-solo-app] { display: none !important; }

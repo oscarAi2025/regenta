@@ -43,6 +43,8 @@ export function ModoDemo({ rol, precio, garantia }: { rol: string; precio: numbe
 
   const actualizar = useCallback((f: (x: Estado) => Estado) => setE((x) => { const n = f(x ?? leer()); guardar(n); return n; }), []);
   const mostrar = useCallback((k: keyof typeof OFERTAS) => {
+    // En la app de Android no se vende (Google Play exige su sistema de cobro): sin ofertas.
+    if (document.documentElement.dataset.app) return;
     const x = leer();
     if (x.ofertas.includes(k) || x.ofertas.length >= 2) return; // nunca más de dos ofertas por visita
     actualizar((y) => ({ ...y, ofertas: [...y.ofertas, k] }));
@@ -102,11 +104,11 @@ export function ModoDemo({ rol, precio, garantia }: { rol: string; precio: numbe
       <div className="lg:sticky lg:top-0 z-30 bg-amber-400 text-[#0b1f33] px-3 sm:px-6 py-2 flex items-center gap-3 shadow-[0_8px_20px_-14px_rgba(0,0,0,.6)]" role="region" aria-label="Estás en la demo">
         <p className="text-sm sm:text-[15px] leading-tight min-w-0">
           <b>Droguería de demostración.</b>
-          <span className="hidden md:inline"> Todo lo que ves funciona igual con tus productos · desde <b className="num">{pesos(precio)}</b> al mes, certificado y habilitación DIAN incluidos.</span>
-          <span className="md:hidden"> Desde <b className="num">{pesos(precio)}</b>/mes.</span>
+          <span data-compra className="hidden md:inline"> Todo lo que ves funciona igual con tus productos · desde <b className="num">{pesos(precio)}</b> al mes, certificado y habilitación DIAN incluidos.</span>
+          <span data-compra className="md:hidden"> Desde <b className="num">{pesos(precio)}</b>/mes.</span>
         </p>
         <a href={msjWa} className="hidden lg:inline-flex ml-auto h-9 items-center rounded-lg px-3 text-sm font-semibold border-2 border-[#0b1f33]/30 hover:border-[#0b1f33] shrink-0">WhatsApp</a>
-        <Link href="/contratar?plan=pro&origen=demo" className="ml-auto lg:ml-0 h-9 inline-flex items-center rounded-lg px-4 text-sm font-bold bg-[#0b1f33] text-white hover:bg-black shrink-0">Contratar ahora</Link>
+        <Link href="/contratar?plan=pro&origen=demo" data-compra className="ml-auto lg:ml-0 h-9 inline-flex items-center rounded-lg px-4 text-sm font-bold bg-[#0b1f33] text-white hover:bg-black shrink-0">Contratar ahora</Link>
       </div>
 
       {/* Recorrido de 3 pasos. */}
@@ -133,7 +135,7 @@ export function ModoDemo({ rol, precio, garantia }: { rol: string; precio: numbe
                   );
                 })}
               </ol>
-              <Link href="/contratar?plan=pro&origen=demo" className="mt-3 btn-cta h-11 w-full">{hechos === pasos.length ? "Lo quiero en mi droguería" : "Ya me convenció: contratar"}</Link>
+              <Link href="/contratar?plan=pro&origen=demo" data-compra className="mt-3 btn-cta h-11 w-full">{hechos === pasos.length ? "Lo quiero en mi droguería" : "Ya me convenció: contratar"}</Link>
             </div>
           ) : (
             <button onClick={() => { setAbierta(true); actualizar((x) => ({ ...x, cerrada: false })); }} className="rounded-full bg-[#0b1f33] text-white h-11 px-4 font-semibold shadow-lg">
@@ -148,7 +150,7 @@ export function ModoDemo({ rol, precio, garantia }: { rol: string; precio: numbe
         <div role="status" className="fixed z-40 bottom-20 left-3 right-3 sm:right-auto lg:left-[248px] sm:max-w-md rounded-2xl bg-emerald-600 text-white p-4 shadow-[0_24px_48px_-20px_rgba(0,0,0,.7)]">
           <p className="font-semibold leading-snug">{aviso}</p>
           <div className="mt-3 flex gap-2">
-            <Link href="/contratar?plan=pro&origen=demo-venta" className="h-10 inline-flex items-center rounded-lg px-4 font-bold bg-white text-emerald-800">Quiero esto en mi droguería</Link>
+            <Link href="/contratar?plan=pro&origen=demo-venta" data-compra className="h-10 inline-flex items-center rounded-lg px-4 font-bold bg-white text-emerald-800">Quiero esto en mi droguería</Link>
             <button onClick={() => setAviso(null)} className="h-10 px-3 text-white/85 hover:text-white">Seguir probando</button>
           </div>
         </div>

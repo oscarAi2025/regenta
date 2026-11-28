@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "pro.regenta.android",
+      "sha256_cert_fingerprints": [
+        "9A:D0:3A:7E:6D:A7:99:57:BA:FF:23:01:EB:1F:CA:03:CC:BA:C9:43:16:3D:40:8F:09:46:C9:87:64:30:DB:45"
+      ]
+    }
+  }
+]

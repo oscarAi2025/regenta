@@ -40,7 +40,7 @@ export default async function CuentaSuspendida() {
             <h1 className="titulo text-3xl">El plan de {e.nombre} venció{e.vence ? ` el ${e.vence}` : ""}</h1>
             <p>La caja y la facturación están en pausa hasta que renueves. <b>Tus datos están guardados y completos</b>: productos, inventario, clientes, ventas y documentos electrónicos. Al aprobarse el pago, todo vuelve a funcionar al instante, sin llamar a nadie.</p>
             {dueno
-              ? <div className="flex flex-wrap items-center gap-3"><Link href={renovar} className="btn-primario h-12">Renovar ahora</Link><span className="text-sm text-muted">Tus datos ya van puestos: solo eliges cómo pagar.</span></div>
+              ? <div data-compra className="flex flex-wrap items-center gap-3"><Link href={renovar} className="btn-primario h-12">Renovar ahora</Link><span className="text-sm text-muted">Tus datos ya van puestos: solo eliges cómo pagar.</span></div>
               : <p className="font-semibold">Avísale al dueño de la droguería para que renueve el plan: en cuanto pague, vuelves a entrar normal.</p>}
           </section>
         )}
@@ -62,7 +62,7 @@ export default async function CuentaSuspendida() {
             </div>
           )}
         </section>
-        <p className="text-sm text-muted">¿Dudas con el pago? <a className="underline" href={wa(`Hola, soy de ${e.nombre} (NIT ${e.nit}) y quiero renovar Regenta`)}>Escríbenos por WhatsApp</a> y te ayudamos.</p>
+        <p data-compra className="text-sm text-muted">¿Dudas con el pago? <a className="underline" href={wa(`Hola, soy de ${e.nombre} (NIT ${e.nit}) y quiero renovar Regenta`)}>Escríbenos por WhatsApp</a> y te ayudamos.</p>
       </div>
     </main>
   );

@@ -6,7 +6,7 @@ import { GRACIA_DIAS } from "@/lib/operacion";
  *  documentos adicionales por pagar. El dueño ve el botón para renovar; los demás, a quién avisar. */
 export function AvisoPlan({ rol, dias, vence, autorenueva, plan, cargos }: { rol: string; dias: number | null; vence: string | null; autorenueva: boolean; plan: string; cargos: number }) {
   const dueno = rol === "dueno", gerencia = dueno || rol === "admin";
-  const renovar = <Link href={`/contratar?plan=${plan === "pro" ? "pro" : "esencial"}&renovar=1`} className="underline font-bold whitespace-nowrap">Renovar ahora</Link>;
+  const renovar = <Link href={`/contratar?plan=${plan === "pro" ? "pro" : "esencial"}&renovar=1`} data-compra className="underline font-bold whitespace-nowrap">Renovar ahora</Link>;
   const quedan = dias === null ? 0 : GRACIA_DIAS + dias;
   if (dias !== null && dias < 0) return (
     <p role="alert" className="bg-alerta text-white px-4 sm:px-6 py-2 text-sm font-semibold flex flex-wrap items-center justify-between gap-2">

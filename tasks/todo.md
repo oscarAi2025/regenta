@@ -767,3 +767,22 @@ ninguna búsqueda comercial en top 30; 24 páginas indexadas y 27 descubiertas s
 - [ ] Al publicarse cada perfil, añadirlo a PERFILES (pie + sameAs). No enlazar fichas aún no públicas (404)
 - [ ] Las cuentas quedan abiertas y genéricas (Oscar) para dar de alta también staggio.app
 - Descartados: TrustRadius (exige 100 clientes), Crozdesk (ahora revleads)
+
+## 28/11/2026 · App Android de Regenta (TWA en Google Play), como Staggio (pedido de Oscar)
+- [x] Web instalable: manifest.ts, iconos PNG (192, 512, maskable 512, apple-touch) desde icon.svg, sw.js + /sin-conexion.html
+- [x] Modo app: /app?plataforma=android marca la cookie `regenta_app` → /inicio; <html data-app>; la web de venta
+      (/, /precios, /contratar, /funciones, /guias, /para, /por-que-regenta, /software) lleva a /inicio
+- [x] Sin compras dentro de la app (Play Billing): enlaces a /contratar y renovaciones con [data-compra] ocultos;
+      /api/pagos/* y /api/suscripcion responden 403 con la cookie
+- [x] /eliminar-cuenta (exigida por Google Play) + enlace desde Mi cuenta; los documentos fiscales se conservan lo que exija la ley
+- [x] android/twa-manifest.json (pro.regenta.android, regenta.pro) + workflow android.yml (Bubblewrap, .aab sin firmar)
+- [x] Clave de subida nueva (keystore) y /.well-known/assetlinks.json con su huella SHA-256
+- [x] Verificación: typecheck, build, unitarias, e2e de caja/gestión, prueba del modo app con Playwright; producción
+- [ ] .aab firmado + ficha de Google Play (ASO) + guía de subida para Oscar
+- Resultado 28/11 (local): typecheck y build limpios; unitarias y de base 119 + 73 en verde; e2e app-android (nuevo) TODO OK,
+  embudo y caja 0 fallos, endpoints 2.814/0. gestion.mjs falla en «Listo: 2 productos creados» (importar desde la demo):
+  falla IGUAL sin estos cambios (comprobado con git stash) → pendiente aparte, no lo causa la app.
+- Paquete: pro.regenta.android · clave de subida en el scratchpad (android-clave-regenta) · huella 9A:D0:…:DB:45 en assetlinks.
+- [ ] Oscar: crear la app en Play Console (misma cuenta de organización que Staggio) y subir el .aab a prueba interna/producción
+- [ ] Al activar Play App Signing: añadir la huella de la clave de firma de Google a public/.well-known/assetlinks.json
+- [ ] gestion.mjs: arreglar la importación en la demo (fallo previo)

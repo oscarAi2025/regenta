@@ -21,4 +21,4 @@ export function middleware(req: NextRequest) {
 // Solo pantallas: ni la API (valida sus parámetros con zod) ni archivos estáticos, ni las páginas públicas estáticas
 // (portada, precios, funciones, guías, perfiles, legales): no leen parámetros ni la cabecera x-ruta, y sin middleware el CDN
 // las sirve sin pasar por una función que arranca en frío (primera visita de 3 a 5 s, 21/11/2026).
-export const config = { matcher: ["/((?!$|api/|_next/|(?:funciones|guias|para|por-que-regenta|precios|privacidad|software|terminos)(?:/|$)|.*\\.[a-z0-9]+$).*)"] };
+export const config = { matcher: ["/((?!$|api/|_next/|(?:eliminar-cuenta|funciones|guias|para|por-que-regenta|precios|privacidad|software|terminos)(?:/|$)|.*\\.[a-z0-9]+$).*)"] };

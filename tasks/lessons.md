@@ -415,3 +415,11 @@
 ## 27/11/2026 · Ficha de G2: la marca es Regenta, no Farmagenéricos
 - Error: en el alta de G2 dejé los campos «Vendor Domain/Vendor Name» que el formulario traía rellenos (farmagenericoscolombia.com / Farmagenéricos Colombia). Resultado: «By Farmagenéricos Colombia», vendedor Farmagenéricos y URL /products/farmagenericos-colombia-regenta. También puse la URL de LinkedIn cortada.
 - Regla: en cualquier directorio o perfil externo de Regenta, la marca, el vendedor, la web y el dominio son Regenta / regenta.pro; nunca aceptar valores precargados sin revisarlos, y copiar las URL de perfiles desde src/lib/sitio.ts (LINKEDIN), no de memoria. Revisar la ficha publicada (nombre, vendedor, web, slug) antes de darla por buena.
+
+## 28/11/2026 · App Android (TWA) de Regenta
+- Reutilizar el montaje de Staggio (cookie de modo app, [data-compra], 403 en el alta de pagos, Bubblewrap en Actions y
+  firma local). Los webhooks de pago no llevan la cookie: bloquear por cookie no los afecta.
+- La cancelación de la renovación NO es una compra: se deja disponible dentro de la app.
+- Antes de culpar a un cambio de un e2e rojo, repetir la prueba sin el cambio (git stash -u + build): gestion.mjs ya fallaba.
+- La base local de pruebas (puerto 5433) se pierde si se recicla el contenedor: initdb en /tmp/pg5433d con trust, postgres
+  como tarea en segundo plano y npm run db:reset.

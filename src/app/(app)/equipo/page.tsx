@@ -53,7 +53,7 @@ export default async function PaginaEquipo() {
           </p>
           {!d.e.demo && d.e.plan_siguiente && <p className="text-sm mt-1 text-aviso font-semibold">Pasas a {nombrePlan[d.e.plan_siguiente]} al terminar lo pagado de {nombrePlan[d.e.plan]}.</p>}
           {!d.e.demo && d.stripe && <Renovacion cancelada={d.stripe.al_final} />}
-          {!d.e.demo && <a href={`/contratar?plan=${d.e.plan === "pro" ? "pro" : "esencial"}`} className="btn-primario mt-3 inline-flex">Renovar o cambiar de plan</a>}
+          {!d.e.demo && <a href={`/contratar?plan=${d.e.plan === "pro" ? "pro" : "esencial"}`} data-compra className="btn-primario mt-3 inline-flex">Renovar o cambiar de plan</a>}
         </div>
         <div className="tarjeta p-5">
           <h2 className="text-sm text-muted">Documentos electrónicos este mes</h2>

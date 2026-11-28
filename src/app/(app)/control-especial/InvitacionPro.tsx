@@ -19,7 +19,7 @@ export function InvitacionPro({ dueno }: { dueno: boolean }) {
         <p className="mt-4 text-sm text-muted">Tu plan actual es Esencial: la caja ya pide y guarda la fórmula de los medicamentos de control especial; el libro y el informe mensual vienen con Pro.</p>
         <div className="mt-5 flex flex-wrap gap-2">
           {dueno ? (
-            <Link href="/contratar?plan=pro" className="btn-primario h-11 inline-flex items-center">Pasarme a Pro</Link>
+            <Link href="/contratar?plan=pro" data-compra className="btn-primario h-11 inline-flex items-center">Pasarme a Pro</Link>
           ) : (
             <p className="text-sm">Pídele al dueño de la droguería que cambie a Pro en Mi droguería.</p>
           )}

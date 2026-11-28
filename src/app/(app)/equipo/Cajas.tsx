@@ -38,7 +38,7 @@ export function Cajas({ cajas, tope, plan, demo }: { cajas: Caja[]; tope: number
         </div>
         {!abierto && (
           lleno && !demo
-            ? <a href="/contratar?plan=pro" className="btn-borde">Pasar a Pro para más cajas</a>
+            ? <a href="/contratar?plan=pro" data-compra className="btn-borde">Pasar a Pro para más cajas</a>
             : <button onClick={() => setAbierto(true)} className="btn-primario">Agregar caja</button>
         )}
       </div>

@@ -29,10 +29,10 @@ export default async function Entrar() {
       </section>
       <section className="order-1 lg:order-2 px-6 py-10 sm:px-12 flex items-center">
         <div className="w-full max-w-md mx-auto">
-          <Link href="/" className="lg:hidden inline-flex items-center gap-1 text-sm font-semibold text-muted hover:text-ink mb-4 py-2">← Volver a la portada</Link>
+          <Link href="/" data-compra className="lg:hidden inline-flex items-center gap-1 text-sm font-semibold text-muted hover:text-ink mb-4 py-2">← Volver a la portada</Link>
           <h2 className="font-cond text-3xl" style={{ fontWeight: 700 }}>Entrar</h2>
           <FormAcceso />
-          <p className="mt-4 text-[15px] text-muted">¿Aún no tienes cuenta? <Link href="/contratar?plan=esencial&origen=entrar" className="font-semibold text-cruz underline-offset-2 hover:underline">Contrata Regenta</Link></p>
+          <p data-compra className="mt-4 text-[15px] text-muted">¿Aún no tienes cuenta? <Link href="/contratar?plan=esencial&origen=entrar" className="font-semibold text-cruz underline-offset-2 hover:underline">Contrata Regenta</Link></p>
           {demoActiva() && (
             <div className="mt-10 border-t border-line pt-6">
               <h2 className="font-cond text-2xl" style={{ fontWeight: 700 }}>¿Solo quieres mirar? Entra a la demo</h2>

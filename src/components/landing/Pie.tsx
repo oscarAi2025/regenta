@@ -9,7 +9,7 @@ const ENLACE = "inline-flex items-center min-h-11 [@media(pointer:fine)]:min-h-8
 
 export function Pie() {
   return (
-    <footer className="bg-ink text-white/75">
+    <footer data-compra className="bg-ink text-white/75">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12 grid md:grid-cols-[1.2fr_1fr_1fr] gap-8 text-sm">
         <div>
           <Marca claro />

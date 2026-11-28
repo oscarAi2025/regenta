@@ -7,6 +7,7 @@ import { avisar, encolar, enviarAhora } from "@/lib/correo";
 import { SITIO } from "@/lib/sitio";
 import { leerSesion, leerSesionConsulta } from "@/lib/sesion";
 import { nitSinDv } from "@/lib/validar";
+import { esPeticionApp, respuestaSinCompras } from "@/lib/app-movil";
 
 const Contratar = z.object({
   plan: z.enum(["esencial", "pro"]), periodo: z.enum(["mes", "anio"]), proveedor: z.enum(["qr", "wompi", "stripe"]),
@@ -23,6 +24,7 @@ const permitido = limitador(8, 600000);
 /** Inicia el pago de un plan: guarda la orden pendiente y devuelve el enlace de la pasarela. */
 export async function POST(req: Request) {
   if (!mismoOrigen(req)) return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
+  if (esPeticionApp(req)) return respuestaSinCompras();
   if (!permitido(ipCliente(req))) return NextResponse.json({ error: "Demasiados intentos. Espera unos minutos o escríbenos por WhatsApp." }, { status: 429 });
   const p = Contratar.safeParse(await req.json().catch(() => null));
   if (!p.success) return NextResponse.json({ error: p.error.issues[0]?.message ?? "Revisa los datos" }, { status: 400 });

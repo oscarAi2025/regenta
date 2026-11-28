@@ -79,7 +79,7 @@ export function Equipo({ miembros, demo, tope, plan }: { miembros: Miembro[]; de
             {plan === "esencial" && " Con Pro, usuarios ilimitados."}</p>
         </div>
         {!abierto && (tope !== null && activos >= tope && !demo
-          ? <a href="/contratar?plan=pro" className="btn-borde">Pasar a Pro para más usuarios</a>
+          ? <a href="/contratar?plan=pro" data-compra className="btn-borde">Pasar a Pro para más usuarios</a>
           : <button onClick={() => setAbierto(true)} className="btn-primario">Agregar persona</button>)}
       </div>
       {abierto && (

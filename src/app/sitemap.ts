@@ -9,7 +9,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const CAMBIO: Record<string, string> = { "/": "2026-11-03", "/precios": "2026-11-03" };
   const fijo = (ruta: string, priority: number) => ({ url: `${SITIO}${ruta}`, changeFrequency: "monthly" as const, priority, ...(CAMBIO[ruta] ? { lastModified: CAMBIO[ruta] } : {}) });
   return [
-    fijo("/", 1), fijo("/precios", 0.9), fijo("/funciones", 0.8), fijo("/por-que-regenta", 0.7), fijo("/guias", 0.7), fijo("/contratar", 0.8), fijo("/software", 0.9), fijo("/para", 0.6), fijo("/privacidad", 0.2), fijo("/terminos", 0.2),
+    fijo("/", 1), fijo("/precios", 0.9), fijo("/funciones", 0.8), fijo("/por-que-regenta", 0.7), fijo("/guias", 0.7), fijo("/contratar", 0.8), fijo("/software", 0.9), fijo("/para", 0.6), fijo("/privacidad", 0.2), fijo("/terminos", 0.2), fijo("/eliminar-cuenta", 0.1),
     ...PAGINAS.map((p) => fijo(`/${p.grupo}/${p.ruta}`, 0.8)),
     ...GUIAS.map((g) => ({ url: `${SITIO}/guias/${g.slug}`, lastModified: g.actualizada, changeFrequency: "monthly" as const, priority: 0.6 })),
   ];
