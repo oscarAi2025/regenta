@@ -1,0 +1,49 @@
+# App de Android de Regenta (Trusted Web Activity): genera el proyecto con Bubblewrap y compila el .aab y el .apk SIN
+# firmar. La firma se hace fuera de GitHub con la clave de subida, que nunca está en el repositorio ni en el runner.
+# El resultado se publica en la rama «android-salida» (se sobrescribe en cada compilación).
+name: App Android
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["android/**", ".github/workflows/android.yml"]
+permissions:
+  contents: write
+jobs:
+  compilar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Bubblewrap y SDK de Android
+        run: |
+          npm i -g @bubblewrap/cli@1.27.0
+          # Bubblewrap espera «bin» o «tools» en la raíz del SDK; en el runner las herramientas están en cmdline-tools/latest.
+          if [ ! -e "$ANDROID_HOME/bin" ] && [ ! -e "$ANDROID_HOME/tools" ]; then sudo ln -s "$ANDROID_HOME/cmdline-tools/latest/bin" "$ANDROID_HOME/bin"; fi
+          mkdir -p ~/.bubblewrap
+          printf '{"jdkPath":"%s","androidSdkPath":"%s"}' "$JAVA_HOME" "$ANDROID_HOME" > ~/.bubblewrap/config.json
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+      - name: Generar el proyecto y compilar sin firmar
+        id: compilar
+        working-directory: android
+        run: |
+          set -o pipefail
+          ( bubblewrap update --skipVersionUpgrade && chmod +x gradlew && ./gradlew bundleRelease assembleRelease --no-daemon --warning-mode all ) 2>&1 | tee /tmp/compilacion.log
+      - name: Publicar en la rama android-salida (también si falla, con el registro)
+        if: always()
+        run: |
+          set -e
+          mkdir -p /tmp/salida
+          cp /tmp/compilacion.log /tmp/salida/compilacion.log || true
+          cp android/app/build/outputs/bundle/release/app-release.aab /tmp/salida/regenta-sin-firmar.aab || true
+          cp android/app/build/outputs/apk/release/app-release-unsigned.apk /tmp/salida/regenta-sin-firmar.apk || true
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          cp "$BT/lib/apksigner.jar" /tmp/salida/ || true
+          echo "resultado: ${{ steps.compilar.outcome }} · build-tools: $(basename $BT) · run ${{ github.run_number }} · ${{ github.sha }}" > /tmp/salida/INFO.txt
+          cd /tmp/salida && git init -q -b android-salida && git add -A
+          git -c user.name="github-actions" -c user.email="actions@github.com" commit -qm "App Android (run ${{ github.run_number }}: ${{ steps.compilar.outcome }})"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" android-salida
